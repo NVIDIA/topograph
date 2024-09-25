@@ -1,6 +1,6 @@
 # topograph
 
-Topograph is a critical component designed to manage and update the network topology of a cluster. It consists of three major components:
+Topograph is a component designed to expose the underlying physical network topology of a cluster to enable a workload manager make network-topology aware scheduling decisions. It consists of three major components:
 
 1. **CSP Connector**
 2. **API Server**
