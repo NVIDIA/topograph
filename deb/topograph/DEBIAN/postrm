@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -e
+
+SERVICE_NAME=topograph.service
+
+case "$1" in
+    purge)
+        ;;
+    remove)
+        rm -rf /etc/topograph/ssl
+        ;;
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear|deconfigure)
+        ;;
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

@@ -1,0 +1,7 @@
+/bin
+/ssl
+/deb/topograph/DEBIAN/control
+/deb/topograph/usr/local/bin/
+/deb/topograph/etc/topograph/
+/deb/topograph/lib
+/rpmbuild
