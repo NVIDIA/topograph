@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+ 
+syntax = "proto3";
+
+package topology;
+
+option go_package = "./;protos";
+
+service TopologyService {
+  rpc DescribeTopology(TopologyRequest) returns (TopologyResponse) {}
+}
+
+message TopologyRequest {
+    string provider              = 1;
+    string region                = 2;
+    repeated string instance_ids = 3;
+}
+
+message TopologyResponse {
+    repeated Instance instances = 1;
+}
+
+message Instance {
+    string id                      = 1;
+    string instance_type           = 2;
+    string provider                = 3;
+    string region                  = 4;
+    string data_center             = 5;
+    repeated string network_layers = 6;
+    string nvlink_domain           = 7;
+}

@@ -1,0 +1,24 @@
+# serving topograph endpoint
+http:
+  port: 49021
+  ssl: true
+
+# waiting period before processing a request
+request_aggregation_delay: 15s
+
+# number of results per API call (optional)
+page_size: 100
+
+# ssl credentials for when http.ssl = true
+ssl:
+  cert: /etc/topograph/ssl/server-cert.pem
+  key: /etc/topograph/ssl/server-key.pem
+  ca_cert: /etc/topograph/ssl/ca-cert.pem
+
+# filepath to CSP credentials (optional)
+# credentials_path:
+
+# additional environment variables (optional)
+env:
+#  SLURM_CONF: /etc/slurm/slurm.conf
+#  PATH:

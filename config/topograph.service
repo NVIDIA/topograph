@@ -1,0 +1,12 @@
+[Unit]
+Description=Cluster Topology Generator service
+
+[Service]
+Environment="PDSH_RCMD_TYPE=ssh"
+ExecStart=/usr/local/bin/topograph -c /etc/topograph/topograph-config.yaml
+User=root
+PrivateTmp=false
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

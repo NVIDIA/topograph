@@ -1,0 +1,109 @@
+#!/bin/bash
+
+#
+# This script creates the topology update script and registers it with 'strigger'
+#
+
+set -eo pipefail
+
+if [ "$UID" -ne 0 ]; then
+    echo "Must run as root."
+    exit 1
+fi
+
+SCRIPT_PATH="update-topology-config.sh"
+PROVIDER=""
+TOPOLOGY_CONFIG_PATH=""
+if [[ ! -z "$SLURM_CONF" ]]; then 
+  TOPOLOGY_CONFIG_PATH="$(dirname $SLURM_CONF)/topology.conf"
+fi
+
+#
+# print script description and usage
+#
+function usage() {
+  cat << EOF
+
+Usage: $(basename $0) [options]
+Options:
+  -s <path to the generated topology update script>
+    Default: $SCRIPT_PATH
+  -c <path to the topology config>
+    Default: $TOPOLOGY_CONFIG_PATH
+  -p <CSP provider>
+    Options: aws, oci, gcp, azure
+  -h
+    Print this message
+EOF
+}
+
+### MAIN
+
+while getopts 's:c:p:h' opt; do
+  case "$opt" in
+    s)
+      SCRIPT_PATH=$OPTARG
+      ;;
+    c)
+      TOPOLOGY_CONFIG_PATH=$OPTARG
+      ;;
+    p)
+      PROVIDER=$OPTARG
+      ;;
+    h)
+      usage
+      exit 0
+      ;;
+    ?)
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$TOPOLOGY_CONFIG_PATH" ]]; then
+  echo "topology config file is not set"
+  usage
+  exit 1
+fi
+
+if [[ -z "$PROVIDER" ]]; then
+  echo "provider is not set"
+  usage
+  exit 1
+fi
+
+case $PROVIDER in
+  "aws")
+    ;;
+  "oci")
+    ;;
+  "gcp")
+    ;;
+  "azure")
+    ;;
+  *)
+    echo "unsupported provider $PROVIDER"
+    usage
+    exit 1
+    ;;
+esac
+
+echo "Creating $SCRIPT_PATH to update topology config $TOPOLOGY_CONFIG_PATH"
+echo ""
+
+cat <<EOF > $SCRIPT_PATH
+#!/bin/bash
+
+curl -X POST "http://localhost:49021/v1/generate?provider=$PROVIDER&engine=slurm&topology_config_path=$TOPOLOGY_CONFIG_PATH"
+
+EOF
+
+chmod 755 $SCRIPT_PATH
+
+echo "Registering $SCRIPT_PATH with stigger"
+echo ""
+
+su - slurm -c "strigger --set --node --down --up --flags=perm --program=$(realpath $SCRIPT_PATH)"
+
+echo "Done"

@@ -1,0 +1,7 @@
+Package: topograph
+Version: __VERSION____RELEASE__
+Section: base
+Priority: optional
+Maintainer: NVIDIA
+Architecture: __ARCH__
+Description: discover and generate cluster topology configuration

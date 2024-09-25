@@ -66,7 +66,7 @@ There is a special *provider* and *engine* named `test`, which supports both SLU
 Topograph can be installed using the `topograph` Debian or RPM package. This package sets up a service but does not start it automatically, allowing users to update the configuration before launch.
 
 ### Configuration
-The default configuration file is located at [config/topograph.yaml](config/topograph.yaml). It includes settings for:
+The default configuration file is located at [config/topograph-config.yaml](config/topograph-config.yaml). It includes settings for:
  - HTTP endpoint for the Topology Generator
  - SSL/TLS connection
  - environment variables
@@ -84,7 +84,7 @@ systemctl start topograph.service
 
 Upon starting, the service executes:
 ```bash
-/usr/local/bin/topograph -c /etc/cluster-topology-service/topology-generator-config.yaml
+/usr/local/bin/topograph -c /etc/topograph/topograph-config.yaml
 ```
 
 To disable and stop the service, run the following commands:
