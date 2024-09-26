@@ -36,7 +36,7 @@ var GitTag string
 func main() {
 	var c string
 	var version bool
-	flag.StringVar(&c, "c", "/etc/topograph/state-observer-config.yaml", "config file")
+	flag.StringVar(&c, "c", "/etc/topograph/node-observer-config.yaml", "config file")
 	flag.BoolVar(&version, "version", false, "show the version")
 
 	klog.InitFlags(nil)

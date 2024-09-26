@@ -1,0 +1,22 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "node-observer.serviceAccountName" . }}
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: [get,list,watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "node-observer.serviceAccountName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "node-observer.serviceAccountName" . }}
+  namespace: {{.Release.Namespace}}
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: {{ include "node-observer.serviceAccountName" . }}
+  apiGroup: ""

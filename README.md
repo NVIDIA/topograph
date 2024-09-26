@@ -30,9 +30,9 @@ The Topology Generator is the central component that manages the overall network
 - **Topology Gathering:** Instructs the CSP Connector to fetch the current network topology from the CSP.
 - **User Cluster Update:** Translates network topology from the internal format into a format expected by the user cluster, such as SLURM or Kubernetes.
 
-### 4. Kubernetes State Observer
-The State Observer is used when the Topology Generator is deployed in a Kubernetes cluster. It monitors changes in the cluster nodes and the ConfigMap containing the topology configuration. If a node's status changes (e.g., a node goes down or comes up) or if the ConfigMap is deleted, the State Observer sends a request to the API Server to generate a new topology configuration.
-
+### 4. Kubernetes Node Observer
+The Node Observer is used when the Topology Generator is deployed in a Kubernetes cluster. It monitors changes in the cluster nodes.
+If a node's status changes (e.g., a node goes down or comes up), the State Observer sends a request to the API Server to generate a new topology configuration.
 
 ## Supported Environments
 
