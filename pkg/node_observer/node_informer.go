@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package state_observer
+package node_observer
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func (n *NodeInformer) Start() error {
 
 	informer := n.factory.Core().V1().Nodes().Informer()
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
 			klog.V(4).Infof("Node informer added node %s", node.Name)
@@ -72,6 +72,9 @@ func (n *NodeInformer) Start() error {
 			n.SendRequest()
 		},
 	})
+	if err != nil {
+		return err
+	}
 
 	informer.Run(n.ctx.Done())
 

@@ -42,23 +42,23 @@ env:
 func TestConfig(t *testing.T) {
 	file, err := os.CreateTemp("", "test-cfg-*.yml")
 	require.NoError(t, err)
-	defer os.Remove(file.Name())
-	defer file.Close()
+	defer func() { _ = os.Remove(file.Name()) }()
+	defer func() { _ = file.Close() }()
 
 	cert, err := os.CreateTemp("", "test-cert-*.yml")
 	require.NoError(t, err)
-	defer os.Remove(cert.Name())
-	defer cert.Close()
+	defer func() { _ = os.Remove(cert.Name()) }()
+	defer func() { _ = cert.Close() }()
 
 	key, err := os.CreateTemp("", "test-key-*.yml")
 	require.NoError(t, err)
-	defer os.Remove(key.Name())
-	defer key.Close()
+	defer func() { _ = os.Remove(key.Name()) }()
+	defer func() { _ = key.Close() }()
 
 	caCert, err := os.CreateTemp("", "test-ca-cert-*.yml")
 	require.NoError(t, err)
-	defer os.Remove(caCert.Name())
-	defer caCert.Close()
+	defer func() { _ = os.Remove(caCert.Name()) }()
+	defer func() { _ = caCert.Close() }()
 
 	_, err = file.WriteString(fmt.Sprintf(configTemplate, cert.Name(), key.Name(), caCert.Name()))
 	require.NoError(t, err)
@@ -84,32 +84,34 @@ func TestConfig(t *testing.T) {
 	}
 	require.Equal(t, expected, cfg)
 
-	var oldPath, newPath = os.Getenv("PATH"), ""
-	if len(oldPath) == 0 {
-		newPath = oldPath
+	var path string
+	if path = os.Getenv("PATH"); len(path) == 0 {
+		path = "/a/b/c"
 	} else {
-		newPath = oldPath + ":" + "/a/b/c"
+		path = path + ":" + "/a/b/c"
 	}
 
-	cfg.UpdateEnv()
+	err = cfg.UpdateEnv()
+	require.NoError(t, err)
+
 	require.Equal(t, "/etc/slurm/config.yaml", os.Getenv("SLURM_CONF"))
-	require.Equal(t, newPath, os.Getenv("PATH"))
+	require.Equal(t, path, os.Getenv("PATH"))
 }
 func TestValidate(t *testing.T) {
 	cert, err := os.CreateTemp("", "test-cert-*.yml")
 	require.NoError(t, err)
-	defer os.Remove(cert.Name())
-	defer cert.Close()
+	defer func() { _ = os.Remove(cert.Name()) }()
+	defer func() { _ = cert.Close() }()
 
 	key, err := os.CreateTemp("", "test-key-*.yml")
 	require.NoError(t, err)
-	defer os.Remove(key.Name())
-	defer key.Close()
+	defer func() { _ = os.Remove(key.Name()) }()
+	defer func() { _ = key.Close() }()
 
 	caCert, err := os.CreateTemp("", "test-ca-cert-*.yml")
 	require.NoError(t, err)
-	defer os.Remove(caCert.Name())
-	defer caCert.Close()
+	defer func() { _ = os.Remove(caCert.Name()) }()
+	defer func() { _ = caCert.Close() }()
 
 	testCases := []struct {
 		name string

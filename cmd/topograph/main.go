@@ -59,7 +59,9 @@ func mainInternal(c string) error {
 		return err
 	}
 
-	cfg.UpdateEnv()
+	if err = cfg.UpdateEnv(); err != nil {
+		return err
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

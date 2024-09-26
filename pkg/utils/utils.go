@@ -36,7 +36,7 @@ func CreateFile(path string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to create %q: %v", path, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	_, err = file.Write(data)
 	if err != nil {

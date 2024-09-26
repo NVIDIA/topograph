@@ -55,8 +55,8 @@ func TestValidateFile(t *testing.T) {
 			if tc.generate {
 				f, err := os.CreateTemp("", "test-*")
 				require.NoError(t, err)
-				defer os.Remove(f.Name())
-				defer f.Close()
+				defer func() { _ = os.Remove(f.Name()) }()
+				defer func() { _ = f.Close() }()
 				tc.fname = f.Name()
 			}
 			err := ValidateFile(tc.fname, tc.descr)
