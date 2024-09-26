@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "node-observer.fullname" . }}
+  labels:
+    {{- include "node-observer.labels" . | nindent 4 }}
+data:
+  node-observer-config.yaml: |-
+    topology_generator_url: "{{ .Values.topograph.url }}"
+    topology_configmap:
+      name: {{ .Values.topograph.configmap.name }}
+      namespace: {{ .Values.topograph.configmap.namespace }}
+      filename: {{ .Values.topograph.configmap.filename }}
+    node_labels:
+      {{- toYaml .Values.topograph.node_labels | nindent 6 }}
+    provider: {{ .Values.topograph.provider }}
+    engine: {{ .Values.topograph.engine }}

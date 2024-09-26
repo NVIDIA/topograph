@@ -14,7 +14,7 @@
 
 LINTER_BIN ?= golangci-lint
 DOCKER_BIN ?= docker
-TARGETS := topograph topology-state-observer toposim
+TARGETS := topograph node-observer toposim
 CMD_DIR := ./cmd
 OUTPUT_DIR := ./bin
 
