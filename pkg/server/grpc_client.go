@@ -34,7 +34,7 @@ func forwardRequest(ctx context.Context, tr *TopologyRequest, url string, cis []
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %v", url, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := pb.NewTopologyServiceClient(conn)
 

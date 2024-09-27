@@ -99,15 +99,20 @@ func (cfg *Config) validate() error {
 	return cfg.readCredentials()
 }
 
-func (cfg *Config) UpdateEnv() {
+func (cfg *Config) UpdateEnv() (err error) {
 	for env, val := range cfg.Env {
 		if env == "PATH" { // special case for PATH env var
-			os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), val))
+			err = os.Setenv("PATH", fmt.Sprintf("%s:%s", os.Getenv("PATH"), val))
 		} else {
-			os.Setenv(env, val)
+			err = os.Setenv(env, val)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to set %q environment variable: %v", env, err)
 		}
 		klog.Infof("Updated env %s=%s", env, os.Getenv(env))
 	}
+
+	return
 }
 
 func (cfg *Config) readCredentials() error {
@@ -122,7 +127,7 @@ func (cfg *Config) readCredentials() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	data, err := io.ReadAll(file)
 	if err != nil {

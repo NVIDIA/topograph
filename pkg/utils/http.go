@@ -48,7 +48,7 @@ func HttpRequest(req *http.Request) (*http.Response, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to send HTTP request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

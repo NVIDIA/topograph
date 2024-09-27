@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/state_observer"
+	"github.com/NVIDIA/topograph/pkg/node_observer"
 )
 
 var GitTag string
@@ -55,7 +55,7 @@ func main() {
 }
 
 func mainInternal(c string) error {
-	cfg, err := state_observer.NewConfigFromFile(c)
+	cfg, err := node_observer.NewConfigFromFile(c)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func mainInternal(c string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	controller, err := state_observer.NewController(ctx, kubeClient, cfg)
+	controller, err := node_observer.NewController(ctx, kubeClient, cfg)
 	if err != nil {
 		return err
 	}

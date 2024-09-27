@@ -55,7 +55,9 @@ func ToSLURM(wr io.Writer, root *common.Vertex) error {
 
 	for _, sw := range parents {
 		if _, ok := leaves[sw.ID]; !ok {
-			writeSwitch(wr, sw)
+			if err := writeSwitch(wr, sw); err != nil {
+				return err
+			}
 		}
 	}
 

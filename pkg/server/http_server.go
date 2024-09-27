@@ -91,7 +91,7 @@ func (s *HttpServer) Stop(err error) {
 
 func healthz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK\n"))
+	_, _ = w.Write([]byte("OK\n"))
 }
 
 func generate(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +103,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	uid := srv.async.queue.Submit(tr)
 
 	w.WriteHeader(http.StatusAccepted)
-	w.Write([]byte(uid))
+	_, _ = w.Write([]byte(uid))
 }
 
 func readRequest(w http.ResponseWriter, r *http.Request) *TopologyRequest {
@@ -117,7 +117,7 @@ func readRequest(w http.ResponseWriter, r *http.Request) *TopologyRequest {
 		http.Error(w, "Unable to read request body", http.StatusInternalServerError)
 		return nil
 	}
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	tr := &TopologyRequest{}
 
@@ -205,6 +205,6 @@ func getresult(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, res.Message, res.Status)
 	} else {
 		w.WriteHeader(res.Status)
-		w.Write(res.Ret.([]byte))
+		_, _ = w.Write(res.Ret.([]byte))
 	}
 }

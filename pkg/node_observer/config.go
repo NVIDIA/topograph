@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package state_observer
+package node_observer
 
 import (
 	"fmt"

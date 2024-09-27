@@ -45,7 +45,7 @@ func GenerateInstanceTopology(ctx context.Context, _ interface{}, instanceToNode
 	if err != nil {
 		return nil, fmt.Errorf("unable to get zones client: %s", err.Error())
 	}
-	projectID, err := metadata.ProjectID()
+	projectID, err := metadata.ProjectIDWithContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get project ID: %s", err.Error())
 	}
