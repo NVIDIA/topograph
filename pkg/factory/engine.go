@@ -22,8 +22,8 @@ import (
 	"net/http"
 
 	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/k8s"
-	"github.com/NVIDIA/topograph/pkg/slurm"
+	"github.com/NVIDIA/topograph/pkg/engines/k8s"
+	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 )
 
 func GetEngine(engine string) (common.Engine, *common.HTTPError) {

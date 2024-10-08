@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/NVIDIA/topograph/pkg/aws"
 	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/cw"
-	"github.com/NVIDIA/topograph/pkg/gcp"
-	"github.com/NVIDIA/topograph/pkg/oci"
+	"github.com/NVIDIA/topograph/pkg/providers/aws"
+	"github.com/NVIDIA/topograph/pkg/providers/cw"
+	"github.com/NVIDIA/topograph/pkg/providers/gcp"
+	"github.com/NVIDIA/topograph/pkg/providers/oci"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
 

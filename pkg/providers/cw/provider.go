@@ -25,9 +25,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/engines/k8s"
+	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/ib"
-	"github.com/NVIDIA/topograph/pkg/k8s"
-	"github.com/NVIDIA/topograph/pkg/slurm"
 )
 
 type Provider struct{}
