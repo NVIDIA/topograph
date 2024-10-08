@@ -31,6 +31,7 @@ func ToSLURM(wr io.Writer, root *common.Vertex) error {
 	leaves := make(map[string][]string)
 	parents := []*common.Vertex{}
 	queue := []*common.Vertex{root}
+	idToName := make(map[string]string)
 
 	for len(queue) > 0 {
 		v := queue[0]
@@ -38,7 +39,7 @@ func ToSLURM(wr io.Writer, root *common.Vertex) error {
 		if len(v.ID) != 0 {
 			parents = append(parents, v)
 		}
-
+		idToName[v.ID] = v.Name
 		for _, w := range v.Vertices {
 			if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
 				_, ok := leaves[v.ID]
@@ -55,14 +56,22 @@ func ToSLURM(wr io.Writer, root *common.Vertex) error {
 
 	for _, sw := range parents {
 		if _, ok := leaves[sw.ID]; !ok {
-			if err := writeSwitch(wr, sw); err != nil {
-				return err
+			err := writeSwitch(wr, sw)
+			if err != nil {
+				return fmt.Errorf("failed to write switch %s: %w", sw.ID, err)
 			}
 		}
 	}
-
+	var comment, switchName string
 	for sw, nodes := range leaves {
-		_, err := wr.Write([]byte(fmt.Sprintf("SwitchName=%s Nodes=%s\n", sw, strings.Join(compress(nodes), ","))))
+		if idToName[sw] != "" {
+			comment = fmt.Sprintf("# %s=%s\n", idToName[sw], sw)
+			switchName = idToName[sw]
+		} else {
+			comment = ""
+			switchName = sw
+		}
+		_, err := wr.Write([]byte(fmt.Sprintf("%sSwitchName=%s Nodes=%s\n", comment, switchName, strings.Join(compress(nodes), ","))))
 		if err != nil {
 			return err
 		}
@@ -78,10 +87,20 @@ func writeSwitch(wr io.Writer, v *common.Vertex) error {
 
 	arr := make([]string, 0, len(v.Vertices))
 	for _, node := range v.Vertices {
-		arr = append(arr, node.ID)
+		if node.Name == "" {
+			arr = append(arr, node.ID)
+		} else {
+			arr = append(arr, node.Name)
+		}
 	}
-
-	_, err := wr.Write([]byte(fmt.Sprintf("SwitchName=%s Switches=%s\n", v.ID, strings.Join(compress(arr), ","))))
+	var comment string
+	if v.Name == "" {
+		comment = ""
+		v.Name = v.ID
+	} else {
+		comment = fmt.Sprintf("# %s=%s\n", v.Name, v.ID)
+	}
+	_, err := wr.Write([]byte(fmt.Sprintf("%sSwitchName=%s Switches=%s\n", comment, v.Name, strings.Join(compress(arr), ","))))
 	if err != nil {
 		return err
 	}
@@ -90,7 +109,7 @@ func writeSwitch(wr io.Writer, v *common.Vertex) error {
 }
 
 // compress finds contiguos numerical suffixes in names and presents then as ranges.
-// example: ["eos0507", "eos0509", "eos0508"] -> ["eos0[507-509]
+// example: ["eos0507", "eos0509", "eos0508"] -> ["eos0[507-509"]
 func compress(input []string) []string {
 	ret := []string{}
 	keys := []string{}
