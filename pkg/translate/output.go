@@ -109,7 +109,7 @@ func writeSwitch(wr io.Writer, v *common.Vertex) error {
 }
 
 // compress finds contiguos numerical suffixes in names and presents then as ranges.
-// example: ["eos0507", "eos0509", "eos0508"] -> ["eos0[507-509]
+// example: ["eos0507", "eos0509", "eos0508"] -> ["eos0[507-509"]
 func compress(input []string) []string {
 	ret := []string{}
 	keys := []string{}
