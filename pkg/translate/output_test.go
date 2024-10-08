@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab-master.nvidia.com/dgxcloud/tools/cluster-topology-generator/pkg/common"
 )
 
 const (
@@ -32,6 +33,17 @@ SwitchName=S3 Nodes=Node[304-306]
 	testConfig2 = `SwitchName=S1 Switches=S[2-3]
 SwitchName=S3 Nodes=Node[304-306]
 SwitchName=S2 Nodes=Node[201-202],Node205
+`
+	shortNameExpectedResult = `# switch.3.1=hpcislandid-1
+SwitchName=switch.3.1 Switches=switch.2.[1-2]
+# switch.2.1=network-block-1
+SwitchName=switch.2.1 Switches=switch.1.1
+# switch.2.2=network-block-2
+SwitchName=switch.2.2 Switches=switch.1.2
+# switch.1.1=local-block-1
+SwitchName=switch.1.1 Nodes=node-1
+# switch.1.2=local-block-2
+SwitchName=switch.1.2 Nodes=node-2
 `
 )
 
@@ -46,6 +58,56 @@ func TestToSLURM(t *testing.T) {
 	default:
 		t.Errorf("unexpected result %s", buf.String())
 	}
+}
+
+func TestToSlurmNameShortener(t *testing.T) {
+	v := &common.Vertex{
+		Vertices: map[string]*common.Vertex{
+			"hpcislandid-1": {
+				ID:   "hpcislandid-1",
+				Name: "switch.3.1",
+				Vertices: map[string]*common.Vertex{
+					"network-block-1": {
+						ID:   "network-block-1",
+						Name: "switch.2.1",
+						Vertices: map[string]*common.Vertex{
+							"local-block-1": {
+								ID:   "local-block-1",
+								Name: "switch.1.1",
+								Vertices: map[string]*common.Vertex{
+									"node-1": {
+										ID:   "node-1-id",
+										Name: "node-1",
+									},
+								},
+							},
+						},
+					},
+					"network-block-2": {
+						ID:   "network-block-2",
+						Name: "switch.2.2",
+						Vertices: map[string]*common.Vertex{
+							"local-block-2": {
+								ID:   "local-block-2",
+								Name: "switch.1.2",
+								Vertices: map[string]*common.Vertex{
+									"node-2": {
+										ID:   "node-2-id",
+										Name: "node-2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	buf := &bytes.Buffer{}
+	err := ToSLURM(buf, v)
+	require.NoError(t, err)
+	require.Equal(t, shortNameExpectedResult, buf.String())
 }
 
 func TestCompress(t *testing.T) {

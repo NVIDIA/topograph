@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	OCICommon "github.com/oracle/oci-go-sdk/v65/common"
@@ -28,6 +29,14 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/common"
+)
+
+type level int
+
+const (
+	localBlockLevel level = iota + 1
+	networkBlockLevel
+	hpcIslandLevel
 )
 
 func GenerateInstanceTopology(ctx context.Context, creds OCICommon.ConfigurationProvider, cis []common.ComputeInstances) ([]*core.ComputeBareMetalHostSummary, error) {
@@ -144,18 +153,10 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []c
 
 	nodes := make(map[string]*common.Vertex)
 	forest := make(map[string]*common.Vertex)
-
+	levelWiseSwitchCount := map[level]int{localBlockLevel: 0, networkBlockLevel: 0, hpcIslandLevel: 0}
+	bareMetalHostSummaries = filterAndSort(bareMetalHostSummaries, instanceToNodeMap)
 	for _, bmhSummary := range bareMetalHostSummaries {
-		if bmhSummary.InstanceId == nil {
-			klog.V(5).Infof("Skipped bmhSummary %s", bmhSummary.String())
-			continue
-		}
-		nodeName, ok := instanceToNodeMap[*bmhSummary.InstanceId]
-		if !ok {
-			klog.V(5).Infof("Node not found for instance ID %s", *bmhSummary.InstanceId)
-			continue
-		}
-		klog.V(4).Infof("Found node %q instance %q", nodeName, *bmhSummary.InstanceId)
+		nodeName := instanceToNodeMap[*bmhSummary.InstanceId]
 		delete(instanceToNodeMap, *bmhSummary.InstanceId)
 
 		instance := &common.Vertex{
@@ -163,54 +164,40 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []c
 			ID:   *bmhSummary.InstanceId,
 		}
 
-		localBlockId := "lb_nil"
-		if bmhSummary.ComputeLocalBlockId != nil {
-			localBlockId = *bmhSummary.ComputeLocalBlockId
-		} else {
-			klog.Warningf("ComputeLocalBlockId is nil for instance %q", *bmhSummary.InstanceId)
-			missingAncestor.WithLabelValues("localBlock", nodeName).Add(float64(1))
-		}
-
+		localBlockId := *bmhSummary.ComputeLocalBlockId
 		localBlock, ok := nodes[localBlockId]
 		if !ok {
+			levelWiseSwitchCount[localBlockLevel]++
 			localBlock = &common.Vertex{
 				ID:       localBlockId,
 				Vertices: make(map[string]*common.Vertex),
+				Name:     fmt.Sprintf("Switch.%d.%d", localBlockLevel, levelWiseSwitchCount[localBlockLevel]),
 			}
 			nodes[localBlockId] = localBlock
 		}
 		localBlock.Vertices[instance.ID] = instance
 
-		networkBlockId := "nw_nil"
-		if bmhSummary.ComputeNetworkBlockId != nil {
-			networkBlockId = *bmhSummary.ComputeNetworkBlockId
-		} else {
-			klog.Warningf("ComputeNetworkBlockId is nil for instance %q", *bmhSummary.InstanceId)
-			missingAncestor.WithLabelValues("networkBlock", nodeName).Add(float64(1))
-		}
-
+		networkBlockId := *bmhSummary.ComputeNetworkBlockId
 		networkBlock, ok := nodes[networkBlockId]
 		if !ok {
+			levelWiseSwitchCount[networkBlockLevel]++
 			networkBlock = &common.Vertex{
 				ID:       networkBlockId,
 				Vertices: make(map[string]*common.Vertex),
+				Name:     fmt.Sprintf("Switch.%d.%d", networkBlockLevel, levelWiseSwitchCount[networkBlockLevel]),
 			}
 			nodes[networkBlockId] = networkBlock
 		}
 		networkBlock.Vertices[localBlockId] = localBlock
 
-		hpcIslandId := "hpc_nil"
-		if bmhSummary.ComputeHpcIslandId != nil {
-			hpcIslandId = *bmhSummary.ComputeHpcIslandId
-		} else {
-			klog.Warningf("ComputeHpcIslandId is nil for instance %q", *bmhSummary.InstanceId)
-			missingAncestor.WithLabelValues("hpcIsland", nodeName).Add(float64(1))
-		}
+		hpcIslandId := *bmhSummary.ComputeHpcIslandId
 		hpcIsland, ok := nodes[hpcIslandId]
 		if !ok {
+			levelWiseSwitchCount[hpcIslandLevel]++
 			hpcIsland = &common.Vertex{
 				ID:       hpcIslandId,
 				Vertices: make(map[string]*common.Vertex),
+				Name:     fmt.Sprintf("Switch.%d.%d", hpcIslandLevel, levelWiseSwitchCount[hpcIslandLevel]),
 			}
 			nodes[hpcIslandId] = hpcIsland
 			forest[hpcIslandId] = hpcIsland
@@ -242,6 +229,58 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []c
 
 	return root, nil
 
+}
+
+func filterAndSort(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, instanceToNodeMap map[string]string) []*core.ComputeBareMetalHostSummary {
+	var filtered []*core.ComputeBareMetalHostSummary
+	for _, bmh := range bareMetalHostSummaries {
+		if bmh.InstanceId == nil {
+			klog.V(5).Infof("Instance ID is nil for bmhSummary %s", bmh.String())
+			continue
+		}
+
+		if bmh.ComputeLocalBlockId == nil {
+			klog.Warningf("ComputeLocalBlockId is nil for instance %q", *bmh.InstanceId)
+			missingAncestor.WithLabelValues("localBlock", *bmh.InstanceId).Add(float64(1))
+			continue
+		}
+
+		if bmh.ComputeNetworkBlockId == nil {
+			klog.Warningf("ComputeNetworkBlockId is nil for instance %q", *bmh.InstanceId)
+			missingAncestor.WithLabelValues("networkBlock", *bmh.InstanceId).Add(float64(1))
+			continue
+		}
+
+		if bmh.ComputeHpcIslandId == nil {
+			klog.Warningf("ComputeHpcIslandId is nil for instance %q", *bmh.InstanceId)
+			missingAncestor.WithLabelValues("hpcIsland", *bmh.InstanceId).Add(float64(1))
+			continue
+		}
+
+		if _, ok := instanceToNodeMap[*bmh.InstanceId]; ok {
+			klog.V(4).Infof("Adding bmhSummary %s", bmh.String())
+			filtered = append(filtered, bmh)
+		} else {
+			klog.V(4).Infof("Skipping bmhSummary %s", bmh.String())
+		}
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		if filtered[i].ComputeHpcIslandId != filtered[j].ComputeHpcIslandId {
+			return *filtered[i].ComputeHpcIslandId < *filtered[j].ComputeHpcIslandId
+		}
+
+		if filtered[i].ComputeNetworkBlockId != filtered[j].ComputeNetworkBlockId {
+			return *filtered[i].ComputeNetworkBlockId < *filtered[j].ComputeNetworkBlockId
+		}
+
+		if filtered[i].ComputeLocalBlockId != filtered[j].ComputeLocalBlockId {
+			return *filtered[i].ComputeLocalBlockId < *filtered[j].ComputeLocalBlockId
+		}
+
+		return *filtered[i].InstanceId < *filtered[j].InstanceId
+	})
+	return filtered
 }
 
 func generateInstanceTopology(ctx context.Context, provider OCICommon.ConfigurationProvider, ci *common.ComputeInstances, bareMetalHostSummaries []*core.ComputeBareMetalHostSummary) ([]*core.ComputeBareMetalHostSummary, error) {
