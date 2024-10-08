@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/stretchr/testify/require"
-	"gitlab-master.nvidia.com/dgxcloud/tools/cluster-topology-generator/pkg/common"
 )
 
 const (
