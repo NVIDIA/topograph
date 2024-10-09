@@ -44,6 +44,7 @@ For the SLURM engine, topograph supports the following CSPs:
 - AWS
 - OCI
 - GCP
+- CoreWeave
 
 ### Kubernetes Engine
 
