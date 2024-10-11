@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -32,7 +31,9 @@ import (
 )
 
 const (
-	IMDSURL = "http://169.254.169.254/latest/meta-data/"
+	IMDS           = "http://169.254.169.254"
+	IMDS_TOKEN_URL = IMDS + "/latest/api/token"
+	IMDS_URL       = IMDS + "/latest/meta-data"
 
 	tokenTimeDelay = 15 * time.Second
 )
@@ -45,20 +46,59 @@ type Creds struct {
 	Expiration      string `json:"Expiration"`
 }
 
-func getMetadata(path string) ([]byte, error) {
-	url := IMDSURL + path
+func getToken() (string, error) {
+	req, err := http.NewRequest("PUT", IMDS_TOKEN_URL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create HTTP request: %v", err)
+	}
 
-	resp, err := http.Get(url)
+	req.Header.Add("X-aws-ec2-metadata-token-ttl-seconds", "21600")
+
+	_, data, err := utils.HttpRequest(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send HTTP request: %v", err)
+	}
+
+	return string(data), nil
+}
+
+func addToken(req *http.Request) error {
+	token, err := getToken()
+	if err != nil {
+		return err
+	}
+
+	if len(token) != 0 {
+		req.Header.Add("X-aws-ec2-metadata-token", token)
+	}
+
+	return nil
+}
+
+func getMetadata(path string) ([]byte, error) {
+	url := fmt.Sprintf("%s/%s", IMDS_URL, path)
+	klog.V(4).Infof("Requesting URL %s", url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+
+	err = addToken(req)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+
+	resp, data, err := utils.HttpRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send HTTP request: %v", err)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP status: %s", resp.Status)
 	}
 
-	return io.ReadAll(resp.Body)
+	return data, nil
 }
 
 func GetRegion() (string, error) {
@@ -85,7 +125,7 @@ func GetCredentials() (*Creds, error) {
 
 	// ensure the credentials remain valid for at least the next tokenTimeDelay
 	for {
-		klog.V(4).Infof("Getting credentials from path %s", path)
+		klog.V(4).Infof("Getting credentials from %s", path)
 		data, err = getMetadata(path)
 		if err != nil {
 			return nil, err
@@ -114,7 +154,8 @@ func GetCredentials() (*Creds, error) {
 }
 
 func Instance2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	args := []string{"-w", strings.Join(nodes, ","), fmt.Sprintf("echo $(curl -s %s/instance-id)", IMDSURL)}
+	args := []string{"-w", strings.Join(nodes, ","),
+		fmt.Sprintf("TOKEN=$(curl -s -X PUT -H \"X-aws-ec2-metadata-token-ttl-seconds: 21600\" %s); echo $(curl -s -H \"X-aws-ec2-metadata-token: $TOKEN\" %s/instance-id)", IMDS_TOKEN_URL, IMDS_URL)}
 
 	stdout, err := utils.Exec(ctx, "pdsh", args, nil)
 	if err != nil {
