@@ -86,7 +86,7 @@ func toSlurm(domainMap map[string]domain) *common.Vertex {
 	// add root metadata
 	root.Metadata["engine"] = "slurm"
 	root.Metadata["plugin"] = "topology/block"
-	root.Metadata[blocksize] = strconv.Itoa(blockSize)
+	root.Metadata["blocksize"] = strconv.Itoa(blockSize)
 	return root
 }
 

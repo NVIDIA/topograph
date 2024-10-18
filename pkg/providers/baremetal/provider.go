@@ -21,7 +21,7 @@ func (p *Provider) GetCredentials(_ *common.Credentials) (interface{}, error) {
 }
 
 func (p *Provider) GetComputeInstances(ctx context.Context, engine common.Engine) ([]common.ComputeInstances, error) {
-	klog.InfoS("Getting compute instances", "provider", common.ProviderOnPrem, "engine", engine)
+	klog.InfoS("Getting compute instances", "provider", common.ProviderBM, "engine", engine)
 
 	switch engine.(type) {
 	case *slurm.SlurmEngine:
