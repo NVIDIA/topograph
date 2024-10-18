@@ -62,7 +62,7 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 	}
 	return nil
 }
-func toSlurm(domainMap map[string]domain) *common.Vertex {
+func toGraph(domainMap map[string]domain) *common.Vertex {
 	root := &common.Vertex{
 		Vertices: make(map[string]*common.Vertex),
 		Metadata: make(map[string]string),
@@ -97,5 +97,5 @@ func generateTopologyConfig(ctx context.Context, cis []common.ComputeInstances) 
 	if err != nil {
 		return nil, fmt.Errorf("getClusterOutput failed: %v\n", err)
 	}
-	return toSlurm(domainMap), nil
+	return toGraph(domainMap), nil
 }
