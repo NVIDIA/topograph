@@ -18,7 +18,6 @@ package node_observer
 
 import (
 	"context"
-	"net/http"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,11 +33,11 @@ import (
 type NodeInformer struct {
 	ctx     context.Context
 	client  kubernetes.Interface
-	req     *http.Request
+	reqFunc utils.HttpRequestFunc
 	factory informers.SharedInformerFactory
 }
 
-func NewNodeInformer(ctx context.Context, client kubernetes.Interface, nodeLabels map[string]string, req *http.Request) *NodeInformer {
+func NewNodeInformer(ctx context.Context, client kubernetes.Interface, nodeLabels map[string]string, reqFunc utils.HttpRequestFunc) *NodeInformer {
 	klog.Infof("Configuring node informer with labels %v", nodeLabels)
 	listOptionsFunc := func(options *metav1.ListOptions) {
 		options.LabelSelector = labels.Set(nodeLabels).AsSelector().String()
@@ -46,7 +45,7 @@ func NewNodeInformer(ctx context.Context, client kubernetes.Interface, nodeLabel
 	return &NodeInformer{
 		ctx:     ctx,
 		client:  client,
-		req:     req,
+		reqFunc: reqFunc,
 		factory: informers.NewSharedInformerFactoryWithOptions(client, 0, informers.WithTweakListOptions(listOptionsFunc)),
 	}
 }
@@ -87,7 +86,7 @@ func (n *NodeInformer) Stop(_ error) {
 }
 
 func (n *NodeInformer) SendRequest() {
-	_, _, err := utils.HttpRequestWithRetries(n.req)
+	_, _, err := utils.HttpRequestWithRetries(n.reqFunc)
 	if err != nil {
 		klog.Errorf("failed to send HTTP request: %v", err)
 	}

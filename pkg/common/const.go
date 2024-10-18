@@ -29,8 +29,6 @@ const (
 	EngineTest  = "test"
 
 	KeyUID                    = "uid"
-	KeyProvider               = "provider"
-	KeyEngine                 = "engine"
 	KeyTopoConfigPath         = "topology_config_path"
 	KeyTopoConfigmapName      = "topology_configmap_name"
 	KeyTopoConfigmapNamespace = "topology_configmap_namespace"

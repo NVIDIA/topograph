@@ -34,7 +34,7 @@ type asyncController struct {
 }
 
 func processRequest(item interface{}) (interface{}, *common.HTTPError) {
-	tr := item.(*TopologyRequest)
+	tr := item.(*common.TopologyRequest)
 	var code int
 	start := time.Now()
 
@@ -44,21 +44,21 @@ func processRequest(item interface{}) (interface{}, *common.HTTPError) {
 	} else {
 		code = http.StatusOK
 	}
-	metrics.Add(tr.provider, tr.engine, code, time.Since(start))
+	metrics.Add(tr.Provider.Name, tr.Engine.Name, code, time.Since(start))
 
 	return ret, err
 }
 
-func processTopologyRequest(tr *TopologyRequest) ([]byte, *common.HTTPError) {
-	klog.InfoS("Creating topology config", "provider", tr.provider, "engine", tr.engine)
+func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPError) {
+	klog.InfoS("Creating topology config", "provider", tr.Provider.Name, "engine", tr.Engine.Name)
 
-	eng, httpErr := factory.GetEngine(tr.engine)
+	eng, httpErr := factory.GetEngine(tr.Engine.Name)
 	if httpErr != nil {
 		klog.Error(httpErr.Error())
 		return nil, httpErr
 	}
 
-	prv, httpErr := factory.GetProvider(tr.provider)
+	prv, httpErr := factory.GetProvider(tr.Provider.Name)
 	if httpErr != nil {
 		klog.Error(httpErr.Error())
 		return nil, httpErr
@@ -67,7 +67,7 @@ func processTopologyRequest(tr *TopologyRequest) ([]byte, *common.HTTPError) {
 	ctx := context.TODO()
 
 	// if the instance/node mapping is not provided in the payload, get the mapping from the provider
-	computeInstances := tr.payload.Nodes
+	computeInstances := tr.Nodes
 	if len(computeInstances) == 0 {
 		var err error
 		computeInstances, err = prv.GetComputeInstances(ctx, eng)
@@ -76,7 +76,7 @@ func processTopologyRequest(tr *TopologyRequest) ([]byte, *common.HTTPError) {
 		}
 	}
 
-	creds, err := prv.GetCredentials(checkCredentials(tr.payload.Creds, &srv.cfg.Credentials))
+	creds, err := prv.GetCredentials(checkCredentials(tr.Provider.Creds, srv.cfg.Credentials))
 	if err != nil {
 		klog.Error(err.Error())
 		return nil, common.NewHTTPError(http.StatusUnauthorized, err.Error())
@@ -94,7 +94,7 @@ func processTopologyRequest(tr *TopologyRequest) ([]byte, *common.HTTPError) {
 		return nil, common.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	data, err := eng.GenerateOutput(ctx, root, tr.params)
+	data, err := eng.GenerateOutput(ctx, root, tr.Engine.Params)
 	if err != nil {
 		klog.Error(err.Error())
 		return nil, common.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -103,8 +103,8 @@ func processTopologyRequest(tr *TopologyRequest) ([]byte, *common.HTTPError) {
 	return data, nil
 }
 
-func checkCredentials(payloadCreds, cfgCreds *common.Credentials) *common.Credentials {
-	if payloadCreds != nil {
+func checkCredentials(payloadCreds, cfgCreds map[string]string) map[string]string {
+	if len(payloadCreds) != 0 {
 		return payloadCreds
 	}
 	return cfgCreds

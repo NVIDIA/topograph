@@ -25,7 +25,6 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
@@ -39,7 +38,7 @@ type Config struct {
 	Env                     map[string]string `yaml:"env"`
 
 	// derived
-	Credentials common.Credentials
+	Credentials map[string]string
 }
 
 type Endpoint struct {

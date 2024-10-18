@@ -36,14 +36,28 @@ func GetProvider() (*Provider, error) {
 	return &Provider{}, nil
 }
 
-func (p *Provider) GetCredentials(creds *common.Credentials) (interface{}, error) {
-	if creds != nil && creds.OCI != nil {
+func (p *Provider) GetCredentials(creds map[string]string) (interface{}, error) {
+	if len(creds) != 0 {
+		var tenancyID, userID, region, fingerprint, privateKey, passphrase string
 		klog.Info("Using provided credentials")
-		var passphrase *string
-		if creds.OCI.Passphrase != "" {
-			passphrase = &creds.OCI.Passphrase
+		if tenancyID = creds["tenancy_id"]; len(tenancyID) == 0 {
+			return nil, fmt.Errorf("credentials error: missing tenancy_id")
 		}
-		return OCICommon.NewRawConfigurationProvider(creds.OCI.TenancyID, creds.OCI.UserID, creds.OCI.Region, creds.OCI.Fingerprint, creds.OCI.PrivateKey, passphrase), nil
+		if userID = creds["user_id"]; len(userID) == 0 {
+			return nil, fmt.Errorf("credentials error: missing user_id")
+		}
+		if region = creds["region"]; len(region) == 0 {
+			return nil, fmt.Errorf("credentials error: missing region")
+		}
+		if fingerprint = creds["fingerprint"]; len(fingerprint) == 0 {
+			return nil, fmt.Errorf("credentials error: missing fingerprint")
+		}
+		if privateKey = creds["private_key"]; len(privateKey) == 0 {
+			return nil, fmt.Errorf("credentials error: missing private_key")
+		}
+		passphrase = creds["passphrase"]
+
+		return OCICommon.NewRawConfigurationProvider(tenancyID, userID, region, fingerprint, privateKey, &passphrase), nil
 	}
 
 	klog.Info("No credentials provided, trying default configuration provider")
