@@ -73,7 +73,7 @@ func toSlurm(domainMap map[string]domain) *common.Vertex {
 			ID:       domainName,
 			Vertices: make(map[string]*common.Vertex),
 		}
-		for node, _ := range domain.nodeMap {
+		for node := range domain.nodeMap {
 			tree.Vertices[node] = &common.Vertex{Name: node, ID: node}
 			if blockSize == -1 {
 				blockSize = len(domain.nodeMap)
