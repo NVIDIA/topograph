@@ -21,6 +21,7 @@ const (
 	ProviderOCI  = "oci"
 	ProviderGCP  = "gcp"
 	ProviderCW   = "cw"
+	ProviderBM   = "baremetal"
 	ProviderTest = "test"
 
 	EngineSLURM = "slurm"

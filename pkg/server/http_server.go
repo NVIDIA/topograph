@@ -170,7 +170,7 @@ func parseQuery(vals url.Values) (string, string, map[string]string, error) {
 
 func validate(tr *TopologyRequest) error {
 	switch tr.provider {
-	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderTest:
+	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderTest, common.ProviderBM:
 		//nop
 	default:
 		return fmt.Errorf("unsupported provider %s", tr.provider)
