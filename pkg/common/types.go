@@ -31,7 +31,7 @@ type Vertex struct {
 	Name     string
 	ID       string
 	Vertices map[string]*Vertex
-	Metadata string
+	Metadata map[string]string
 }
 
 func (v *Vertex) String() string {

@@ -10,14 +10,6 @@ import (
 	"strings"
 )
 
-const (
-	BlockTopologyHeader = `##################################################################
-# Slurm's network topology configuration file for use with the
-# topology/block plugin
-##################################################################
-`
-)
-
 // domain contains map of each domainID(clusterUUID) -> list of nodeNames in that domain
 // Each domain will be a separate NVL Domain
 type domain struct {
@@ -73,6 +65,7 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 func toSlurm(domainMap map[string]domain) *common.Vertex {
 	root := &common.Vertex{
 		Vertices: make(map[string]*common.Vertex),
+		Metadata: make(map[string]string),
 	}
 	blockSize := -1
 	for domainName, domain := range domainMap {
@@ -90,7 +83,10 @@ func toSlurm(domainMap map[string]domain) *common.Vertex {
 		}
 		root.Vertices[domainName] = tree
 	}
-	root.Metadata = strconv.Itoa(blockSize)
+	// add root metadata
+	root.Metadata["engine"] = "slurm"
+	root.Metadata["plugin"] = "topology/block"
+	root.Metadata[blocksize] = strconv.Itoa(blockSize)
 	return root
 }
 
