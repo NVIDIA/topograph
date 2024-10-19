@@ -59,7 +59,7 @@ func (e *HTTPError) Error() string {
 }
 
 type Provider interface {
-	GetCredentials(*Credentials) (interface{}, error)
+	GetCredentials(map[string]string) (interface{}, error)
 	GetComputeInstances(context.Context, Engine) ([]ComputeInstances, error)
 	GenerateTopologyConfig(context.Context, interface{}, int, []ComputeInstances) (*Vertex, error)
 }
@@ -68,9 +68,20 @@ type Engine interface {
 	GenerateOutput(context.Context, *Vertex, map[string]string) ([]byte, error)
 }
 
-type Payload struct {
-	Nodes []ComputeInstances `json:"nodes"`
-	Creds *Credentials       `json:"creds,omitempty"` // access credentials
+type TopologyRequest struct {
+	Provider provider           `json:"provider"`
+	Engine   engine             `json:"engine"`
+	Nodes    []ComputeInstances `json:"nodes"`
+}
+
+type provider struct {
+	Name  string            `json:"name"`
+	Creds map[string]string `json:"creds"` // access credentials
+}
+
+type engine struct {
+	Name   string            `json:"name"`
+	Params map[string]string `json:"params"` // access credentials
 }
 
 type ComputeInstances struct {
@@ -78,59 +89,37 @@ type ComputeInstances struct {
 	Instances map[string]string `json:"instances"` // <instance ID>:<node name> map
 }
 
-type Credentials struct {
-	AWS *AWSCredentials `yaml:"aws,omitempty" json:"aws,omitempty"` // AWS credentials
-	OCI *OCICredentials `yaml:"oci,omitempty" json:"oci,omitempty"` // OCI credentials
-}
-
-type AWSCredentials struct {
-	AccessKeyId     string `yaml:"access_key_id" json:"access_key_id"`
-	SecretAccessKey string `yaml:"secret_access_key" json:"secret_access_key"`
-	Token           string `yaml:"token,omitempty" json:"token,omitempty"` // token is optional
-}
-
-type OCICredentials struct {
-	TenancyID   string `yaml:"tenancy_id" json:"tenancy_id"`
-	UserID      string `yaml:"user_id" json:"user_id"`
-	Region      string `yaml:"region" json:"region"`
-	Fingerprint string `yaml:"fingerprint" json:"fingerprint"`
-	PrivateKey  string `yaml:"private_key" json:"private_key"`
-	Passphrase  string `yaml:"passphrase,omitempty" json:"passphrase,omitempty"` // passphrase is optional
-}
-
-func (p *Payload) String() string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("Payload:\n  Nodes: %v\n", p.Nodes))
-	if p.Creds != nil {
-		sb.WriteString("  Credentials:\n")
-		if p.Creds.AWS != nil {
-			var accessKeyId, secretAccessKey, token string
-			if len(p.Creds.AWS.AccessKeyId) != 0 {
-				accessKeyId = "***"
-			}
-			if len(p.Creds.AWS.SecretAccessKey) != 0 {
-				secretAccessKey = "***"
-			}
-			if len(p.Creds.AWS.Token) != 0 {
-				token = "***"
-			}
-			sb.WriteString(fmt.Sprintf("    AWS: AccessKeyID=%s SecretAccessKey=%s SessionToken=%s\n",
-				accessKeyId, secretAccessKey, token))
-		}
-		if p.Creds.OCI != nil {
-			sb.WriteString("    OCI:\n")
-			sb.WriteString(fmt.Sprintf("         UserID=%s\n", p.Creds.OCI.UserID))
-			sb.WriteString(fmt.Sprintf("         TenancyID=%s\n", p.Creds.OCI.TenancyID))
-			sb.WriteString(fmt.Sprintf("         Region=%s\n", p.Creds.OCI.Region))
-		}
+func NewTopologyRequest(prv string, creds map[string]string, eng string, params map[string]string) *TopologyRequest {
+	return &TopologyRequest{
+		Provider: provider{
+			Name:  prv,
+			Creds: creds,
+		},
+		Engine: engine{
+			Name:   eng,
+			Params: params,
+		},
 	}
+}
+
+func (p *TopologyRequest) String() string {
+	var sb strings.Builder
+	sb.WriteString("TopologyRequest:\n")
+	sb.WriteString(fmt.Sprintf("  Provider: %s\n", p.Provider.Name))
+	sb.WriteString("  Credentials: ")
+	for key := range p.Provider.Creds {
+		sb.WriteString(fmt.Sprintf("%s=***,", key))
+	}
+	sb.WriteString("\n")
+	sb.WriteString(fmt.Sprintf("  Engine: %s\n", p.Engine.Name))
+	sb.WriteString(fmt.Sprintf("  Parameters: %v\n", p.Engine.Params))
+	sb.WriteString(fmt.Sprintf("  Nodes: %s\n", p.Nodes))
 
 	return sb.String()
 }
 
-func GetPayload(body []byte) (*Payload, error) {
-	var payload Payload
+func GetTopologyRequest(body []byte) (*TopologyRequest, error) {
+	var payload TopologyRequest
 
 	if len(body) == 0 {
 		return &payload, nil
@@ -138,14 +127,6 @@ func GetPayload(body []byte) (*Payload, error) {
 
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return nil, fmt.Errorf("failed to parse payload: %v", err)
-	}
-
-	if payload.Creds != nil {
-		if payload.Creds.AWS != nil {
-			if len(payload.Creds.AWS.AccessKeyId) == 0 || len(payload.Creds.AWS.SecretAccessKey) == 0 {
-				return nil, fmt.Errorf("invalid payload: must provide access_key_id and secret_access_key for AWS")
-			}
-		}
 	}
 
 	return &payload, nil

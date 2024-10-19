@@ -32,17 +32,29 @@ import (
 
 type Provider struct{}
 
+type Credentials struct {
+	AccessKeyId     string
+	SecretAccessKey string
+	Token           string // token is optional
+}
+
 func GetProvider() (*Provider, error) {
 	return &Provider{}, nil
 }
 
-func (p *Provider) GetCredentials(creds *common.Credentials) (interface{}, error) {
-	if creds != nil && creds.AWS != nil {
-		return creds.AWS, nil
-	}
-
+func (p *Provider) GetCredentials(creds map[string]string) (interface{}, error) {
 	var accessKeyID, secretAccessKey, sessionToken string
-	if len(os.Getenv("AWS_ACCESS_KEY_ID")) != 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) != 0 {
+
+	if len(creds) != 0 {
+		klog.Infof("Using provided AWS credentials")
+		if accessKeyID = creds["access_key_id"]; len(accessKeyID) == 0 {
+			return nil, fmt.Errorf("credentials error: missing access_key_id")
+		}
+		if secretAccessKey = creds["secret_access_key"]; len(secretAccessKey) == 0 {
+			return nil, fmt.Errorf("credentials error: missing secret_access_key")
+		}
+		sessionToken = creds["token"]
+	} else if len(os.Getenv("AWS_ACCESS_KEY_ID")) != 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) != 0 {
 		klog.Infof("Using shell AWS credentials")
 		accessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
 		secretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
@@ -57,7 +69,8 @@ func (p *Provider) GetCredentials(creds *common.Credentials) (interface{}, error
 		secretAccessKey = nodeCreds.SecretAccessKey
 		sessionToken = nodeCreds.Token
 	}
-	return &common.AWSCredentials{
+
+	return &Credentials{
 		AccessKeyId:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
 		Token:           sessionToken,
@@ -96,7 +109,7 @@ func (p *Provider) GetComputeInstances(ctx context.Context, engine common.Engine
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, cr interface{}, pageSize int, instances []common.ComputeInstances) (*common.Vertex, error) {
-	creds := cr.(*common.AWSCredentials)
+	creds := cr.(*Credentials)
 	topology, err := GenerateInstanceTopology(ctx, creds, int32(pageSize), instances)
 	if err != nil {
 		return nil, err

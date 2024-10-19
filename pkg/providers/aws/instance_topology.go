@@ -32,7 +32,7 @@ import (
 
 var defaultPageSize int32 = 100
 
-func GenerateInstanceTopology(ctx context.Context, creds *common.AWSCredentials, pageSize int32, cis []common.ComputeInstances) ([]types.InstanceTopology, error) {
+func GenerateInstanceTopology(ctx context.Context, creds *Credentials, pageSize int32, cis []common.ComputeInstances) ([]types.InstanceTopology, error) {
 	var err error
 	topology := []types.InstanceTopology{}
 	for _, ci := range cis {
@@ -44,7 +44,7 @@ func GenerateInstanceTopology(ctx context.Context, creds *common.AWSCredentials,
 	return topology, nil
 }
 
-func generateInstanceTopology(ctx context.Context, creds *common.AWSCredentials, pageSize int32, ci *common.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
+func generateInstanceTopology(ctx context.Context, creds *Credentials, pageSize int32, ci *common.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
 	if len(ci.Region) == 0 {
 		return nil, fmt.Errorf("must specify region to query instance topology")
 	}

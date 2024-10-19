@@ -28,7 +28,7 @@ import (
 	pb "github.com/NVIDIA/topograph/pkg/protos"
 )
 
-func forwardRequest(ctx context.Context, tr *TopologyRequest, url string, cis []common.ComputeInstances) (*common.Vertex, error) {
+func forwardRequest(ctx context.Context, tr *common.TopologyRequest, url string, cis []common.ComputeInstances) (*common.Vertex, error) {
 	klog.Infof("Forwarding request to %s", url)
 	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -48,7 +48,7 @@ func forwardRequest(ctx context.Context, tr *TopologyRequest, url string, cis []
 	klog.Infof("Getting topology for instances %v", ids)
 
 	response, err := client.DescribeTopology(ctx, &pb.TopologyRequest{
-		Provider:    tr.provider,
+		Provider:    tr.Provider.Name,
 		Region:      "",
 		InstanceIds: ids,
 	})

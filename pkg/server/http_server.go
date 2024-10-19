@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
@@ -36,13 +35,6 @@ type HttpServer struct {
 	cfg   *config.Config
 	srv   *http.Server
 	async *asyncController
-}
-
-type TopologyRequest struct {
-	provider string
-	engine   string
-	params   map[string]string
-	payload  *common.Payload
 }
 
 var srv *HttpServer
@@ -106,7 +98,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(uid))
 }
 
-func readRequest(w http.ResponseWriter, r *http.Request) *TopologyRequest {
+func readRequest(w http.ResponseWriter, r *http.Request) *common.TopologyRequest {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return nil
@@ -119,21 +111,13 @@ func readRequest(w http.ResponseWriter, r *http.Request) *TopologyRequest {
 	}
 	defer func() { _ = r.Body.Close() }()
 
-	tr := &TopologyRequest{}
-
-	tr.payload, err = common.GetPayload(body)
+	tr, err := common.GetTopologyRequest(body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return nil
 	}
 
-	tr.provider, tr.engine, tr.params, err = parseQuery(r.URL.Query())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return nil
-	}
-
-	klog.InfoS("Topology request", "provider", tr.provider, "engine", tr.engine, "params", tr.params, "payload", tr.payload.String())
+	klog.Info(tr.String())
 
 	if err = validate(tr); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -143,44 +127,23 @@ func readRequest(w http.ResponseWriter, r *http.Request) *TopologyRequest {
 	return tr
 }
 
-func parseQuery(vals url.Values) (string, string, map[string]string, error) {
-	params := make(map[string]string)
-	var provider, engine string
-
-	for key, arr := range vals {
-		switch key {
-		case common.KeyProvider:
-			provider = arr[0]
-		case common.KeyEngine:
-			engine = arr[0]
-		default:
-			params[key] = arr[0]
-		}
-	}
-
-	if len(provider) == 0 {
-		return "", "", nil, fmt.Errorf("missing provider URL query parameter")
-	}
-	if len(engine) == 0 {
-		return "", "", nil, fmt.Errorf("missing engine URL query parameter")
-	}
-
-	return provider, engine, params, nil
-}
-
-func validate(tr *TopologyRequest) error {
-	switch tr.provider {
-	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderTest, common.ProviderBM:
+func validate(tr *common.TopologyRequest) error {
+	switch tr.Provider.Name {
+	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderBM, common.ProviderTest:
 		//nop
+	case "":
+		return fmt.Errorf("missing provider name")
 	default:
-		return fmt.Errorf("unsupported provider %s", tr.provider)
+		return fmt.Errorf("unsupported provider %s", tr.Provider.Name)
 	}
 
-	switch tr.engine {
+	switch tr.Engine.Name {
+	case "":
+		return fmt.Errorf("missing engine name")
 	case common.EngineK8S:
 		for _, key := range []string{common.KeyTopoConfigPath, common.KeyTopoConfigmapName, common.KeyTopoConfigmapNamespace} {
-			if _, ok := tr.params[key]; !ok {
-				return fmt.Errorf("missing %q URL query parameter", key)
+			if _, ok := tr.Engine.Params[key]; !ok {
+				return fmt.Errorf("missing %q parameter", key)
 			}
 		}
 	}

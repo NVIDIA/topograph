@@ -40,8 +40,14 @@ var (
 	}
 )
 
+type HttpRequestFunc func() (*http.Request, error)
+
 // HttpRequest sends HTTP requests and returns HTTP response
-func HttpRequest(req *http.Request) (*http.Response, []byte, error) {
+func HttpRequest(f HttpRequestFunc) (*http.Response, []byte, error) {
+	req, err := f()
+	if err != nil {
+		return nil, nil, err
+	}
 	klog.V(4).Infof("Sending HTTP request %s", req.URL.String())
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -63,10 +69,10 @@ func HttpRequest(req *http.Request) (*http.Response, []byte, error) {
 }
 
 // HttpRequestWithRetries sends HTTP requests and returns HTTP response; retries if needed
-func HttpRequestWithRetries(req *http.Request) (resp *http.Response, body []byte, err error) {
-	klog.V(4).Infof("Sending HTTP request %s with retries", req.URL.String())
+func HttpRequestWithRetries(f HttpRequestFunc) (resp *http.Response, body []byte, err error) {
+	klog.V(4).Infof("Sending HTTP request with retries")
 	for r := 1; r <= retries; r++ {
-		resp, body, err = HttpRequest(req)
+		resp, body, err = HttpRequest(f)
 		if err == nil || !retryHttpCodes[resp.StatusCode] {
 			break
 		}

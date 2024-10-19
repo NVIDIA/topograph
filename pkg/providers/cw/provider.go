@@ -36,7 +36,7 @@ func GetProvider() (*Provider, error) {
 	return &Provider{}, nil
 }
 
-func (p *Provider) GetCredentials(_ *common.Credentials) (interface{}, error) {
+func (p *Provider) GetCredentials(_ map[string]string) (interface{}, error) {
 	return nil, nil
 }
 

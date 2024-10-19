@@ -53,6 +53,9 @@ func GetEngine(engine string) (common.Engine, *common.HTTPError) {
 type testEngine struct{}
 
 func (eng *testEngine) GenerateOutput(ctx context.Context, tree *common.Vertex, params map[string]string) ([]byte, error) {
+	if params == nil {
+		params = make(map[string]string)
+	}
 	params[common.KeySkipReload] = ""
 	return slurm.GenerateOutput(ctx, tree, params)
 }

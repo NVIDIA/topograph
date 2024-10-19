@@ -47,14 +47,16 @@ type Creds struct {
 }
 
 func getToken() (string, error) {
-	req, err := http.NewRequest("PUT", IMDS_TOKEN_URL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create HTTP request: %v", err)
-	}
+	var f utils.HttpRequestFunc = (func() (*http.Request, error) {
+		req, err := http.NewRequest("PUT", IMDS_TOKEN_URL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+		}
+		req.Header.Add("X-aws-ec2-metadata-token-ttl-seconds", "21600")
+		return req, nil
+	})
 
-	req.Header.Add("X-aws-ec2-metadata-token-ttl-seconds", "21600")
-
-	_, data, err := utils.HttpRequest(req)
+	_, data, err := utils.HttpRequest(f)
 	if err != nil {
 		return "", fmt.Errorf("failed to send HTTP request: %v", err)
 	}
@@ -79,17 +81,19 @@ func getMetadata(path string) ([]byte, error) {
 	url := fmt.Sprintf("%s/%s", IMDS_URL, path)
 	klog.V(4).Infof("Requesting URL %s", url)
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+	var f utils.HttpRequestFunc = func() (*http.Request, error) {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+		}
+		err = addToken(req)
+		if err != nil {
+			return nil, err
+		}
+		return req, nil
 	}
 
-	err = addToken(req)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, data, err := utils.HttpRequest(req)
+	resp, data, err := utils.HttpRequest(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send HTTP request: %v", err)
 	}

@@ -25,7 +25,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var configTemplate = `
+const (
+	credentials = `
+access_key_id: id
+secret_access_key: key
+`
+
+	configTemplate = `
 http:
   port: 49021
   ssl: true
@@ -34,10 +40,12 @@ ssl:
   cert: %s
   key: %s
   ca_cert: %s
+credentials_path: %s
 env:
   SLURM_CONF: /etc/slurm/config.yaml
   PATH: /a/b/c
 `
+)
 
 func TestConfig(t *testing.T) {
 	file, err := os.CreateTemp("", "test-cfg-*.yml")
@@ -60,7 +68,16 @@ func TestConfig(t *testing.T) {
 	defer func() { _ = os.Remove(caCert.Name()) }()
 	defer func() { _ = caCert.Close() }()
 
-	_, err = file.WriteString(fmt.Sprintf(configTemplate, cert.Name(), key.Name(), caCert.Name()))
+	creds, err := os.CreateTemp("", "test-creds-*.yml")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(creds.Name()) }()
+	defer func() { _ = creds.Close() }()
+	credsPath := creds.Name()
+
+	_, err = creds.WriteString(credentials)
+	require.NoError(t, err)
+
+	_, err = file.WriteString(fmt.Sprintf(configTemplate, cert.Name(), key.Name(), caCert.Name(), creds.Name()))
 	require.NoError(t, err)
 
 	cfg, err := NewFromFile(file.Name())
@@ -77,6 +94,8 @@ func TestConfig(t *testing.T) {
 			Key:    key.Name(),
 			CaCert: caCert.Name(),
 		},
+		CredsPath:   &credsPath,
+		Credentials: map[string]string{"access_key_id": "id", "secret_access_key": "key"},
 		Env: map[string]string{
 			"SLURM_CONF": "/etc/slurm/config.yaml",
 			"PATH":       "/a/b/c",

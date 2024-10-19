@@ -17,7 +17,9 @@
 package node_observer
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -25,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
 type Controller struct {
@@ -35,24 +38,29 @@ type Controller struct {
 }
 
 func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
-	req, err := http.NewRequest("POST", cfg.TopologyGeneratorURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+	var f utils.HttpRequestFunc = func() (*http.Request, error) {
+		params := map[string]string{
+			common.KeyTopoConfigPath:         cfg.TopologyConfigmap.Filename,
+			common.KeyTopoConfigmapName:      cfg.TopologyConfigmap.Name,
+			common.KeyTopoConfigmapNamespace: cfg.TopologyConfigmap.Namespace,
+		}
+		payload := common.NewTopologyRequest(cfg.Provider, nil, cfg.Engine, params)
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse payload: %v", err)
+		}
+		req, err := http.NewRequest("POST", cfg.TopologyGeneratorURL, bytes.NewBuffer(data))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
 	}
-
-	q := req.URL.Query()
-	q.Add(common.KeyProvider, cfg.Provider)
-	q.Add(common.KeyEngine, cfg.Engine)
-	q.Add(common.KeyTopoConfigPath, cfg.TopologyConfigmap.Filename)
-	q.Add(common.KeyTopoConfigmapName, cfg.TopologyConfigmap.Name)
-	q.Add(common.KeyTopoConfigmapNamespace, cfg.TopologyConfigmap.Namespace)
-	req.URL.RawQuery = q.Encode()
-
 	return &Controller{
 		ctx:          ctx,
 		client:       client,
 		cfg:          cfg,
-		nodeInformer: NewNodeInformer(ctx, client, cfg.NodeLabels, req),
+		nodeInformer: NewNodeInformer(ctx, client, cfg.NodeLabels, f),
 	}, nil
 }
 

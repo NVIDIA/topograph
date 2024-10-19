@@ -26,14 +26,18 @@ func TestPayload(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
-		payload *Payload
+		payload *TopologyRequest
 		print   string
 		err     string
 	}{
 		{
 			name:    "Case 1: no input",
-			payload: &Payload{},
-			print: `Payload:
+			payload: &TopologyRequest{},
+			print: `TopologyRequest:
+  Provider: 
+  Credentials: 
+  Engine: 
+  Parameters: map[]
   Nodes: []
 `,
 		},
@@ -43,36 +47,26 @@ func TestPayload(t *testing.T) {
   "nodes": 5
 }
 `,
-			err: "failed to parse payload: json: cannot unmarshal number into Go struct field Payload.nodes of type []common.ComputeInstances",
+			err: "failed to parse payload: json: cannot unmarshal number into Go struct field TopologyRequest.nodes of type []common.ComputeInstances",
 		},
 		{
-			name: "Case 3: invalid creds",
+			name: "Case 3: valid input",
 			input: `
 {
-  "nodes": [
-    {
-      "region": "region1",
-      "instances": {
-        "instance1": "node1",
-        "instance2": "node2",
-        "instance3": "node3"
-      }
-    }
-  ],
-  "creds": {
-    "aws": {
+  "provider": {
+    "name": "aws",
+	"creds": {
       "access_key_id": "id",
-      "token": "token"
+      "secret_access_key": "secret"
     }
-  }
-}
-`,
-			err: "invalid payload: must provide access_key_id and secret_access_key for AWS",
-		},
-		{
-			name: "Case 4: valid input",
-			input: `
-{
+  },
+  "engine": {
+    "name": "slurm",
+	"params": {
+	  "plugin": "topology/block",
+	  "block_sizes": "30,120"
+	}
+  },
   "nodes": [
     {
       "region": "region1",
@@ -90,16 +84,24 @@ func TestPayload(t *testing.T) {
         "instance6": "node6"
       }
     }
-  ],
-  "creds": {
-    "aws": {
-      "access_key_id": "id",
-      "secret_access_key": "secret"
-    }
-  }
+  ]
 }
 `,
-			payload: &Payload{
+			payload: &TopologyRequest{
+				Provider: provider{
+					Name: "aws",
+					Creds: map[string]string{
+						"access_key_id":     "id",
+						"secret_access_key": "secret",
+					},
+				},
+				Engine: engine{
+					Name: "slurm",
+					Params: map[string]string{
+						"plugin":      "topology/block",
+						"block_sizes": "30,120",
+					},
+				},
 				Nodes: []ComputeInstances{
 					{
 						Region: "region1",
@@ -118,24 +120,20 @@ func TestPayload(t *testing.T) {
 						},
 					},
 				},
-				Creds: &Credentials{
-					AWS: &AWSCredentials{
-						AccessKeyId:     "id",
-						SecretAccessKey: "secret",
-					},
-				},
 			},
-			print: `Payload:
+			print: `TopologyRequest:
+  Provider: aws
+  Credentials: access_key_id=***,secret_access_key=***,
+  Engine: slurm
+  Parameters: map[block_sizes:30,120 plugin:topology/block]
   Nodes: [{region1 map[instance1:node1 instance2:node2 instance3:node3]} {region2 map[instance4:node4 instance5:node5 instance6:node6]}]
-  Credentials:
-    AWS: AccessKeyID=*** SecretAccessKey=*** SessionToken=
 `,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			payload, err := GetPayload([]byte(tc.input))
+			payload, err := GetTopologyRequest([]byte(tc.input))
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
+	"github.com/NVIDIA/topograph/pkg/providers/baremetal"
 	"github.com/NVIDIA/topograph/pkg/providers/cw"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
@@ -44,6 +45,8 @@ func GetProvider(provider string) (common.Provider, *common.HTTPError) {
 		prv, err = oci.GetProvider()
 	case common.ProviderCW:
 		prv, err = cw.GetProvider()
+	case common.ProviderBM:
+		prv, err = baremetal.GetProvider()
 	case common.ProviderTest:
 		prv = GetTestProvider()
 	default:
@@ -69,7 +72,7 @@ func GetTestProvider() *testProvider {
 	return p
 }
 
-func (p *testProvider) GetCredentials(_ *common.Credentials) (interface{}, error) {
+func (p *testProvider) GetCredentials(_ map[string]string) (interface{}, error) {
 	return nil, nil
 }
 
