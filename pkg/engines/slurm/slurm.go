@@ -30,14 +30,12 @@ import (
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
-const (
-	TopoTreeHeader = `
+const TopologyHeader = `
 ###############################################################
 # Slurm's network topology configuration file for use with the
-# topology/tree plugin
+# %s plugin
 ###############################################################
 `
-)
 
 type SlurmEngine struct{}
 
@@ -76,7 +74,16 @@ func GenerateOutput(ctx context.Context, tree *common.Vertex, params map[string]
 	path := params[common.KeyTopoConfigPath]
 
 	if len(path) != 0 {
-		buf.WriteString(TopoTreeHeader)
+		var plugin string
+		if len(tree.Metadata) != 0 {
+			plugin = tree.Metadata[common.KeyPlugin]
+		}
+		if len(plugin) == 0 {
+			plugin = common.ValTopologyTree
+		}
+		if _, err := buf.WriteString(fmt.Sprintf(TopologyHeader, plugin)); err != nil {
+			return nil, err
+		}
 	}
 
 	err := translate.ToSLURM(buf, tree)

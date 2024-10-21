@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/utils"
 	"strconv"
 	"strings"
+
+	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
 // domain contains map of each domainID(clusterUUID) -> list of nodeNames in that domain
@@ -84,9 +85,9 @@ func toGraph(domainMap map[string]domain) *common.Vertex {
 		root.Vertices[domainName] = tree
 	}
 	// add root metadata
-	root.Metadata["engine"] = "slurm"
-	root.Metadata["plugin"] = "topology/block"
-	root.Metadata["blocksize"] = strconv.Itoa(blockSize)
+	root.Metadata[common.KeyEngine] = common.EngineSLURM
+	root.Metadata[common.KeyPlugin] = common.ValTopologyBlock
+	root.Metadata[common.KeyBlockSizes] = strconv.Itoa(blockSize)
 	return root
 }
 

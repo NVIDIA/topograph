@@ -67,7 +67,7 @@ type testProvider struct {
 
 func GetTestProvider() *testProvider {
 	p := &testProvider{}
-	p.tree, p.instance2node = translate.GetTestSet(false)
+	p.tree, p.instance2node = translate.GetTreeTestSet(false)
 
 	return p
 }
