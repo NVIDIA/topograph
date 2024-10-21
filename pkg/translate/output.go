@@ -27,6 +27,28 @@ import (
 )
 
 func ToSLURM(wr io.Writer, root *common.Vertex) error {
+	if len(root.Metadata) != 0 && root.Metadata[common.KeyPlugin] == common.ValTopologyBlock {
+		return toBlockSLURM(wr, root, root.Metadata[common.KeyBlockSizes])
+	}
+	return toTreeSLURM(wr, root)
+}
+
+func toBlockSLURM(wr io.Writer, root *common.Vertex, blocksizes string) error {
+	for _, block := range root.Vertices {
+		nodes := make([]string, 0, len(block.Vertices))
+		for _, node := range block.Vertices {
+			nodes = append(nodes, node.Name)
+		}
+		_, err := wr.Write([]byte(fmt.Sprintf("BlockName=%s Nodes=%s\n", block.ID, strings.Join(compress(nodes), ","))))
+		if err != nil {
+			return err
+		}
+	}
+	_, err := wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blocksizes)))
+	return err
+}
+
+func toTreeSLURM(wr io.Writer, root *common.Vertex) error {
 	visited := make(map[string]bool)
 	leaves := make(map[string][]string)
 	parents := []*common.Vertex{}
@@ -197,7 +219,7 @@ func split(input string) (string, string) {
 	return input[:i], input[i:]
 }
 
-func GetTestSet(testForLongLabelName bool) (*common.Vertex, map[string]string) {
+func GetTreeTestSet(testForLongLabelName bool) (*common.Vertex, map[string]string) {
 	var s3name string
 	if testForLongLabelName {
 		s3name = "S3very-very-long-id-to-check-label-value-limits-of-63-characters"
@@ -232,6 +254,41 @@ func GetTestSet(testForLongLabelName bool) (*common.Vertex, map[string]string) {
 	}
 	root := &common.Vertex{
 		Vertices: map[string]*common.Vertex{"S1": sw1},
+	}
+
+	return root, instance2node
+}
+
+func GetBlockTestSet() (*common.Vertex, map[string]string) {
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105", "I16": "Node106",
+		"I21": "Node201", "I22": "Node202", "I25": "Node205",
+	}
+
+	n14 := &common.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &common.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &common.Vertex{ID: "I16", Name: "Node106"}
+
+	n21 := &common.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &common.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &common.Vertex{ID: "I25", Name: "Node205"}
+
+	block1 := &common.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	block2 := &common.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"B1": block1, "B2": block2},
+		Metadata: map[string]string{
+			common.KeyEngine:     common.EngineSLURM,
+			common.KeyPlugin:     common.ValTopologyBlock,
+			common.KeyBlockSizes: "8",
+		},
 	}
 
 	return root, instance2node

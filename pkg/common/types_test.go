@@ -98,8 +98,8 @@ func TestPayload(t *testing.T) {
 				Engine: engine{
 					Name: "slurm",
 					Params: map[string]string{
-						"plugin":      "topology/block",
-						"block_sizes": "30,120",
+						KeyPlugin:     ValTopologyBlock,
+						KeyBlockSizes: "30,120",
 					},
 				},
 				Nodes: []ComputeInstances{

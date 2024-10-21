@@ -24,6 +24,7 @@ const (
 	ProviderBM   = "baremetal"
 	ProviderTest = "test"
 
+	KeyEngine   = "engine"
 	EngineSLURM = "slurm"
 	EngineK8S   = "k8s"
 	EngineTest  = "test"
@@ -32,5 +33,10 @@ const (
 	KeyTopoConfigPath         = "topology_config_path"
 	KeyTopoConfigmapName      = "topology_configmap_name"
 	KeyTopoConfigmapNamespace = "topology_configmap_namespace"
+	KeyBlockSizes             = "block_sizes"
 	KeySkipReload             = "skip_reload"
+
+	KeyPlugin        = "plugin"
+	ValTopologyTree  = "topology/tree"
+	ValTopologyBlock = "topology/block"
 )

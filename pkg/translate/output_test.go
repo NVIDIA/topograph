@@ -25,15 +25,26 @@ import (
 )
 
 const (
-	testConfig1 = `SwitchName=S1 Switches=S[2-3]
+	testTreeConfig1 = `SwitchName=S1 Switches=S[2-3]
 SwitchName=S2 Nodes=Node[201-202],Node205
 SwitchName=S3 Nodes=Node[304-306]
 `
 
-	testConfig2 = `SwitchName=S1 Switches=S[2-3]
+	testTreeConfig2 = `SwitchName=S1 Switches=S[2-3]
 SwitchName=S3 Nodes=Node[304-306]
 SwitchName=S2 Nodes=Node[201-202],Node205
 `
+
+	testBlockConfig1 = `BlockName=B1 Nodes=Node[104-106]
+BlockName=B2 Nodes=Node[201-202],Node205
+BlockSizes=8
+`
+
+	testBlockConfig2 = `BlockName=B2 Nodes=Node[201-202],Node205
+BlockName=B1 Nodes=Node[104-106]
+BlockSizes=8
+`
+
 	shortNameExpectedResult = `# switch.3.1=hpcislandid-1
 SwitchName=switch.3.1 Switches=switch.2.[1-2]
 # switch.2.1=network-block-1
@@ -47,13 +58,26 @@ SwitchName=switch.1.2 Nodes=node-2
 `
 )
 
-func TestToSLURM(t *testing.T) {
-	v, _ := GetTestSet(false)
+func TestToTreeSLURM(t *testing.T) {
+	v, _ := GetTreeTestSet(false)
 	buf := &bytes.Buffer{}
 	err := ToSLURM(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
-	case testConfig1, testConfig2:
+	case testTreeConfig1, testTreeConfig2:
+		// nop
+	default:
+		t.Errorf("unexpected result %s", buf.String())
+	}
+}
+
+func TestToBlockSLURM(t *testing.T) {
+	v, _ := GetBlockTestSet()
+	buf := &bytes.Buffer{}
+	err := ToSLURM(buf, v)
+	require.NoError(t, err)
+	switch buf.String() {
+	case testBlockConfig1, testBlockConfig2:
 		// nop
 	default:
 		t.Errorf("unexpected result %s", buf.String())
