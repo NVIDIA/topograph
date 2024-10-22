@@ -34,7 +34,15 @@ func ToSLURM(wr io.Writer, root *common.Vertex) error {
 }
 
 func toBlockSLURM(wr io.Writer, root *common.Vertex, blocksizes string) error {
-	for _, block := range root.Vertices {
+	// sort the IDs
+	keys := make([]string, 0, len(root.Vertices))
+	for key := range root.Vertices {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		block := root.Vertices[key]
 		nodes := make([]string, 0, len(block.Vertices))
 		for _, node := range block.Vertices {
 			nodes = append(nodes, node.Name)
@@ -62,7 +70,16 @@ func toTreeSLURM(wr io.Writer, root *common.Vertex) error {
 			parents = append(parents, v)
 		}
 		idToName[v.ID] = v.Name
-		for _, w := range v.Vertices {
+
+		// sort the IDs
+		keys := make([]string, 0, len(v.Vertices))
+		for key := range v.Vertices {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			w := v.Vertices[key]
 			if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
 				_, ok := leaves[v.ID]
 				if !ok {
@@ -84,8 +101,16 @@ func toTreeSLURM(wr io.Writer, root *common.Vertex) error {
 			}
 		}
 	}
+
+	// sort leaves IDs
+	ids := make([]string, 0, len(leaves))
+	for id := range leaves {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
 	var comment, switchName string
-	for sw, nodes := range leaves {
+	for _, sw := range ids {
+		nodes := leaves[sw]
 		if idToName[sw] != "" {
 			comment = fmt.Sprintf("# %s=%s\n", idToName[sw], sw)
 			switchName = idToName[sw]
