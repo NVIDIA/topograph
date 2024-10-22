@@ -64,6 +64,19 @@ func TestToBlockSLURM(t *testing.T) {
 	require.Equal(t, testBlockConfig, buf.String())
 }
 
+func TestToBlockIBSLURM(t *testing.T) {
+	v, _ := GetBlockWithIBTestSet()
+	buf := &bytes.Buffer{}
+	err := ToSLURM(buf, v)
+	require.NoError(t, err)
+	switch buf.String() {
+	case testBlockConfig1:
+		// nop
+	default:
+		t.Errorf("unexpected result %s", buf.String())
+	}
+}
+
 func TestToSlurmNameShortener(t *testing.T) {
 	v := &common.Vertex{
 		Vertices: map[string]*common.Vertex{

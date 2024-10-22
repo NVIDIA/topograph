@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/ib"
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
@@ -34,6 +34,20 @@ func domainIDExists(id string, domainMap map[string]domain) bool {
 		return true
 	}
 	return false
+}
+
+func getIbOutput(ctx context.Context, nodes []string) ([]byte, error) {
+	for _, node := range nodes {
+		args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
+		stdout, err := utils.Exec(ctx, "pdsh", args, nil)
+		if err != nil {
+			return nil, fmt.Errorf("Exec error while pdsh IB command\n")
+		}
+		if strings.Contains(stdout.String(), "Topology file:") {
+			return stdout.Bytes(), err
+		}
+	}
+	return nil, fmt.Errorf("No IB network found\n")
 }
 
 // getClusterOutput reads output from nodeInfo and populates the structs
@@ -63,12 +77,16 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 	}
 	return nil
 }
-func toGraph(domainMap map[string]domain) *common.Vertex {
+func toGraph(domainMap map[string]domain, treeRoot *common.Vertex) *common.Vertex {
 	root := &common.Vertex{
 		Vertices: make(map[string]*common.Vertex),
 		Metadata: make(map[string]string),
 	}
-	blockSize := -1
+	blockRoot := &common.Vertex{
+		Vertices: make(map[string]*common.Vertex),
+		Metadata: make(map[string]string),
+	}
+	root.Vertices[common.ValTopologyTree] = treeRoot
 	for domainName, domain := range domainMap {
 		tree := &common.Vertex{
 			ID:       domainName,
@@ -76,18 +94,13 @@ func toGraph(domainMap map[string]domain) *common.Vertex {
 		}
 		for node := range domain.nodeMap {
 			tree.Vertices[node] = &common.Vertex{Name: node, ID: node}
-			if blockSize == -1 {
-				blockSize = len(domain.nodeMap)
-			} else {
-				fmt.Printf("blockSize different between NVL domains")
-			}
 		}
-		root.Vertices[domainName] = tree
+		blockRoot.Vertices[domainName] = tree
 	}
 	// add root metadata
 	root.Metadata[common.KeyEngine] = common.EngineSLURM
 	root.Metadata[common.KeyPlugin] = common.ValTopologyBlock
-	root.Metadata[common.KeyBlockSizes] = strconv.Itoa(blockSize)
+	root.Vertices[common.ValTopologyBlock] = blockRoot
 	return root
 }
 
@@ -98,5 +111,14 @@ func generateTopologyConfig(ctx context.Context, cis []common.ComputeInstances) 
 	if err != nil {
 		return nil, fmt.Errorf("getClusterOutput failed: %v\n", err)
 	}
-	return toGraph(domainMap), nil
+	// get ibnetdiscover output from 1st node
+	ibnetdiscoverOutput, err := getIbOutput(ctx, nodes)
+	if err != nil {
+		return nil, fmt.Errorf("getIbOutput failed: %v\n", err)
+	}
+	treeRoot, err := ib.GenerateTopologyConfig(ibnetdiscoverOutput)
+	if err != nil {
+		return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v\n", err)
+	}
+	return toGraph(domainMap, treeRoot), nil
 }

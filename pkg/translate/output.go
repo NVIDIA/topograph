@@ -28,31 +28,100 @@ import (
 
 func ToSLURM(wr io.Writer, root *common.Vertex) error {
 	if len(root.Metadata) != 0 && root.Metadata[common.KeyPlugin] == common.ValTopologyBlock {
-		return toBlockSLURM(wr, root, root.Metadata[common.KeyBlockSizes])
+		return toBlockSLURM(wr, root)
 	}
 	return toTreeSLURM(wr, root)
 }
 
-func toBlockSLURM(wr io.Writer, root *common.Vertex, blocksizes string) error {
-	// sort the IDs
-	keys := make([]string, 0, len(root.Vertices))
-	for key := range root.Vertices {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		block := root.Vertices[key]
+func printBlock(wr io.Writer, block *common.Vertex, domainVisited map[string]int) error {
+	if _, exists := domainVisited[block.ID]; !exists {
 		nodes := make([]string, 0, len(block.Vertices))
-		for _, node := range block.Vertices {
+		for _, node := range block.Vertices { //nodes within each domain
 			nodes = append(nodes, node.Name)
 		}
 		_, err := wr.Write([]byte(fmt.Sprintf("BlockName=%s Nodes=%s\n", block.ID, strings.Join(compress(nodes), ","))))
 		if err != nil {
 			return err
 		}
+		domainVisited[block.ID] = len(nodes)
 	}
-	_, err := wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blocksizes)))
+	return nil
+}
+
+func findBlock(wr io.Writer, nodename string, root *common.Vertex, domainVisited map[string]int) error { // blockRoot
+	for _, block := range root.Vertices {
+		if _, exists := block.Vertices[nodename]; exists {
+			return printBlock(wr, block, domainVisited)
+		}
+	}
+	return nil
+}
+
+func printDisconnectedBlocks(wr io.Writer, root *common.Vertex, domainVisited map[string]int) error {
+	for _, block := range root.Vertices {
+		err := printBlock(wr, block, domainVisited)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func verifyBlockSize(domainVisited map[string]int) int {
+	blockSize := -1
+	for _, bSize := range domainVisited {
+		if blockSize == -1 {
+			blockSize = bSize
+		} else if blockSize != bSize {
+			fmt.Printf("Alert! blockSize different between NVL domains")
+		}
+	}
+	return blockSize
+}
+
+func toBlockSLURM(wr io.Writer, root *common.Vertex) error {
+	// traverse tree topology and when a node is reached, check within blockRoot for domain and print that domain.
+	// keep a map of which domain has been printed
+	treeRoot := root.Vertices[common.ValTopologyTree]
+	blockRoot := root.Vertices[common.ValTopologyBlock]
+	visited := make(map[string]bool)
+	queue := []*common.Vertex{treeRoot}
+	domainVisited := make(map[string]int)
+
+	if treeRoot != nil {
+		for len(queue) > 0 {
+			v := queue[0]
+			queue = queue[1:]
+
+			// sort the IDs
+			keys := make([]string, 0, len(v.Vertices))
+			for key := range v.Vertices {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				w := v.Vertices[key]
+				if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
+					err := findBlock(wr, w.Name, blockRoot, domainVisited)
+					if err != nil {
+						return err
+					}
+				} else if !visited[w.ID] {
+					queue = append(queue, w)
+					visited[w.ID] = true
+				}
+			}
+		}
+	}
+	err := printDisconnectedBlocks(wr, blockRoot, domainVisited)
+	if err != nil {
+		return err
+	}
+	blockSize := strconv.Itoa(verifyBlockSize(domainVisited))
+	if _, exists := root.Metadata[common.KeyBlockSizes]; exists {
+		blockSize = root.Metadata[common.KeyBlockSizes]
+	}
+	_, err = wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blockSize)))
 	return err
 }
 
@@ -284,6 +353,60 @@ func GetTreeTestSet(testForLongLabelName bool) (*common.Vertex, map[string]strin
 	return root, instance2node
 }
 
+func GetBlockWithIBTestSet() (*common.Vertex, map[string]string) {
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105", "I16": "Node106",
+		"I21": "Node201", "I22": "Node202", "I25": "Node205",
+	}
+
+	n14 := &common.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &common.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &common.Vertex{ID: "I16", Name: "Node106"}
+
+	n21 := &common.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &common.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &common.Vertex{ID: "I25", Name: "Node205"}
+
+	sw2 := &common.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	sw3 := &common.Vertex{
+		ID:       "S3",
+		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+	sw1 := &common.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*common.Vertex{"S2": sw2, "S3": sw3},
+	}
+	treeRoot := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"S1": sw1},
+	}
+
+	block1 := &common.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	block2 := &common.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+
+	blockRoot := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"B1": block1, "B2": block2},
+	}
+
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+		Metadata: map[string]string{
+			common.KeyEngine:     common.EngineSLURM,
+			common.KeyPlugin:     common.ValTopologyBlock,
+			common.KeyBlockSizes: "8",
+		},
+	}
+	return root, instance2node
+}
+
 func GetBlockTestSet() (*common.Vertex, map[string]string) {
 	instance2node := map[string]string{
 		"I14": "Node104", "I15": "Node105", "I16": "Node106",
@@ -307,14 +430,17 @@ func GetBlockTestSet() (*common.Vertex, map[string]string) {
 		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
 
-	root := &common.Vertex{
+	blockRoot := &common.Vertex{
 		Vertices: map[string]*common.Vertex{"B1": block1, "B2": block2},
+	}
+
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot},
 		Metadata: map[string]string{
 			common.KeyEngine:     common.EngineSLURM,
 			common.KeyPlugin:     common.ValTopologyBlock,
 			common.KeyBlockSizes: "8",
 		},
 	}
-
 	return root, instance2node
 }
