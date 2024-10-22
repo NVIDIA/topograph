@@ -35,7 +35,7 @@ BlockName=B2 Nodes=Node[201-202],Node205
 BlockSizes=8
 `
 
-	testBlockConfig3 = `BlockName=B3 Nodes=Node[301-303]
+	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
 BlockName=B4 Nodes=Node[401-403]
 BlockName=B1 Nodes=Node[104-106]
 BlockName=B2 Nodes=Node[201-202],Node205
@@ -76,7 +76,7 @@ func TestToBlockMultiIBSLURM(t *testing.T) {
 	err := ToSLURM(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
-	case testBlockConfig3:
+	case testBlockConfig2:
 		// nop
 	default:
 		t.Errorf("unexpected result %s", buf.String())
@@ -89,7 +89,7 @@ func TestToBlockIBSLURM(t *testing.T) {
 	err := ToSLURM(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
-	case testBlockConfig1:
+	case testBlockConfig:
 		// nop
 	default:
 		t.Errorf("unexpected result %s", buf.String())
