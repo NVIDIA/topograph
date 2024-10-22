@@ -25,23 +25,13 @@ import (
 )
 
 const (
-	testTreeConfig1 = `SwitchName=S1 Switches=S[2-3]
+	testTreeConfig = `SwitchName=S1 Switches=S[2-3]
 SwitchName=S2 Nodes=Node[201-202],Node205
 SwitchName=S3 Nodes=Node[304-306]
 `
 
-	testTreeConfig2 = `SwitchName=S1 Switches=S[2-3]
-SwitchName=S3 Nodes=Node[304-306]
-SwitchName=S2 Nodes=Node[201-202],Node205
-`
-
-	testBlockConfig1 = `BlockName=B1 Nodes=Node[104-106]
+	testBlockConfig = `BlockName=B1 Nodes=Node[104-106]
 BlockName=B2 Nodes=Node[201-202],Node205
-BlockSizes=8
-`
-
-	testBlockConfig2 = `BlockName=B2 Nodes=Node[201-202],Node205
-BlockName=B1 Nodes=Node[104-106]
 BlockSizes=8
 `
 
@@ -63,12 +53,7 @@ func TestToTreeSLURM(t *testing.T) {
 	buf := &bytes.Buffer{}
 	err := ToSLURM(buf, v)
 	require.NoError(t, err)
-	switch buf.String() {
-	case testTreeConfig1, testTreeConfig2:
-		// nop
-	default:
-		t.Errorf("unexpected result %s", buf.String())
-	}
+	require.Equal(t, testTreeConfig, buf.String())
 }
 
 func TestToBlockSLURM(t *testing.T) {
@@ -76,12 +61,7 @@ func TestToBlockSLURM(t *testing.T) {
 	buf := &bytes.Buffer{}
 	err := ToSLURM(buf, v)
 	require.NoError(t, err)
-	switch buf.String() {
-	case testBlockConfig1, testBlockConfig2:
-		// nop
-	default:
-		t.Errorf("unexpected result %s", buf.String())
-	}
+	require.Equal(t, testBlockConfig, buf.String())
 }
 
 func TestToSlurmNameShortener(t *testing.T) {

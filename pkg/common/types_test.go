@@ -35,10 +35,10 @@ func TestPayload(t *testing.T) {
 			payload: &TopologyRequest{},
 			print: `TopologyRequest:
   Provider: 
-  Credentials: 
+  Credentials: []
   Engine: 
-  Parameters: map[]
-  Nodes: []
+  Parameters: []
+  Nodes: 
 `,
 		},
 		{
@@ -123,10 +123,10 @@ func TestPayload(t *testing.T) {
 			},
 			print: `TopologyRequest:
   Provider: aws
-  Credentials: access_key_id=***,secret_access_key=***,
+  Credentials: [access_key_id:*** secret_access_key:***]
   Engine: slurm
-  Parameters: map[block_sizes:30,120 plugin:topology/block]
-  Nodes: [{region1 map[instance1:node1 instance2:node2 instance3:node3]} {region2 map[instance4:node4 instance5:node5 instance6:node6]}]
+  Parameters: [block_sizes:30,120 plugin:topology/block]
+  Nodes: region1: [instance1:node1 instance2:node2 instance3:node3] region2: [instance4:node4 instance5:node5 instance6:node6] 
 `,
 		},
 	}

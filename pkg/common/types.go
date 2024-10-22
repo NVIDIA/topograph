@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -106,15 +107,14 @@ func (p *TopologyRequest) String() string {
 	var sb strings.Builder
 	sb.WriteString("TopologyRequest:\n")
 	sb.WriteString(fmt.Sprintf("  Provider: %s\n", p.Provider.Name))
-	sb.WriteString("  Credentials: ")
-	for key := range p.Provider.Creds {
-		sb.WriteString(fmt.Sprintf("%s=***,", key))
+	sb.WriteString(map2string(p.Provider.Creds, "  Credentials", true, "\n"))
+	sb.WriteString(fmt.Sprintf("  Engine: %s\n", p.Engine.Name))
+	sb.WriteString(map2string(p.Engine.Params, "  Parameters", false, "\n"))
+	sb.WriteString("  Nodes: ")
+	for _, nodes := range p.Nodes {
+		sb.WriteString(map2string(nodes.Instances, nodes.Region, false, " "))
 	}
 	sb.WriteString("\n")
-	sb.WriteString(fmt.Sprintf("  Engine: %s\n", p.Engine.Name))
-	sb.WriteString(fmt.Sprintf("  Parameters: %v\n", p.Engine.Params))
-	sb.WriteString(fmt.Sprintf("  Nodes: %s\n", p.Nodes))
-
 	return sb.String()
 }
 
@@ -130,4 +130,30 @@ func GetTopologyRequest(body []byte) (*TopologyRequest, error) {
 	}
 
 	return &payload, nil
+}
+
+func map2string(m map[string]string, prefix string, hide bool, suffix string) string {
+	var sb strings.Builder
+	sb.WriteString(prefix)
+	sb.WriteString(": [")
+	if n := len(m); n != 0 {
+		keys := make([]string, 0, n)
+		for key := range m {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		terms := make([]string, 0, n)
+		for _, key := range keys {
+			if hide {
+				terms = append(terms, fmt.Sprintf("%s:***", key))
+			} else {
+				terms = append(terms, fmt.Sprintf("%s:%s", key, m[key]))
+			}
+		}
+		sb.WriteString(strings.Join(terms, " "))
+	}
+	sb.WriteString("]")
+	sb.WriteString(suffix)
+
+	return sb.String()
 }
