@@ -102,7 +102,7 @@ func toBlockSLURM(wr io.Writer, root *common.Vertex) error {
 			for _, key := range keys {
 				w := v.Vertices[key]
 				if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
-					err := findBlock(wr, w.Name, blockRoot, domainVisited)
+					err := findBlock(wr, w.ID, blockRoot, domainVisited)
 					if err != nil {
 						return err
 					}
@@ -350,6 +350,98 @@ func GetTreeTestSet(testForLongLabelName bool) (*common.Vertex, map[string]strin
 		Vertices: map[string]*common.Vertex{"S1": sw1},
 	}
 
+	return root, instance2node
+}
+
+func GetBlockWithMultiIBTestSet() (*common.Vertex, map[string]string) {
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105", "I16": "Node106",
+		"I21": "Node201", "I22": "Node202", "I25": "Node205",
+		"I31": "Node301", "I32": "Node302", "I33": "Node303",
+		"I41": "Node401", "I42": "Node402", "I43": "Node403",
+	}
+
+	n14 := &common.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &common.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &common.Vertex{ID: "I16", Name: "Node106"}
+
+	n21 := &common.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &common.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &common.Vertex{ID: "I25", Name: "Node205"}
+
+	n31 := &common.Vertex{ID: "I31", Name: "Node301"}
+	n32 := &common.Vertex{ID: "I32", Name: "Node302"}
+	n33 := &common.Vertex{ID: "I33", Name: "Node303"}
+
+	n41 := &common.Vertex{ID: "I41", Name: "Node401"}
+	n42 := &common.Vertex{ID: "I42", Name: "Node402"}
+	n43 := &common.Vertex{ID: "I43", Name: "Node403"}
+
+	sw5 := &common.Vertex{
+		ID:       "S5",
+		Vertices: map[string]*common.Vertex{"I31": n31, "I32": n32, "I33": n33},
+	}
+	sw6 := &common.Vertex{
+		ID:       "S6",
+		Vertices: map[string]*common.Vertex{"I41": n41, "I42": n42, "I43": n43},
+	}
+	sw4 := &common.Vertex{
+		ID:       "S4",
+		Vertices: map[string]*common.Vertex{"S5": sw5, "S6": sw6},
+	}
+	ibRoot1 := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"S4": sw4},
+	}
+
+	sw2 := &common.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	sw3 := &common.Vertex{
+		ID:       "S3",
+		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+	sw1 := &common.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*common.Vertex{"S2": sw2, "S3": sw3},
+	}
+	ibRoot2 := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"S1": sw1},
+	}
+
+	treeRoot := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"IB1": ibRoot1, "IB2": ibRoot2},
+	}
+
+	block1 := &common.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	block2 := &common.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+	block3 := &common.Vertex{
+		ID:       "B3",
+		Vertices: map[string]*common.Vertex{"I31": n31, "I32": n32, "I33": n33},
+	}
+	block4 := &common.Vertex{
+		ID:       "B4",
+		Vertices: map[string]*common.Vertex{"I41": n41, "I42": n42, "I43": n43},
+	}
+
+	blockRoot := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"B1": block1, "B2": block2, "B3": block3, "B4": block4},
+	}
+
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+		Metadata: map[string]string{
+			common.KeyEngine:     common.EngineSLURM,
+			common.KeyPlugin:     common.ValTopologyBlock,
+			common.KeyBlockSizes: "8",
+		},
+	}
 	return root, instance2node
 }
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/NVIDIA/topograph/pkg/common"
@@ -36,18 +37,36 @@ func domainIDExists(id string, domainMap map[string]domain) bool {
 	return false
 }
 
-func getIbOutput(ctx context.Context, nodes []string) ([]byte, error) {
+func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
+	nodeVisited := make(map[string]bool)
+	treeRoot := &common.Vertex{
+		Vertices: make(map[string]*common.Vertex),
+	}
+	ibPrefix := "IB"
+	ibCount := 0
 	for _, node := range nodes {
-		args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
-		stdout, err := utils.Exec(ctx, "pdsh", args, nil)
-		if err != nil {
-			return nil, fmt.Errorf("Exec error while pdsh IB command\n")
-		}
-		if strings.Contains(stdout.String(), "Topology file:") {
-			return stdout.Bytes(), err
+		if _, exists := nodeVisited[node]; !exists {
+			args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
+			stdout, err := utils.Exec(ctx, "pdsh", args, nil)
+			if err != nil {
+				return nil, fmt.Errorf("Exec error while pdsh IB command\n")
+			}
+			if strings.Contains(stdout.String(), "Topology file:") {
+				_, hca, _ := ib.ParseIbnetdiscoverFile(stdout.Bytes())
+				for _, nodeName := range hca {
+					nodeVisited[nodeName] = true
+				}
+				ibRoot, err := ib.GenerateTopologyConfig(stdout.Bytes())
+				if err != nil {
+					return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v\n", err)
+				}
+				ibCount++
+				ibKey := ibPrefix + strconv.Itoa(ibCount)
+				treeRoot.Vertices[ibKey] = ibRoot
+			}
 		}
 	}
-	return nil, fmt.Errorf("No IB network found\n")
+	return treeRoot, nil
 }
 
 // getClusterOutput reads output from nodeInfo and populates the structs
@@ -84,7 +103,6 @@ func toGraph(domainMap map[string]domain, treeRoot *common.Vertex) *common.Verte
 	}
 	blockRoot := &common.Vertex{
 		Vertices: make(map[string]*common.Vertex),
-		Metadata: make(map[string]string),
 	}
 	root.Vertices[common.ValTopologyTree] = treeRoot
 	for domainName, domain := range domainMap {
@@ -111,14 +129,10 @@ func generateTopologyConfig(ctx context.Context, cis []common.ComputeInstances) 
 	if err != nil {
 		return nil, fmt.Errorf("getClusterOutput failed: %v\n", err)
 	}
-	// get ibnetdiscover output from 1st node
-	ibnetdiscoverOutput, err := getIbOutput(ctx, nodes)
+	// get ibnetdiscover output from all unvisited nodes
+	treeRoot, err := getIbTree(ctx, nodes)
 	if err != nil {
-		return nil, fmt.Errorf("getIbOutput failed: %v\n", err)
-	}
-	treeRoot, err := ib.GenerateTopologyConfig(ibnetdiscoverOutput)
-	if err != nil {
-		return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v\n", err)
+		return nil, fmt.Errorf("getIbTree failed: %v\n", err)
 	}
 	return toGraph(domainMap, treeRoot), nil
 }
