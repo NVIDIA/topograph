@@ -57,8 +57,20 @@ func findBlock(wr io.Writer, nodename string, root *common.Vertex, domainVisited
 	return nil
 }
 
+func sortVertices(root *common.Vertex) []string {
+	// sort the IDs
+	keys := make([]string, 0, len(root.Vertices))
+	for key := range root.Vertices {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func printDisconnectedBlocks(wr io.Writer, root *common.Vertex, domainVisited map[string]int) error {
-	for _, block := range root.Vertices {
+	keys := sortVertices(root)
+	for _, key := range keys {
+		block := root.Vertices[key]
 		err := printBlock(wr, block, domainVisited)
 		if err != nil {
 			return err
@@ -94,11 +106,7 @@ func toBlockSLURM(wr io.Writer, root *common.Vertex) error {
 			queue = queue[1:]
 
 			// sort the IDs
-			keys := make([]string, 0, len(v.Vertices))
-			for key := range v.Vertices {
-				keys = append(keys, key)
-			}
-			sort.Strings(keys)
+			keys := sortVertices(v)
 			for _, key := range keys {
 				w := v.Vertices[key]
 				if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
@@ -141,12 +149,7 @@ func toTreeSLURM(wr io.Writer, root *common.Vertex) error {
 		idToName[v.ID] = v.Name
 
 		// sort the IDs
-		keys := make([]string, 0, len(v.Vertices))
-		for key := range v.Vertices {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-
+		keys := sortVertices(v)
 		for _, key := range keys {
 			w := v.Vertices[key]
 			if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
