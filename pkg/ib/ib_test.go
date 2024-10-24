@@ -332,7 +332,7 @@ Switch	41 "S-b8cef603008032b8"		# "MF0;SJC3-A04-IB-ComputeLeaf-007:MQM8700/U1" e
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			switches, hca, err := parseIbnetdiscoverFile(tt.input)
+			switches, hca, err := ParseIbnetdiscoverFile(tt.input)
 			if (err != nil) != tt.expectedErr {
 				t.Fatalf("expected error: %v, got: %v", tt.expectedErr, err)
 			}
