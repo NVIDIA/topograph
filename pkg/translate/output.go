@@ -85,7 +85,7 @@ func verifyBlockSize(domainVisited map[string]int) int {
 		if blockSize == -1 {
 			blockSize = bSize
 		} else if blockSize != bSize {
-			fmt.Printf("Alert! blockSize different between NVL domains")
+			fmt.Printf("Alert! blockSize different between NVL domains\n")
 		}
 	}
 	return blockSize
