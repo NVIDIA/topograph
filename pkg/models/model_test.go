@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package toposim
+package models
 
 import (
 	"testing"

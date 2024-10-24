@@ -24,19 +24,19 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 
-	mod "github.com/NVIDIA/topograph/pkg/model"
+	"github.com/NVIDIA/topograph/pkg/models"
 	pb "github.com/NVIDIA/topograph/pkg/protos"
 )
 
 type Server struct {
 	pb.UnimplementedTopologyServiceServer
 
-	model  *mod.Model
+	model  *models.Model
 	port   int
 	server *grpc.Server
 }
 
-func NewServer(model *mod.Model, port int) *Server {
+func NewServer(model *models.Model, port int) *Server {
 	return &Server{
 		model: model,
 		port:  port,

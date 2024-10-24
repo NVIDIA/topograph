@@ -27,19 +27,21 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/config"
+	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
 type HttpServer struct {
 	ctx   context.Context
 	cfg   *config.Config
+	model *models.Model
 	srv   *http.Server
 	async *asyncController
 }
 
 var srv *HttpServer
 
-func InitHttpServer(ctx context.Context, cfg *config.Config) {
+func InitHttpServer(ctx context.Context, cfg *config.Config, model *models.Model) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/v1/generate", generate)
@@ -50,6 +52,7 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 	srv = &HttpServer{
 		ctx: ctx,
 		cfg: cfg,
+		model: model,
 		srv: &http.Server{
 			Addr:    fmt.Sprintf(":%d", cfg.HTTP.Port),
 			Handler: mux,
