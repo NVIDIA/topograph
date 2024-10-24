@@ -21,7 +21,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/klog/v2"
+
 	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/baremetal"
 	"github.com/NVIDIA/topograph/pkg/providers/cw"
@@ -48,7 +51,7 @@ func GetProvider(provider string) (common.Provider, *common.HTTPError) {
 	case common.ProviderBM:
 		prv, err = baremetal.GetProvider()
 	case common.ProviderTest:
-		prv = GetTestProvider()
+		prv, err = GetTestProvider()
 	default:
 		return nil, common.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unsupported provider %q", provider))
 	}
@@ -60,16 +63,22 @@ func GetProvider(provider string) (common.Provider, *common.HTTPError) {
 	return prv, nil
 }
 
+var TestModel *models.Model = nil
+
 type testProvider struct {
 	tree          *common.Vertex
 	instance2node map[string]string
 }
 
-func GetTestProvider() *testProvider {
+func GetTestProvider() (*testProvider, error) {
 	p := &testProvider{}
-	p.tree, p.instance2node = translate.GetTreeTestSet(false)
+	if TestModel == nil {
+		klog.Errorf("Test model not initialized")
+		return nil, fmt.Errorf("Test model not initialized")
+	}
+	p.tree, p.instance2node = translate.GetTreeTestSet(TestModel)
 
-	return p
+	return p, nil
 }
 
 func (p *testProvider) GetCredentials(_ map[string]string) (interface{}, error) {

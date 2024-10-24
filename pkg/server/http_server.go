@@ -27,6 +27,7 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/config"
+	"github.com/NVIDIA/topograph/pkg/factory"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
@@ -34,7 +35,6 @@ import (
 type HttpServer struct {
 	ctx   context.Context
 	cfg   *config.Config
-	model *models.Model
 	srv   *http.Server
 	async *asyncController
 }
@@ -52,7 +52,6 @@ func InitHttpServer(ctx context.Context, cfg *config.Config, model *models.Model
 	srv = &HttpServer{
 		ctx: ctx,
 		cfg: cfg,
-		model: model,
 		srv: &http.Server{
 			Addr:    fmt.Sprintf(":%d", cfg.HTTP.Port),
 			Handler: mux,
@@ -61,6 +60,8 @@ func InitHttpServer(ctx context.Context, cfg *config.Config, model *models.Model
 			queue: utils.NewTrailingDelayQueue(processRequest, cfg.RequestAggregationDelay),
 		},
 	}
+
+	factory.TestModel = model
 }
 
 func GetRunGroup() (func() error, func(error)) {
