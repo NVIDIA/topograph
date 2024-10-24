@@ -99,12 +99,31 @@ systemctl disable topograph.service
 systemctl daemon-reload
 ```
 
-#### Testing the Service
-To verify the service is running correctly, you can use the following commands:
+#### Verifying Health
+To verify the service is healthy, you can use the following command:
 
 ```bash
 curl http://localhost:49021/healthz
+```
 
+#### Using Toposim
+To test the service on a simulated cluster, first add the following line to `/etc/topograph/topograph-config.yaml` so that any topology requests are forwarded to toposim.
+```bash
+forward_service_url: dns:localhost:49025
+```
+
+Then run the topograph service with the following commands, choosing any of the available cluster models:
+```bash
+/usr/local/bin/topograph -c /etc/topograph/topograph-config.yaml -m /etc/topograph/tests/models/<cluster-model>.yaml
+```
+
+You must them start the toposim service as such, using the same cluster model:
+```bash
+/usr/local/bin/topograph -m ./tests/models/<cluster-model>.yaml
+```
+
+And you can verify the topology results via the following commands:
+```bash
 id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test"},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
 
 curl -s "http://localhost:49021/v1/topology?uid=$id"
