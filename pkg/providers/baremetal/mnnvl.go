@@ -44,29 +44,113 @@ func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
 	}
 	ibPrefix := "IB"
 	ibCount := 0
-	for _, node := range nodes {
-		if _, exists := nodeVisited[node]; !exists {
-			args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
-			stdout, err := utils.Exec(ctx, "pdsh", args, nil)
-			if err != nil {
-				return nil, fmt.Errorf("Exec error while pdsh IB command\n")
-			}
-			if strings.Contains(stdout.String(), "Topology file:") {
-				_, hca, _ := ib.ParseIbnetdiscoverFile(stdout.Bytes())
-				for _, nodeName := range hca {
-					nodeVisited[nodeName] = true
+	partitionNodeMap := make(map[string][]string)
+	partitionVisitedMap := make(map[string]bool)
+
+	args := []string{"-h"}
+	stdout, err := utils.Exec(ctx, "sinfo", args, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Exec error in sinfo\n")
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		nodeLine := scanner.Text()
+		arr := strings.Fields(nodeLine)
+		if arr[3] == "0" {
+			continue
+		}
+		partitionName := strings.TrimSpace(arr[0])
+		state := strings.TrimSpace(arr[4])
+		nodeList := strings.TrimSpace(arr[5])
+		if strings.HasPrefix(state, "down") || strings.HasSuffix(state, "*") {
+			continue
+		}
+		nodesArr := deCompressNodeNames(nodeList)
+		partitionNodeMap[partitionName] = append(partitionNodeMap[partitionName], nodesArr...)
+	}
+	for pName, nodes := range partitionNodeMap {
+		if _, exists := partitionVisitedMap[pName]; !exists {
+			for _, node := range nodes {
+				if _, exists := nodeVisited[node]; !exists {
+					args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
+					stdout, err := utils.Exec(ctx, "pdsh", args, nil)
+					if err != nil {
+						return nil, fmt.Errorf("Exec error while pdsh IB command\n")
+					}
+					if strings.Contains(stdout.String(), "Topology file:") {
+						_, hca, _ := ib.ParseIbnetdiscoverFile(stdout.Bytes())
+						for _, nodeName := range hca {
+							nodeVisited[nodeName] = true
+						}
+						partitionVisitedMap[pName] = true
+						ibRoot, err := ib.GenerateTopologyConfig(stdout.Bytes())
+						if err != nil {
+							return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v\n", err)
+						}
+						ibCount++
+						ibKey := ibPrefix + strconv.Itoa(ibCount)
+						treeRoot.Vertices[ibKey] = ibRoot
+						break
+					}
+				} else {
+					partitionVisitedMap[pName] = true
 				}
-				ibRoot, err := ib.GenerateTopologyConfig(stdout.Bytes())
-				if err != nil {
-					return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v\n", err)
-				}
-				ibCount++
-				ibKey := ibPrefix + strconv.Itoa(ibCount)
-				treeRoot.Vertices[ibKey] = ibRoot
 			}
 		}
 	}
 	return treeRoot, nil
+}
+
+// deCompressNodeNames returns array of node names
+func deCompressNodeNames(nodeList string) []string {
+	nodeArr := []string{}
+	arr := strings.Split(nodeList, ",")
+	prefix := ""
+	var nodeName string
+	for _, entry := range arr {
+		if strings.Contains(entry, "[") {
+			tuple := strings.Split(entry, "[")
+			prefix = tuple[0]
+			if strings.Contains(tuple[1], "-") {
+				nr := strings.Split(tuple[1], "-")
+				start, _ := strconv.Atoi(nr[0])
+				end, _ := strconv.Atoi(nr[1])
+				for i := start; i <= end; i++ {
+					nodeName = prefix + strconv.Itoa(i)
+					nodeArr = append(nodeArr, nodeName)
+				}
+				continue
+			} else {
+				nv := tuple[1]
+				nodeName = prefix + nv
+			}
+		} else { // no [ means, this could be whole nodename or suffix
+			if len(prefix) > 0 { //prefix exists, so must be a suffix.
+				if strings.HasSuffix(entry, "]") { //if suffix has ], reset prefix
+					nv := strings.Split(entry, "]")
+					nodeName = prefix + nv[0]
+					prefix = ""
+				} else if strings.Contains(entry, "-") { // suffix containing range of nodes
+					nr := strings.Split(entry, "-")
+					start, _ := strconv.Atoi(nr[0])
+					end, _ := strconv.Atoi(nr[1])
+					for i := start; i <= end; i++ {
+						nodeName = prefix + strconv.Itoa(i)
+						nodeArr = append(nodeArr, nodeName)
+					}
+					continue
+				} else {
+					nodeName = prefix + entry
+				}
+			} else { // no prefix yet, must be whole nodename
+				nodeName = entry
+			}
+
+		}
+		nodeArr = append(nodeArr, nodeName)
+	}
+	return nodeArr
 }
 
 // getClusterOutput reads output from nodeInfo and populates the structs
