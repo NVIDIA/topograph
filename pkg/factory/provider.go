@@ -79,7 +79,7 @@ func GetTestProvider(params map[string]string) (*testProvider, error) {
 	} else {
 		model, err := models.NewModelFromFile(modelPath)
 		if err != nil {
-			return nil, err
+			return nil, err // Wrapped by models.NewModelFromFile
 		}
 		p.tree, p.instance2node = model.ToTree()
 	}

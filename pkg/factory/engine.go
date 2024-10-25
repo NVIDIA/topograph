@@ -56,6 +56,13 @@ func (eng *testEngine) GenerateOutput(ctx context.Context, tree *common.Vertex, 
 	if params == nil {
 		params = make(map[string]string)
 	}
+
 	params[common.KeySkipReload] = ""
+	if len(tree.Metadata) == 0 {
+		tree.Metadata = make(map[string]string)
+	}
+
+	tree.Metadata[common.KeyPlugin] = params[common.KeyPlugin]
+	tree.Metadata[common.KeyBlockSizes] = params[common.KeyBlockSizes]
 	return slurm.GenerateOutput(ctx, tree, params)
 }

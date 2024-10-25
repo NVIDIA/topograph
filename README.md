@@ -118,12 +118,21 @@ You must then start the toposim service as such, setting the path to the test mo
 /usr/local/bin/topograph -m /usr/local/bin/tests/models/<cluster-model>.yaml
 ```
 
-You can then verify the topology results via simulation by querying topograph using the `test` provider and engine, and specifying the test model path as a parameter to the provider, as such:
+You can then verify the topology results via simulation by querying topograph using the `test` provider and engine, and specifying the test model path as a parameter to the provider. If you want to view the tree topology, then use the command:
 ```bash
 id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test", "params":{"model_path":"/usr/local/bin/topograph/tests/models/<cluster-model>.yaml"}},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
+```
 
+And if you want to view the block topology (with specified block sizes), use the command:
+```bash
+id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test", "params":{"model_path":"/usr/local/bin/topograph/tests/models/<cluster-model>.yaml"}},"engine":{"name":"test", "params":{"plugin":"topology/block", "block_sizes": <block-sizes>}}}' http://localhost:49021/v1/generate)
+```
+
+You can query the results of either topology request with:
+```bash
 curl -s "http://localhost:49021/v1/topology?uid=$id"
 ```
+
 Note the path specified in the topograph query should point to the same model as provided to toposim. 
 
 #### Using the Cluster Topology Generator
