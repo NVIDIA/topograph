@@ -49,7 +49,7 @@ SwitchName=switch.1.2 Nodes=node-2
 )
 
 func TestToTreeSLURM(t *testing.T) {
-	v, _ := GetTreeTestSet(nil, false)
+	v, _ := GetTreeTestSet(false)
 	buf := &bytes.Buffer{}
 	err := ToSLURM(buf, v)
 	require.NoError(t, err)

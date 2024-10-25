@@ -76,13 +76,14 @@ type TopologyRequest struct {
 }
 
 type provider struct {
-	Name  string            `json:"name"`
-	Creds map[string]string `json:"creds"` // access credentials
+	Name   string            `json:"name"`
+	Creds  map[string]string `json:"creds"` // access credentials
+	Params map[string]string `json:"params"`
 }
 
 type engine struct {
 	Name   string            `json:"name"`
-	Params map[string]string `json:"params"` // access credentials
+	Params map[string]string `json:"params"`
 }
 
 type ComputeInstances struct {

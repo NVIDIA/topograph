@@ -27,7 +27,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/config"
-	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/server"
 )
 
@@ -35,10 +34,8 @@ var GitTag string
 
 func main() {
 	var c string
-	var m string
 	var version bool
 	flag.StringVar(&c, "c", "/etc/topograph/topograph-config.yaml", "config file")
-	flag.StringVar(&m, "m", "", "model file to use when using the test provider")
 	flag.BoolVar(&version, "version", false, "show the version")
 
 	klog.InitFlags(nil)
@@ -50,13 +47,13 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := mainInternal(c, m); err != nil {
+	if err := mainInternal(c); err != nil {
 		klog.Errorf(err.Error())
 		os.Exit(1)
 	}
 }
 
-func mainInternal(c string, m string) error {
+func mainInternal(c string) error {
 	cfg, err := config.NewFromFile(c)
 	if err != nil {
 		return err
@@ -66,18 +63,10 @@ func mainInternal(c string, m string) error {
 		return err
 	}
 
-	var model *models.Model = nil
-	if m != "" {
-		model, err = models.NewModelFromFile(m)
-		if err != nil {
-			return err
-		}
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	server.InitHttpServer(ctx, cfg, model)
+	server.InitHttpServer(ctx, cfg)
 
 	var g run.Group
 	// Signal handler

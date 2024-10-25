@@ -21,6 +21,8 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/NVIDIA/topograph/pkg/common"
 )
 
 type Model struct {
@@ -136,4 +138,50 @@ func getNetworkLayers(name string, swmap map[string]string) ([]string, error) {
 		}
 		name = parent
 	}
+}
+
+func (model *Model) ToTree() (*common.Vertex, map[string]string) {
+	instance2node := make(map[string]string)
+	nodeVertexMap := make(map[string]*common.Vertex)
+	swVertexMap := make(map[string]*common.Vertex)
+	swRootMap := make(map[string]bool)
+
+	// Create all the vertices for each node
+	for k, v := range model.Nodes {
+		instance2node[k] = k
+		nodeVertexMap[k] = &common.Vertex{ID: v.Name, Name: v.Name}
+	}
+
+	// Initialize all the vertices for each switch (setting each on to be a possible root)
+	for _, sw := range model.Switches {
+		swVertexMap[sw.Name] = &common.Vertex{ID: sw.Name, Vertices: make(map[string]*common.Vertex)}
+		swRootMap[sw.Name] = true
+	}
+
+	// Connect all the switches to their sub-switches and sub-nodes
+	for _, sw := range model.Switches {
+		for _, subsw := range sw.Switches {
+			swRootMap[subsw] = false
+			swVertexMap[sw.Name].Vertices[subsw] = swVertexMap[subsw]
+		}
+		for _, cbname := range sw.CapacityBlocks {
+			for _, block := range model.CapacityBlocks {
+				if cbname == block.Name {
+					for _, node := range block.Nodes {
+						swVertexMap[sw.Name].Vertices[node] = nodeVertexMap[node]
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// Connects all root vertices to the hidden root
+	root := &common.Vertex{Vertices: make(map[string]*common.Vertex)}
+	for k, v := range swRootMap {
+		if v {
+			root.Vertices[k] = swVertexMap[k]
+		}
+	}
+	return root, instance2node
 }

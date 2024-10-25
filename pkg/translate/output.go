@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/models"
 )
 
 func ToSLURM(wr io.Writer, root *common.Vertex) error {
@@ -245,93 +244,41 @@ func split(input string) (string, string) {
 	return input[:i], input[i:]
 }
 
-func GetTreeTestSet(model *models.Model, testForLongLabelName bool) (*common.Vertex, map[string]string) {
-
-	var root *common.Vertex
-	var instance2node map[string]string
-
-	// If the given model is empty, use a hardcode model
-	if model == nil {
-		var s3name string
-		if testForLongLabelName {
-			s3name = "S3very-very-long-id-to-check-label-value-limits-of-63-characters"
-		} else {
-			s3name = "S3"
-		}
-
-		instance2node = map[string]string{
-			"I21": "Node201", "I22": "Node202", "I25": "Node205",
-			"I34": "Node304", "I35": "Node305", "I36": "Node306",
-		}
-
-		n21 := &common.Vertex{ID: "I21", Name: "Node201"}
-		n22 := &common.Vertex{ID: "I22", Name: "Node202"}
-		n25 := &common.Vertex{ID: "I25", Name: "Node205"}
-
-		n34 := &common.Vertex{ID: "I34", Name: "Node304"}
-		n35 := &common.Vertex{ID: "I35", Name: "Node305"}
-		n36 := &common.Vertex{ID: "I36", Name: "Node306"}
-
-		sw2 := &common.Vertex{
-			ID:       "S2",
-			Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
-		}
-		sw3 := &common.Vertex{
-			ID:       s3name,
-			Vertices: map[string]*common.Vertex{"I34": n34, "I35": n35, "I36": n36},
-		}
-		sw1 := &common.Vertex{
-			ID:       "S1",
-			Vertices: map[string]*common.Vertex{"S2": sw2, s3name: sw3},
-		}
-		root = &common.Vertex{
-			Vertices: map[string]*common.Vertex{"S1": sw1},
-		}
-
-		// Otherwise use the given model
+func GetTreeTestSet(testForLongLabelName bool) (*common.Vertex, map[string]string) {
+	var s3name string
+	if testForLongLabelName {
+		s3name = "S3very-very-long-id-to-check-label-value-limits-of-63-characters"
 	} else {
-		instance2node = make(map[string]string)
-		nodeVertexMap := make(map[string]*common.Vertex)
-		swVertexMap := make(map[string]*common.Vertex)
-		swRootMap := make(map[string]bool)
+		s3name = "S3"
+	}
 
-		// Create all the vertices for each node
-		for k, v := range model.Nodes {
-			instance2node[k] = k
-			nodeVertexMap[k] = &common.Vertex{ID: v.Name, Name: v.Name}
-		}
+	instance2node := map[string]string{
+		"I21": "Node201", "I22": "Node202", "I25": "Node205",
+		"I34": "Node304", "I35": "Node305", "I36": "Node306",
+	}
 
-		// Initialize all the vertices for each switch (setting each on to be a possible root)
-		for _, sw := range model.Switches {
-			swVertexMap[sw.Name] = &common.Vertex{ID: sw.Name, Vertices: make(map[string]*common.Vertex)}
-			swRootMap[sw.Name] = true
-		}
+	n21 := &common.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &common.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &common.Vertex{ID: "I25", Name: "Node205"}
 
-		// Connect all the switches to their sub-switches and sub-nodes
-		for _, sw := range model.Switches {
-			for _, subsw := range sw.Switches {
-				swRootMap[subsw] = false
-				swVertexMap[sw.Name].Vertices[subsw] = swVertexMap[subsw]
-			}
-			for _, cbname := range sw.CapacityBlocks {
-				for _, block := range model.CapacityBlocks {
-					if cbname == block.Name {
-						for _, node := range block.Nodes {
-							swVertexMap[sw.Name].Vertices[node] = nodeVertexMap[node]
-						}
-						break
-					}
-				}
-			}
-		}
+	n34 := &common.Vertex{ID: "I34", Name: "Node304"}
+	n35 := &common.Vertex{ID: "I35", Name: "Node305"}
+	n36 := &common.Vertex{ID: "I36", Name: "Node306"}
 
-		// Connects all root vertices to the hidden root
-		root = &common.Vertex{Vertices: make(map[string]*common.Vertex)}
-		for k, v := range swRootMap {
-			if v {
-				root.Vertices[k] = swVertexMap[k]
-			}
-		}
+	sw2 := &common.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+	sw3 := &common.Vertex{
+		ID:       s3name,
+		Vertices: map[string]*common.Vertex{"I34": n34, "I35": n35, "I36": n36},
+	}
+	sw1 := &common.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*common.Vertex{"S2": sw2, s3name: sw3},
+	}
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"S1": sw1},
 	}
 
 	return root, instance2node

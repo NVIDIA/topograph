@@ -31,7 +31,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
-func GetProvider(provider string) (common.Provider, *common.HTTPError) {
+func GetProvider(provider string, params map[string]string) (common.Provider, *common.HTTPError) {
 	var (
 		prv common.Provider
 		err error
@@ -49,7 +49,7 @@ func GetProvider(provider string) (common.Provider, *common.HTTPError) {
 	case common.ProviderBM:
 		prv, err = baremetal.GetProvider()
 	case common.ProviderTest:
-		prv, err = GetTestProvider()
+		prv, err = GetTestProvider(params)
 	default:
 		return nil, common.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unsupported provider %q", provider))
 	}
@@ -61,16 +61,28 @@ func GetProvider(provider string) (common.Provider, *common.HTTPError) {
 	return prv, nil
 }
 
-var TestModel *models.Model = nil
-
 type testProvider struct {
 	tree          *common.Vertex
 	instance2node map[string]string
 }
 
-func GetTestProvider() (*testProvider, error) {
+func GetTestProvider(params map[string]string) (*testProvider, error) {
 	p := &testProvider{}
-	p.tree, p.instance2node = translate.GetTreeTestSet(TestModel, false)
+
+	var modelPath string
+	if len(params) != 0 {
+		modelPath = params[common.KeyModelPath]
+	}
+
+	if len(modelPath) == 0 {
+		p.tree, p.instance2node = translate.GetTreeTestSet(false)
+	} else {
+		model, err := models.NewModelFromFile(modelPath)
+		if err != nil {
+			return nil, err
+		}
+		p.tree, p.instance2node = model.ToTree()
+	}
 
 	return p, nil
 }
