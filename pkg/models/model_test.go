@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package toposim
+package models
 
 import (
 	"testing"
@@ -23,7 +23,7 @@ import (
 )
 
 func TestNewModelFromFile(t *testing.T) {
-	cfg, err := NewModelFromFile("testdata/toposim.yaml")
+	cfg, err := NewModelFromFile("../../tests/models/medium-h100.yaml")
 	require.NoError(t, err)
 
 	expected := &Model{

@@ -1,0 +1,26 @@
+#          S1 
+#       /      \
+#      /        \     
+#     S2        S3
+#     |         |
+#  ------    ------
+# | I21 |   | I34 |
+# | I22 |   | I35 |
+# | I25 |   | I36 |
+#  ------    ------
+#   CB2       CB3
+#
+switches:
+- name: S1
+  switches: [S2,S3]
+- name: S2
+  capacity_blocks: [CB2]
+- name: S3
+  capacity_blocks: [CB3]
+capacity_blocks:
+- name: CB2
+  type: H100
+  nodes: [I21,I22,I25]
+- name: CB3
+  type: H100
+  nodes: [I34,I35,I36]
