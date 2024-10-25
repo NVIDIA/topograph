@@ -38,7 +38,7 @@ func main() {
 	var m string
 	var version bool
 	flag.StringVar(&c, "c", "/etc/topograph/topograph-config.yaml", "config file")
-	flag.StringVar(&m, "m", "/etc/topograph/tests/models/small-h100.yaml", "model file to use when using the test provider")
+	flag.StringVar(&m, "m", "", "model file to use when using the test provider")
 	flag.BoolVar(&version, "version", false, "show the version")
 
 	klog.InitFlags(nil)
@@ -66,9 +66,12 @@ func mainInternal(c string, m string) error {
 		return err
 	}
 
-	model, err := models.NewModelFromFile(m)
-	if err != nil {
-		return err
+	var model *models.Model = nil
+	if m != "" {
+		model, err = models.NewModelFromFile(m)
+		if err != nil {
+			return err
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

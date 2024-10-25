@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"k8s.io/klog/v2"
-
 	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
@@ -72,11 +70,7 @@ type testProvider struct {
 
 func GetTestProvider() (*testProvider, error) {
 	p := &testProvider{}
-	if TestModel == nil {
-		klog.Errorf("Test model not initialized")
-		return nil, fmt.Errorf("Test model not initialized")
-	}
-	p.tree, p.instance2node = translate.GetTreeTestSet(TestModel)
+	p.tree, p.instance2node = translate.GetTreeTestSet(TestModel, false)
 
 	return p, nil
 }
