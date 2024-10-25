@@ -58,7 +58,7 @@ func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPErr
 		return nil, httpErr
 	}
 
-	prv, httpErr := factory.GetProvider(tr.Provider.Name)
+	prv, httpErr := factory.GetProvider(tr.Provider.Name, tr.Provider.Params)
 	if httpErr != nil {
 		klog.Error(httpErr.Error())
 		return nil, httpErr

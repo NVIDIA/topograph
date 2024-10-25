@@ -99,16 +99,32 @@ systemctl disable topograph.service
 systemctl daemon-reload
 ```
 
-#### Testing the Service
-To verify the service is running correctly, you can use the following commands:
+#### Verifying Health
+To verify the service is healthy, you can use the following command:
 
 ```bash
 curl http://localhost:49021/healthz
+```
 
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test"},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
+#### Using Toposim
+To test the service on a simulated cluster, first add the following line to `/etc/topograph/topograph-config.yaml` so that any topology requests are forwarded to toposim.
+```bash
+forward_service_url: dns:localhost:49025
+```
+Then run the topograph service as normal.
+
+You must then start the toposim service as such, setting the path to the test model that you want to use in simulation:
+```bash
+/usr/local/bin/topograph -m /usr/local/bin/tests/models/<cluster-model>.yaml
+```
+
+You can then verify the topology results via simulation by querying topograph using the `test` provider and engine, and specifying the test model path as a parameter to the provider, as such:
+```bash
+id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test", "params":{"model_path":"/usr/local/bin/topograph/tests/models/<cluster-model>.yaml"}},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
 
 curl -s "http://localhost:49021/v1/topology?uid=$id"
 ```
+Note the path specified in the topograph query should point to the same model as provided to toposim. 
 
 #### Using the Cluster Topology Generator
 

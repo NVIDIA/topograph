@@ -35,6 +35,7 @@ const (
 	KeyTopoConfigmapNamespace = "topology_configmap_namespace"
 	KeyBlockSizes             = "block_sizes"
 	KeySkipReload             = "skip_reload"
+	KeyModelPath              = "model_path"
 
 	KeyPlugin        = "plugin"
 	ValTopologyTree  = "topology/tree"

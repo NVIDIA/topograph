@@ -26,6 +26,7 @@ import (
 	"github.com/oklog/run"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/toposim"
 )
 
@@ -50,7 +51,7 @@ func mainInternal() error {
 		return fmt.Errorf("must specify topology model path and listening port")
 	}
 
-	model, err := toposim.NewModelFromFile(path)
+	model, err := models.NewModelFromFile(path)
 	if err != nil {
 		return err
 	}
