@@ -258,20 +258,20 @@ func GetTreeTestSet(model *models.Model, testForLongLabelName bool) (*common.Ver
 		} else {
 			s3name = "S3"
 		}
-	
+
 		instance2node = map[string]string{
 			"I21": "Node201", "I22": "Node202", "I25": "Node205",
 			"I34": "Node304", "I35": "Node305", "I36": "Node306",
 		}
-	
+
 		n21 := &common.Vertex{ID: "I21", Name: "Node201"}
 		n22 := &common.Vertex{ID: "I22", Name: "Node202"}
 		n25 := &common.Vertex{ID: "I25", Name: "Node205"}
-	
+
 		n34 := &common.Vertex{ID: "I34", Name: "Node304"}
 		n35 := &common.Vertex{ID: "I35", Name: "Node305"}
 		n36 := &common.Vertex{ID: "I36", Name: "Node306"}
-	
+
 		sw2 := &common.Vertex{
 			ID:       "S2",
 			Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
@@ -288,25 +288,25 @@ func GetTreeTestSet(model *models.Model, testForLongLabelName bool) (*common.Ver
 			Vertices: map[string]*common.Vertex{"S1": sw1},
 		}
 
-	// Otherwise use the given model
+		// Otherwise use the given model
 	} else {
 		instance2node = make(map[string]string)
 		nodeVertexMap := make(map[string]*common.Vertex)
 		swVertexMap := make(map[string]*common.Vertex)
 		swRootMap := make(map[string]bool)
-	
+
 		// Create all the vertices for each node
 		for k, v := range model.Nodes {
 			instance2node[k] = k
 			nodeVertexMap[k] = &common.Vertex{ID: v.Name, Name: v.Name}
 		}
-	
+
 		// Initialize all the vertices for each switch (setting each on to be a possible root)
 		for _, sw := range model.Switches {
 			swVertexMap[sw.Name] = &common.Vertex{ID: sw.Name, Vertices: make(map[string]*common.Vertex)}
 			swRootMap[sw.Name] = true
 		}
-	
+
 		// Connect all the switches to their sub-switches and sub-nodes
 		for _, sw := range model.Switches {
 			for _, subsw := range sw.Switches {
@@ -324,7 +324,7 @@ func GetTreeTestSet(model *models.Model, testForLongLabelName bool) (*common.Ver
 				}
 			}
 		}
-	
+
 		// Connects all root vertices to the hidden root
 		root = &common.Vertex{Vertices: make(map[string]*common.Vertex)}
 		for k, v := range swRootMap {
