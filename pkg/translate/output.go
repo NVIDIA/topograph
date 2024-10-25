@@ -247,8 +247,8 @@ func split(input string) (string, string) {
 
 func GetTreeTestSet(model *models.Model, testForLongLabelName bool) (*common.Vertex, map[string]string) {
 
-	root := &common.Vertex{}
-	instance2node := make(map[string]string)
+	var root *common.Vertex
+	var instance2node map[string]string
 
 	// If the given model is empty, use a hardcode model
 	if model == nil {

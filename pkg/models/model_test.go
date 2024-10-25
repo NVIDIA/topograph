@@ -23,7 +23,7 @@ import (
 )
 
 func TestNewModelFromFile(t *testing.T) {
-	cfg, err := NewModelFromFile("tests/models/medium-h100.yaml")
+	cfg, err := NewModelFromFile("../../tests/models/medium-h100.yaml")
 	require.NoError(t, err)
 
 	expected := &Model{
