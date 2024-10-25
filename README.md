@@ -111,23 +111,20 @@ To test the service on a simulated cluster, first add the following line to `/et
 ```bash
 forward_service_url: dns:localhost:49025
 ```
+Then run the topograph service as normal.
 
-Then run the topograph service with the following commands, choosing any of the available cluster models:
+You must then start the toposim service as such, setting the path to the test model that you want to use in simulation:
 ```bash
-/usr/local/bin/topograph -c /etc/topograph/topograph-config.yaml -m /etc/topograph/tests/models/<cluster-model>.yaml
+/usr/local/bin/topograph -m /usr/local/bin/tests/models/<cluster-model>.yaml
 ```
 
-You must them start the toposim service as such, using the same cluster model:
+You can then verify the topology results via simulation by querying topograph using the `test` provider and engine, and specifying the test model path as a parameter to the provider, as such:
 ```bash
-/usr/local/bin/topograph -m ./tests/models/<cluster-model>.yaml
-```
-
-And you can verify the topology results via the following commands:
-```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test"},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
+id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test", "params":{"model_path":"/usr/local/bin/topograph/tests/models/<cluster-model>.yaml"}},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
 
 curl -s "http://localhost:49021/v1/topology?uid=$id"
 ```
+Note the path specified in the topograph query should point to the same model as provided to toposim. 
 
 #### Using the Cluster Topology Generator
 

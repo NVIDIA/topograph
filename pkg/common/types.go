@@ -109,6 +109,7 @@ func (p *TopologyRequest) String() string {
 	sb.WriteString("TopologyRequest:\n")
 	sb.WriteString(fmt.Sprintf("  Provider: %s\n", p.Provider.Name))
 	sb.WriteString(map2string(p.Provider.Creds, "  Credentials", true, "\n"))
+	sb.WriteString(map2string(p.Provider.Params, "  Parameters", false, "\n"))
 	sb.WriteString(fmt.Sprintf("  Engine: %s\n", p.Engine.Name))
 	sb.WriteString(map2string(p.Engine.Params, "  Parameters", false, "\n"))
 	sb.WriteString("  Nodes: ")
