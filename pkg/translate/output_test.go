@@ -35,6 +35,12 @@ BlockName=B2 Nodes=Node[201-202],Node205
 BlockSizes=8
 `
 
+	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
+BlockName=B4 Nodes=Node[401-403]
+BlockName=B1 Nodes=Node[104-106]
+BlockName=B2 Nodes=Node[201-202],Node205
+BlockSizes=8
+`
 	shortNameExpectedResult = `# switch.3.1=hpcislandid-1
 SwitchName=switch.3.1 Switches=switch.2.[1-2]
 # switch.2.1=network-block-1
@@ -62,6 +68,32 @@ func TestToBlockSLURM(t *testing.T) {
 	err := ToSLURM(buf, v)
 	require.NoError(t, err)
 	require.Equal(t, testBlockConfig, buf.String())
+}
+
+func TestToBlockMultiIBSLURM(t *testing.T) {
+	v, _ := GetBlockWithMultiIBTestSet()
+	buf := &bytes.Buffer{}
+	err := ToSLURM(buf, v)
+	require.NoError(t, err)
+	switch buf.String() {
+	case testBlockConfig2:
+		// nop
+	default:
+		t.Errorf("unexpected result %s", buf.String())
+	}
+}
+
+func TestToBlockIBSLURM(t *testing.T) {
+	v, _ := GetBlockWithIBTestSet()
+	buf := &bytes.Buffer{}
+	err := ToSLURM(buf, v)
+	require.NoError(t, err)
+	switch buf.String() {
+	case testBlockConfig:
+		// nop
+	default:
+		t.Errorf("unexpected result %s", buf.String())
+	}
 }
 
 func TestToSlurmNameShortener(t *testing.T) {

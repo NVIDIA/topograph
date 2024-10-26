@@ -54,7 +54,7 @@ type Switch struct {
 }
 
 func GenerateTopologyConfig(data []byte) (*common.Vertex, error) {
-	switches, hca, err := parseIbnetdiscoverFile(data)
+	switches, hca, err := ParseIbnetdiscoverFile(data)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse ibnetdiscover file: %v", err)
 	}
@@ -111,7 +111,7 @@ func (sw *Switch) getHeight() int {
 }
 
 // process output of ibnetdiscover
-func parseIbnetdiscoverFile(data []byte) (map[string]*Switch, map[string]string, error) {
+func ParseIbnetdiscoverFile(data []byte) (map[string]*Switch, map[string]string, error) {
 	switches := make(map[string]*Switch)
 	hca := make(map[string]string)
 	var entry *Switch
