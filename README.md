@@ -1,37 +1,33 @@
 # Topograph
 
-Topograph is a component designed to expose the underlying physical network topology of a cluster to enable a workload manager make network-topology aware scheduling decisions. It consists of four major components:
+Topograph is a component designed to expose the underlying physical network topology of a cluster to enable a workload manager make network-topology aware scheduling decisions.
 
-1. **CSP Connector**
-2. **API Server**
-3. **Topology Generator**
-4. **Node Observer**
+Topograph consists of four major components:
+
+1. **API Server**
+2. **Node Observer**
+3. **CSP Connector**
+4. **Topology Generator**
 
 <p align="center"><img src="docs/assets/design.png" width="600" alt="Design"></p>
 
 ## Components
 
-### 1. CSP Connector
-The CSP Connector is responsible for interfacing with various CSPs to retrieve cluster-related information. Currently, it supports AWS, OCI, GCP, CoreWeave, bare metal, with plans to add support for Azure. The primary goal of the CSP Connector is to obtain the network topology configuration of a cluster, which may require several subsequent API calls. Once the information is obtained, the CSP Connector translates the network topology from CSP-specific formats to an internal format that can be utilized by the Topology Generator.
-
-### 2. API Server
+### 1. API Server
 The API Server listens for network topology configuration requests on a specific port. When a request is received, the server triggers the Topology Generator to populate the configuration.
 
-The API Server exposes two endpoints: one for synchronous requests and one for asynchronous requests.
+### 2. Node Observer
+The Node Observer is used when the Topology Generator is deployed in a Kubernetes cluster. It monitors changes in the cluster nodes.
+If a node's status changes (e.g., a node goes down or comes up), the Node Observer sends a request to the API Server to generate a new topology configuration.
 
-- The synchronous endpoint responds to the HTTP request with the topology configuration, though this process may take some time.
-- In the asynchronous mode, the API Server promptly returns a "202 Accepted" response to the HTTP request. It then begins generating and serializing the topology configuration.
+### 3. CSP Connector
+The CSP Connector is responsible for interfacing with various CSPs to retrieve cluster-related information. Currently, it supports AWS, OCI, GCP, CoreWeave, bare metal, with plans to add support for Azure. The primary goal of the CSP Connector is to obtain the network topology configuration of a cluster, which may require several subsequent API calls. Once the information is obtained, the CSP Connector translates the network topology from CSP-specific formats to an internal format that can be utilized by the Topology Generator.
 
-### 3. Topology Generator
+### 4. Topology Generator
 The Topology Generator is the central component that manages the overall network topology of the cluster. It performs the following functions:
-
 - **Notification Handling:** Receives notifications from the API Server.
 - **Topology Gathering:** Instructs the CSP Connector to fetch the current network topology from the CSP.
 - **User Cluster Update:** Translates network topology from the internal format into a format expected by the user cluster, such as SLURM or Kubernetes.
-
-### 4. Node Observer
-The Node Observer is used when the Topology Generator is deployed in a Kubernetes cluster. It monitors changes in the cluster nodes.
-If a node's status changes (e.g., a node goes down or comes up), the Node Observer sends a request to the API Server to generate a new topology configuration.
 
 ## Workflow
 
