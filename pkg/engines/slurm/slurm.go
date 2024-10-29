@@ -86,6 +86,12 @@ func GenerateOutput(ctx context.Context, tree *common.Vertex, params map[string]
 		}
 	}
 
+	blockSize := params[common.KeyBlockSizes]
+
+	if len(blockSize) != 0 {
+		tree.Metadata[common.KeyBlockSizes] = blockSize
+	}
+
 	err := translate.ToSLURM(buf, tree)
 	if err != nil {
 		return nil, err
