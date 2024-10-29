@@ -1,4 +1,4 @@
-# topograph
+# Topograph
 
 Topograph is a component designed to expose the underlying physical network topology of a cluster to enable a workload manager make network-topology aware scheduling decisions. It consists of four major components:
 
@@ -7,14 +7,14 @@ Topograph is a component designed to expose the underlying physical network topo
 3. **Topology Generator**
 4. **Node Observer**
 
+<p align="center"><img src="docs/assets/design.png" width="600" alt="Design"></p>
+
 ## Components
 
 ### 1. CSP Connector
-
 The CSP Connector is responsible for interfacing with various CSPs to retrieve cluster-related information. Currently, it supports AWS, OCI, GCP, CoreWeave, bare metal, with plans to add support for Azure. The primary goal of the CSP Connector is to obtain the network topology configuration of a cluster, which may require several subsequent API calls. Once the information is obtained, the CSP Connector translates the network topology from CSP-specific formats to an internal format that can be utilized by the Topology Generator.
 
 ### 2. API Server
-
 The API Server listens for network topology configuration requests on a specific port. When a request is received, the server triggers the Topology Generator to populate the configuration.
 
 The API Server exposes two endpoints: one for synchronous requests and one for asynchronous requests.
@@ -23,7 +23,6 @@ The API Server exposes two endpoints: one for synchronous requests and one for a
 - In the asynchronous mode, the API Server promptly returns a "202 Accepted" response to the HTTP request. It then begins generating and serializing the topology configuration.
 
 ### 3. Topology Generator
-
 The Topology Generator is the central component that manages the overall network topology of the cluster. It performs the following functions:
 
 - **Notification Handling:** Receives notifications from the API Server.
@@ -34,119 +33,84 @@ The Topology Generator is the central component that manages the overall network
 The Node Observer is used when the Topology Generator is deployed in a Kubernetes cluster. It monitors changes in the cluster nodes.
 If a node's status changes (e.g., a node goes down or comes up), the Node Observer sends a request to the API Server to generate a new topology configuration.
 
+## Workflow
+
+- The API Server listens on the port and notifies the Topology Generator about incoming requests. In kubernetes, the incoming requests sent by the Node Observer, which watches changes in the node status.
+- The Topology Generator receives the notification and attempts to gather the current network topology of the cluster.
+- The Topology Generator instructs the CSP Connector to retrieve the network topology from the CSP.
+- The CSP Connector fetches the topology and translates it from the CSP-specific format to an internal format.
+- The Topology Generator converts the internal format into the format expected by the user cluster (e.g., SLURM or Kubernetes).
+
+## Configuration
+Topograph accepts its configuration file path using the `-c` command-line parameter. The configuration file is a YAML document. A sample configuration file is located at [config/topograph-config.yaml](config/topograph-config.yaml).
+
+The configuration file supports the following parameters:
+```yaml
+# serving topograph endpoint
+http:
+  # port: specifies the port on which the API server will listen (required).
+  port: 49021
+  # ssl: enables HTTPS protocol if set to `true` (optional).
+  ssl: false
+
+# request_aggregation_delay: defines the delay before processing a request (required).
+# Topograph aggregates multiple sequential requests within this delay into a single request,
+# processing only if no new requests arrive during the specified duration.
+request_aggregation_delay: 15s
+
+# forward_service_url: specifies the URL of an external gRPC service
+# to which requests are forwarded (optional).
+# This can be useful for testing or integration with external systems.
+# See protos/topology.proto for details.
+# forward_service_url:
+
+# page_size: sets the page size for topology requests against a CSP API (optional).
+page_size: 100
+
+# ssl: specifies the paths to the TLS certificate, private key,
+# and CA certificate (required if `http.ssl=true`).
+ssl:
+  cert: /etc/topograph/ssl/server-cert.pem
+  key: /etc/topograph/ssl/server-key.pem
+  ca_cert: /etc/topograph/ssl/ca-cert.pem
+
+# credentials_path: specifies the path to a file containing CSP credentials (optional).
+# credentials_path:
+
+# env: environment variable names and values to inject into Topograph's shell (optional).
+# The `PATH` variable, if provided, will append the specified value to the existing `PATH`.
+env:
+#  SLURM_CONF: /etc/slurm/slurm.conf
+#  PATH: 
+```
+
 ## Supported Environments
 
-Topograph functions using the concepts of `provider` and `engine`. Here, a `provider` refers to a CSP, and an `engine` denotes a scheduling system such as SLURM or Kubernetes.
+Topograph operates with two primary concepts: `provider` and `engine`. A `provider` represents a CSP or a similar environment, while an engine refers to a scheduling system like SLURM or Kubernetes.
 
-### SLURM Engine
-
-For the SLURM engine, topograph supports the following CSPs:
+Currently supported providers:
 - AWS
 - OCI
 - GCP
 - CoreWeave
 - Bare metal
 
-### Kubernetes Engine
+For detailed information on supported engines, see:
+- [SLURM](./docs/slurm.md)
+- [Kubernetes](./docs/k8s.md)
 
-Support for the Kubernetes engine is currently in the development stage.
+## Using Topograph
 
-### Test Provider and Engine
+Topograph offers three endpoints for interacting with the service. Below are the details of each endpoint:
 
-There is a special *provider* and *engine* named `test`, which supports both SLURM and Kubernetes. This configuration returns static results and is primarily used for testing purposes.
-
-## Workflow
-
-- The API Server listens on the port and notifies the Topology Generator about incoming requests.
-- The Topology Generator receives the notification and attempts to gather the current network topology of the cluster.
-- The Topology Generator instructs the CSP Connector to retrieve the network topology from the CSP.
-- The CSP Connector fetches the topology and translates it from the CSP-specific format to an internal format.
-- The Topology Generator converts the internal format into the format expected by the user cluster (e.g., SLURM or Kubernetes).
-- The Topology Generator returns the network topology configuration to the API Server, which then relays it back to the requester.
-
-## Topograph Installation and Configuration
-Topograph can operate as a standalone service within SLURM clusters or be deployed in Kubernetes clusters.
-
-### Topograph as a Standalone Service
-Topograph can be installed using the `topograph` Debian or RPM package. This package sets up a service but does not start it automatically, allowing users to update the configuration before launch.
-
-#### Configuration
-The default configuration file is located at [config/topograph-config.yaml](config/topograph-config.yaml). It includes settings for:
- - HTTP endpoint for the Topology Generator
- - SSL/TLS connection
- - environment variables
-
-By default, SSL/TLS is disabled, but the server certificate and key are generated during package installation.
-
-The configuration file also includes an optional section for environment variables. When specified, these variables are added to the shell environment. Note that the `PATH` variable, if provided, is appended to the existing `PATH`.
-
-#### Service Management
-To enable and start the service, run the following commands:
-```bash
-systemctl enable topograph.service
-systemctl start topograph.service
-```
-
-Upon starting, the service executes:
-```bash
-/usr/local/bin/topograph -c /etc/topograph/topograph-config.yaml
-```
-
-To disable and stop the service, run the following commands:
-```bash
-systemctl stop topograph.service
-systemctl disable topograph.service
-systemctl daemon-reload
-```
-
-#### Verifying Health
-To verify the service is healthy, you can use the following command:
-
-```bash
-curl http://localhost:49021/healthz
-```
-
-#### Using Toposim
-To test the service on a simulated cluster, first add the following line to `/etc/topograph/topograph-config.yaml` so that any topology requests are forwarded to toposim.
-```bash
-forward_service_url: dns:localhost:49025
-```
-Then run the topograph service as normal.
-
-You must then start the toposim service as such, setting the path to the test model that you want to use in simulation:
-```bash
-/usr/local/bin/topograph -m /usr/local/bin/tests/models/<cluster-model>.yaml
-```
-
-You can then verify the topology results via simulation by querying topograph using the `test` provider and engine, and specifying the test model path as a parameter to the provider. If you want to view the tree topology, then use the command:
-```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test", "params":{"model_path":"/usr/local/bin/topograph/tests/models/<cluster-model>.yaml"}},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
-```
-
-And if you want to view the block topology (with specified block sizes), use the command:
-```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test", "params":{"model_path":"/usr/local/bin/topograph/tests/models/<cluster-model>.yaml"}},"engine":{"name":"test", "params":{"plugin":"topology/block", "block_sizes": <block-sizes>}}}' http://localhost:49021/v1/generate)
-```
-
-You can query the results of either topology request with:
-```bash
-curl -s "http://localhost:49021/v1/topology?uid=$id"
-```
-
-Note the path specified in the topograph query should point to the same model as provided to toposim. 
-
-#### Using the Cluster Topology Generator
-
-The Cluster Topology Generator offers three endpoints for interacting with the service. Below are the details of each endpoint:
-
-##### 1. Health Endpoint
+### 1. Health Endpoint
 
 - **URL:** `http://<server>:<port>/healthz`
 - **Description:** This endpoint verifies the service status. It returns a "200 OK" HTTP response if the service is operational.
 
-##### 2. Topology Request Endpoint
+### 2. Topology Request Endpoint
 
-- **URL:** `http(s)://<server>:<port>/v1/generate`
+- **URL:** `http://<server>:<port>/v1/generate`
 - **Description:** This endpoint is used to request a new cluster topology.
 - **Payload:** The payload is a JSON object that includes the following fields:
   - **provider name**: (mandatory) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `cw`, `baremetal` or `test`.
@@ -162,7 +126,7 @@ The Cluster Topology Generator offers three endpoints for interacting with the s
       - **topology_config_path**: (mandatory) A string specifying the key for the topology config in the ConfigMap.
       - **topology_configmap_name**: (mandatory) A string specifying the name of the ConfigMap containing the topology config.
       - **topology_configmap_namespace**: (mandatory) A string specifying the namespace of the ConfigMap containing the topology config.
-      - **nodes**: (optional) An array of regions mapping instance IDs to node names.
+  - **nodes**: (optional) An array of regions mapping instance IDs to node names.
 
   Example:
 
@@ -205,9 +169,9 @@ The Cluster Topology Generator offers three endpoints for interacting with the s
 
 - **Response:** This endpoint immediately returns a "202 Accepted" status with a unique request ID if the request is valid. If not, it returns an appropriate error code.
 
-##### 3. Topology Result Endpoint
+### 3. Topology Result Endpoint
 
-- **URL:** `http(s)://<server>:<port>/v1/topology`
+- **URL:** `http://<server>:<port>/v1/topology`
 - **Description:** This endpoint retrieves the result of a topology request.
 - **URL Query Parameters:**
   - **uid**: Specifies the request ID returned by the topology request endpoint.
@@ -223,36 +187,3 @@ id=$(curl -s -X POST -H "Content-Type: application/json" -d @payload.json http:/
 
 curl -s "http://localhost:49021/v1/topology?uid=$id"
 ```
-
-#### Automated Solution for SLURM
-
-The Cluster Topology Generator enables a fully automated solution when combined with SLURM's `strigger` command. You can set up a trigger that runs whenever a node goes down or comes up:
-
-```bash
-strigger --set --node --down --up --flags=perm --program=<script>
-```
-
-In this setup, the `<script>` would contain the curl command to call the endpoint:
-
-```bash
-curl -s -X POST -H "Content-Type: application/json" -d @payload.json http://localhost:49021/v1/generate
-```
-
-We provide the [create-topology-update-script.sh](scripts/create-topology-update-script.sh) script, which performs the steps outlined above: it creates the topology update script and registers it with the strigger.
-
-The script accepts the following parameters:
-- **provider name** (aws, oci, gcp, cw, baremetal)
-- **path to the generated topology update script**
-- **path to the topology.conf file**
-
-Usage:
-```bash
-create-topology-update-script.sh -p <provider name> -s <topology update script> -c <path to topology.conf>
-```
-
-Example:
-```bash
-create-topology-update-script.sh -p aws -s /etc/slurm/update-topology-config.sh -c /etc/slurm/topology.conf
-```
-
-This automation ensures that your cluster topology is updated and SLURM configuration is reloaded whenever there are changes in node status, maintaining an up-to-date cluster configuration.
