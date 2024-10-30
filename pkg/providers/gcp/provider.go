@@ -76,5 +76,5 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, creds interface{}
 		return nil, err
 	}
 
-	return cfg.toSLURM()
+	return cfg.toGraph()
 }

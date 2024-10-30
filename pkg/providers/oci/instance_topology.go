@@ -29,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/metrics"
 )
 
 type level int
@@ -206,9 +207,10 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []c
 	}
 
 	if len(instanceToNodeMap) != 0 {
-		klog.V(4).Infof("Adding unclaimed nodes %v", instanceToNodeMap)
+		klog.V(4).Infof("Adding nodes w/o topology: %v", instanceToNodeMap)
+		metrics.SetMissingTopology(common.ProviderOCI, len(instanceToNodeMap))
 		sw := &common.Vertex{
-			ID:       "cpu-nodes",
+			ID:       common.NoTopology,
 			Vertices: make(map[string]*common.Vertex),
 		}
 		for instanceID, nodeName := range instanceToNodeMap {
@@ -217,7 +219,7 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []c
 				ID:   instanceID,
 			}
 		}
-		forest["cpu-nodes"] = sw
+		forest[common.NoTopology] = sw
 	}
 
 	root := &common.Vertex{
