@@ -31,8 +31,6 @@ import (
 
 var providerName string = common.ProviderTest // default value uses test provider
 var engineName string = common.EngineTest     // default value uses test engine
-var useSimulation string = "false"
-var simulationModelPath string = ""
 
 type asyncController struct {
 	queue *utils.TrailingDelayQueue
@@ -57,22 +55,11 @@ func processRequest(item interface{}) (interface{}, *common.HTTPError) {
 func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPError) {
 	engName := tr.Engine.Name
 	prvName := tr.Provider.Name
-	prvParams := make(map[string]string)
-	for k, v := range tr.Provider.Params {
-		prvParams[k] = v
-	}
-
 	if engName == "" {
 		engName = engineName
 	}
 	if prvName == "" {
 		prvName = providerName
-	}
-	if _, ok := prvParams[common.KeyUseSimulation]; !ok {
-		prvParams[common.KeyUseSimulation] = useSimulation
-	}
-	if _, ok := prvParams[common.KeyModelPath]; !ok {
-		prvParams[common.KeyModelPath] = simulationModelPath
 	}
 	klog.InfoS("Creating topology config", "provider", engName, "engine", prvName)
 
@@ -82,7 +69,7 @@ func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPErr
 		return nil, httpErr
 	}
 
-	prv, httpErr := factory.GetProvider(prvName, prvParams)
+	prv, httpErr := factory.GetProvider(prvName, tr.Provider.Params)
 	if httpErr != nil {
 		klog.Error(httpErr.Error())
 		return nil, httpErr

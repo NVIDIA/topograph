@@ -69,12 +69,14 @@ func sortVertices(root *common.Vertex) []string {
 }
 
 func printDisconnectedBlocks(wr io.Writer, root *common.Vertex, domainVisited map[string]int) error {
-	keys := sortVertices(root)
-	for _, key := range keys {
-		block := root.Vertices[key]
-		err := printBlock(wr, block, domainVisited)
-		if err != nil {
-			return err
+	if root != nil {
+		keys := sortVertices(root)
+		for _, key := range keys {
+			block := root.Vertices[key]
+			err := printBlock(wr, block, domainVisited)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
@@ -65,10 +64,6 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 	}
 	if cfg.Engine != nil {
 		engineName = *cfg.Engine
-	}
-	useSimulation = strconv.FormatBool(cfg.UseSimulation)
-	if cfg.SimulationModelPath != nil {
-		simulationModelPath = *cfg.SimulationModelPath
 	}
 }
 
