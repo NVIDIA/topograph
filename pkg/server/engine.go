@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -29,8 +30,8 @@ import (
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
-var providerName string = common.ProviderTest // default value uses test provider
-var engineName string = common.EngineTest     // default value uses test engine
+var providerName *string
+var engineName *string
 
 type asyncController struct {
 	queue *utils.TrailingDelayQueue
@@ -53,13 +54,29 @@ func processRequest(item interface{}) (interface{}, *common.HTTPError) {
 }
 
 func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPError) {
-	engName := tr.Engine.Name
-	prvName := tr.Provider.Name
-	if engName == "" {
-		engName = engineName
+
+	// Uses the provider and engine given config if provided, otherwise uses what is given in the topology request.
+	// If neither is given, will throw an error
+	var engName, prvName string
+	if providerName != nil {
+		klog.InfoS("Provider set in config as", "provider", *providerName)
+		prvName = *providerName
+	} else if len(tr.Provider.Name) != 0 {
+		prvName = tr.Provider.Name
+	} else {
+		errString := "No provider given for topology request"
+		klog.Error(errString)
+		return nil, common.NewHTTPError(http.StatusInternalServerError, fmt.Sprint(errString))
 	}
-	if prvName == "" {
-		prvName = providerName
+	if engineName != nil {
+		klog.InfoS("Engine set in config as", "engine", *engineName)
+		engName = *engineName
+	} else if len(tr.Engine.Name) != 0 {
+		engName = tr.Engine.Name
+	} else {
+		errString := "No engine given for topology request"
+		klog.Error(errString)
+		return nil, common.NewHTTPError(http.StatusInternalServerError, fmt.Sprint(errString))
 	}
 	klog.InfoS("Creating topology config", "provider", engName, "engine", prvName)
 

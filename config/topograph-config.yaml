@@ -3,8 +3,15 @@ http:
   port: 49021
   ssl: false
 
+# Set provider and engine for topograph to use
+# provider: "test"
+# engine: "test"
+
 # waiting period before processing a request
 request_aggregation_delay: 15s
+
+# URL of an external gRPC service for request processing (optional)
+# forward_service_url:
 
 # number of results per API call (optional)
 page_size: 100

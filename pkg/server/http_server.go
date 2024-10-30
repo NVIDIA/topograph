@@ -60,10 +60,10 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 	}
 
 	if cfg.Provider != nil {
-		providerName = *cfg.Provider
+		providerName = cfg.Provider
 	}
 	if cfg.Engine != nil {
-		engineName = *cfg.Engine
+		engineName = cfg.Engine
 	}
 }
 
