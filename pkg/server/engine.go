@@ -29,8 +29,8 @@ import (
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
-var providerName string = common.ProviderTest// default value uses test provider
-var engineName string = common.EngineTest // default value uses test engine
+var providerName string = common.ProviderTest // default value uses test provider
+var engineName string = common.EngineTest     // default value uses test engine
 var useSimulation string = "false"
 var simulationModelPath string = ""
 
