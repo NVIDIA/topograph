@@ -37,8 +37,10 @@ curl http://localhost:49021/healthz
 ```
 
 #### Using Toposim
-To test the service on a simulated cluster, first add the following line to `/etc/topograph/topograph-config.yaml` so that any topology requests are forwarded to toposim.
+To test the service on a simulated cluster, first add the following lines to `/etc/topograph/topograph-config.yaml` so that topograph knows to run topology in simulation, which cluster model to use in simulation, and to forward any topology requests are forwarded to toposim.
 ```bash
+use_simulation: true
+simulation_model_path: "/usr/local/bin/tests/models/<cluster-model>.yaml"
 forward_service_url: dns:localhost:49025
 ```
 Then run the topograph service as normal.
@@ -51,12 +53,12 @@ You must then start the toposim service as such, setting the path to the test mo
 You can then verify the topology results via simulation by querying topograph using the `test` provider and engine, and specifying the test model path as a parameter to the provider.
 If you want to view the tree topology, then use the command:
 ```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test", "params":{"model_path":"/usr/local/bin/topograph/tests/models/<cluster-model>.yaml"}},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
+id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test"},"engine":{"name":"test"}}' http://localhost:49021/v1/generate)
 ```
 
 And if you want to view the block topology (with specified block sizes), use the command:
 ```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test", "params":{"model_path":"/usr/local/bin/topograph/tests/models/<cluster-model>.yaml"}},"engine":{"name":"test", "params":{"plugin":"topology/block", "block_sizes": <block-sizes>}}}' http://localhost:49021/v1/generate)
+id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"test"},"engine":{"name":"test", "params":{"plugin":"topology/block", "block_sizes": <block-sizes>}}}' http://localhost:49021/v1/generate)
 ```
 
 You can query the results of either topology request with:
