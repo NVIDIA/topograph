@@ -136,7 +136,11 @@ func TestToGraph(t *testing.T) {
 	nv1 := &common.Vertex{ID: "nvlink-nv1", Vertices: map[string]*common.Vertex{"n10-1": v101, "n10-2": v102, "n11-1": v111, "n11-2": v112}}
 
 	extra := &common.Vertex{ID: "extra", Vertices: map[string]*common.Vertex{"cpu1": cpu1}}
-	root := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1, "sw3": sw3, "extra": extra}}
+	treeRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1, "sw3": sw3, "extra": extra}}
+	blockRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1}}
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+	}
 
 	require.Equal(t, root, toGraph(&pb.TopologyResponse{Instances: instances}, cis))
 }

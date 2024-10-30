@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/translate"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +50,7 @@ func TestApplyNodeLabels(t *testing.T) {
 		"Node306": {"topology.kubernetes.io/network-level-1": "xf946c4acef2d5939", "topology.kubernetes.io/network-level-2": "S1"},
 	}
 
-	err := NewTopologyLabeler().ApplyNodeLabels(context.TODO(), root, labeler)
+	err := NewTopologyLabeler().ApplyNodeLabels(context.TODO(), root.Vertices[common.ValTopologyTree], labeler)
 	require.NoError(t, err)
 	require.Equal(t, data, labeler.data)
 }

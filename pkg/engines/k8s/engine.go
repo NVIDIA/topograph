@@ -50,7 +50,7 @@ func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *common.Vertex, p
 		return nil, err
 	}
 	buf := &bytes.Buffer{}
-	err := translate.ToSLURM(buf, tree)
+	err := translate.ToGraph(buf, tree)
 	if err != nil {
 		return nil, err
 	}
