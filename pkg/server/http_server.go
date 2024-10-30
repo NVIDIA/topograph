@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
@@ -57,6 +58,17 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 		async: &asyncController{
 			queue: utils.NewTrailingDelayQueue(processRequest, cfg.RequestAggregationDelay),
 		},
+	}
+
+	if cfg.Provider != nil {
+		providerName = *cfg.Provider
+	}
+	if cfg.Engine != nil {
+		engineName = *cfg.Engine
+	}
+	useSimulation = strconv.FormatBool(cfg.UseSimulation)
+	if cfg.SimulationModelPath != nil {
+		simulationModelPath = *cfg.SimulationModelPath
 	}
 }
 
@@ -132,14 +144,14 @@ func validate(tr *common.TopologyRequest) error {
 	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderBM, common.ProviderTest:
 		//nop
 	case "":
-		return fmt.Errorf("missing provider name")
+		//nop, will default to provider set in config file
 	default:
 		return fmt.Errorf("unsupported provider %s", tr.Provider.Name)
 	}
 
 	switch tr.Engine.Name {
 	case "":
-		return fmt.Errorf("missing engine name")
+		//nop, will default to engine set in config file
 	case common.EngineK8S:
 		for _, key := range []string{common.KeyTopoConfigPath, common.KeyTopoConfigmapName, common.KeyTopoConfigmapNamespace} {
 			if _, ok := tr.Engine.Params[key]; !ok {

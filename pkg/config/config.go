@@ -31,6 +31,10 @@ import (
 type Config struct {
 	HTTP                    Endpoint          `yaml:"http"`
 	RequestAggregationDelay time.Duration     `yaml:"request_aggregation_delay"`
+	Provider				*string			  `yaml:"provider"`
+	Engine					*string			  `yaml:"engine"`
+	UseSimulation			bool			  `yaml:"use_simulation"`
+	SimulationModelPath		*string			  `yaml:"simulation_model_path"`
 	PageSize                int               `yaml:"page_size,omitempty"`
 	SSL                     *SSL              `yaml:"ssl,omitempty"`
 	CredsPath               *string           `yaml:"credentials_path,omitempty"`

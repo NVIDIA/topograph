@@ -29,6 +29,11 @@ import (
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
+var providerName string = common.ProviderTest// default value uses test provider
+var engineName string = common.EngineTest // default value uses test engine
+var useSimulation string = "false"
+var simulationModelPath string = ""
+
 type asyncController struct {
 	queue *utils.TrailingDelayQueue
 }
@@ -50,15 +55,34 @@ func processRequest(item interface{}) (interface{}, *common.HTTPError) {
 }
 
 func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPError) {
-	klog.InfoS("Creating topology config", "provider", tr.Provider.Name, "engine", tr.Engine.Name)
+	engName := tr.Engine.Name
+	prvName := tr.Provider.Name
+	prvParams := make(map[string]string)
+	for k, v := range tr.Provider.Params {
+		prvParams[k] = v
+	}
 
-	eng, httpErr := factory.GetEngine(tr.Engine.Name)
+	if engName == "" {
+		engName = engineName
+	}
+	if prvName == "" {
+		prvName = providerName
+	}
+	if _, ok := prvParams[common.KeyUseSimulation]; !ok {
+		prvParams[common.KeyUseSimulation] = useSimulation
+	}
+	if _, ok := prvParams[common.KeyModelPath]; !ok {
+		prvParams[common.KeyModelPath] = simulationModelPath
+	}
+	klog.InfoS("Creating topology config", "provider", engName, "engine", prvName)
+
+	eng, httpErr := factory.GetEngine(engName)
 	if httpErr != nil {
 		klog.Error(httpErr.Error())
 		return nil, httpErr
 	}
 
-	prv, httpErr := factory.GetProvider(tr.Provider.Name, tr.Provider.Params)
+	prv, httpErr := factory.GetProvider(prvName, prvParams)
 	if httpErr != nil {
 		klog.Error(httpErr.Error())
 		return nil, httpErr

@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
+
+	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/models"
@@ -37,21 +40,31 @@ func GetProvider(provider string, params map[string]string) (common.Provider, *c
 		err error
 	)
 
-	switch provider {
-	case common.ProviderAWS:
-		prv, err = aws.GetProvider()
-	case common.ProviderGCP:
-		prv, err = gcp.GetProvider()
-	case common.ProviderOCI:
-		prv, err = oci.GetProvider()
-	case common.ProviderCW:
-		prv, err = cw.GetProvider()
-	case common.ProviderBM:
-		prv, err = baremetal.GetProvider()
-	case common.ProviderTest:
-		prv, err = GetTestProvider(params)
-	default:
-		return nil, common.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unsupported provider %q", provider))
+	// Use either simulated model or not
+	useSim, err := strconv.ParseBool(params[common.KeyUseSimulation])
+	if err != nil {
+		return nil, common.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("could not parse simulation flag"))
+	}
+	if useSim {
+		klog.InfoS("Using simulated topology", "model path", params[common.KeyModelPath])
+		prv, err = GetSimulatedProvider(params)
+	} else {
+		switch provider {
+		case common.ProviderAWS:
+			prv, err = aws.GetProvider()
+		case common.ProviderGCP:
+			prv, err = gcp.GetProvider()
+		case common.ProviderOCI:
+			prv, err = oci.GetProvider()
+		case common.ProviderCW:
+			prv, err = cw.GetProvider()
+		case common.ProviderBM:
+			prv, err = baremetal.GetProvider()
+		case common.ProviderTest:
+			prv, err = GetTestProvider()
+		default:
+			return nil, common.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unsupported provider %q", provider))
+		}
 	}
 
 	if err != nil {
@@ -66,24 +79,25 @@ type testProvider struct {
 	instance2node map[string]string
 }
 
-func GetTestProvider(params map[string]string) (*testProvider, error) {
+func GetSimulatedProvider(params map[string]string) (*testProvider, error) {
 	p := &testProvider{}
 
-	var modelPath string
-	if len(params) != 0 {
-		modelPath = params[common.KeyModelPath]
+	if path, ok := params[common.KeyModelPath]; !ok || len(path) == 0 {
+		return nil, fmt.Errorf("no model path for simulation")
 	}
 
-	if len(modelPath) == 0 {
-		p.tree, p.instance2node = translate.GetTreeTestSet(false)
-	} else {
-		model, err := models.NewModelFromFile(modelPath)
-		if err != nil {
-			return nil, err // Wrapped by models.NewModelFromFile
-		}
-		p.tree, p.instance2node = model.ToTree()
+	model, err := models.NewModelFromFile(params[common.KeyModelPath])
+	if err != nil {
+		return nil, err // Wrapped by models.NewModelFromFile
 	}
+	p.tree, p.instance2node = model.ToTree()
 
+	return p, nil
+}
+
+func GetTestProvider() (*testProvider, error) {
+	p := &testProvider{}
+	p.tree, p.instance2node = translate.GetTreeTestSet(false)
 	return p, nil
 }
 
