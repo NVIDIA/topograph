@@ -151,10 +151,11 @@ func toBlockSLURM(wr io.Writer, root *common.Vertex) error {
 }
 
 func toTreeSLURM(wr io.Writer, root *common.Vertex) error {
+	treeRoot := root.Vertices[common.ValTopologyTree]
 	visited := make(map[string]bool)
 	leaves := make(map[string][]string)
 	parents := []*common.Vertex{}
-	queue := []*common.Vertex{root}
+	queue := []*common.Vertex{treeRoot}
 	idToName := make(map[string]string)
 
 	for len(queue) > 0 {
