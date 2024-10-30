@@ -89,11 +89,15 @@ func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
 	}
 	if adminBlockSize != "" {
 		blockSizes := strings.Split(adminBlockSize, ",")
-		planningBS, _ := strconv.Atoi(blockSizes[0])
-		if planningBS > 0 && planningBS <= minDomainSize {
-			return adminBlockSize
+		planningBS, err := strconv.Atoi(blockSizes[0])
+		if err != nil {
+			fmt.Printf("Alert, strconv Atoi for admin provided blockSize %v failed with err: %v! Ignoring it\n", blockSizes[0], err)
+		} else {
+			if planningBS > 0 && planningBS <= minDomainSize {
+				return adminBlockSize
+			}
+			fmt.Printf("Alert Overriden planning blockSize of %v does not meet criteria, minimum domain size %v! Ignoring it\n", planningBS, minDomainSize)
 		}
-		fmt.Printf("Alert Overriden planning blockSize of %v does not meet criteria, minimum domain size %v!\n", planningBS, minDomainSize)
 	}
 	logDsize := math.Log2(float64(minDomainSize))
 	bs := math.Pow(2, float64(int(logDsize)))
