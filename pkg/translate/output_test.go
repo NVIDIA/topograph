@@ -32,14 +32,14 @@ SwitchName=S3 Nodes=Node[304-306]
 
 	testBlockConfig = `BlockName=B1 Nodes=Node[104-106]
 BlockName=B2 Nodes=Node[201-202],Node205
-BlockSizes=8
+BlockSizes=3
 `
 
 	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
 BlockName=B4 Nodes=Node[401-403]
 BlockName=B1 Nodes=Node[104-106]
 BlockName=B2 Nodes=Node[201-202],Node205
-BlockSizes=8
+BlockSizes=3
 `
 	shortNameExpectedResult = `# switch.3.1=hpcislandid-1
 SwitchName=switch.3.1 Switches=switch.2.[1-2]
