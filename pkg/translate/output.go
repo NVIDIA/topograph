@@ -19,6 +19,7 @@ package translate
 import (
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -79,16 +80,28 @@ func printDisconnectedBlocks(wr io.Writer, root *common.Vertex, domainVisited ma
 	return nil
 }
 
-func verifyBlockSize(domainVisited map[string]int) int {
-	blockSize := -1
-	for _, bSize := range domainVisited {
-		if blockSize == -1 {
-			blockSize = bSize
-		} else if blockSize != bSize {
-			fmt.Printf("Alert! blockSize different between NVL domains\n")
+func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
+	minDomainSize := -1
+	for _, dSize := range domainVisited {
+		if minDomainSize == -1 || minDomainSize > dSize {
+			minDomainSize = dSize
 		}
 	}
-	return blockSize
+	if adminBlockSize != "" {
+		blockSizes := strings.Split(adminBlockSize, ",")
+		planningBS, err := strconv.Atoi(blockSizes[0])
+		if err != nil {
+			fmt.Printf("Alert, strconv Atoi for admin provided blockSize %v failed with err: %v! Ignoring it\n", blockSizes[0], err)
+		} else {
+			if planningBS > 0 && planningBS <= minDomainSize {
+				return adminBlockSize
+			}
+			fmt.Printf("Alert Overriden planning blockSize of %v does not meet criteria, minimum domain size %v! Ignoring it\n", planningBS, minDomainSize)
+		}
+	}
+	logDsize := math.Log2(float64(minDomainSize))
+	bs := math.Pow(2, float64(int(logDsize)))
+	return strconv.Itoa(int(bs))
 }
 
 func toBlockSLURM(wr io.Writer, root *common.Vertex) error {
@@ -125,10 +138,12 @@ func toBlockSLURM(wr io.Writer, root *common.Vertex) error {
 	if err != nil {
 		return err
 	}
-	blockSize := strconv.Itoa(verifyBlockSize(domainVisited))
+
+	blockSize := ""
 	if _, exists := root.Metadata[common.KeyBlockSizes]; exists {
 		blockSize = root.Metadata[common.KeyBlockSizes]
 	}
+	blockSize = getBlockSize(domainVisited, blockSize)
 	_, err = wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blockSize)))
 	return err
 }
@@ -442,7 +457,7 @@ func GetBlockWithMultiIBTestSet() (*common.Vertex, map[string]string) {
 		Metadata: map[string]string{
 			common.KeyEngine:     common.EngineSLURM,
 			common.KeyPlugin:     common.ValTopologyBlock,
-			common.KeyBlockSizes: "8",
+			common.KeyBlockSizes: "3",
 		},
 	}
 	return root, instance2node
@@ -496,7 +511,7 @@ func GetBlockWithIBTestSet() (*common.Vertex, map[string]string) {
 		Metadata: map[string]string{
 			common.KeyEngine:     common.EngineSLURM,
 			common.KeyPlugin:     common.ValTopologyBlock,
-			common.KeyBlockSizes: "8",
+			common.KeyBlockSizes: "3",
 		},
 	}
 	return root, instance2node
@@ -534,7 +549,7 @@ func GetBlockTestSet() (*common.Vertex, map[string]string) {
 		Metadata: map[string]string{
 			common.KeyEngine:     common.EngineSLURM,
 			common.KeyPlugin:     common.ValTopologyBlock,
-			common.KeyBlockSizes: "8",
+			common.KeyBlockSizes: "3",
 		},
 	}
 	return root, instance2node
