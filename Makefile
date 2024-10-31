@@ -31,6 +31,17 @@ build: proto
 	    $(CMD_DIR)/$${target};           \
 	done
 
+.PHONY: build-arm64
+build-arm64: proto
+	@echo "Building for arm64"
+	@for target in $(TARGETS); do        \
+	  echo "Building $${target}";        \
+	  GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 go build -a -o $(OUTPUT_DIR)/$${target}        \
+	    -ldflags '-extldflags "-static" -X main.GitTag=$(GIT_REF)' \
+	    $(CMD_DIR)/$${target};           \
+	done
+
+
 .PHONY: clean
 clean:
 	scripts/clean-build.sh
@@ -87,6 +98,10 @@ ssl:
 .PHONY: deb
 deb: build
 	scripts/build-deb.sh $(GIT_REF)
+
+.PHONY: deb-arm64
+deb-arm64: build-arm64
+	ARCH=arm64 scripts/build-deb-arm64.sh $(GIT_REF)
 
 .PHONY: rpm
 rpm: build
