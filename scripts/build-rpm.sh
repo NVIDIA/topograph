@@ -7,6 +7,7 @@ REPO_HOME=$(readlink -f $(dirname $(readlink -f "$0"))/../)
 VERSION="${1#v}"
 RELEASE="${2-1}"
 ARCH=$(uname -m)
+ARCH="${ARCH:-$(uname -m)}"
 
 : "${VERSION:?Missing argument}"
 

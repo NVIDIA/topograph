@@ -86,8 +86,8 @@ ssl:
 
 .PHONY: deb
 deb: build
-	scripts/build-deb.sh $(GIT_REF) $(BCM_REVISION)
+	scripts/build-deb.sh $(GIT_REF)
 
 .PHONY: rpm
 rpm: build
-	scripts/build-rpm.sh $(GIT_REF) $(BCM_REVISION)
+	scripts/build-rpm.sh $(GIT_REF)
