@@ -6,7 +6,7 @@ REPO_HOME=$(readlink -f $(dirname $(readlink -f "$0"))/../)
 
 VERSION="${1#v}"
 RELEASE="${2//_/-}"
-ARCH=$(dpkg --print-architecture)
+ARCH="${ARCH:-$(dpkg --print-architecture)}"
 
 : "${VERSION:?Missing argument}"
 
