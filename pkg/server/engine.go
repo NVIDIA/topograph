@@ -18,7 +18,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -29,9 +28,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
-
-var providerName string
-var engineName string
 
 type asyncController struct {
 	queue *utils.TrailingDelayQueue
@@ -54,37 +50,15 @@ func processRequest(item interface{}) (interface{}, *common.HTTPError) {
 }
 
 func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPError) {
+	klog.InfoS("Creating topology config", "provider", tr.Provider.Name, "engine", tr.Engine.Name)
 
-	// Uses what is given in the topology request, otherwise uses what it given in the topograph config
-	// If neither is given, will throw an error
-	var engName, prvName string
-	if len(tr.Provider.Name) != 0 {
-		prvName = tr.Provider.Name
-	} else if len(providerName) != 0 {
-		prvName = providerName
-	} else {
-		errString := "No provider given for topology request"
-		klog.Error(errString)
-		return nil, common.NewHTTPError(http.StatusInternalServerError, fmt.Sprint(errString))
-	}
-	if len(tr.Engine.Name) != 0 {
-		engName = tr.Engine.Name
-	} else if len(engineName) != 0 {
-		engName = engineName
-	} else {
-		errString := "No engine given for topology request"
-		klog.Error(errString)
-		return nil, common.NewHTTPError(http.StatusInternalServerError, fmt.Sprint(errString))
-	}
-	klog.InfoS("Creating topology config", "provider", prvName, "engine", engName)
-
-	eng, httpErr := factory.GetEngine(engName)
+	eng, httpErr := factory.GetEngine(tr.Engine.Name)
 	if httpErr != nil {
 		klog.Error(httpErr.Error())
 		return nil, httpErr
 	}
 
-	prv, httpErr := factory.GetProvider(prvName, tr.Provider.Params)
+	prv, httpErr := factory.GetProvider(tr.Provider.Name, tr.Provider.Params)
 	if httpErr != nil {
 		klog.Error(httpErr.Error())
 		return nil, httpErr

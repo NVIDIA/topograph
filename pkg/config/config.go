@@ -25,6 +25,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
@@ -76,6 +77,20 @@ func NewFromFile(fname string) (*Config, error) {
 func (cfg *Config) validate() error {
 	if cfg.HTTP.Port == 0 {
 		return fmt.Errorf("port is not set")
+	}
+
+	switch cfg.Provider {
+	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderBM, common.ProviderTest, "":
+		//nop
+	default:
+		return fmt.Errorf("unsupported provider %s", cfg.Provider)
+	}
+
+	switch cfg.Engine {
+	case common.EngineK8S, common.EngineSLURM, common.EngineTest, "":
+		//nop
+	default:
+		return fmt.Errorf("unsupported engine %s", cfg.Engine)
 	}
 
 	if cfg.RequestAggregationDelay == 0 {

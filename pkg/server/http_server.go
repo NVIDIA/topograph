@@ -58,10 +58,6 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 			queue: utils.NewTrailingDelayQueue(processRequest, cfg.RequestAggregationDelay),
 		},
 	}
-
-	// Saves the provider and engine config parameters
-	providerName = cfg.Provider
-	engineName = cfg.Engine
 }
 
 func GetRunGroup() (func() error, func(error)) {
@@ -121,6 +117,14 @@ func readRequest(w http.ResponseWriter, r *http.Request) *common.TopologyRequest
 		return nil
 	}
 
+	// If provider and engine are not passed in the payload, use the ones specified in the config
+	if len(tr.Provider.Name) == 0 {
+		tr.Provider.Name = srv.cfg.Provider
+	}
+	if len(tr.Engine.Name) == 0 {
+		tr.Engine.Name = srv.cfg.Engine
+	}
+
 	klog.Info(tr.String())
 
 	if err = validate(tr); err != nil {
@@ -136,20 +140,24 @@ func validate(tr *common.TopologyRequest) error {
 	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderBM, common.ProviderTest:
 		//nop
 	case "":
-		//nop, will default to provider set in config file
+		return fmt.Errorf("no provider given for topology request")
 	default:
 		return fmt.Errorf("unsupported provider %s", tr.Provider.Name)
 	}
 
 	switch tr.Engine.Name {
-	case "":
-		//nop, will default to engine set in config file
+	case common.EngineSLURM, common.EngineTest:
+		//nop
 	case common.EngineK8S:
 		for _, key := range []string{common.KeyTopoConfigPath, common.KeyTopoConfigmapName, common.KeyTopoConfigmapNamespace} {
 			if _, ok := tr.Engine.Params[key]; !ok {
 				return fmt.Errorf("missing %q parameter", key)
 			}
 		}
+	case "":
+		return fmt.Errorf("no engine given for topology request")
+	default:
+		return fmt.Errorf("unsupported engine %s", tr.Engine.Name)
 	}
 
 	return nil

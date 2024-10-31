@@ -99,7 +99,7 @@ func TestToBlockIBTopology(t *testing.T) {
 func TestToSlurmNameShortener(t *testing.T) {
 	v := &common.Vertex{
 		Vertices: map[string]*common.Vertex{
-			common.ValTopologyTree: &common.Vertex{
+			common.ValTopologyTree: {
 				Vertices: map[string]*common.Vertex{
 					"hpcislandid-1": {
 						ID:   "hpcislandid-1",
@@ -141,7 +141,7 @@ func TestToSlurmNameShortener(t *testing.T) {
 					},
 				},
 			},
-			common.ValTopologyBlock: &common.Vertex{Vertices: map[string]*common.Vertex{}},
+			common.ValTopologyBlock: {Vertices: map[string]*common.Vertex{}},
 		},
 	}
 
