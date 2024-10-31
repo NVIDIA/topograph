@@ -40,4 +40,5 @@ const (
 	KeyPlugin        = "plugin"
 	ValTopologyTree  = "topology/tree"
 	ValTopologyBlock = "topology/block"
+	NoTopology       = "no-topology"
 )

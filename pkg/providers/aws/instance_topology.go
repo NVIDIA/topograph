@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/metrics"
 )
 
 var defaultPageSize int32 = 100
@@ -173,9 +174,10 @@ func toGraph(topology []types.InstanceTopology, cis []common.ComputeInstances) (
 	}
 
 	if len(i2n) != 0 {
-		klog.V(4).Infof("Adding unclaimed nodes %v", i2n)
+		klog.V(4).Infof("Adding nodes w/o topology: %v", i2n)
+		metrics.SetMissingTopology(common.ProviderAWS, len(i2n))
 		sw := &common.Vertex{
-			ID:       "cpu-nodes",
+			ID:       common.NoTopology,
 			Vertices: make(map[string]*common.Vertex),
 		}
 		for instanceID, nodeName := range i2n {
@@ -184,7 +186,7 @@ func toGraph(topology []types.InstanceTopology, cis []common.ComputeInstances) (
 				ID:   instanceID,
 			}
 		}
-		forest["cpu-nodes"] = sw
+		forest[common.NoTopology] = sw
 	}
 
 	root := &common.Vertex{

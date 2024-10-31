@@ -24,7 +24,7 @@ var requestLatency = prometheus.NewSummaryVec(
 	prometheus.SummaryOpts{
 		Name:       "request_latency",
 		Help:       "Latency of requests",
-		Subsystem:  "topogen_oci",
+		Subsystem:  "topograph_oci",
 		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	},
 	[]string{"method", "status"},
@@ -34,7 +34,7 @@ var missingAncestor = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Name:      "topogen_missing_ancestor_oci",
 		Help:      "Missing ancestor nodes",
-		Subsystem: "topogen_oci",
+		Subsystem: "topograph_oci",
 	},
 	[]string{"ancestor_level", "node_name"},
 )

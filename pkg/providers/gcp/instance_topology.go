@@ -112,7 +112,7 @@ func GenerateInstanceTopology(ctx context.Context, _ interface{}, instanceToNode
 	return instanceTopology, nil
 }
 
-func (cfg *InstanceTopology) toSLURM() (*common.Vertex, error) {
+func (cfg *InstanceTopology) toGraph() (*common.Vertex, error) {
 	forest := make(map[string]*common.Vertex)
 	nodes := make(map[string]*common.Vertex)
 

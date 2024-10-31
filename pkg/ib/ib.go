@@ -65,10 +65,10 @@ func GenerateTopologyConfig(data []byte) (*common.Vertex, error) {
 	}
 	seen = make(map[int]map[string]*Switch)
 	root.simplify(root.getHeight())
-	return root.toSlurm()
+	return root.toGraph()
 }
 
-func (sw *Switch) toSlurm() (*common.Vertex, error) {
+func (sw *Switch) toGraph() (*common.Vertex, error) {
 	vertex := &common.Vertex{
 		Vertices: make(map[string]*common.Vertex),
 	}
@@ -82,7 +82,7 @@ func (sw *Switch) toSlurm() (*common.Vertex, error) {
 		}
 	} else {
 		for id, child := range sw.Children {
-			v, err := child.toSlurm()
+			v, err := child.toGraph()
 			if err != nil {
 				return nil, err
 			}

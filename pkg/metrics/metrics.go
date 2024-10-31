@@ -26,29 +26,45 @@ import (
 var (
 	httpRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "topogen_requests_total",
-			Help: "Total number of topology generator requests.",
+			Name:      "requests_total",
+			Help:      "Total number of topology generation requests.",
+			Subsystem: "topograph",
 		},
 		[]string{"provider", "engine", "status"},
 	)
 
 	httpRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "topogen_request_duration_seconds",
-			Help:    "Topology generator request duration in seconds.",
-			Buckets: prometheus.DefBuckets,
+			Name:      "request_duration_seconds",
+			Help:      "Topology generator request duration in seconds.",
+			Subsystem: "topograph",
+			Buckets:   prometheus.DefBuckets,
 		},
 		[]string{"provider", "engine", "status"},
+	)
+
+	missingTopologyNodes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name:      "missing_topology",
+			Help:      "Total number of nodes with missing topology information.",
+			Subsystem: "topograph",
+		},
+		[]string{"provider"},
 	)
 )
 
 func init() {
 	prometheus.MustRegister(httpRequestsTotal)
 	prometheus.MustRegister(httpRequestDuration)
+	prometheus.MustRegister(missingTopologyNodes)
 }
 
 func Add(provider, engine string, code int, duration time.Duration) {
 	status := fmt.Sprintf("%d", code)
 	httpRequestsTotal.WithLabelValues(provider, engine, status).Inc()
 	httpRequestDuration.WithLabelValues(provider, engine, status).Observe(duration.Seconds())
+}
+
+func SetMissingTopology(provider string, count int) {
+	missingTopologyNodes.WithLabelValues(provider).Set(float64(count))
 }

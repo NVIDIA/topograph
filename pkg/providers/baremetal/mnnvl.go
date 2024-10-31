@@ -50,7 +50,7 @@ func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
 	args := []string{"-h"}
 	stdout, err := utils.Exec(ctx, "sinfo", args, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Exec error in sinfo\n")
+		return nil, fmt.Errorf("exec error in sinfo: %v", err)
 	}
 
 	scanner := bufio.NewScanner(stdout)
@@ -76,7 +76,7 @@ func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
 					args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
 					stdout, err := utils.Exec(ctx, "pdsh", args, nil)
 					if err != nil {
-						return nil, fmt.Errorf("Exec error while pdsh IB command\n")
+						return nil, fmt.Errorf("exec error while pdsh IB command: %v", err)
 					}
 					if strings.Contains(stdout.String(), "Topology file:") {
 						_, hca, _ := ib.ParseIbnetdiscoverFile(stdout.Bytes())
@@ -86,7 +86,7 @@ func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
 						partitionVisitedMap[pName] = true
 						ibRoot, err := ib.GenerateTopologyConfig(stdout.Bytes())
 						if err != nil {
-							return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v\n", err)
+							return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v", err)
 						}
 						ibCount++
 						ibKey := ibPrefix + strconv.Itoa(ibCount)
@@ -158,7 +158,7 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 	args := []string{"-R", "ssh", "-w", strings.Join(nodes, ","), cmd}
 	stdout, err := utils.Exec(ctx, "pdsh", args, nil)
 	if err != nil {
-		return fmt.Errorf("Exec error while pdsh\n")
+		return fmt.Errorf("exec error while pdsh: %v", err)
 	}
 
 	scanner := bufio.NewScanner(stdout)
@@ -176,7 +176,7 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 		nodeMap[nodeName] = true
 	}
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("Scanner error while reading pdsh output\n")
+		return fmt.Errorf("scanner error while reading pdsh output: %v", err)
 	}
 	return nil
 }
@@ -211,12 +211,12 @@ func generateTopologyConfig(ctx context.Context, cis []common.ComputeInstances) 
 	nodes := getNodeList(cis)
 	err := getClusterOutput(ctx, domainMap, nodes, "nvidia-smi -q | grep ClusterUUID")
 	if err != nil {
-		return nil, fmt.Errorf("getClusterOutput failed: %v\n", err)
+		return nil, fmt.Errorf("getClusterOutput failed: %v", err)
 	}
 	// get ibnetdiscover output from all unvisited nodes
 	treeRoot, err := getIbTree(ctx, nodes)
 	if err != nil {
-		return nil, fmt.Errorf("getIbTree failed: %v\n", err)
+		return nil, fmt.Errorf("getIbTree failed: %v", err)
 	}
 	return toGraph(domainMap, treeRoot), nil
 }
