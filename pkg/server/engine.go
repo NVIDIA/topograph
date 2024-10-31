@@ -55,30 +55,28 @@ func processRequest(item interface{}) (interface{}, *common.HTTPError) {
 
 func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPError) {
 
-	// Uses the provider and engine given config if provided, otherwise uses what is given in the topology request.
+	// Uses what is given in the topology request, otherwise uses what it given in the topograph config
 	// If neither is given, will throw an error
 	var engName, prvName string
-	if len(providerName) != 0 {
-		klog.InfoS("Provider set in config as", "provider", providerName)
-		prvName = providerName
-	} else if len(tr.Provider.Name) != 0 {
+	if len(tr.Provider.Name) != 0 {
 		prvName = tr.Provider.Name
+	} else if len(providerName) != 0 {
+		prvName = providerName
 	} else {
 		errString := "No provider given for topology request"
 		klog.Error(errString)
 		return nil, common.NewHTTPError(http.StatusInternalServerError, fmt.Sprint(errString))
 	}
-	if len(engineName) != 0 {
-		klog.InfoS("Engine set in config as", "engine", engineName)
-		engName = engineName
-	} else if len(tr.Engine.Name) != 0 {
+	if len(tr.Engine.Name) != 0 {
 		engName = tr.Engine.Name
+	} else if len(engineName) != 0 {
+		engName = engineName
 	} else {
 		errString := "No engine given for topology request"
 		klog.Error(errString)
 		return nil, common.NewHTTPError(http.StatusInternalServerError, fmt.Sprint(errString))
 	}
-	klog.InfoS("Creating topology config", "provider", engName, "engine", prvName)
+	klog.InfoS("Creating topology config", "provider", prvName, "engine", engName)
 
 	eng, httpErr := factory.GetEngine(engName)
 	if httpErr != nil {
