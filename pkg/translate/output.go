@@ -27,11 +27,11 @@ import (
 	"github.com/NVIDIA/topograph/pkg/common"
 )
 
-func ToSLURM(wr io.Writer, root *common.Vertex) error {
+func ToGraph(wr io.Writer, root *common.Vertex) error {
 	if len(root.Metadata) != 0 && root.Metadata[common.KeyPlugin] == common.ValTopologyBlock {
-		return toBlockSLURM(wr, root)
+		return toBlockTopology(wr, root)
 	}
-	return toTreeSLURM(wr, root)
+	return toTreeTopology(wr, root)
 }
 
 func printBlock(wr io.Writer, block *common.Vertex, domainVisited map[string]int) error {
@@ -69,12 +69,14 @@ func sortVertices(root *common.Vertex) []string {
 }
 
 func printDisconnectedBlocks(wr io.Writer, root *common.Vertex, domainVisited map[string]int) error {
-	keys := sortVertices(root)
-	for _, key := range keys {
-		block := root.Vertices[key]
-		err := printBlock(wr, block, domainVisited)
-		if err != nil {
-			return err
+	if root != nil {
+		keys := sortVertices(root)
+		for _, key := range keys {
+			block := root.Vertices[key]
+			err := printBlock(wr, block, domainVisited)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -104,7 +106,7 @@ func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
 	return strconv.Itoa(int(bs))
 }
 
-func toBlockSLURM(wr io.Writer, root *common.Vertex) error {
+func toBlockTopology(wr io.Writer, root *common.Vertex) error {
 	// traverse tree topology and when a node is reached, check within blockRoot for domain and print that domain.
 	// keep a map of which domain has been printed
 	treeRoot := root.Vertices[common.ValTopologyTree]
@@ -148,11 +150,12 @@ func toBlockSLURM(wr io.Writer, root *common.Vertex) error {
 	return err
 }
 
-func toTreeSLURM(wr io.Writer, root *common.Vertex) error {
+func toTreeTopology(wr io.Writer, root *common.Vertex) error {
+	treeRoot := root.Vertices[common.ValTopologyTree]
 	visited := make(map[string]bool)
 	leaves := make(map[string][]string)
 	parents := []*common.Vertex{}
-	queue := []*common.Vertex{root}
+	queue := []*common.Vertex{treeRoot}
 	idToName := make(map[string]string)
 
 	for len(queue) > 0 {
@@ -364,8 +367,14 @@ func GetTreeTestSet(testForLongLabelName bool) (*common.Vertex, map[string]strin
 		ID:       "S1",
 		Vertices: map[string]*common.Vertex{"S2": sw2, s3name: sw3},
 	}
-	root := &common.Vertex{
+	treeRoot := &common.Vertex{
 		Vertices: map[string]*common.Vertex{"S1": sw1},
+	}
+	blockRoot := &common.Vertex{
+		Vertices: map[string]*common.Vertex{},
+	}
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
 	}
 
 	return root, instance2node

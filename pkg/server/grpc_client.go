@@ -71,6 +71,7 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances) *comm
 	klog.V(4).Infof("Instance/Node map %v", i2n)
 
 	forest := make(map[string]*common.Vertex)
+	blocks := make(map[string]*common.Vertex)
 	vertices := make(map[string]*common.Vertex)
 
 	for _, ins := range response.Instances {
@@ -100,6 +101,7 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances) *comm
 					Vertices: map[string]*common.Vertex{id: vertex},
 				}
 				forest[switchName] = sw
+				blocks[switchName] = sw
 			} else {
 				sw.Vertices[id] = vertex
 			}
@@ -147,12 +149,22 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances) *comm
 		forest["extra"] = sw
 	}
 
-	root := &common.Vertex{
+	treeRoot := &common.Vertex{
 		Vertices: make(map[string]*common.Vertex),
 	}
 	for name, node := range forest {
-		root.Vertices[name] = node
+		treeRoot.Vertices[name] = node
 	}
 
+	blockRoot := &common.Vertex{
+		Vertices: make(map[string]*common.Vertex),
+	}
+	for name, domain := range blocks {
+		blockRoot.Vertices[name] = domain
+	}
+
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+	}
 	return root
 }

@@ -49,6 +49,16 @@ http:
   # ssl: enables HTTPS protocol if set to `true` (optional).
   ssl: false
 
+# provider: the provider that topograph will use (optional)
+# Valid options include "aws", "oci", "gcp", "cw", "baremetal" or "test".
+# Can be overridden if the provider is specified in a topology request to topograph
+provider: "aws"
+
+# engine: the engine that topograph will use (optional)
+# Valid options include "slurm", "k8s", or "test".
+# Can be overridden if the engine is specified in a topology request to topograph
+engine: "slurm"
+
 # request_aggregation_delay: defines the delay before processing a request (required).
 # Topograph aggregates multiple sequential requests within this delay into a single request,
 # processing only if no new requests arrive during the specified duration.
@@ -109,10 +119,12 @@ Topograph offers three endpoints for interacting with the service. Below are the
 - **URL:** `http://<server>:<port>/v1/generate`
 - **Description:** This endpoint is used to request a new cluster topology.
 - **Payload:** The payload is a JSON object that includes the following fields:
-  - **provider name**: (mandatory) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `cw`, `baremetal` or `test`.
+  - **provider name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `cw`, `baremetal` or `test`. This parameter will be override the provider set in the topograph config.
   - **provider credentials**: (optional) A key-value map with provider-specific parameters for authentication.
-  - **engine name**: (mandatory) A string specifying the topology output, either `slurm` or `k8s`.
-  - **engine parameters**: A key-value map with engine-specific parameters.
+  - **provider parameters**: (optional) A key-value map with parameters that are used for provider simulation with toposim.
+    - **model_path**: (optional) A string parameter that points to the model file to use for simulating topology.
+  - **engine name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, or `test`. This parameter will override the engine set in the topograph config.
+  - **engine parameters**: (optional) A key-value map with engine-specific parameters.
     - **slurm parameters**:
       - **topology_config_path**: (optional) A string specifying the file path for the topology configuration. If omitted, the topology config content is returned in the HTTP response.
       - **plugin**: (optional) A string specifying topology plugin. Default topology/tree.
@@ -133,6 +145,10 @@ Topograph offers three endpoints for interacting with the service. Below are the
     "creds": {
       "access_key_id": "id",
       "secret_access_key": "secret"
+    },
+    "params": {
+      "use_simulation": "false",
+      "model_path": ""
     }
   },
   "engine": {

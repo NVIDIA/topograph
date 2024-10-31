@@ -25,12 +25,15 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
 type Config struct {
 	HTTP                    Endpoint          `yaml:"http"`
 	RequestAggregationDelay time.Duration     `yaml:"request_aggregation_delay"`
+	Provider                string            `yaml:"provider,omitempty"`
+	Engine                  string            `yaml:"engine,omitempty"`
 	PageSize                int               `yaml:"page_size,omitempty"`
 	SSL                     *SSL              `yaml:"ssl,omitempty"`
 	CredsPath               *string           `yaml:"credentials_path,omitempty"`
@@ -74,6 +77,20 @@ func NewFromFile(fname string) (*Config, error) {
 func (cfg *Config) validate() error {
 	if cfg.HTTP.Port == 0 {
 		return fmt.Errorf("port is not set")
+	}
+
+	switch cfg.Provider {
+	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderBM, common.ProviderTest, "":
+		//nop
+	default:
+		return fmt.Errorf("unsupported provider %s", cfg.Provider)
+	}
+
+	switch cfg.Engine {
+	case common.EngineK8S, common.EngineSLURM, common.EngineTest, "":
+		//nop
+	default:
+		return fmt.Errorf("unsupported engine %s", cfg.Engine)
 	}
 
 	if cfg.RequestAggregationDelay == 0 {

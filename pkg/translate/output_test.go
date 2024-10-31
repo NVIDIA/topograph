@@ -54,26 +54,26 @@ SwitchName=switch.1.2 Nodes=node-2
 `
 )
 
-func TestToTreeSLURM(t *testing.T) {
+func TestToTreeTopology(t *testing.T) {
 	v, _ := GetTreeTestSet(false)
 	buf := &bytes.Buffer{}
-	err := ToSLURM(buf, v)
+	err := ToGraph(buf, v)
 	require.NoError(t, err)
 	require.Equal(t, testTreeConfig, buf.String())
 }
 
-func TestToBlockSLURM(t *testing.T) {
+func TestToBlockTopology(t *testing.T) {
 	v, _ := GetBlockTestSet()
 	buf := &bytes.Buffer{}
-	err := ToSLURM(buf, v)
+	err := ToGraph(buf, v)
 	require.NoError(t, err)
 	require.Equal(t, testBlockConfig, buf.String())
 }
 
-func TestToBlockMultiIBSLURM(t *testing.T) {
+func TestToBlockMultiIBTopology(t *testing.T) {
 	v, _ := GetBlockWithMultiIBTestSet()
 	buf := &bytes.Buffer{}
-	err := ToSLURM(buf, v)
+	err := ToGraph(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
 	case testBlockConfig2:
@@ -83,10 +83,10 @@ func TestToBlockMultiIBSLURM(t *testing.T) {
 	}
 }
 
-func TestToBlockIBSLURM(t *testing.T) {
+func TestToBlockIBTopology(t *testing.T) {
 	v, _ := GetBlockWithIBTestSet()
 	buf := &bytes.Buffer{}
-	err := ToSLURM(buf, v)
+	err := ToGraph(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
 	case testBlockConfig:
@@ -99,37 +99,41 @@ func TestToBlockIBSLURM(t *testing.T) {
 func TestToSlurmNameShortener(t *testing.T) {
 	v := &common.Vertex{
 		Vertices: map[string]*common.Vertex{
-			"hpcislandid-1": {
-				ID:   "hpcislandid-1",
-				Name: "switch.3.1",
+			common.ValTopologyTree: {
 				Vertices: map[string]*common.Vertex{
-					"network-block-1": {
-						ID:   "network-block-1",
-						Name: "switch.2.1",
+					"hpcislandid-1": {
+						ID:   "hpcislandid-1",
+						Name: "switch.3.1",
 						Vertices: map[string]*common.Vertex{
-							"local-block-1": {
-								ID:   "local-block-1",
-								Name: "switch.1.1",
+							"network-block-1": {
+								ID:   "network-block-1",
+								Name: "switch.2.1",
 								Vertices: map[string]*common.Vertex{
-									"node-1": {
-										ID:   "node-1-id",
-										Name: "node-1",
+									"local-block-1": {
+										ID:   "local-block-1",
+										Name: "switch.1.1",
+										Vertices: map[string]*common.Vertex{
+											"node-1": {
+												ID:   "node-1-id",
+												Name: "node-1",
+											},
+										},
 									},
 								},
 							},
-						},
-					},
-					"network-block-2": {
-						ID:   "network-block-2",
-						Name: "switch.2.2",
-						Vertices: map[string]*common.Vertex{
-							"local-block-2": {
-								ID:   "local-block-2",
-								Name: "switch.1.2",
+							"network-block-2": {
+								ID:   "network-block-2",
+								Name: "switch.2.2",
 								Vertices: map[string]*common.Vertex{
-									"node-2": {
-										ID:   "node-2-id",
-										Name: "node-2",
+									"local-block-2": {
+										ID:   "local-block-2",
+										Name: "switch.1.2",
+										Vertices: map[string]*common.Vertex{
+											"node-2": {
+												ID:   "node-2-id",
+												Name: "node-2",
+											},
+										},
 									},
 								},
 							},
@@ -137,11 +141,12 @@ func TestToSlurmNameShortener(t *testing.T) {
 					},
 				},
 			},
+			common.ValTopologyBlock: {Vertices: map[string]*common.Vertex{}},
 		},
 	}
 
 	buf := &bytes.Buffer{}
-	err := ToSLURM(buf, v)
+	err := ToGraph(buf, v)
 	require.NoError(t, err)
 	require.Equal(t, shortNameExpectedResult, buf.String())
 }

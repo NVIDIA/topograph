@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/klog/v2"
+
 	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
@@ -69,21 +71,16 @@ type testProvider struct {
 func GetTestProvider(params map[string]string) (*testProvider, error) {
 	p := &testProvider{}
 
-	var modelPath string
-	if len(params) != 0 {
-		modelPath = params[common.KeyModelPath]
-	}
-
-	if len(modelPath) == 0 {
+	if path, ok := params[common.KeyModelPath]; !ok || len(path) == 0 {
 		p.tree, p.instance2node = translate.GetTreeTestSet(false)
 	} else {
-		model, err := models.NewModelFromFile(modelPath)
+		klog.InfoS("Using simulated topology", "model path", params[common.KeyModelPath])
+		model, err := models.NewModelFromFile(params[common.KeyModelPath])
 		if err != nil {
 			return nil, err // Wrapped by models.NewModelFromFile
 		}
 		p.tree, p.instance2node = model.ToTree()
 	}
-
 	return p, nil
 }
 

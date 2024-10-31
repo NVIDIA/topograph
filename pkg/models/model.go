@@ -145,6 +145,7 @@ func (model *Model) ToTree() (*common.Vertex, map[string]string) {
 	nodeVertexMap := make(map[string]*common.Vertex)
 	swVertexMap := make(map[string]*common.Vertex)
 	swRootMap := make(map[string]bool)
+	blockVertexMap := make(map[string]*common.Vertex)
 
 	// Create all the vertices for each node
 	for k, v := range model.Nodes {
@@ -156,6 +157,14 @@ func (model *Model) ToTree() (*common.Vertex, map[string]string) {
 	for _, sw := range model.Switches {
 		swVertexMap[sw.Name] = &common.Vertex{ID: sw.Name, Vertices: make(map[string]*common.Vertex)}
 		swRootMap[sw.Name] = true
+	}
+
+	// Initializes all the block vertices
+	for _, cb := range model.CapacityBlocks {
+		blockVertexMap[cb.Name] = &common.Vertex{ID: cb.Name, Vertices: make(map[string]*common.Vertex)}
+		for _, node := range cb.Nodes {
+			blockVertexMap[cb.Name].Vertices[node] = nodeVertexMap[node]
+		}
 	}
 
 	// Connect all the switches to their sub-switches and sub-nodes
@@ -177,11 +186,18 @@ func (model *Model) ToTree() (*common.Vertex, map[string]string) {
 	}
 
 	// Connects all root vertices to the hidden root
-	root := &common.Vertex{Vertices: make(map[string]*common.Vertex)}
+	treeRoot := &common.Vertex{Vertices: make(map[string]*common.Vertex)}
 	for k, v := range swRootMap {
 		if v {
-			root.Vertices[k] = swVertexMap[k]
+			treeRoot.Vertices[k] = swVertexMap[k]
 		}
+	}
+	blockRoot := &common.Vertex{Vertices: make(map[string]*common.Vertex)}
+	for k, v := range blockVertexMap {
+		blockRoot.Vertices[k] = v
+	}
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
 	}
 	return root, instance2node
 }
