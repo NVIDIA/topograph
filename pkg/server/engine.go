@@ -30,8 +30,8 @@ import (
 	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
-var providerName *string
-var engineName *string
+var providerName string
+var engineName string
 
 type asyncController struct {
 	queue *utils.TrailingDelayQueue
@@ -58,9 +58,9 @@ func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPErr
 	// Uses the provider and engine given config if provided, otherwise uses what is given in the topology request.
 	// If neither is given, will throw an error
 	var engName, prvName string
-	if providerName != nil {
-		klog.InfoS("Provider set in config as", "provider", *providerName)
-		prvName = *providerName
+	if len(providerName) != 0 {
+		klog.InfoS("Provider set in config as", "provider", providerName)
+		prvName = providerName
 	} else if len(tr.Provider.Name) != 0 {
 		prvName = tr.Provider.Name
 	} else {
@@ -68,9 +68,9 @@ func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPErr
 		klog.Error(errString)
 		return nil, common.NewHTTPError(http.StatusInternalServerError, fmt.Sprint(errString))
 	}
-	if engineName != nil {
-		klog.InfoS("Engine set in config as", "engine", *engineName)
-		engName = *engineName
+	if len(engineName) != 0 {
+		klog.InfoS("Engine set in config as", "engine", engineName)
+		engName = engineName
 	} else if len(tr.Engine.Name) != 0 {
 		engName = tr.Engine.Name
 	} else {

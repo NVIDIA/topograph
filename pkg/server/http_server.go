@@ -59,12 +59,9 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 		},
 	}
 
-	if cfg.Provider != nil {
-		providerName = cfg.Provider
-	}
-	if cfg.Engine != nil {
-		engineName = cfg.Engine
-	}
+	// Saves the provider and engine config parameters
+	providerName = cfg.Provider
+	engineName = cfg.Engine
 }
 
 func GetRunGroup() (func() error, func(error)) {
