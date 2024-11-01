@@ -151,11 +151,10 @@ func toBlockTopology(wr io.Writer, root *common.Vertex) error {
 }
 
 func toTreeTopology(wr io.Writer, root *common.Vertex) error {
-	treeRoot := root.Vertices[common.ValTopologyTree]
 	visited := make(map[string]bool)
 	leaves := make(map[string][]string)
 	parents := []*common.Vertex{}
-	queue := []*common.Vertex{treeRoot}
+	queue := []*common.Vertex{root}
 	idToName := make(map[string]string)
 
 	for len(queue) > 0 {
@@ -367,14 +366,8 @@ func GetTreeTestSet(testForLongLabelName bool) (*common.Vertex, map[string]strin
 		ID:       "S1",
 		Vertices: map[string]*common.Vertex{"S2": sw2, s3name: sw3},
 	}
-	treeRoot := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"S1": sw1},
-	}
-	blockRoot := &common.Vertex{
-		Vertices: map[string]*common.Vertex{},
-	}
 	root := &common.Vertex{
-		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+		Vertices: map[string]*common.Vertex{"S1": sw1},
 	}
 
 	return root, instance2node

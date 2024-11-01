@@ -135,12 +135,53 @@ func TestToGraph(t *testing.T) {
 
 	nv1 := &common.Vertex{ID: "nvlink-nv1", Vertices: map[string]*common.Vertex{"n10-1": v101, "n10-2": v102, "n11-1": v111, "n11-2": v112}}
 
-	extra := &common.Vertex{ID: "extra", Vertices: map[string]*common.Vertex{"cpu1": cpu1}}
-	treeRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1, "sw3": sw3, "extra": extra}}
+	extra := &common.Vertex{ID: common.NoTopology, Vertices: map[string]*common.Vertex{"cpu1": cpu1}}
+	treeRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1, "sw3": sw3, common.NoTopology: extra}}
 	blockRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1}}
 	root := &common.Vertex{
 		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+		Metadata: map[string]string{common.KeyPlugin: common.ValTopologyBlock},
 	}
 
-	require.Equal(t, root, toGraph(&pb.TopologyResponse{Instances: instances}, cis))
+	require.Equal(t, root, toGraph(&pb.TopologyResponse{Instances: instances}, cis, common.ValTopologyBlock))
+}
+
+func TestGetTopologyFormat(t *testing.T) {
+	testCases := []struct {
+		name   string
+		params map[string]string
+		format string
+	}{
+		{
+			name:   "Case 1: nil params",
+			params: nil,
+			format: common.ValTopologyTree,
+		},
+		{
+			name:   "Case 2: empty params",
+			params: make(map[string]string),
+			format: common.ValTopologyTree,
+		},
+		{
+			name:   "Case 3: missing key",
+			params: map[string]string{"a": "b"},
+			format: common.ValTopologyTree,
+		},
+		{
+			name:   "Case 4: block topology",
+			params: map[string]string{common.KeyPlugin: common.ValTopologyBlock},
+			format: common.ValTopologyBlock,
+		},
+		{
+			name:   "Case 5: tree topology",
+			params: map[string]string{common.KeyPlugin: common.ValTopologyTree},
+			format: common.ValTopologyTree,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.format, getTopologyFormat(tc.params))
+		})
+	}
 }
