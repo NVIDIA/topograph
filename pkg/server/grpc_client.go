@@ -25,6 +25,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/metrics"
 	pb "github.com/NVIDIA/topograph/pkg/protos"
 )
 
@@ -58,10 +59,20 @@ func forwardRequest(ctx context.Context, tr *common.TopologyRequest, url string,
 
 	klog.V(4).Infof("Response: %s", response.String())
 
-	return toGraph(response, cis), nil
+	return toGraph(response, cis, getTopologyFormat(tr.Engine.Params)), nil
 }
 
-func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances) *common.Vertex {
+// getTopologyFormat derives topology format from engine parameters: tree (default) or block
+func getTopologyFormat(params map[string]string) string {
+	if len(params) != 0 {
+		if format, ok := params[common.KeyPlugin]; ok && len(format) != 0 {
+			return format
+		}
+	}
+	return common.ValTopologyTree
+}
+
+func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, format string) *common.Vertex {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
 		for instance, node := range ci.Instances {
@@ -135,9 +146,10 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances) *comm
 	}
 
 	if len(i2n) != 0 {
-		klog.V(4).Infof("Adding unclaimed nodes %v", i2n)
+		klog.V(4).Infof("Adding nodes w/o topology: %v", i2n)
+		metrics.SetMissingTopology("GTS", len(i2n))
 		sw := &common.Vertex{
-			ID:       "extra",
+			ID:       common.NoTopology,
 			Vertices: make(map[string]*common.Vertex),
 		}
 		for instanceID, nodeName := range i2n {
@@ -146,7 +158,7 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances) *comm
 				ID:   instanceID,
 			}
 		}
-		forest["extra"] = sw
+		forest[common.NoTopology] = sw
 	}
 
 	treeRoot := &common.Vertex{
@@ -156,15 +168,25 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances) *comm
 		treeRoot.Vertices[name] = node
 	}
 
-	blockRoot := &common.Vertex{
-		Vertices: make(map[string]*common.Vertex),
-	}
-	for name, domain := range blocks {
-		blockRoot.Vertices[name] = domain
-	}
+	metadata := map[string]string{common.KeyPlugin: format}
+	if format == common.ValTopologyBlock {
+		blockRoot := &common.Vertex{
+			Vertices: make(map[string]*common.Vertex),
+		}
+		for name, domain := range blocks {
+			blockRoot.Vertices[name] = domain
+		}
 
-	root := &common.Vertex{
-		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+		return &common.Vertex{
+			Vertices: map[string]*common.Vertex{
+				common.ValTopologyBlock: blockRoot,
+				common.ValTopologyTree:  treeRoot,
+			},
+			Metadata: metadata,
+		}
+	} else {
+		treeRoot.Metadata = metadata
+
+		return treeRoot
 	}
-	return root
 }

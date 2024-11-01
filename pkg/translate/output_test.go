@@ -99,41 +99,37 @@ func TestToBlockIBTopology(t *testing.T) {
 func TestToSlurmNameShortener(t *testing.T) {
 	v := &common.Vertex{
 		Vertices: map[string]*common.Vertex{
-			common.ValTopologyTree: {
+			"hpcislandid-1": {
+				ID:   "hpcislandid-1",
+				Name: "switch.3.1",
 				Vertices: map[string]*common.Vertex{
-					"hpcislandid-1": {
-						ID:   "hpcislandid-1",
-						Name: "switch.3.1",
+					"network-block-1": {
+						ID:   "network-block-1",
+						Name: "switch.2.1",
 						Vertices: map[string]*common.Vertex{
-							"network-block-1": {
-								ID:   "network-block-1",
-								Name: "switch.2.1",
+							"local-block-1": {
+								ID:   "local-block-1",
+								Name: "switch.1.1",
 								Vertices: map[string]*common.Vertex{
-									"local-block-1": {
-										ID:   "local-block-1",
-										Name: "switch.1.1",
-										Vertices: map[string]*common.Vertex{
-											"node-1": {
-												ID:   "node-1-id",
-												Name: "node-1",
-											},
-										},
+									"node-1": {
+										ID:   "node-1-id",
+										Name: "node-1",
 									},
 								},
 							},
-							"network-block-2": {
-								ID:   "network-block-2",
-								Name: "switch.2.2",
+						},
+					},
+					"network-block-2": {
+						ID:   "network-block-2",
+						Name: "switch.2.2",
+						Vertices: map[string]*common.Vertex{
+							"local-block-2": {
+								ID:   "local-block-2",
+								Name: "switch.1.2",
 								Vertices: map[string]*common.Vertex{
-									"local-block-2": {
-										ID:   "local-block-2",
-										Name: "switch.1.2",
-										Vertices: map[string]*common.Vertex{
-											"node-2": {
-												ID:   "node-2-id",
-												Name: "node-2",
-											},
-										},
+									"node-2": {
+										ID:   "node-2-id",
+										Name: "node-2",
 									},
 								},
 							},
@@ -141,7 +137,6 @@ func TestToSlurmNameShortener(t *testing.T) {
 					},
 				},
 			},
-			common.ValTopologyBlock: {Vertices: map[string]*common.Vertex{}},
 		},
 	}
 
