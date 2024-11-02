@@ -25,8 +25,8 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/utils"
+	"github.com/NVIDIA/topograph/internal/files"
+	"github.com/NVIDIA/topograph/pkg/registry"
 )
 
 type Config struct {
@@ -79,18 +79,18 @@ func (cfg *Config) validate() error {
 		return fmt.Errorf("port is not set")
 	}
 
-	switch cfg.Provider {
-	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderBM, common.ProviderTest, "":
-		//nop
-	default:
-		return fmt.Errorf("unsupported provider %s", cfg.Provider)
+	if cfg.Provider != "" {
+		_, ok := registry.Providers[cfg.Provider]
+		if !ok {
+			return fmt.Errorf("unsupported provider %s", cfg.Provider)
+		}
 	}
 
-	switch cfg.Engine {
-	case common.EngineK8S, common.EngineSLURM, common.EngineTest, "":
-		//nop
-	default:
-		return fmt.Errorf("unsupported engine %s", cfg.Engine)
+	if cfg.Engine != "" {
+		_, ok := registry.Engines[cfg.Engine]
+		if !ok {
+			return fmt.Errorf("unsupported engine %s", cfg.Engine)
+		}
 	}
 
 	if cfg.RequestAggregationDelay == 0 {
@@ -101,13 +101,13 @@ func (cfg *Config) validate() error {
 		if cfg.SSL == nil {
 			return fmt.Errorf("missing ssl section")
 		}
-		if err := utils.ValidateFile(cfg.SSL.Cert, "server certificate"); err != nil {
+		if err := files.Validate(cfg.SSL.Cert, "server certificate"); err != nil {
 			return err
 		}
-		if err := utils.ValidateFile(cfg.SSL.Key, "server key"); err != nil {
+		if err := files.Validate(cfg.SSL.Key, "server key"); err != nil {
 			return err
 		}
-		if err := utils.ValidateFile(cfg.SSL.CaCert, "CA certificate"); err != nil {
+		if err := files.Validate(cfg.SSL.CaCert, "CA certificate"); err != nil {
 			return err
 		}
 	}
@@ -135,7 +135,7 @@ func (cfg *Config) readCredentials() error {
 	if cfg.CredsPath == nil {
 		return nil
 	}
-	if err := utils.ValidateFile(*cfg.CredsPath, "API credentials"); err != nil {
+	if err := files.Validate(*cfg.CredsPath, "API credentials"); err != nil {
 		return err
 	}
 

@@ -48,7 +48,7 @@ func main() {
 	}
 
 	if err := mainInternal(c); err != nil {
-		klog.Errorf(err.Error())
+		klog.Error(err.Error())
 		os.Exit(1)
 	}
 }

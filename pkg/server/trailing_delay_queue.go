@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package utils
+package server
 
 import (
 	"fmt"
@@ -25,13 +25,11 @@ import (
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru"
 	"k8s.io/klog/v2"
-
-	"github.com/NVIDIA/topograph/pkg/common"
 )
 
 const RequestHistorySize = 100
 
-type HandleFunc func(interface{}) (interface{}, *common.HTTPError)
+type HandleFunc func(interface{}) (interface{}, *HTTPError)
 
 type Completion struct {
 	Ret     interface{}
@@ -89,7 +87,7 @@ func (q *TrailingDelayQueue) run() {
 				if data, err := q.handle(item); err != nil {
 					res.Status = err.Code
 					res.Message = err.Error()
-					klog.Errorf(res.Message)
+					klog.Error(res.Message)
 				} else {
 					res.Ret = data
 					res.Status = http.StatusOK
