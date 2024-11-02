@@ -191,6 +191,9 @@ func toGraph(topology []types.InstanceTopology, cis []common.ComputeInstances) (
 
 	root := &common.Vertex{
 		Vertices: make(map[string]*common.Vertex),
+		Metadata: map[string]string{
+			common.KeyPlugin: common.TopologyTree,
+		},
 	}
 	for name, node := range forest {
 		root.Vertices[name] = node

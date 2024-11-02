@@ -79,7 +79,7 @@ func GetTestProvider(params map[string]string) (*testProvider, error) {
 		if err != nil {
 			return nil, err // Wrapped by models.NewModelFromFile
 		}
-		p.tree, p.instance2node = model.ToTree()
+		p.tree, p.instance2node = model.ToGraph()
 	}
 	return p, nil
 }

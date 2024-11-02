@@ -26,6 +26,7 @@ import (
 )
 
 type Model struct {
+	Topology       string          `yaml:"topology"`
 	Switches       []Switch        `yaml:"switches"`
 	CapacityBlocks []CapacityBlock `yaml:"capacity_blocks"`
 
@@ -62,6 +63,10 @@ func NewModelFromFile(fname string) (*Model, error) {
 	model := &Model{}
 	if err = yaml.Unmarshal(data, model); err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %v", fname, err)
+	}
+
+	if model.Topology != common.TopologyTree && model.Topology != common.TopologyBlock {
+		return nil, fmt.Errorf("unsupported topology type set in model: %s", model.Topology)
 	}
 
 	if err = model.setNodeMap(); err != nil {
@@ -140,7 +145,7 @@ func getNetworkLayers(name string, swmap map[string]string) ([]string, error) {
 	}
 }
 
-func (model *Model) ToTree() (*common.Vertex, map[string]string) {
+func (model *Model) ToGraph() (*common.Vertex, map[string]string) {
 	instance2node := make(map[string]string)
 	nodeVertexMap := make(map[string]*common.Vertex)
 	swVertexMap := make(map[string]*common.Vertex)
@@ -185,7 +190,7 @@ func (model *Model) ToTree() (*common.Vertex, map[string]string) {
 		}
 	}
 
-	// Connects all root vertices to the hidden root
+	// Connects all root vertices to the hideen tree root
 	treeRoot := &common.Vertex{Vertices: make(map[string]*common.Vertex)}
 	for k, v := range swRootMap {
 		if v {
@@ -196,8 +201,13 @@ func (model *Model) ToTree() (*common.Vertex, map[string]string) {
 	for k, v := range blockVertexMap {
 		blockRoot.Vertices[k] = v
 	}
-	root := &common.Vertex{
-		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+	if model.Topology == common.TopologyBlock {
+		root := &common.Vertex{
+			Vertices: map[string]*common.Vertex{common.TopologyBlock: blockRoot, common.TopologyTree: treeRoot},
+			Metadata: map[string]string{common.KeyPlugin: common.TopologyTree},
+		}
+		return root, instance2node
 	}
-	return root, instance2node
+	treeRoot.Metadata = map[string]string{common.KeyPlugin: common.TopologyTree}
+	return treeRoot, instance2node
 }

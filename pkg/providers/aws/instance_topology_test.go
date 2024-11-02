@@ -105,9 +105,17 @@ func TestNewInstanceTopology(t *testing.T) {
 		},
 	}
 
-	v1 := &common.Vertex{ID: "nn-098f9e7674016cb1c", Vertices: map[string]*common.Vertex{"nn-224a2a4d9df61a975": v2}}
+	v1 := &common.Vertex{
+		ID:       "nn-098f9e7674016cb1c",
+		Vertices: map[string]*common.Vertex{"nn-224a2a4d9df61a975": v2},
+	}
 
-	expected := &common.Vertex{Vertices: map[string]*common.Vertex{"nn-098f9e7674016cb1c": v1}}
+	expected := &common.Vertex{
+		Vertices: map[string]*common.Vertex{"nn-098f9e7674016cb1c": v1},
+		Metadata: map[string]string{
+			common.KeyPlugin: common.TopologyTree,
+		},
+	}
 
 	tree, err := toGraph(topology, []common.ComputeInstances{{Instances: i2n}})
 	require.NoError(t, err)

@@ -1,3 +1,4 @@
+topology: "topology/block"
 switches:
 - name: spine1
   switches: [ibleaf1,ibleaf2]

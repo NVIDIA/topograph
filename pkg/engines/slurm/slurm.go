@@ -79,7 +79,7 @@ func GenerateOutput(ctx context.Context, tree *common.Vertex, params map[string]
 			plugin = tree.Metadata[common.KeyPlugin]
 		}
 		if len(plugin) == 0 {
-			plugin = common.ValTopologyTree
+			plugin = common.TopologyTree
 		}
 		if _, err := buf.WriteString(fmt.Sprintf(TopologyHeader, plugin)); err != nil {
 			return nil, err

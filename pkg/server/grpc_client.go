@@ -69,7 +69,7 @@ func getTopologyFormat(params map[string]string) string {
 			return format
 		}
 	}
-	return common.ValTopologyTree
+	return common.TopologyTree
 }
 
 func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, format string) *common.Vertex {
@@ -169,7 +169,7 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, forma
 	}
 
 	metadata := map[string]string{common.KeyPlugin: format}
-	if format == common.ValTopologyBlock {
+	if format == common.TopologyBlock {
 		blockRoot := &common.Vertex{
 			Vertices: make(map[string]*common.Vertex),
 		}
@@ -179,14 +179,13 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, forma
 
 		return &common.Vertex{
 			Vertices: map[string]*common.Vertex{
-				common.ValTopologyBlock: blockRoot,
-				common.ValTopologyTree:  treeRoot,
+				common.TopologyBlock: blockRoot,
+				common.TopologyTree:  treeRoot,
 			},
 			Metadata: metadata,
 		}
 	} else {
 		treeRoot.Metadata = metadata
-
 		return treeRoot
 	}
 }

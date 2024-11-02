@@ -101,7 +101,7 @@ func TestPayload(t *testing.T) {
 				Engine: engine{
 					Name: "slurm",
 					Params: map[string]string{
-						KeyPlugin:     ValTopologyBlock,
+						KeyPlugin:     TopologyBlock,
 						KeyBlockSizes: "30,120",
 					},
 				},

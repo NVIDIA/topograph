@@ -11,6 +11,7 @@
 #  -------    -------    -------    -------    -------
 #   cb10       cb11       cb12       cb13       cb14
 #
+topology: "topology/tree"
 switches:
 - name: sw3
   switches: [sw21,sw22]

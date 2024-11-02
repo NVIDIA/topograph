@@ -139,11 +139,11 @@ func TestToGraph(t *testing.T) {
 	treeRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1, "sw3": sw3, common.NoTopology: extra}}
 	blockRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1}}
 	root := &common.Vertex{
-		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
-		Metadata: map[string]string{common.KeyPlugin: common.ValTopologyBlock},
+		Vertices: map[string]*common.Vertex{common.TopologyBlock: blockRoot, common.TopologyTree: treeRoot},
+		Metadata: map[string]string{common.KeyPlugin: common.TopologyBlock},
 	}
 
-	require.Equal(t, root, toGraph(&pb.TopologyResponse{Instances: instances}, cis, common.ValTopologyBlock))
+	require.Equal(t, root, toGraph(&pb.TopologyResponse{Instances: instances}, cis, common.TopologyBlock))
 }
 
 func TestGetTopologyFormat(t *testing.T) {
@@ -155,27 +155,27 @@ func TestGetTopologyFormat(t *testing.T) {
 		{
 			name:   "Case 1: nil params",
 			params: nil,
-			format: common.ValTopologyTree,
+			format: common.TopologyTree,
 		},
 		{
 			name:   "Case 2: empty params",
 			params: make(map[string]string),
-			format: common.ValTopologyTree,
+			format: common.TopologyTree,
 		},
 		{
 			name:   "Case 3: missing key",
 			params: map[string]string{"a": "b"},
-			format: common.ValTopologyTree,
+			format: common.TopologyTree,
 		},
 		{
 			name:   "Case 4: block topology",
-			params: map[string]string{common.KeyPlugin: common.ValTopologyBlock},
-			format: common.ValTopologyBlock,
+			params: map[string]string{common.KeyPlugin: common.TopologyBlock},
+			format: common.TopologyBlock,
 		},
 		{
 			name:   "Case 5: tree topology",
-			params: map[string]string{common.KeyPlugin: common.ValTopologyTree},
-			format: common.ValTopologyTree,
+			params: map[string]string{common.KeyPlugin: common.TopologyTree},
+			format: common.TopologyTree,
 		},
 	}
 

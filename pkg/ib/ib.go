@@ -65,7 +65,14 @@ func GenerateTopologyConfig(data []byte) (*common.Vertex, error) {
 	}
 	seen = make(map[int]map[string]*Switch)
 	root.simplify(root.getHeight())
-	return root.toGraph()
+	rootNode, err := root.toGraph()
+	if err != nil {
+		rootNode.Metadata = map[string]string{
+			common.KeyPlugin: common.TopologyTree,
+		}
+		return rootNode, nil
+	}
+	return nil, err
 }
 
 func (sw *Switch) toGraph() (*common.Vertex, error) {
