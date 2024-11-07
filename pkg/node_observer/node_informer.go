@@ -27,17 +27,17 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/utils"
+	"github.com/NVIDIA/topograph/internal/httpreq"
 )
 
 type NodeInformer struct {
 	ctx     context.Context
 	client  kubernetes.Interface
-	reqFunc utils.HttpRequestFunc
+	reqFunc httpreq.RequestFunc
 	factory informers.SharedInformerFactory
 }
 
-func NewNodeInformer(ctx context.Context, client kubernetes.Interface, nodeLabels map[string]string, reqFunc utils.HttpRequestFunc) *NodeInformer {
+func NewNodeInformer(ctx context.Context, client kubernetes.Interface, nodeLabels map[string]string, reqFunc httpreq.RequestFunc) *NodeInformer {
 	klog.Infof("Configuring node informer with labels %v", nodeLabels)
 	listOptionsFunc := func(options *metav1.ListOptions) {
 		options.LabelSelector = labels.Set(nodeLabels).AsSelector().String()
@@ -86,7 +86,7 @@ func (n *NodeInformer) Stop(_ error) {
 }
 
 func (n *NodeInformer) SendRequest() {
-	_, _, err := utils.HttpRequestWithRetries(n.reqFunc)
+	_, _, err := httpreq.DoRequestWithRetries(n.reqFunc)
 	if err != nil {
 		klog.Errorf("failed to send HTTP request: %v", err)
 	}

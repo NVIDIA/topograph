@@ -18,6 +18,7 @@ package k8s
 
 import (
 	"context"
+	std_errors "errors"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
@@ -25,20 +26,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/engines"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-type attr func(*v1.Node) string
+var ErrEnvironmentUnsupported = std_errors.New("environment must implement k8sNodeInfo")
 
-func (eng *K8sEngine) GetComputeInstances(ctx context.Context, getRegion, getInstance attr) ([]common.ComputeInstances, error) {
+func (eng *K8sEngine) GetComputeInstances(ctx context.Context, environment engines.Environment) ([]topology.ComputeInstances, error) {
+	k8sNodeInfo, ok := environment.(k8sNodeInfo)
+	if !ok {
+		return nil, ErrEnvironmentUnsupported
+	}
+
 	nodeList, err := eng.kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list node in the cluster: %v", err)
 	}
+
 	regions := make(map[string]map[string]string)
 	for _, n := range nodeList.Items {
-		region := getRegion(&n)
-		instance := getInstance(&n)
+		region, err := k8sNodeInfo.GetNodeRegion(&n)
+		if err != nil {
+			return nil, err
+		}
+		instance, err := k8sNodeInfo.GetNodeInstance(&n)
+		if err != nil {
+			return nil, err
+		}
 
 		_, ok := regions[region]
 		if !ok {
@@ -47,10 +61,11 @@ func (eng *K8sEngine) GetComputeInstances(ctx context.Context, getRegion, getIns
 		regions[region][instance] = n.Name
 	}
 
-	cis := make([]common.ComputeInstances, 0, len(regions))
+	cis := make([]topology.ComputeInstances, 0, len(regions))
 	for region, nodes := range regions {
-		cis = append(cis, common.ComputeInstances{Region: region, Instances: nodes})
+		cis = append(cis, topology.ComputeInstances{Region: region, Instances: nodes})
 	}
+
 	return cis, nil
 }
 

@@ -22,21 +22,83 @@ import (
 
 	OCICommon "github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/common/auth"
+	"github.com/oracle/oci-go-sdk/v65/core"
+	"github.com/oracle/oci-go-sdk/v65/identity"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/engines/k8s"
-	"github.com/NVIDIA/topograph/pkg/engines/slurm"
+	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-type Provider struct{}
+const NAME = "oci"
 
-func GetProvider() (*Provider, error) {
-	return &Provider{}, nil
+type Provider struct {
+	clientFactory ClientFactory
 }
 
-func (p *Provider) GetCredentials(creds map[string]string) (interface{}, error) {
+type ClientFactory func(region string) (Client, error)
+
+type Client interface {
+	TenancyOCID() string
+	ListAvailabilityDomains(ctx context.Context, request identity.ListAvailabilityDomainsRequest) (response identity.ListAvailabilityDomainsResponse, err error)
+	ListComputeCapacityTopologies(ctx context.Context, request core.ListComputeCapacityTopologiesRequest) (response core.ListComputeCapacityTopologiesResponse, err error)
+	ListComputeCapacityTopologyComputeBareMetalHosts(ctx context.Context, request core.ListComputeCapacityTopologyComputeBareMetalHostsRequest) (response core.ListComputeCapacityTopologyComputeBareMetalHostsResponse, err error)
+}
+
+type ociClient struct {
+	identity.IdentityClient
+	core.ComputeClient
+	tenancyOCID string
+}
+
+func (c *ociClient) TenancyOCID() string {
+	return c.tenancyOCID
+}
+
+func NamedLoader() (string, providers.Loader) {
+	return NAME, Loader
+}
+
+func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
+	provider, err := getConfigurationProvider(config.Creds)
+	if err != nil {
+		return nil, err
+	}
+
+	clientFactory := func(region string) (Client, error) {
+		identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create identity client. Bailing out : %v", err)
+		}
+
+		tenacyOCID, err := provider.TenancyOCID()
+		if err != nil {
+			return nil, fmt.Errorf("unable to get tenancy OCID from config: %s", err.Error())
+		}
+
+		computeClient, err := core.NewComputeClientWithConfigurationProvider(provider)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get compute client: %s", err.Error())
+		}
+
+		if len(region) != 0 {
+			klog.Infof("Use provided region %s", region)
+			identityClient.SetRegion(region)
+			computeClient.SetRegion(region)
+		}
+
+		return &ociClient{
+			IdentityClient: identityClient,
+			ComputeClient:  computeClient,
+			tenancyOCID:    tenacyOCID,
+		}, nil
+	}
+
+	return New(clientFactory), nil
+}
+
+func getConfigurationProvider(creds map[string]string) (OCICommon.ConfigurationProvider, error) {
 	if len(creds) != 0 {
 		var tenancyID, userID, region, fingerprint, privateKey, passphrase string
 		klog.Info("Using provided credentials")
@@ -77,36 +139,39 @@ func (p *Provider) GetCredentials(creds map[string]string) (interface{}, error) 
 	return configProvider, nil
 }
 
-func (p *Provider) GetComputeInstances(ctx context.Context, engine common.Engine) ([]common.ComputeInstances, error) {
-	klog.InfoS("Getting compute instances", "provider", common.ProviderOCI, "engine", engine)
-
-	switch eng := engine.(type) {
-	case *slurm.SlurmEngine:
-		nodes, err := slurm.GetNodeList(ctx)
-		if err != nil {
-			return nil, err
-		}
-		i2n, err := instanceToNodeMap(nodes)
-		if err != nil {
-			return nil, err
-		}
-		return []common.ComputeInstances{{Instances: i2n}}, nil
-
-	case *k8s.K8sEngine:
-		return eng.GetComputeInstances(ctx,
-			func(n *v1.Node) string { return n.Labels["topology.kubernetes.io/region"] },
-			func(n *v1.Node) string { return n.Spec.ProviderID })
-	default:
-		return nil, fmt.Errorf("unsupported engine %q", engine)
+func New(ociClientFactory ClientFactory) *Provider {
+	return &Provider{
+		clientFactory: ociClientFactory,
 	}
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, cr interface{}, _ int, instances []common.ComputeInstances) (*common.Vertex, error) {
-	creds := cr.(OCICommon.ConfigurationProvider)
-	cfg, err := GenerateInstanceTopology(ctx, creds, instances)
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	cfg, err := GenerateInstanceTopology(ctx, p.clientFactory, instances)
 	if err != nil {
 		return nil, err
 	}
 
 	return toGraph(cfg, instances)
+}
+
+// Engine support
+
+// Instances2NodeMap implements slurm.instanceMapper
+func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
+	return instanceToNodeMap(nodes)
+}
+
+// GetComputeInstancesRegion implements slurm.instanceMapper
+func (p *Provider) GetComputeInstancesRegion() (string, error) {
+	return "", nil
+}
+
+// GetNodeRegion implements k8s.k8sNodeInfo
+func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
+	return node.Labels["topology.kubernetes.io/region"], nil
+}
+
+// GetNodeInstance implements k8s.k8sNodeInfo
+func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
+	return node.Spec.ProviderID, nil
 }

@@ -22,48 +22,29 @@ import (
 	"os/exec"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/engines/k8s"
-	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/ib"
+	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+const NAME = "cw"
 
 type Provider struct{}
 
-func GetProvider() (*Provider, error) {
+func NamedLoader() (string, providers.Loader) {
+	return NAME, Loader
+}
+
+func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
+	return New()
+}
+
+func New() (*Provider, error) {
 	return &Provider{}, nil
 }
 
-func (p *Provider) GetCredentials(_ map[string]string) (interface{}, error) {
-	return nil, nil
-}
-
-func (p *Provider) GetComputeInstances(ctx context.Context, engine common.Engine) ([]common.ComputeInstances, error) {
-	klog.InfoS("Getting compute instances", "provider", common.ProviderCW, "engine", engine)
-
-	switch eng := engine.(type) {
-	case *slurm.SlurmEngine:
-		nodes, err := slurm.GetNodeList(ctx)
-		if err != nil {
-			return nil, err
-		}
-		i2n := make(map[string]string)
-		for _, node := range nodes {
-			i2n[node] = node
-		}
-		return []common.ComputeInstances{{Instances: i2n}}, nil
-	case *k8s.K8sEngine:
-		return eng.GetComputeInstances(ctx,
-			func(n *v1.Node) string { return n.Labels["topology.kubernetes.io/region"] },
-			func(n *v1.Node) string { return n.Labels["kubernetes.io/hostname"] })
-	default:
-		return nil, fmt.Errorf("unsupported engine %q", engine)
-	}
-}
-
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ interface{}, _ int, instances []common.ComputeInstances) (*common.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	if len(instances) > 1 {
 		return nil, fmt.Errorf("CW does not support mult-region topology requests")
 	}
@@ -76,4 +57,31 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ interface{}, _ 
 	}
 
 	return ib.GenerateTopologyConfig(output)
+}
+
+// Engine support
+
+// Instances2NodeMap implements slurm.instanceMapper
+func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
+	i2n := make(map[string]string)
+	for _, node := range nodes {
+		i2n[node] = node
+	}
+
+	return i2n, nil
+}
+
+// GetComputeInstancesRegion implements slurm.instanceMapper
+func (p *Provider) GetComputeInstancesRegion() (string, error) {
+	return "", nil
+}
+
+// GetNodeRegion implements k8s.k8sNodeInfo
+func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
+	return node.Labels["topology.kubernetes.io/region"], nil
+}
+
+// GetNodeInstance implements k8s.k8sNodeInfo
+func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
+	return node.Labels["kubernetes.io/hostname"], nil
 }

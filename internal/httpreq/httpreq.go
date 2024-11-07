@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package utils
+package httpreq
 
 import (
 	"fmt"
@@ -40,10 +40,10 @@ var (
 	}
 )
 
-type HttpRequestFunc func() (*http.Request, error)
+type RequestFunc func() (*http.Request, error)
 
-// HttpRequest sends HTTP requests and returns HTTP response
-func HttpRequest(f HttpRequestFunc) (*http.Response, []byte, error) {
+// DoRequest sends HTTP requests and returns HTTP response
+func DoRequest(f RequestFunc) (*http.Response, []byte, error) {
 	req, err := f()
 	if err != nil {
 		return nil, nil, err
@@ -68,11 +68,11 @@ func HttpRequest(f HttpRequestFunc) (*http.Response, []byte, error) {
 	return resp, body, fmt.Errorf("HTTP %d %s: %s", resp.StatusCode, resp.Status, string(body))
 }
 
-// HttpRequestWithRetries sends HTTP requests and returns HTTP response; retries if needed
-func HttpRequestWithRetries(f HttpRequestFunc) (resp *http.Response, body []byte, err error) {
+// DoRequestWithRetries sends HTTP requests and returns HTTP response; retries if needed
+func DoRequestWithRetries(f RequestFunc) (resp *http.Response, body []byte, err error) {
 	klog.V(4).Infof("Sending HTTP request with retries")
 	for r := 1; r <= retries; r++ {
-		resp, body, err = HttpRequest(f)
+		resp, body, err = DoRequest(f)
 		if err == nil || !retryHttpCodes[resp.StatusCode] {
 			break
 		}

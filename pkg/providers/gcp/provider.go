@@ -20,48 +20,68 @@ import (
 	"context"
 	"fmt"
 
+	compute_v1 "cloud.google.com/go/compute/apiv1"
+	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	gax "github.com/googleapis/gax-go/v2"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/engines/k8s"
-	"github.com/NVIDIA/topograph/pkg/engines/slurm"
+	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-type Provider struct{}
+const NAME = "gcp"
 
-func GetProvider() (*Provider, error) {
-	return &Provider{}, nil
+type Provider struct {
+	clientFactory ClientFactory
 }
 
-func (p *Provider) GetCredentials(_ map[string]string) (interface{}, error) {
-	return nil, nil
+type ClientFactory func() (*Client, error)
+
+type Client struct {
+	Zones     ZonesClient
+	Instances InstancesClient
 }
 
-func (p *Provider) GetComputeInstances(ctx context.Context, engine common.Engine) ([]common.ComputeInstances, error) {
-	klog.InfoS("Getting compute instances", "provider", common.ProviderGCP, "engine", engine)
+type ZonesClient interface {
+	List(ctx context.Context, req *computepb.ListZonesRequest, opts ...gax.CallOption) *compute_v1.ZoneIterator
+}
 
-	switch eng := engine.(type) {
-	case *slurm.SlurmEngine:
-		nodes, err := slurm.GetNodeList(ctx)
+type InstancesClient interface {
+	List(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) *compute_v1.InstanceIterator
+}
+
+func NamedLoader() (string, providers.Loader) {
+	return NAME, Loader
+}
+
+func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
+	clientFactory := func() (*Client, error) {
+		zonesClient, err := compute_v1.NewZonesRESTClient(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to get zones client: %s", err.Error())
 		}
-		i2n := make(map[string]string)
-		for _, node := range nodes {
-			i2n[node] = node
+
+		instancesClient, err := compute_v1.NewInstancesRESTClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get instances client: %s", err.Error())
 		}
-		return []common.ComputeInstances{{Instances: i2n}}, nil
-	case *k8s.K8sEngine:
-		return eng.GetComputeInstances(ctx,
-			func(n *v1.Node) string { return n.Labels["topology.kubernetes.io/region"] },
-			func(n *v1.Node) string { return n.Labels["kubernetes.io/hostname"] })
-	default:
-		return nil, fmt.Errorf("unsupported engine %q", engine)
+
+		return &Client{
+			Zones:     zonesClient,
+			Instances: instancesClient,
+		}, nil
 	}
+
+	return New(clientFactory)
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, creds interface{}, _ int, instances []common.ComputeInstances) (*common.Vertex, error) {
+func New(clientFactory ClientFactory) (*Provider, error) {
+	return &Provider{
+		clientFactory: clientFactory,
+	}, nil
+}
+
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	if len(instances) > 1 {
 		return nil, fmt.Errorf("GCP does not support mult-region topology requests")
 	}
@@ -71,10 +91,37 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, creds interface{}
 		instanceToNode = instances[0].Instances
 	}
 
-	cfg, err := GenerateInstanceTopology(ctx, creds, instanceToNode)
+	cfg, err := p.generateInstanceTopology(ctx, instanceToNode)
 	if err != nil {
 		return nil, err
 	}
 
 	return cfg.toGraph()
+}
+
+// Engine support
+
+// Instances2NodeMap implements slurm.instanceMapper
+func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
+	i2n := make(map[string]string)
+	for _, node := range nodes {
+		i2n[node] = node
+	}
+
+	return i2n, nil
+}
+
+// GetComputeInstancesRegion implements slurm.instanceMapper
+func (p *Provider) GetComputeInstancesRegion() (string, error) {
+	return "", nil
+}
+
+// GetNodeRegion implements k8s.k8sNodeInfo
+func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
+	return node.Labels["topology.kubernetes.io/region"], nil
+}
+
+// GetNodeInstance implements k8s.k8sNodeInfo
+func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
+	return node.Labels["kubernetes.io/hostname"], nil
 }
