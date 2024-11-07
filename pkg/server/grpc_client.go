@@ -24,12 +24,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	pb "github.com/NVIDIA/topograph/pkg/protos"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func forwardRequest(ctx context.Context, tr *common.TopologyRequest, url string, cis []common.ComputeInstances) (*common.Vertex, error) {
+func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	klog.Infof("Forwarding request to %s", url)
 	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -63,16 +63,18 @@ func forwardRequest(ctx context.Context, tr *common.TopologyRequest, url string,
 }
 
 // getTopologyFormat derives topology format from engine parameters: tree (default) or block
-func getTopologyFormat(params map[string]string) string {
+func getTopologyFormat(params map[string]any) string {
 	if len(params) != 0 {
-		if format, ok := params[common.KeyPlugin]; ok && len(format) != 0 {
-			return format
+		if formatI, ok := params[topology.KeyPlugin]; ok {
+			if format, ok := formatI.(string); ok && len(format) != 0 {
+				return format
+			}
 		}
 	}
-	return common.ValTopologyTree
+	return topology.ValTopologyTree
 }
 
-func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, format string) *common.Vertex {
+func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, format string) *topology.Vertex {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
 		for instance, node := range ci.Instances {
@@ -81,9 +83,9 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, forma
 	}
 	klog.V(4).Infof("Instance/Node map %v", i2n)
 
-	forest := make(map[string]*common.Vertex)
-	blocks := make(map[string]*common.Vertex)
-	vertices := make(map[string]*common.Vertex)
+	forest := make(map[string]*topology.Vertex)
+	blocks := make(map[string]*topology.Vertex)
+	vertices := make(map[string]*topology.Vertex)
 
 	for _, ins := range response.Instances {
 		nodeName, ok := i2n[ins.Id]
@@ -95,7 +97,7 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, forma
 		klog.V(4).Infof("Found node %q instance %q", nodeName, ins.Id)
 		delete(i2n, ins.Id)
 
-		vertex := &common.Vertex{
+		vertex := &topology.Vertex{
 			Name: nodeName,
 			ID:   ins.Id,
 		}
@@ -107,9 +109,9 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, forma
 			switchName := fmt.Sprintf("nvlink-%s", ins.NvlinkDomain)
 			sw, ok := forest[switchName]
 			if !ok {
-				sw = &common.Vertex{
+				sw = &topology.Vertex{
 					ID:       switchName,
-					Vertices: map[string]*common.Vertex{id: vertex},
+					Vertices: map[string]*topology.Vertex{id: vertex},
 				}
 				forest[switchName] = sw
 				blocks[switchName] = sw
@@ -126,9 +128,9 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, forma
 			// create or reuse vertex
 			sw, ok := vertices[net]
 			if !ok {
-				sw = &common.Vertex{
+				sw = &topology.Vertex{
 					ID:       net,
-					Vertices: map[string]*common.Vertex{id: vertex},
+					Vertices: map[string]*topology.Vertex{id: vertex},
 				}
 				vertices[net] = sw
 			} else {
@@ -148,39 +150,39 @@ func toGraph(response *pb.TopologyResponse, cis []common.ComputeInstances, forma
 	if len(i2n) != 0 {
 		klog.V(4).Infof("Adding nodes w/o topology: %v", i2n)
 		metrics.SetMissingTopology("GTS", len(i2n))
-		sw := &common.Vertex{
-			ID:       common.NoTopology,
-			Vertices: make(map[string]*common.Vertex),
+		sw := &topology.Vertex{
+			ID:       topology.NoTopology,
+			Vertices: make(map[string]*topology.Vertex),
 		}
 		for instanceID, nodeName := range i2n {
-			sw.Vertices[instanceID] = &common.Vertex{
+			sw.Vertices[instanceID] = &topology.Vertex{
 				Name: nodeName,
 				ID:   instanceID,
 			}
 		}
-		forest[common.NoTopology] = sw
+		forest[topology.NoTopology] = sw
 	}
 
-	treeRoot := &common.Vertex{
-		Vertices: make(map[string]*common.Vertex),
+	treeRoot := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
 	}
 	for name, node := range forest {
 		treeRoot.Vertices[name] = node
 	}
 
-	metadata := map[string]string{common.KeyPlugin: format}
-	if format == common.ValTopologyBlock {
-		blockRoot := &common.Vertex{
-			Vertices: make(map[string]*common.Vertex),
+	metadata := map[string]string{topology.KeyPlugin: format}
+	if format == topology.ValTopologyBlock {
+		blockRoot := &topology.Vertex{
+			Vertices: make(map[string]*topology.Vertex),
 		}
 		for name, domain := range blocks {
 			blockRoot.Vertices[name] = domain
 		}
 
-		return &common.Vertex{
-			Vertices: map[string]*common.Vertex{
-				common.ValTopologyBlock: blockRoot,
-				common.ValTopologyTree:  treeRoot,
+		return &topology.Vertex{
+			Vertices: map[string]*topology.Vertex{
+				topology.ValTopologyBlock: blockRoot,
+				topology.ValTopologyTree:  treeRoot,
 			},
 			Metadata: metadata,
 		}
