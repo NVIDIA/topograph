@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/httpreq"
-	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
 type Controller struct {
@@ -38,13 +38,13 @@ type Controller struct {
 }
 
 func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
-	var f httpreq.RequestFunc = func() (*http.Request, error) {
-		params := map[string]any{
-			topology.KeyTopoConfigPath:         cfg.TopologyConfigmap.Filename,
-			topology.KeyTopoConfigmapName:      cfg.TopologyConfigmap.Name,
-			topology.KeyTopoConfigmapNamespace: cfg.TopologyConfigmap.Namespace,
+	var f utils.HttpRequestFunc = func() (*http.Request, error) {
+		params := map[string]string{
+			common.KeyTopoConfigPath:         cfg.TopologyConfigmap.Filename,
+			common.KeyTopoConfigmapName:      cfg.TopologyConfigmap.Name,
+			common.KeyTopoConfigmapNamespace: cfg.TopologyConfigmap.Namespace,
 		}
-		payload := topology.NewRequest(cfg.Provider, nil, cfg.Engine, params)
+		payload := common.NewTopologyRequest(cfg.Provider, nil, cfg.Engine, params)
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse payload: %v", err)

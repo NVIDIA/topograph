@@ -23,12 +23,13 @@ import (
 	"sort"
 	"time"
 
+	OCICommon "github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/oracle/oci-go-sdk/v65/identity"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/metrics"
-	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 type level int
@@ -39,11 +40,11 @@ const (
 	hpcIslandLevel
 )
 
-func GenerateInstanceTopology(ctx context.Context, factory ClientFactory, cis []topology.ComputeInstances) ([]*core.ComputeBareMetalHostSummary, error) {
+func GenerateInstanceTopology(ctx context.Context, creds OCICommon.ConfigurationProvider, cis []common.ComputeInstances) ([]*core.ComputeBareMetalHostSummary, error) {
 	var err error
 	bareMetalHostSummaries := []*core.ComputeBareMetalHostSummary{}
 	for _, ci := range cis {
-		if bareMetalHostSummaries, err = generateInstanceTopology(ctx, factory, &ci, bareMetalHostSummaries); err != nil {
+		if bareMetalHostSummaries, err = generateInstanceTopology(ctx, creds, &ci, bareMetalHostSummaries); err != nil {
 			return nil, err
 		}
 	}
@@ -51,15 +52,15 @@ func GenerateInstanceTopology(ctx context.Context, factory ClientFactory, cis []
 	return bareMetalHostSummaries, nil
 }
 
-func getComputeCapacityTopologies(ctx context.Context, client Client) (cct []core.ComputeCapacityTopologySummary, err error) {
-	compartmentId := client.TenancyOCID()
+func getComputeCapacityTopologies(ctx context.Context, computeClient core.ComputeClient, identityClient identity.IdentityClient,
+	compartmentId string) (cct []core.ComputeCapacityTopologySummary, err error) {
 
 	adRequest := identity.ListAvailabilityDomainsRequest{
 		CompartmentId: &compartmentId,
 	}
 
 	timeStart := time.Now()
-	ads, err := client.ListAvailabilityDomains(ctx, adRequest)
+	ads, err := identityClient.ListAvailabilityDomains(ctx, adRequest)
 	if err != nil {
 		return cct, fmt.Errorf("unable to get AD: %v", err)
 	}
@@ -73,7 +74,7 @@ func getComputeCapacityTopologies(ctx context.Context, client Client) (cct []cor
 
 		for {
 			timeStart := time.Now()
-			resp, err := client.ListComputeCapacityTopologies(ctx, cctRequest)
+			resp, err := computeClient.ListComputeCapacityTopologies(ctx, cctRequest)
 			requestLatency.WithLabelValues("ListComputeCapacityTopologies", resp.HTTPResponse().Status).Observe(time.Since(timeStart).Seconds())
 			if err != nil {
 				if resp.HTTPResponse().StatusCode == http.StatusNotFound {
@@ -95,15 +96,14 @@ func getComputeCapacityTopologies(ctx context.Context, client Client) (cct []cor
 	return cct, nil
 }
 
-func getBMHSummaryPerComputeCapacityTopology(ctx context.Context, client Client, topologyID string) (bmhSummary []core.ComputeBareMetalHostSummary, err error) {
-	compartmentId := client.TenancyOCID()
+func getBMHSummaryPerComputeCapacityTopology(ctx context.Context, computeClient core.ComputeClient, topologyID, compartmentId string) (bmhSummary []core.ComputeBareMetalHostSummary, err error) {
 	request := core.ListComputeCapacityTopologyComputeBareMetalHostsRequest{
 		ComputeCapacityTopologyId: &topologyID,
 		CompartmentId:             &compartmentId,
 	}
 	for {
 		timeStart := time.Now()
-		response, err := client.ListComputeCapacityTopologyComputeBareMetalHosts(ctx, request)
+		response, err := computeClient.ListComputeCapacityTopologyComputeBareMetalHosts(ctx, request)
 		requestLatency.WithLabelValues("ListComputeCapacityTopologyComputeBareMetalHosts", response.HTTPResponse().Status).Observe(time.Since(timeStart).Seconds())
 		if err != nil {
 			klog.Errorln(err.Error())
@@ -121,8 +121,10 @@ func getBMHSummaryPerComputeCapacityTopology(ctx context.Context, client Client,
 	return bmhSummary, nil
 }
 
-func getBareMetalHostSummaries(ctx context.Context, client Client) ([]core.ComputeBareMetalHostSummary, error) {
-	computeCapacityTopology, err := getComputeCapacityTopologies(ctx, client)
+func getBareMetalHostSummaries(ctx context.Context, computeClient core.ComputeClient, identityClient identity.IdentityClient,
+	compartmentId string) ([]core.ComputeBareMetalHostSummary, error) {
+
+	computeCapacityTopology, err := getComputeCapacityTopologies(ctx, computeClient, identityClient, compartmentId)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get compute capacity topologies: %s", err.Error())
 	}
@@ -130,7 +132,7 @@ func getBareMetalHostSummaries(ctx context.Context, client Client) ([]core.Compu
 
 	var bareMetalHostSummaries []core.ComputeBareMetalHostSummary
 	for _, cct := range computeCapacityTopology {
-		bareMetalHostSummary, err := getBMHSummaryPerComputeCapacityTopology(ctx, client, *cct.Id)
+		bareMetalHostSummary, err := getBMHSummaryPerComputeCapacityTopology(ctx, computeClient, *cct.Id, compartmentId)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get bare metal hosts info: %s", err.Error())
 		}
@@ -141,7 +143,7 @@ func getBareMetalHostSummaries(ctx context.Context, client Client) ([]core.Compu
 	return bareMetalHostSummaries, nil
 }
 
-func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []common.ComputeInstances) (*common.Vertex, error) {
 	instanceToNodeMap := make(map[string]string)
 	for _, ci := range cis {
 		for instance, node := range ci.Instances {
@@ -150,15 +152,15 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []t
 	}
 	klog.V(4).Infof("Instance/Node map %v", instanceToNodeMap)
 
-	nodes := make(map[string]*topology.Vertex)
-	forest := make(map[string]*topology.Vertex)
+	nodes := make(map[string]*common.Vertex)
+	forest := make(map[string]*common.Vertex)
 	levelWiseSwitchCount := map[level]int{localBlockLevel: 0, networkBlockLevel: 0, hpcIslandLevel: 0}
 	bareMetalHostSummaries = filterAndSort(bareMetalHostSummaries, instanceToNodeMap)
 	for _, bmhSummary := range bareMetalHostSummaries {
 		nodeName := instanceToNodeMap[*bmhSummary.InstanceId]
 		delete(instanceToNodeMap, *bmhSummary.InstanceId)
 
-		instance := &topology.Vertex{
+		instance := &common.Vertex{
 			Name: nodeName,
 			ID:   *bmhSummary.InstanceId,
 		}
@@ -167,9 +169,9 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []t
 		localBlock, ok := nodes[localBlockId]
 		if !ok {
 			levelWiseSwitchCount[localBlockLevel]++
-			localBlock = &topology.Vertex{
+			localBlock = &common.Vertex{
 				ID:       localBlockId,
-				Vertices: make(map[string]*topology.Vertex),
+				Vertices: make(map[string]*common.Vertex),
 				Name:     fmt.Sprintf("Switch.%d.%d", localBlockLevel, levelWiseSwitchCount[localBlockLevel]),
 			}
 			nodes[localBlockId] = localBlock
@@ -180,9 +182,9 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []t
 		networkBlock, ok := nodes[networkBlockId]
 		if !ok {
 			levelWiseSwitchCount[networkBlockLevel]++
-			networkBlock = &topology.Vertex{
+			networkBlock = &common.Vertex{
 				ID:       networkBlockId,
-				Vertices: make(map[string]*topology.Vertex),
+				Vertices: make(map[string]*common.Vertex),
 				Name:     fmt.Sprintf("Switch.%d.%d", networkBlockLevel, levelWiseSwitchCount[networkBlockLevel]),
 			}
 			nodes[networkBlockId] = networkBlock
@@ -193,9 +195,9 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []t
 		hpcIsland, ok := nodes[hpcIslandId]
 		if !ok {
 			levelWiseSwitchCount[hpcIslandLevel]++
-			hpcIsland = &topology.Vertex{
+			hpcIsland = &common.Vertex{
 				ID:       hpcIslandId,
-				Vertices: make(map[string]*topology.Vertex),
+				Vertices: make(map[string]*common.Vertex),
 				Name:     fmt.Sprintf("Switch.%d.%d", hpcIslandLevel, levelWiseSwitchCount[hpcIslandLevel]),
 			}
 			nodes[hpcIslandId] = hpcIsland
@@ -206,22 +208,22 @@ func toGraph(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, cis []t
 
 	if len(instanceToNodeMap) != 0 {
 		klog.V(4).Infof("Adding nodes w/o topology: %v", instanceToNodeMap)
-		metrics.SetMissingTopology(NAME, len(instanceToNodeMap))
-		sw := &topology.Vertex{
-			ID:       topology.NoTopology,
-			Vertices: make(map[string]*topology.Vertex),
+		metrics.SetMissingTopology(common.ProviderOCI, len(instanceToNodeMap))
+		sw := &common.Vertex{
+			ID:       common.NoTopology,
+			Vertices: make(map[string]*common.Vertex),
 		}
 		for instanceID, nodeName := range instanceToNodeMap {
-			sw.Vertices[instanceID] = &topology.Vertex{
+			sw.Vertices[instanceID] = &common.Vertex{
 				Name: nodeName,
 				ID:   instanceID,
 			}
 		}
-		forest[topology.NoTopology] = sw
+		forest[common.NoTopology] = sw
 	}
 
-	root := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
+	root := &common.Vertex{
+		Vertices: make(map[string]*common.Vertex),
 	}
 	for name, node := range forest {
 		root.Vertices[name] = node
@@ -283,13 +285,29 @@ func filterAndSort(bareMetalHostSummaries []*core.ComputeBareMetalHostSummary, i
 	return filtered
 }
 
-func generateInstanceTopology(ctx context.Context, factory ClientFactory, ci *topology.ComputeInstances, bareMetalHostSummaries []*core.ComputeBareMetalHostSummary) ([]*core.ComputeBareMetalHostSummary, error) {
-	client, err := factory(ci.Region)
+func generateInstanceTopology(ctx context.Context, provider OCICommon.ConfigurationProvider, ci *common.ComputeInstances, bareMetalHostSummaries []*core.ComputeBareMetalHostSummary) ([]*core.ComputeBareMetalHostSummary, error) {
+	identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create identity client. Bailing out : %v", err)
 	}
 
-	bmh, err := getBareMetalHostSummaries(ctx, client)
+	tenacyOCID, err := provider.TenancyOCID()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get tenancy OCID from config: %s", err.Error())
+	}
+
+	computeClient, err := core.NewComputeClientWithConfigurationProvider(provider)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get compute client: %s", err.Error())
+	}
+
+	if len(ci.Region) != 0 {
+		klog.Infof("Use provided region %s", ci.Region)
+		identityClient.SetRegion(ci.Region)
+		computeClient.SetRegion(ci.Region)
+	}
+
+	bmh, err := getBareMetalHostSummaries(ctx, computeClient, identityClient, tenacyOCID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to populate compute capacity topology: %s", err.Error())
 	}

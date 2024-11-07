@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/pkg/common"
 	pb "github.com/NVIDIA/topograph/pkg/protos"
-	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 // follow example in pkg/toposim/testdata/toposim.yaml
@@ -95,7 +95,7 @@ func TestToGraph(t *testing.T) {
 		},
 	}
 
-	cis := []topology.ComputeInstances{
+	cis := []common.ComputeInstances{
 		{
 			Instances: map[string]string{
 				"n10-1": "N10-1",
@@ -113,69 +113,69 @@ func TestToGraph(t *testing.T) {
 		},
 	}
 
-	v101 := &topology.Vertex{Name: "N10-1", ID: "n10-1"}
-	v102 := &topology.Vertex{Name: "N10-2", ID: "n10-2"}
-	v111 := &topology.Vertex{Name: "N11-1", ID: "n11-1"}
-	v112 := &topology.Vertex{Name: "N11-2", ID: "n11-2"}
-	v121 := &topology.Vertex{Name: "N12-1", ID: "n12-1"}
-	v122 := &topology.Vertex{Name: "N12-2", ID: "n12-2"}
-	v131 := &topology.Vertex{Name: "N13-1", ID: "n13-1"}
-	v132 := &topology.Vertex{Name: "N13-2", ID: "n13-2"}
-	v141 := &topology.Vertex{Name: "N14-1", ID: "n14-1"}
-	v142 := &topology.Vertex{Name: "N14-2", ID: "n14-2"}
-	cpu1 := &topology.Vertex{Name: "CPU1", ID: "cpu1"}
+	v101 := &common.Vertex{Name: "N10-1", ID: "n10-1"}
+	v102 := &common.Vertex{Name: "N10-2", ID: "n10-2"}
+	v111 := &common.Vertex{Name: "N11-1", ID: "n11-1"}
+	v112 := &common.Vertex{Name: "N11-2", ID: "n11-2"}
+	v121 := &common.Vertex{Name: "N12-1", ID: "n12-1"}
+	v122 := &common.Vertex{Name: "N12-2", ID: "n12-2"}
+	v131 := &common.Vertex{Name: "N13-1", ID: "n13-1"}
+	v132 := &common.Vertex{Name: "N13-2", ID: "n13-2"}
+	v141 := &common.Vertex{Name: "N14-1", ID: "n14-1"}
+	v142 := &common.Vertex{Name: "N14-2", ID: "n14-2"}
+	cpu1 := &common.Vertex{Name: "CPU1", ID: "cpu1"}
 
-	sw11 := &topology.Vertex{ID: "sw11", Vertices: map[string]*topology.Vertex{"n11-1": v111, "n11-2": v112}}
-	sw12 := &topology.Vertex{ID: "sw12", Vertices: map[string]*topology.Vertex{"n12-1": v121, "n12-2": v122}}
-	sw13 := &topology.Vertex{ID: "sw13", Vertices: map[string]*topology.Vertex{"n13-1": v131, "n13-2": v132}}
-	sw14 := &topology.Vertex{ID: "sw14", Vertices: map[string]*topology.Vertex{"n14-1": v141, "n14-2": v142}}
-	sw21 := &topology.Vertex{ID: "sw21", Vertices: map[string]*topology.Vertex{"sw11": sw11, "sw12": sw12}}
-	sw22 := &topology.Vertex{ID: "sw22", Vertices: map[string]*topology.Vertex{"sw13": sw13, "sw14": sw14}}
-	sw3 := &topology.Vertex{ID: "sw3", Vertices: map[string]*topology.Vertex{"sw21": sw21, "sw22": sw22}}
+	sw11 := &common.Vertex{ID: "sw11", Vertices: map[string]*common.Vertex{"n11-1": v111, "n11-2": v112}}
+	sw12 := &common.Vertex{ID: "sw12", Vertices: map[string]*common.Vertex{"n12-1": v121, "n12-2": v122}}
+	sw13 := &common.Vertex{ID: "sw13", Vertices: map[string]*common.Vertex{"n13-1": v131, "n13-2": v132}}
+	sw14 := &common.Vertex{ID: "sw14", Vertices: map[string]*common.Vertex{"n14-1": v141, "n14-2": v142}}
+	sw21 := &common.Vertex{ID: "sw21", Vertices: map[string]*common.Vertex{"sw11": sw11, "sw12": sw12}}
+	sw22 := &common.Vertex{ID: "sw22", Vertices: map[string]*common.Vertex{"sw13": sw13, "sw14": sw14}}
+	sw3 := &common.Vertex{ID: "sw3", Vertices: map[string]*common.Vertex{"sw21": sw21, "sw22": sw22}}
 
-	nv1 := &topology.Vertex{ID: "nvlink-nv1", Vertices: map[string]*topology.Vertex{"n10-1": v101, "n10-2": v102, "n11-1": v111, "n11-2": v112}}
+	nv1 := &common.Vertex{ID: "nvlink-nv1", Vertices: map[string]*common.Vertex{"n10-1": v101, "n10-2": v102, "n11-1": v111, "n11-2": v112}}
 
-	extra := &topology.Vertex{ID: topology.NoTopology, Vertices: map[string]*topology.Vertex{"cpu1": cpu1}}
-	treeRoot := &topology.Vertex{Vertices: map[string]*topology.Vertex{"nvlink-nv1": nv1, "sw3": sw3, topology.NoTopology: extra}}
-	blockRoot := &topology.Vertex{Vertices: map[string]*topology.Vertex{"nvlink-nv1": nv1}}
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.ValTopologyBlock: blockRoot, topology.ValTopologyTree: treeRoot},
-		Metadata: map[string]string{topology.KeyPlugin: topology.ValTopologyBlock},
+	extra := &common.Vertex{ID: common.NoTopology, Vertices: map[string]*common.Vertex{"cpu1": cpu1}}
+	treeRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1, "sw3": sw3, common.NoTopology: extra}}
+	blockRoot := &common.Vertex{Vertices: map[string]*common.Vertex{"nvlink-nv1": nv1}}
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
+		Metadata: map[string]string{common.KeyPlugin: common.ValTopologyBlock},
 	}
 
-	require.Equal(t, root, toGraph(&pb.TopologyResponse{Instances: instances}, cis, topology.ValTopologyBlock))
+	require.Equal(t, root, toGraph(&pb.TopologyResponse{Instances: instances}, cis, common.ValTopologyBlock))
 }
 
 func TestGetTopologyFormat(t *testing.T) {
 	testCases := []struct {
 		name   string
-		params map[string]any
+		params map[string]string
 		format string
 	}{
 		{
 			name:   "Case 1: nil params",
 			params: nil,
-			format: topology.ValTopologyTree,
+			format: common.ValTopologyTree,
 		},
 		{
 			name:   "Case 2: empty params",
-			params: make(map[string]any),
-			format: topology.ValTopologyTree,
+			params: make(map[string]string),
+			format: common.ValTopologyTree,
 		},
 		{
 			name:   "Case 3: missing key",
-			params: map[string]any{"a": "b"},
-			format: topology.ValTopologyTree,
+			params: map[string]string{"a": "b"},
+			format: common.ValTopologyTree,
 		},
 		{
 			name:   "Case 4: block topology",
-			params: map[string]any{topology.KeyPlugin: topology.ValTopologyBlock},
-			format: topology.ValTopologyBlock,
+			params: map[string]string{common.KeyPlugin: common.ValTopologyBlock},
+			format: common.ValTopologyBlock,
 		},
 		{
 			name:   "Case 5: tree topology",
-			params: map[string]any{topology.KeyPlugin: topology.ValTopologyTree},
-			format: topology.ValTopologyTree,
+			params: map[string]string{common.KeyPlugin: common.ValTopologyTree},
+			format: common.ValTopologyTree,
 		},
 	}
 

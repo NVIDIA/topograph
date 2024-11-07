@@ -17,106 +17,32 @@
 package aws
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/exec"
-	"github.com/NVIDIA/topograph/pkg/providers"
-	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/engines/k8s"
+	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 )
 
-const NAME = "aws"
-
-const (
-	IMDS           = "http://169.254.169.254"
-	IMDS_TOKEN_URL = IMDS + "/latest/api/token"
-	IMDS_URL       = IMDS + "/latest/meta-data"
-
-	tokenTimeDelay = 15 * time.Second
-)
-
-type Provider struct {
-	clientFactory ClientFactory
-	imdsClient    IDMSClient
-}
-
-type EC2Client interface {
-	DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error)
-}
-
-type IDMSClient interface {
-	GetRegion(ctx context.Context, params *imds.GetRegionInput, optFns ...func(*imds.Options)) (*imds.GetRegionOutput, error)
-}
-
-type CredsClient interface {
-	Retrieve(ctx context.Context) (aws.Credentials, error)
-}
-
-type ClientFactory func(region string) (*Client, error)
-
-type Client struct {
-	EC2 EC2Client
-}
+type Provider struct{}
 
 type Credentials struct {
 	AccessKeyId     string
 	SecretAccessKey string
-	Token           string // Token is optional
+	Token           string // token is optional
 }
 
-func NamedLoader() (string, providers.Loader) {
-	return NAME, Loader
+func GetProvider() (*Provider, error) {
+	return &Provider{}, nil
 }
 
-func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, error) {
-	defaultCfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	imdsClient := imds.NewFromConfig(defaultCfg)
-
-	creds, err := getCredentials(ctx, cfg.Creds)
-	if err != nil {
-		return nil, err
-	}
-
-	clientFactory := func(region string) (*Client, error) {
-		opts := []func(*config.LoadOptions) error{
-			config.WithRegion(region),
-			config.WithCredentialsProvider(
-				credentials.NewStaticCredentialsProvider(creds.AccessKeyId, creds.SecretAccessKey, creds.Token),
-			)}
-
-		awsCfg, err := config.LoadDefaultConfig(ctx, opts...)
-		if err != nil {
-			return nil, fmt.Errorf("unable to load SDK config, %v", err)
-		}
-
-		ec2Client := ec2.NewFromConfig(awsCfg)
-
-		return &Client{
-			EC2: ec2Client,
-		}, nil
-	}
-
-	return New(clientFactory, imdsClient), nil
-}
-
-func getCredentials(ctx context.Context, creds map[string]string) (*Credentials, error) {
+func (p *Provider) GetCredentials(creds map[string]string) (interface{}, error) {
 	var accessKeyID, secretAccessKey, sessionToken string
 
 	if len(creds) != 0 {
@@ -135,13 +61,13 @@ func getCredentials(ctx context.Context, creds map[string]string) (*Credentials,
 		sessionToken = os.Getenv("AWS_SESSION_TOKEN")
 	} else {
 		klog.Infof("Using node AWS access credentials")
-		creds, err := getCredentialsFromProvider(ctx)
+		nodeCreds, err := GetCredentials()
 		if err != nil {
 			return nil, err
 		}
-		accessKeyID = creds.AccessKeyID
-		secretAccessKey = creds.SecretAccessKey
-		sessionToken = creds.SessionToken
+		accessKeyID = nodeCreds.AccessKeyId
+		secretAccessKey = nodeCreds.SecretAccessKey
+		sessionToken = nodeCreds.Token
 	}
 
 	return &Credentials{
@@ -151,34 +77,40 @@ func getCredentials(ctx context.Context, creds map[string]string) (*Credentials,
 	}, nil
 }
 
-func getCredentialsFromProvider(ctx context.Context) (creds aws.Credentials, err error) {
-	credsClient := ec2rolecreds.New()
+func (p *Provider) GetComputeInstances(ctx context.Context, engine common.Engine) ([]common.ComputeInstances, error) {
+	klog.InfoS("Getting compute instances", "provider", common.ProviderAWS, "engine", engine)
 
-	for {
-		creds, err = credsClient.Retrieve(ctx)
+	switch eng := engine.(type) {
+	case *slurm.SlurmEngine:
+		nodes, err := slurm.GetNodeList(ctx)
 		if err != nil {
-			return creds, err
+			return nil, err
 		}
-
-		if time.Now().Add(tokenTimeDelay).After(creds.Expires) {
-			klog.V(4).Infof("Waiting %s for new token", tokenTimeDelay.String())
-			time.Sleep(tokenTimeDelay)
-			continue
+		i2n, err := Instance2NodeMap(ctx, nodes)
+		if err != nil {
+			return nil, err
 		}
-
-		return creds, nil
+		region, err := GetRegion()
+		if err != nil {
+			return nil, err
+		}
+		return []common.ComputeInstances{{Region: region, Instances: i2n}}, nil
+	case *k8s.K8sEngine:
+		return eng.GetComputeInstances(ctx,
+			func(n *v1.Node) string { return n.Labels["topology.kubernetes.io/region"] },
+			func(n *v1.Node) string {
+				// ProviderID format: "aws:///us-east-1f/i-0acd9257c6569d371"
+				parts := strings.Split(n.Spec.ProviderID, "/")
+				return parts[len(parts)-1]
+			})
+	default:
+		return nil, fmt.Errorf("unsupported engine %q", engine)
 	}
 }
 
-func New(clientFactory ClientFactory, imdsClient IDMSClient) *Provider {
-	return &Provider{
-		clientFactory: clientFactory,
-		imdsClient:    imdsClient,
-	}
-}
-
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	topology, err := p.generateInstanceTopology(ctx, int32(pageSize), instances)
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, cr interface{}, pageSize int, instances []common.ComputeInstances) (*common.Vertex, error) {
+	creds := cr.(*Credentials)
+	topology, err := GenerateInstanceTopology(ctx, creds, int32(pageSize), instances)
 	if err != nil {
 		return nil, err
 	}
@@ -186,55 +118,4 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize int, ins
 	klog.Infof("Extracted topology for %d instances", len(topology))
 
 	return toGraph(topology, instances)
-}
-
-// Engine support
-
-// Instances2NodeMap implements slurm.instanceMapper
-func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	args := []string{"-w", strings.Join(nodes, ","),
-		fmt.Sprintf("TOKEN=$(curl -s -X PUT -H \"X-aws-ec2-metadata-token-ttl-seconds: 21600\" %s); echo $(curl -s -H \"X-aws-ec2-metadata-token: $TOKEN\" %s/instance-id)", IMDS_TOKEN_URL, IMDS_URL)}
-
-	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
-	if err != nil {
-		return nil, err
-	}
-	klog.V(4).Infof("data: %s", stdout.String())
-
-	i2n := map[string]string{}
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		arr := strings.Split(scanner.Text(), ": ")
-		if len(arr) == 2 {
-			node, instance := arr[0], arr[1]
-			i2n[instance] = node
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return i2n, nil
-}
-
-// GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion() (string, error) {
-	output, err := p.imdsClient.GetRegion(context.Background(), &imds.GetRegionInput{})
-	if err != nil {
-		return "", err
-	}
-	return output.Region, nil
-}
-
-// GetNodeRegion implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
-	return node.Labels["topology.kubernetes.io/region"], nil
-}
-
-// GetNodeInstance implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
-	// ProviderID format: "aws:///us-east-1f/i-0acd9257c6569d371"
-	parts := strings.Split(node.Spec.ProviderID, "/")
-	return parts[len(parts)-1], nil
 }

@@ -14,30 +14,31 @@
  * limitations under the License.
  */
 
-package server_test
+package utils
 
 import (
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/NVIDIA/topograph/pkg/server"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/stretchr/testify/require"
 	"k8s.io/klog/v2"
+
+	"github.com/NVIDIA/topograph/pkg/common"
 )
 
 func TestTrailingDelayQueue(t *testing.T) {
 	var counter int32
 	type Int struct{ val int }
 
-	processItem := func(item interface{}) (interface{}, *server.HTTPError) {
+	processItem := func(item interface{}) (interface{}, *common.HTTPError) {
 		klog.Infof("Processing item: %v\n", item)
 		atomic.AddInt32(&counter, 1)
 		return nil, nil
 	}
 
-	queue := server.NewTrailingDelayQueue(processItem, 2*time.Second)
+	queue := NewTrailingDelayQueue(processItem, 2*time.Second)
 
 	for cycle := 1; cycle <= 2; cycle++ {
 		for i := 0; i < 3; i++ {

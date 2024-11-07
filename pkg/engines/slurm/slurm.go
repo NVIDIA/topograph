@@ -20,18 +20,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/config"
-	"github.com/NVIDIA/topograph/internal/exec"
-	"github.com/NVIDIA/topograph/internal/files"
-	"github.com/NVIDIA/topograph/pkg/engines"
-	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/translate"
+	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
 const TopologyHeader = `
@@ -41,69 +37,13 @@ const TopologyHeader = `
 ###############################################################
 `
 
-const NAME = "slurm"
-
 type SlurmEngine struct{}
 
-type Params struct {
-	Plugin         string `mapstructure:"plugin"`
-	TopoConfigPath string `mapstructure:"topology_config_path"`
-	BlockSizes     string `mapstructure:"block_sizes"`
-	SkipReload     string `mapstructure:"skip_reload"` // TODO: Should this be a bool
-}
-
-type instanceMapper interface {
-	Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error)
-	GetComputeInstancesRegion() (string, error)
-}
-
-var ErrEnvironmentUnsupported = errors.New("environment must implement instanceMapper")
-
-func NamedLoader() (string, engines.Loader) {
-	return NAME, Loader
-}
-
-func Loader(ctx context.Context, config engines.Config) (engines.Engine, error) {
-	return New()
-}
-
-func New() (*SlurmEngine, error) {
-	return &SlurmEngine{}, nil
-}
-
-func (eng *SlurmEngine) GetComputeInstances(ctx context.Context, environment engines.Environment) ([]topology.ComputeInstances, error) {
-	instanceMapper, ok := environment.(instanceMapper)
-	if !ok {
-		return nil, ErrEnvironmentUnsupported
-	}
-
-	nodes, err := GetNodeList(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	i2n, err := instanceMapper.Instances2NodeMap(ctx, nodes)
-	if err != nil {
-		return nil, err
-	}
-
-	region, err := instanceMapper.GetComputeInstancesRegion()
-	if err != nil {
-		return nil, err
-	}
-
-	return []topology.ComputeInstances{{
-		Region:    region,
-		Instances: i2n,
-	}}, nil
-}
-
 func GetNodeList(ctx context.Context) ([]string, error) {
-	stdout, err := exec.Exec(ctx, "scontrol", []string{"show", "nodes", "-o"}, nil)
+	stdout, err := utils.Exec(ctx, "scontrol", []string{"show", "nodes", "-o"}, nil)
 	if err != nil {
 		return nil, err
 	}
-
 	klog.V(4).Infof("stdout: %s", stdout.String())
 
 	nodes := []string{}
@@ -125,40 +65,31 @@ func GetNodeList(ctx context.Context) ([]string, error) {
 	return nodes, nil
 }
 
-func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
+func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *common.Vertex, params map[string]string) ([]byte, error) {
 	return GenerateOutput(ctx, tree, params)
 }
 
-func GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
-	var p Params
-	if err := config.Decode(params, &p); err != nil {
-		return nil, err
-	}
-
-	return GenerateOutputParams(ctx, tree, &p)
-}
-
-func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Params) ([]byte, error) {
+func GenerateOutput(ctx context.Context, tree *common.Vertex, params map[string]string) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	path := params.TopoConfigPath
+	path := params[common.KeyTopoConfigPath]
 
 	if len(path) != 0 {
 		var plugin string
 		if len(tree.Metadata) != 0 {
-			plugin = tree.Metadata[topology.KeyPlugin]
+			plugin = tree.Metadata[common.KeyPlugin]
 		}
 		if len(plugin) == 0 {
-			plugin = topology.ValTopologyTree
+			plugin = common.ValTopologyTree
 		}
 		if _, err := buf.WriteString(fmt.Sprintf(TopologyHeader, plugin)); err != nil {
 			return nil, err
 		}
 	}
 
-	blockSize := params.BlockSizes
+	blockSize := params[common.KeyBlockSizes]
 
 	if len(blockSize) != 0 {
-		tree.Metadata[topology.KeyBlockSizes] = blockSize
+		tree.Metadata[common.KeyBlockSizes] = blockSize
 	}
 
 	err := translate.ToGraph(buf, tree)
@@ -173,27 +104,24 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 	}
 
 	klog.Infof("Writing topology config in %q", path)
-	if err = files.Create(path, cfg); err != nil {
+	if err = utils.CreateFile(path, cfg); err != nil {
 		return nil, err
 	}
-	if len(params.SkipReload) > 0 {
+	if _, ok := params[common.KeySkipReload]; ok {
 		klog.Infof("Skip SLURM reconfiguration")
 	} else {
 		if err = reconfigure(ctx); err != nil {
 			return nil, err
 		}
 	}
-
 	return []byte("OK\n"), nil
 }
 
 func reconfigure(ctx context.Context) error {
-	stdout, err := exec.Exec(ctx, "scontrol", []string{"reconfigure"}, nil)
+	stdout, err := utils.Exec(ctx, "scontrol", []string{"reconfigure"}, nil)
 	if err != nil {
 		return err
 	}
-
 	klog.V(4).Infof("stdout: %s", stdout.String())
-
 	return nil
 }

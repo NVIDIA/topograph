@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"hash/fnv"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/common"
 )
 
 type Labeler interface {
@@ -38,7 +38,7 @@ func NewTopologyLabeler() *topologyLabeler {
 	}
 }
 
-func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, v *topology.Vertex, labeler Labeler) error {
+func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, v *common.Vertex, labeler Labeler) error {
 	if v == nil {
 		return nil
 	}
@@ -50,7 +50,7 @@ func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, v *topology.Verte
 	return l.applyNodeLabels(ctx, v, labeler, levels)
 }
 
-func (l *topologyLabeler) applyNodeLabels(ctx context.Context, v *topology.Vertex, labeler Labeler, levels []string) error {
+func (l *topologyLabeler) applyNodeLabels(ctx context.Context, v *common.Vertex, labeler Labeler, levels []string) error {
 	if len(v.Vertices) == 0 { // compute node
 		if len(levels) != 0 {
 			if v.ID != levels[0] {
