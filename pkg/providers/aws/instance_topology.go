@@ -21,21 +21,23 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/metrics"
-	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 var defaultPageSize int32 = 100
 
-func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize int32, cis []topology.ComputeInstances) ([]types.InstanceTopology, error) {
+func GenerateInstanceTopology(ctx context.Context, creds *Credentials, pageSize int32, cis []common.ComputeInstances) ([]types.InstanceTopology, error) {
 	var err error
 	topology := []types.InstanceTopology{}
 	for _, ci := range cis {
-		if topology, err = p.generateInstanceTopologyForRegionInstances(ctx, pageSize, &ci, topology); err != nil {
+		if topology, err = generateInstanceTopology(ctx, creds, pageSize, &ci, topology); err != nil {
 			return nil, err
 		}
 	}
@@ -43,16 +45,24 @@ func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize int32,
 	return topology, nil
 }
 
-func (p *Provider) generateInstanceTopologyForRegionInstances(ctx context.Context, pageSize int32, ci *topology.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
+func generateInstanceTopology(ctx context.Context, creds *Credentials, pageSize int32, ci *common.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
 	if len(ci.Region) == 0 {
 		return nil, fmt.Errorf("must specify region to query instance topology")
 	}
 	klog.Infof("Getting instance topology for %s region", ci.Region)
 
-	client, err := p.clientFactory(ci.Region)
+	opts := []func(*config.LoadOptions) error{
+		config.WithRegion(ci.Region),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(creds.AccessKeyId, creds.SecretAccessKey, creds.Token),
+		)}
+
+	cfg, err := config.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to load SDK config, %v", err)
 	}
+
+	svc := ec2.NewFromConfig(cfg)
 	input := &ec2.DescribeInstanceTopologyInput{}
 
 	// AWS allows up to 100 explicitly specified instance IDs
@@ -75,7 +85,7 @@ func (p *Provider) generateInstanceTopologyForRegionInstances(ctx context.Contex
 		cycle++
 		klog.V(4).Infof("Starting cycle %d", cycle)
 		start := time.Now()
-		output, err := client.EC2.DescribeInstanceTopology(ctx, input)
+		output, err := svc.DescribeInstanceTopology(ctx, input)
 		if err != nil {
 			apiLatency.WithLabelValues(ci.Region, "Error").Observe(time.Since(start).Seconds())
 			return nil, fmt.Errorf("failed to describe instance topology: %v", err)
@@ -100,7 +110,7 @@ func (p *Provider) generateInstanceTopologyForRegionInstances(ctx context.Contex
 	return topology, nil
 }
 
-func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func toGraph(topology []types.InstanceTopology, cis []common.ComputeInstances) (*common.Vertex, error) {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
 		for instance, node := range ci.Instances {
@@ -109,10 +119,10 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 	}
 	klog.V(4).Infof("Instance/Node map %v", i2n)
 
-	forest := make(map[string]*topology.Vertex)
-	nodes := make(map[string]*topology.Vertex)
+	forest := make(map[string]*common.Vertex)
+	nodes := make(map[string]*common.Vertex)
 
-	for _, inst := range top {
+	for _, inst := range topology {
 		//klog.V(4).Infof("Checking instance %q", c.InstanceId)
 		nodeName, ok := i2n[*inst.InstanceId]
 		if !ok {
@@ -121,7 +131,7 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 		klog.V(4).Infof("Found node %q instance %q", nodeName, *inst.InstanceId)
 		delete(i2n, *inst.InstanceId)
 
-		instance := &topology.Vertex{
+		instance := &common.Vertex{
 			Name: nodeName,
 			ID:   *inst.InstanceId,
 		}
@@ -129,9 +139,9 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 		id3 := inst.NetworkNodes[2]
 		sw3, ok := nodes[id3]
 		if !ok { //
-			sw3 = &topology.Vertex{
+			sw3 = &common.Vertex{
 				ID:       id3,
-				Vertices: make(map[string]*topology.Vertex),
+				Vertices: make(map[string]*common.Vertex),
 			}
 			nodes[id3] = sw3
 		}
@@ -141,9 +151,9 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 		id2 := inst.NetworkNodes[1]
 		sw2, ok := nodes[id2]
 		if !ok { //
-			sw2 = &topology.Vertex{
+			sw2 = &common.Vertex{
 				ID:       id2,
-				Vertices: make(map[string]*topology.Vertex),
+				Vertices: make(map[string]*common.Vertex),
 			}
 			nodes[id2] = sw2
 		}
@@ -153,9 +163,9 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 		id1 := inst.NetworkNodes[0]
 		sw1, ok := nodes[id1]
 		if !ok { //
-			sw1 = &topology.Vertex{
+			sw1 = &common.Vertex{
 				ID:       id1,
-				Vertices: make(map[string]*topology.Vertex),
+				Vertices: make(map[string]*common.Vertex),
 			}
 			nodes[id1] = sw1
 			forest[id1] = sw1
@@ -165,22 +175,22 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 
 	if len(i2n) != 0 {
 		klog.V(4).Infof("Adding nodes w/o topology: %v", i2n)
-		metrics.SetMissingTopology(NAME, len(i2n))
-		sw := &topology.Vertex{
-			ID:       topology.NoTopology,
-			Vertices: make(map[string]*topology.Vertex),
+		metrics.SetMissingTopology(common.ProviderAWS, len(i2n))
+		sw := &common.Vertex{
+			ID:       common.NoTopology,
+			Vertices: make(map[string]*common.Vertex),
 		}
 		for instanceID, nodeName := range i2n {
-			sw.Vertices[instanceID] = &topology.Vertex{
+			sw.Vertices[instanceID] = &common.Vertex{
 				Name: nodeName,
 				ID:   instanceID,
 			}
 		}
-		forest[topology.NoTopology] = sw
+		forest[common.NoTopology] = sw
 	}
 
-	root := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
+	root := &common.Vertex{
+		Vertices: make(map[string]*common.Vertex),
 	}
 	for name, node := range forest {
 		root.Vertices[name] = node

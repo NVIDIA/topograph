@@ -25,9 +25,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/pkg/common"
 	"github.com/NVIDIA/topograph/pkg/config"
-	"github.com/NVIDIA/topograph/pkg/registry"
-	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/utils"
 )
 
 type HttpServer struct {
@@ -55,7 +55,7 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 			Handler: mux,
 		},
 		async: &asyncController{
-			queue: NewTrailingDelayQueue(processRequest, cfg.RequestAggregationDelay),
+			queue: utils.NewTrailingDelayQueue(processRequest, cfg.RequestAggregationDelay),
 		},
 	}
 }
@@ -98,7 +98,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(uid))
 }
 
-func readRequest(w http.ResponseWriter, r *http.Request) *topology.Request {
+func readRequest(w http.ResponseWriter, r *http.Request) *common.TopologyRequest {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return nil
@@ -111,7 +111,7 @@ func readRequest(w http.ResponseWriter, r *http.Request) *topology.Request {
 	}
 	defer func() { _ = r.Body.Close() }()
 
-	tr, err := topology.GetTopologyRequest(body)
+	tr, err := common.GetTopologyRequest(body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return nil
@@ -135,37 +135,30 @@ func readRequest(w http.ResponseWriter, r *http.Request) *topology.Request {
 	return tr
 }
 
-func validate(tr *topology.Request) error {
-	_, exists := registry.Providers[tr.Provider.Name]
-	if !exists {
-		switch tr.Provider.Name {
-		case "":
-			return fmt.Errorf("no provider given for topology request")
-		default:
-			return fmt.Errorf("unsupported provider %s", tr.Provider.Name)
-		}
+func validate(tr *common.TopologyRequest) error {
+	switch tr.Provider.Name {
+	case common.ProviderAWS, common.ProviderOCI, common.ProviderGCP, common.ProviderCW, common.ProviderBM, common.ProviderTest:
+		//nop
+	case "":
+		return fmt.Errorf("no provider given for topology request")
+	default:
+		return fmt.Errorf("unsupported provider %s", tr.Provider.Name)
 	}
 
-	_, exists = registry.Engines[tr.Engine.Name]
-	if !exists {
-		switch tr.Engine.Name {
-
-		// case common.EngineSLURM, common.EngineTest:
-		// 	//nop
-		// case common.EngineK8S:
-		// 	for _, key := range []string{common.KeyTopoConfigPath, common.KeyTopoConfigmapName, common.KeyTopoConfigmapNamespace} {
-		// 		if _, ok := tr.Engine.Params[key]; !ok {
-		// 			return fmt.Errorf("missing %q parameter", key)
-		// 		}
-		// 	}
-		case "":
-			return fmt.Errorf("no engine given for topology request")
-		default:
-			return fmt.Errorf("unsupported engine %s", tr.Engine.Name)
+	switch tr.Engine.Name {
+	case common.EngineSLURM, common.EngineTest:
+		//nop
+	case common.EngineK8S:
+		for _, key := range []string{common.KeyTopoConfigPath, common.KeyTopoConfigmapName, common.KeyTopoConfigmapNamespace} {
+			if _, ok := tr.Engine.Params[key]; !ok {
+				return fmt.Errorf("missing %q parameter", key)
+			}
 		}
+	case "":
+		return fmt.Errorf("no engine given for topology request")
+	default:
+		return fmt.Errorf("unsupported engine %s", tr.Engine.Name)
 	}
-	// TODO: Validate K8s params
-	// This might be moved elsewhere in the flow
 
 	return nil
 }
@@ -176,7 +169,7 @@ func getresult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uid := r.URL.Query().Get(topology.KeyUID)
+	uid := r.URL.Query().Get(common.KeyUID)
 	if len(uid) == 0 {
 		http.Error(w, "must specify request uid", http.StatusBadRequest)
 		return

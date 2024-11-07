@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package files
+package utils
 
 import (
 	"fmt"
 	"os"
 )
 
-func Validate(name, description string) error {
+func ValidateFile(name, description string) error {
 	if len(name) == 0 {
 		return fmt.Errorf("missing filename for %s", description)
 	}
@@ -31,7 +31,7 @@ func Validate(name, description string) error {
 	return nil
 }
 
-func Create(path string, data []byte) error {
+func CreateFile(path string, data []byte) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create %q: %v", path, err)

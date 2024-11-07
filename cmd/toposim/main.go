@@ -32,7 +32,7 @@ import (
 
 func main() {
 	if err := mainInternal(); err != nil {
-		klog.Error(err.Error())
+		klog.Errorf(err.Error())
 		os.Exit(1)
 	}
 }

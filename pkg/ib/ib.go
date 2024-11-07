@@ -24,8 +24,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
 	"golang.org/x/exp/maps"
+
+	"github.com/NVIDIA/topograph/pkg/common"
 )
 
 var (
@@ -52,7 +53,7 @@ type Switch struct {
 	Nodes    map[string]string  // ID:node name
 }
 
-func GenerateTopologyConfig(data []byte) (*topology.Vertex, error) {
+func GenerateTopologyConfig(data []byte) (*common.Vertex, error) {
 	switches, hca, err := ParseIbnetdiscoverFile(data)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse ibnetdiscover file: %v", err)
@@ -67,14 +68,14 @@ func GenerateTopologyConfig(data []byte) (*topology.Vertex, error) {
 	return root.toGraph()
 }
 
-func (sw *Switch) toGraph() (*topology.Vertex, error) {
-	vertex := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
+func (sw *Switch) toGraph() (*common.Vertex, error) {
+	vertex := &common.Vertex{
+		Vertices: make(map[string]*common.Vertex),
 	}
 	vertex.ID = sw.Name
 	if len(sw.Children) == 0 {
 		for id, name := range sw.Nodes {
-			vertex.Vertices[id] = &topology.Vertex{
+			vertex.Vertices[id] = &common.Vertex{
 				Name: name,
 				ID:   id,
 			}

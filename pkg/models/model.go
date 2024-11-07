@@ -22,7 +22,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/common"
 )
 
 type Model struct {
@@ -140,28 +140,28 @@ func getNetworkLayers(name string, swmap map[string]string) ([]string, error) {
 	}
 }
 
-func (model *Model) ToTree() (*topology.Vertex, map[string]string) {
+func (model *Model) ToTree() (*common.Vertex, map[string]string) {
 	instance2node := make(map[string]string)
-	nodeVertexMap := make(map[string]*topology.Vertex)
-	swVertexMap := make(map[string]*topology.Vertex)
+	nodeVertexMap := make(map[string]*common.Vertex)
+	swVertexMap := make(map[string]*common.Vertex)
 	swRootMap := make(map[string]bool)
-	blockVertexMap := make(map[string]*topology.Vertex)
+	blockVertexMap := make(map[string]*common.Vertex)
 
 	// Create all the vertices for each node
 	for k, v := range model.Nodes {
 		instance2node[k] = k
-		nodeVertexMap[k] = &topology.Vertex{ID: v.Name, Name: v.Name}
+		nodeVertexMap[k] = &common.Vertex{ID: v.Name, Name: v.Name}
 	}
 
 	// Initialize all the vertices for each switch (setting each on to be a possible root)
 	for _, sw := range model.Switches {
-		swVertexMap[sw.Name] = &topology.Vertex{ID: sw.Name, Vertices: make(map[string]*topology.Vertex)}
+		swVertexMap[sw.Name] = &common.Vertex{ID: sw.Name, Vertices: make(map[string]*common.Vertex)}
 		swRootMap[sw.Name] = true
 	}
 
 	// Initializes all the block vertices
 	for _, cb := range model.CapacityBlocks {
-		blockVertexMap[cb.Name] = &topology.Vertex{ID: cb.Name, Vertices: make(map[string]*topology.Vertex)}
+		blockVertexMap[cb.Name] = &common.Vertex{ID: cb.Name, Vertices: make(map[string]*common.Vertex)}
 		for _, node := range cb.Nodes {
 			blockVertexMap[cb.Name].Vertices[node] = nodeVertexMap[node]
 		}
@@ -186,21 +186,18 @@ func (model *Model) ToTree() (*topology.Vertex, map[string]string) {
 	}
 
 	// Connects all root vertices to the hidden root
-	treeRoot := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
+	treeRoot := &common.Vertex{Vertices: make(map[string]*common.Vertex)}
 	for k, v := range swRootMap {
 		if v {
 			treeRoot.Vertices[k] = swVertexMap[k]
 		}
 	}
-	blockRoot := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
+	blockRoot := &common.Vertex{Vertices: make(map[string]*common.Vertex)}
 	for k, v := range blockVertexMap {
 		blockRoot.Vertices[k] = v
 	}
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{
-			topology.ValTopologyBlock: blockRoot,
-			topology.ValTopologyTree:  treeRoot,
-		},
+	root := &common.Vertex{
+		Vertices: map[string]*common.Vertex{common.ValTopologyBlock: blockRoot, common.ValTopologyTree: treeRoot},
 	}
 	return root, instance2node
 }

@@ -14,15 +14,20 @@
  * limitations under the License.
  */
 
-package topology
-
-import (
-	"fmt"
-	"strings"
-)
+package common
 
 const (
-	KeyEngine = "engine"
+	ProviderAWS  = "aws"
+	ProviderOCI  = "oci"
+	ProviderGCP  = "gcp"
+	ProviderCW   = "cw"
+	ProviderBM   = "baremetal"
+	ProviderTest = "test"
+
+	KeyEngine   = "engine"
+	EngineSLURM = "slurm"
+	EngineK8S   = "k8s"
+	EngineTest  = "test"
 
 	KeyUID                    = "uid"
 	KeyTopoConfigPath         = "topology_config_path"
@@ -37,22 +42,3 @@ const (
 	ValTopologyBlock = "topology/block"
 	NoTopology       = "no-topology"
 )
-
-// Vertex is a tree node, representing a compute node or a network switch, where
-// - Name is a compute node name
-// - ID is an CSP defined instance ID of switches and compute nodes
-// - Vertices is a list of connected compute nodes or network switches
-type Vertex struct {
-	Name     string
-	ID       string
-	Vertices map[string]*Vertex
-	Metadata map[string]string
-}
-
-func (v *Vertex) String() string {
-	vertices := []string{}
-	for _, w := range v.Vertices {
-		vertices = append(vertices, w.ID)
-	}
-	return fmt.Sprintf("ID:%q Name:%q Vertices: %s", v.ID, v.Name, strings.Join(vertices, ","))
-}
