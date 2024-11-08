@@ -26,7 +26,6 @@ import (
 )
 
 type Model struct {
-	Topology       string          `yaml:"topology"`
 	Switches       []Switch        `yaml:"switches"`
 	CapacityBlocks []CapacityBlock `yaml:"capacity_blocks"`
 
@@ -63,10 +62,6 @@ func NewModelFromFile(fname string) (*Model, error) {
 	model := &Model{}
 	if err = yaml.Unmarshal(data, model); err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %v", fname, err)
-	}
-
-	if model.Topology != topology.TopologyTree && model.Topology != topology.TopologyBlock {
-		return nil, fmt.Errorf("unsupported topology type set in model: %s", model.Topology)
 	}
 
 	if err = model.setNodeMap(); err != nil {
@@ -151,6 +146,7 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 	swVertexMap := make(map[string]*topology.Vertex)
 	swRootMap := make(map[string]bool)
 	blockVertexMap := make(map[string]*topology.Vertex)
+	var block_topology bool = false
 
 	// Create all the vertices for each node
 	for k, v := range model.Nodes {
@@ -169,6 +165,9 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 		blockVertexMap[cb.Name] = &topology.Vertex{ID: cb.Name, Vertices: make(map[string]*topology.Vertex)}
 		for _, node := range cb.Nodes {
 			blockVertexMap[cb.Name].Vertices[node] = nodeVertexMap[node]
+		}
+		if len(cb.NVLink) != 0 {
+			block_topology = true
 		}
 	}
 
@@ -201,7 +200,7 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 	for k, v := range blockVertexMap {
 		blockRoot.Vertices[k] = v
 	}
-	if model.Topology == topology.TopologyBlock {
+	if block_topology {
 		root := &topology.Vertex{
 			Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 			Metadata: map[string]string{topology.KeyPlugin: topology.TopologyTree},

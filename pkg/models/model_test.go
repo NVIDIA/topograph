@@ -19,7 +19,6 @@ package models
 import (
 	"testing"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +27,6 @@ func TestNewModelFromFile(t *testing.T) {
 	require.NoError(t, err)
 
 	expected := &Model{
-		Topology: topology.TopologyTree,
 		Switches: []Switch{
 			{
 				Name:     "sw3",

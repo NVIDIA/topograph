@@ -10,7 +10,6 @@
 #  ------    ------
 #   CB2       CB3
 #
-topology: "topology/tree"
 switches:
 - name: S1
   switches: [S2,S3]
