@@ -7,9 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/internal/exec"
+	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/ib"
-	"github.com/NVIDIA/topograph/pkg/utils"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 // domain contains map of each domainID(clusterUUID) -> list of nodeNames in that domain
@@ -19,13 +20,14 @@ type domain struct {
 }
 
 // getNodeList retrieves all the nodenames on the cluster
-func getNodeList(cis []common.ComputeInstances) []string {
+func getNodeList(cis []topology.ComputeInstances) []string {
 	nodes := []string{}
 	for _, ci := range cis {
 		for _, node := range ci.Instances {
 			nodes = append(nodes, node)
 		}
 	}
+
 	return nodes
 }
 
@@ -34,13 +36,14 @@ func domainIDExists(id string, domainMap map[string]domain) bool {
 	if _, exists := domainMap[id]; exists {
 		return true
 	}
+
 	return false
 }
 
-func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
+func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 	nodeVisited := make(map[string]bool)
-	treeRoot := &common.Vertex{
-		Vertices: make(map[string]*common.Vertex),
+	treeRoot := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
 	}
 	ibPrefix := "IB"
 	ibCount := 0
@@ -48,7 +51,7 @@ func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
 	partitionVisitedMap := make(map[string]bool)
 
 	args := []string{"-h"}
-	stdout, err := utils.Exec(ctx, "sinfo", args, nil)
+	stdout, err := exec.Exec(ctx, "sinfo", args, nil)
 	if err != nil {
 		return nil, fmt.Errorf("exec error in sinfo: %v", err)
 	}
@@ -69,12 +72,13 @@ func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
 		nodesArr := deCompressNodeNames(nodeList)
 		partitionNodeMap[partitionName] = append(partitionNodeMap[partitionName], nodesArr...)
 	}
+
 	for pName, nodes := range partitionNodeMap {
 		if _, exists := partitionVisitedMap[pName]; !exists {
 			for _, node := range nodes {
 				if _, exists := nodeVisited[node]; !exists {
 					args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
-					stdout, err := utils.Exec(ctx, "pdsh", args, nil)
+					stdout, err := exec.Exec(ctx, "pdsh", args, nil)
 					if err != nil {
 						return nil, fmt.Errorf("exec error while pdsh IB command: %v", err)
 					}
@@ -99,6 +103,7 @@ func getIbTree(ctx context.Context, nodes []string) (*common.Vertex, error) {
 			}
 		}
 	}
+
 	return treeRoot, nil
 }
 
@@ -108,6 +113,7 @@ func deCompressNodeNames(nodeList string) []string {
 	arr := strings.Split(nodeList, ",")
 	prefix := ""
 	var nodeName string
+
 	for _, entry := range arr {
 		if strings.Contains(entry, "[") {
 			tuple := strings.Split(entry, "[")
@@ -150,13 +156,14 @@ func deCompressNodeNames(nodeList string) []string {
 		}
 		nodeArr = append(nodeArr, nodeName)
 	}
+
 	return nodeArr
 }
 
 // getClusterOutput reads output from nodeInfo and populates the structs
 func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []string, cmd string) error {
 	args := []string{"-R", "ssh", "-w", strings.Join(nodes, ","), cmd}
-	stdout, err := utils.Exec(ctx, "pdsh", args, nil)
+	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
 	if err != nil {
 		return fmt.Errorf("exec error while pdsh: %v", err)
 	}
@@ -178,35 +185,37 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("scanner error while reading pdsh output: %v", err)
 	}
+
 	return nil
 }
-func toGraph(domainMap map[string]domain, treeRoot *common.Vertex) *common.Vertex {
-	root := &common.Vertex{
-		Vertices: make(map[string]*common.Vertex),
+
+func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.Vertex {
+	root := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
 		Metadata: make(map[string]string),
 	}
-	blockRoot := &common.Vertex{
-		Vertices: make(map[string]*common.Vertex),
+	blockRoot := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
 	}
-	root.Vertices[common.TopologyTree] = treeRoot
+	root.Vertices[topology.TopologyTree] = treeRoot
 	for domainName, domain := range domainMap {
-		tree := &common.Vertex{
+		tree := &topology.Vertex{
 			ID:       domainName,
-			Vertices: make(map[string]*common.Vertex),
+			Vertices: make(map[string]*topology.Vertex),
 		}
 		for node := range domain.nodeMap {
-			tree.Vertices[node] = &common.Vertex{Name: node, ID: node}
+			tree.Vertices[node] = &topology.Vertex{Name: node, ID: node}
 		}
 		blockRoot.Vertices[domainName] = tree
 	}
 	// add root metadata
-	root.Metadata[common.KeyEngine] = common.EngineSLURM
-	root.Metadata[common.KeyPlugin] = common.TopologyBlock
-	root.Vertices[common.TopologyBlock] = blockRoot
+	root.Metadata[topology.KeyEngine] = engines.EngineSLURM
+	root.Metadata[topology.KeyPlugin] = topology.TopologyBlock
+	root.Vertices[topology.TopologyBlock] = blockRoot
 	return root
 }
 
-func generateTopologyConfig(ctx context.Context, cis []common.ComputeInstances) (*common.Vertex, error) {
+func generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	domainMap := make(map[string]domain) // domainID: domain
 	nodes := getNodeList(cis)
 	err := getClusterOutput(ctx, domainMap, nodes, "nvidia-smi -q | grep ClusterUUID")
@@ -218,5 +227,6 @@ func generateTopologyConfig(ctx context.Context, cis []common.ComputeInstances) 
 	if err != nil {
 		return nil, fmt.Errorf("getIbTree failed: %v", err)
 	}
+
 	return toGraph(domainMap, treeRoot), nil
 }

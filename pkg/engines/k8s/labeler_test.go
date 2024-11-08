@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
@@ -41,7 +41,7 @@ func (l *testLabeler) AddNodeLabels(_ context.Context, nodeName string, labels m
 
 func TestApplyNodeLabels(t *testing.T) {
 	root, _ := translate.GetTreeTestSet(true)
-	require.Equal(t, root.Metadata[common.KeyPlugin], common.TopologyTree)
+	require.Equal(t, root.Metadata[topology.KeyPlugin], topology.TopologyTree)
 	labeler := &testLabeler{data: make(map[string]map[string]string)}
 	data := map[string]map[string]string{
 		"Node201": {"topology.kubernetes.io/network-level-1": "S2", "topology.kubernetes.io/network-level-2": "S1"},

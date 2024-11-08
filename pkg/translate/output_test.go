@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -56,7 +56,7 @@ SwitchName=switch.1.2 Nodes=node-2
 
 func TestToTreeTopology(t *testing.T) {
 	v, _ := GetTreeTestSet(false)
-	require.Equal(t, v.Metadata[common.KeyPlugin], common.TopologyTree)
+	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyTree)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestToTreeTopology(t *testing.T) {
 
 func TestToBlockTopology(t *testing.T) {
 	v, _ := GetBlockTestSet()
-	require.Equal(t, v.Metadata[common.KeyPlugin], common.TopologyBlock)
+	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyBlock)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestToBlockTopology(t *testing.T) {
 
 func TestToBlockMultiIBTopology(t *testing.T) {
 	v, _ := GetBlockWithMultiIBTestSet()
-	require.Equal(t, v.Metadata[common.KeyPlugin], common.TopologyBlock)
+	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyBlock)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestToBlockMultiIBTopology(t *testing.T) {
 
 func TestToBlockIBTopology(t *testing.T) {
 	v, _ := GetBlockWithIBTestSet()
-	require.Equal(t, v.Metadata[common.KeyPlugin], common.TopologyBlock)
+	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyBlock)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -101,20 +101,20 @@ func TestToBlockIBTopology(t *testing.T) {
 }
 
 func TestToSlurmNameShortener(t *testing.T) {
-	v := &common.Vertex{
-		Vertices: map[string]*common.Vertex{
+	v := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{
 			"hpcislandid-1": {
 				ID:   "hpcislandid-1",
 				Name: "switch.3.1",
-				Vertices: map[string]*common.Vertex{
+				Vertices: map[string]*topology.Vertex{
 					"network-block-1": {
 						ID:   "network-block-1",
 						Name: "switch.2.1",
-						Vertices: map[string]*common.Vertex{
+						Vertices: map[string]*topology.Vertex{
 							"local-block-1": {
 								ID:   "local-block-1",
 								Name: "switch.1.1",
-								Vertices: map[string]*common.Vertex{
+								Vertices: map[string]*topology.Vertex{
 									"node-1": {
 										ID:   "node-1-id",
 										Name: "node-1",
@@ -126,11 +126,11 @@ func TestToSlurmNameShortener(t *testing.T) {
 					"network-block-2": {
 						ID:   "network-block-2",
 						Name: "switch.2.2",
-						Vertices: map[string]*common.Vertex{
+						Vertices: map[string]*topology.Vertex{
 							"local-block-2": {
 								ID:   "local-block-2",
 								Name: "switch.1.2",
-								Vertices: map[string]*common.Vertex{
+								Vertices: map[string]*topology.Vertex{
 									"node-2": {
 										ID:   "node-2-id",
 										Name: "node-2",
@@ -143,11 +143,11 @@ func TestToSlurmNameShortener(t *testing.T) {
 			},
 		},
 		Metadata: map[string]string{
-			common.KeyPlugin: common.TopologyTree,
+			topology.KeyPlugin: topology.TopologyTree,
 		},
 	}
 
-	require.Equal(t, v.Metadata[common.KeyPlugin], common.TopologyTree)
+	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyTree)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)

@@ -22,12 +22,11 @@ import (
 	"strings"
 	"time"
 
-	compute_v1 "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/compute/metadata"
 	"google.golang.org/api/iterator"
 
-	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 type InstanceTopology struct {
@@ -40,11 +39,12 @@ type InstanceInfo struct {
 	name      string
 }
 
-func GenerateInstanceTopology(ctx context.Context, _ interface{}, instanceToNodeMap map[string]string) (*InstanceTopology, error) {
-	zoneClient, err := compute_v1.NewZonesRESTClient(ctx)
+func (p *Provider) generateInstanceTopology(ctx context.Context, instanceToNodeMap map[string]string) (*InstanceTopology, error) {
+	client, err := p.clientFactory()
 	if err != nil {
-		return nil, fmt.Errorf("unable to get zones client: %s", err.Error())
+		return nil, err
 	}
+
 	projectID, err := metadata.ProjectIDWithContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get project ID: %s", err.Error())
@@ -53,7 +53,7 @@ func GenerateInstanceTopology(ctx context.Context, _ interface{}, instanceToNode
 	zones := make([]string, 0)
 
 	timeNow := time.Now()
-	res := zoneClient.List(ctx, &listZoneRequest)
+	res := client.Zones.List(ctx, &listZoneRequest)
 	requestLatency.WithLabelValues("ListZones").Observe(time.Since(timeNow).Seconds())
 
 	for {
@@ -64,11 +64,6 @@ func GenerateInstanceTopology(ctx context.Context, _ interface{}, instanceToNode
 		zones = append(zones, *zone.Name)
 	}
 
-	instanceClient, err := compute_v1.NewInstancesRESTClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("unable to instance client for zone: %s", err.Error())
-	}
-
 	instanceTopology := &InstanceTopology{instances: make([]*InstanceInfo, 0)}
 
 	for _, zone := range zones {
@@ -76,7 +71,7 @@ func GenerateInstanceTopology(ctx context.Context, _ interface{}, instanceToNode
 		listInstanceRequest := computepb.ListInstancesRequest{Project: projectID, Zone: zone}
 		requestLatency.WithLabelValues("ListInstances").Observe(time.Since(timeNow).Seconds())
 
-		resInstance := instanceClient.List(ctx, &listInstanceRequest)
+		resInstance := client.Instances.List(ctx, &listInstanceRequest)
 		for {
 			instance, err := resInstance.Next()
 			if err == iterator.Done {
@@ -112,12 +107,12 @@ func GenerateInstanceTopology(ctx context.Context, _ interface{}, instanceToNode
 	return instanceTopology, nil
 }
 
-func (cfg *InstanceTopology) toGraph() (*common.Vertex, error) {
-	forest := make(map[string]*common.Vertex)
-	nodes := make(map[string]*common.Vertex)
+func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
+	forest := make(map[string]*topology.Vertex)
+	nodes := make(map[string]*topology.Vertex)
 
 	for _, c := range cfg.instances {
-		instance := &common.Vertex{
+		instance := &topology.Vertex{
 			Name: c.name,
 			ID:   c.name,
 		}
@@ -125,9 +120,9 @@ func (cfg *InstanceTopology) toGraph() (*common.Vertex, error) {
 		id2 := c.rackID
 		sw2, ok := nodes[id2]
 		if !ok {
-			sw2 = &common.Vertex{
+			sw2 = &topology.Vertex{
 				ID:       id2,
-				Vertices: make(map[string]*common.Vertex),
+				Vertices: make(map[string]*topology.Vertex),
 			}
 			nodes[id2] = sw2
 		}
@@ -136,9 +131,9 @@ func (cfg *InstanceTopology) toGraph() (*common.Vertex, error) {
 		id1 := c.clusterID
 		sw1, ok := nodes[id1]
 		if !ok {
-			sw1 = &common.Vertex{
+			sw1 = &topology.Vertex{
 				ID:       id1,
-				Vertices: make(map[string]*common.Vertex),
+				Vertices: make(map[string]*topology.Vertex),
 			}
 			nodes[id1] = sw1
 			forest[id1] = sw1
@@ -146,10 +141,10 @@ func (cfg *InstanceTopology) toGraph() (*common.Vertex, error) {
 		sw1.Vertices[id2] = sw2
 	}
 
-	root := &common.Vertex{
-		Vertices: make(map[string]*common.Vertex),
+	root := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
 		Metadata: map[string]string{
-			common.KeyPlugin: common.TopologyTree,
+			topology.KeyPlugin: topology.TopologyTree,
 		},
 	}
 	for name, node := range forest {

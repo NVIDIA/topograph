@@ -24,21 +24,22 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/pkg/engines"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func ToGraph(wr io.Writer, root *common.Vertex) error {
+func ToGraph(wr io.Writer, root *topology.Vertex) error {
 	if len(root.Metadata) != 0 {
-		if root.Metadata[common.KeyPlugin] == common.TopologyBlock {
+		if root.Metadata[topology.KeyPlugin] == topology.TopologyBlock {
 			return toBlockTopology(wr, root)
-		} else if root.Metadata[common.KeyPlugin] == common.TopologyTree {
+		} else if root.Metadata[topology.KeyPlugin] == topology.TopologyTree {
 			return toTreeTopology(wr, root)
 		}
 	}
 	return fmt.Errorf("topology metadata not set in root node")
 }
 
-func printBlock(wr io.Writer, block *common.Vertex, domainVisited map[string]int) error {
+func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int) error {
 	if _, exists := domainVisited[block.ID]; !exists {
 		nodes := make([]string, 0, len(block.Vertices))
 		for _, node := range block.Vertices { //nodes within each domain
@@ -53,7 +54,7 @@ func printBlock(wr io.Writer, block *common.Vertex, domainVisited map[string]int
 	return nil
 }
 
-func findBlock(wr io.Writer, nodename string, root *common.Vertex, domainVisited map[string]int) error { // blockRoot
+func findBlock(wr io.Writer, nodename string, root *topology.Vertex, domainVisited map[string]int) error { // blockRoot
 	for _, block := range root.Vertices {
 		if _, exists := block.Vertices[nodename]; exists {
 			return printBlock(wr, block, domainVisited)
@@ -62,7 +63,7 @@ func findBlock(wr io.Writer, nodename string, root *common.Vertex, domainVisited
 	return nil
 }
 
-func sortVertices(root *common.Vertex) []string {
+func sortVertices(root *topology.Vertex) []string {
 	// sort the IDs
 	keys := make([]string, 0, len(root.Vertices))
 	for key := range root.Vertices {
@@ -72,7 +73,7 @@ func sortVertices(root *common.Vertex) []string {
 	return keys
 }
 
-func printDisconnectedBlocks(wr io.Writer, root *common.Vertex, domainVisited map[string]int) error {
+func printDisconnectedBlocks(wr io.Writer, root *topology.Vertex, domainVisited map[string]int) error {
 	if root != nil {
 		keys := sortVertices(root)
 		for _, key := range keys {
@@ -110,13 +111,13 @@ func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
 	return strconv.Itoa(int(bs))
 }
 
-func toBlockTopology(wr io.Writer, root *common.Vertex) error {
+func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
 	// traverse tree topology and when a node is reached, check within blockRoot for domain and print that domain.
 	// keep a map of which domain has been printed
-	treeRoot := root.Vertices[common.TopologyTree]
-	blockRoot := root.Vertices[common.TopologyBlock]
+	treeRoot := root.Vertices[topology.TopologyTree]
+	blockRoot := root.Vertices[topology.TopologyBlock]
 	visited := make(map[string]bool)
-	queue := []*common.Vertex{treeRoot}
+	queue := []*topology.Vertex{treeRoot}
 	domainVisited := make(map[string]int)
 
 	if treeRoot != nil {
@@ -146,19 +147,19 @@ func toBlockTopology(wr io.Writer, root *common.Vertex) error {
 	}
 
 	blockSize := ""
-	if _, exists := root.Metadata[common.KeyBlockSizes]; exists {
-		blockSize = root.Metadata[common.KeyBlockSizes]
+	if _, exists := root.Metadata[topology.KeyBlockSizes]; exists {
+		blockSize = root.Metadata[topology.KeyBlockSizes]
 	}
 	blockSize = getBlockSize(domainVisited, blockSize)
 	_, err = wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blockSize)))
 	return err
 }
 
-func toTreeTopology(wr io.Writer, root *common.Vertex) error {
+func toTreeTopology(wr io.Writer, root *topology.Vertex) error {
 	visited := make(map[string]bool)
 	leaves := make(map[string][]string)
-	parents := []*common.Vertex{}
-	queue := []*common.Vertex{root}
+	parents := []*topology.Vertex{}
+	queue := []*topology.Vertex{root}
 	idToName := make(map[string]string)
 
 	for len(queue) > 0 {
@@ -220,7 +221,7 @@ func toTreeTopology(wr io.Writer, root *common.Vertex) error {
 	return nil
 }
 
-func writeSwitch(wr io.Writer, v *common.Vertex) error {
+func writeSwitch(wr io.Writer, v *topology.Vertex) error {
 	if len(v.ID) == 0 {
 		return nil
 	}
@@ -337,7 +338,7 @@ func split(input string) (string, string) {
 	return input[:i], input[i:]
 }
 
-func GetTreeTestSet(testForLongLabelName bool) (*common.Vertex, map[string]string) {
+func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]string) {
 	var s3name string
 	if testForLongLabelName {
 		s3name = "S3very-very-long-id-to-check-label-value-limits-of-63-characters"
@@ -350,37 +351,37 @@ func GetTreeTestSet(testForLongLabelName bool) (*common.Vertex, map[string]strin
 		"I34": "Node304", "I35": "Node305", "I36": "Node306",
 	}
 
-	n21 := &common.Vertex{ID: "I21", Name: "Node201"}
-	n22 := &common.Vertex{ID: "I22", Name: "Node202"}
-	n25 := &common.Vertex{ID: "I25", Name: "Node205"}
+	n21 := &topology.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
 
-	n34 := &common.Vertex{ID: "I34", Name: "Node304"}
-	n35 := &common.Vertex{ID: "I35", Name: "Node305"}
-	n36 := &common.Vertex{ID: "I36", Name: "Node306"}
+	n34 := &topology.Vertex{ID: "I34", Name: "Node304"}
+	n35 := &topology.Vertex{ID: "I35", Name: "Node305"}
+	n36 := &topology.Vertex{ID: "I36", Name: "Node306"}
 
-	sw2 := &common.Vertex{
+	sw2 := &topology.Vertex{
 		ID:       "S2",
-		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
-	sw3 := &common.Vertex{
+	sw3 := &topology.Vertex{
 		ID:       s3name,
-		Vertices: map[string]*common.Vertex{"I34": n34, "I35": n35, "I36": n36},
+		Vertices: map[string]*topology.Vertex{"I34": n34, "I35": n35, "I36": n36},
 	}
-	sw1 := &common.Vertex{
+	sw1 := &topology.Vertex{
 		ID:       "S1",
-		Vertices: map[string]*common.Vertex{"S2": sw2, s3name: sw3},
+		Vertices: map[string]*topology.Vertex{"S2": sw2, s3name: sw3},
 	}
-	root := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"S1": sw1},
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S1": sw1},
 		Metadata: map[string]string{
-			common.KeyPlugin: common.TopologyTree,
+			topology.KeyPlugin: topology.TopologyTree,
 		},
 	}
 
 	return root, instance2node
 }
 
-func GetBlockWithMultiIBTestSet() (*common.Vertex, map[string]string) {
+func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
 	instance2node := map[string]string{
 		"I14": "Node104", "I15": "Node105", "I16": "Node106",
 		"I21": "Node201", "I22": "Node202", "I25": "Node205",
@@ -388,177 +389,177 @@ func GetBlockWithMultiIBTestSet() (*common.Vertex, map[string]string) {
 		"I41": "Node401", "I42": "Node402", "I43": "Node403",
 	}
 
-	n14 := &common.Vertex{ID: "I14", Name: "Node104"}
-	n15 := &common.Vertex{ID: "I15", Name: "Node105"}
-	n16 := &common.Vertex{ID: "I16", Name: "Node106"}
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &topology.Vertex{ID: "I16", Name: "Node106"}
 
-	n21 := &common.Vertex{ID: "I21", Name: "Node201"}
-	n22 := &common.Vertex{ID: "I22", Name: "Node202"}
-	n25 := &common.Vertex{ID: "I25", Name: "Node205"}
+	n21 := &topology.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
 
-	n31 := &common.Vertex{ID: "I31", Name: "Node301"}
-	n32 := &common.Vertex{ID: "I32", Name: "Node302"}
-	n33 := &common.Vertex{ID: "I33", Name: "Node303"}
+	n31 := &topology.Vertex{ID: "I31", Name: "Node301"}
+	n32 := &topology.Vertex{ID: "I32", Name: "Node302"}
+	n33 := &topology.Vertex{ID: "I33", Name: "Node303"}
 
-	n41 := &common.Vertex{ID: "I41", Name: "Node401"}
-	n42 := &common.Vertex{ID: "I42", Name: "Node402"}
-	n43 := &common.Vertex{ID: "I43", Name: "Node403"}
+	n41 := &topology.Vertex{ID: "I41", Name: "Node401"}
+	n42 := &topology.Vertex{ID: "I42", Name: "Node402"}
+	n43 := &topology.Vertex{ID: "I43", Name: "Node403"}
 
-	sw5 := &common.Vertex{
+	sw5 := &topology.Vertex{
 		ID:       "S5",
-		Vertices: map[string]*common.Vertex{"I31": n31, "I32": n32, "I33": n33},
+		Vertices: map[string]*topology.Vertex{"I31": n31, "I32": n32, "I33": n33},
 	}
-	sw6 := &common.Vertex{
+	sw6 := &topology.Vertex{
 		ID:       "S6",
-		Vertices: map[string]*common.Vertex{"I41": n41, "I42": n42, "I43": n43},
+		Vertices: map[string]*topology.Vertex{"I41": n41, "I42": n42, "I43": n43},
 	}
-	sw4 := &common.Vertex{
+	sw4 := &topology.Vertex{
 		ID:       "S4",
-		Vertices: map[string]*common.Vertex{"S5": sw5, "S6": sw6},
+		Vertices: map[string]*topology.Vertex{"S5": sw5, "S6": sw6},
 	}
-	ibRoot1 := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"S4": sw4},
+	ibRoot1 := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S4": sw4},
 	}
 
-	sw2 := &common.Vertex{
+	sw2 := &topology.Vertex{
 		ID:       "S2",
-		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
 	}
-	sw3 := &common.Vertex{
+	sw3 := &topology.Vertex{
 		ID:       "S3",
-		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
-	sw1 := &common.Vertex{
+	sw1 := &topology.Vertex{
 		ID:       "S1",
-		Vertices: map[string]*common.Vertex{"S2": sw2, "S3": sw3},
+		Vertices: map[string]*topology.Vertex{"S2": sw2, "S3": sw3},
 	}
-	ibRoot2 := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"S1": sw1},
-	}
-
-	treeRoot := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"IB1": ibRoot1, "IB2": ibRoot2},
+	ibRoot2 := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S1": sw1},
 	}
 
-	block1 := &common.Vertex{
+	treeRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"IB1": ibRoot1, "IB2": ibRoot2},
+	}
+
+	block1 := &topology.Vertex{
 		ID:       "B1",
-		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
 	}
-	block2 := &common.Vertex{
+	block2 := &topology.Vertex{
 		ID:       "B2",
-		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
-	block3 := &common.Vertex{
+	block3 := &topology.Vertex{
 		ID:       "B3",
-		Vertices: map[string]*common.Vertex{"I31": n31, "I32": n32, "I33": n33},
+		Vertices: map[string]*topology.Vertex{"I31": n31, "I32": n32, "I33": n33},
 	}
-	block4 := &common.Vertex{
+	block4 := &topology.Vertex{
 		ID:       "B4",
-		Vertices: map[string]*common.Vertex{"I41": n41, "I42": n42, "I43": n43},
+		Vertices: map[string]*topology.Vertex{"I41": n41, "I42": n42, "I43": n43},
 	}
 
-	blockRoot := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"B1": block1, "B2": block2, "B3": block3, "B4": block4},
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2, "B3": block3, "B4": block4},
 	}
 
-	root := &common.Vertex{
-		Vertices: map[string]*common.Vertex{common.TopologyBlock: blockRoot, common.TopologyTree: treeRoot},
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
-			common.KeyEngine:     common.EngineSLURM,
-			common.KeyPlugin:     common.TopologyBlock,
-			common.KeyBlockSizes: "3",
+			topology.KeyEngine:     engines.EngineSLURM,
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "3",
 		},
 	}
 	return root, instance2node
 }
 
-func GetBlockWithIBTestSet() (*common.Vertex, map[string]string) {
+func GetBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 	instance2node := map[string]string{
 		"I14": "Node104", "I15": "Node105", "I16": "Node106",
 		"I21": "Node201", "I22": "Node202", "I25": "Node205",
 	}
 
-	n14 := &common.Vertex{ID: "I14", Name: "Node104"}
-	n15 := &common.Vertex{ID: "I15", Name: "Node105"}
-	n16 := &common.Vertex{ID: "I16", Name: "Node106"}
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &topology.Vertex{ID: "I16", Name: "Node106"}
 
-	n21 := &common.Vertex{ID: "I21", Name: "Node201"}
-	n22 := &common.Vertex{ID: "I22", Name: "Node202"}
-	n25 := &common.Vertex{ID: "I25", Name: "Node205"}
+	n21 := &topology.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
 
-	sw2 := &common.Vertex{
+	sw2 := &topology.Vertex{
 		ID:       "S2",
-		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
 	}
-	sw3 := &common.Vertex{
+	sw3 := &topology.Vertex{
 		ID:       "S3",
-		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
-	sw1 := &common.Vertex{
+	sw1 := &topology.Vertex{
 		ID:       "S1",
-		Vertices: map[string]*common.Vertex{"S2": sw2, "S3": sw3},
+		Vertices: map[string]*topology.Vertex{"S2": sw2, "S3": sw3},
 	}
-	treeRoot := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"S1": sw1},
+	treeRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S1": sw1},
 	}
 
-	block1 := &common.Vertex{
+	block1 := &topology.Vertex{
 		ID:       "B1",
-		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
 	}
-	block2 := &common.Vertex{
+	block2 := &topology.Vertex{
 		ID:       "B2",
-		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
 
-	blockRoot := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"B1": block1, "B2": block2},
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2},
 	}
 
-	root := &common.Vertex{
-		Vertices: map[string]*common.Vertex{common.TopologyBlock: blockRoot, common.TopologyTree: treeRoot},
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
-			common.KeyEngine:     common.EngineSLURM,
-			common.KeyPlugin:     common.TopologyBlock,
-			common.KeyBlockSizes: "3",
+			topology.KeyEngine:     engines.EngineSLURM,
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "3",
 		},
 	}
 	return root, instance2node
 }
 
-func GetBlockTestSet() (*common.Vertex, map[string]string) {
+func GetBlockTestSet() (*topology.Vertex, map[string]string) {
 	instance2node := map[string]string{
 		"I14": "Node104", "I15": "Node105", "I16": "Node106",
 		"I21": "Node201", "I22": "Node202", "I25": "Node205",
 	}
 
-	n14 := &common.Vertex{ID: "I14", Name: "Node104"}
-	n15 := &common.Vertex{ID: "I15", Name: "Node105"}
-	n16 := &common.Vertex{ID: "I16", Name: "Node106"}
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &topology.Vertex{ID: "I16", Name: "Node106"}
 
-	n21 := &common.Vertex{ID: "I21", Name: "Node201"}
-	n22 := &common.Vertex{ID: "I22", Name: "Node202"}
-	n25 := &common.Vertex{ID: "I25", Name: "Node205"}
+	n21 := &topology.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
 
-	block1 := &common.Vertex{
+	block1 := &topology.Vertex{
 		ID:       "B1",
-		Vertices: map[string]*common.Vertex{"I14": n14, "I15": n15, "I16": n16},
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
 	}
-	block2 := &common.Vertex{
+	block2 := &topology.Vertex{
 		ID:       "B2",
-		Vertices: map[string]*common.Vertex{"I21": n21, "I22": n22, "I25": n25},
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
 
-	blockRoot := &common.Vertex{
-		Vertices: map[string]*common.Vertex{"B1": block1, "B2": block2},
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2},
 	}
 
-	root := &common.Vertex{
-		Vertices: map[string]*common.Vertex{common.TopologyBlock: blockRoot},
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot},
 		Metadata: map[string]string{
-			common.KeyEngine:     common.EngineSLURM,
-			common.KeyPlugin:     common.TopologyBlock,
-			common.KeyBlockSizes: "3",
+			topology.KeyEngine:     engines.EngineSLURM,
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "3",
 		},
 	}
 	return root, instance2node

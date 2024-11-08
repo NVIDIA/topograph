@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package common
+package topology_test
 
 import (
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,20 +27,20 @@ func TestPayload(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
-		payload *TopologyRequest
+		payload *topology.Request
 		print   string
 		err     string
 	}{
 		{
 			name:    "Case 1: no input",
-			payload: &TopologyRequest{},
+			payload: &topology.Request{},
 			print: `TopologyRequest:
-  Provider: 
+  Provider:
   Credentials: []
   Parameters: []
-  Engine: 
+  Engine:
   Parameters: []
-  Nodes: 
+  Nodes:
 `,
 		},
 		{
@@ -48,7 +49,7 @@ func TestPayload(t *testing.T) {
   "nodes": 5
 }
 `,
-			err: "failed to parse payload: json: cannot unmarshal number into Go struct field TopologyRequest.nodes of type []common.ComputeInstances",
+			err: "failed to parse payload: json: cannot unmarshal number into Go struct field Request.nodes of type []topology.ComputeInstances",
 		},
 		{
 			name: "Case 3: valid input",
@@ -89,23 +90,23 @@ func TestPayload(t *testing.T) {
   ]
 }
 `,
-			payload: &TopologyRequest{
-				Provider: provider{
+			payload: &topology.Request{
+				Provider: topology.Provider{
 					Name: "aws",
 					Creds: map[string]string{
 						"access_key_id":     "id",
 						"secret_access_key": "secret",
 					},
-					Params: map[string]string{},
+					Params: map[string]any{},
 				},
-				Engine: engine{
+				Engine: topology.Engine{
 					Name: "slurm",
-					Params: map[string]string{
-						KeyPlugin:     TopologyBlock,
-						KeyBlockSizes: "30,120",
+					Params: map[string]any{
+						topology.KeyPlugin:     topology.TopologyBlock,
+						topology.KeyBlockSizes: "30,120",
 					},
 				},
-				Nodes: []ComputeInstances{
+				Nodes: []topology.ComputeInstances{
 					{
 						Region: "region1",
 						Instances: map[string]string{
@@ -130,14 +131,14 @@ func TestPayload(t *testing.T) {
   Parameters: []
   Engine: slurm
   Parameters: [block_sizes:30,120 plugin:topology/block]
-  Nodes: region1: [instance1:node1 instance2:node2 instance3:node3] region2: [instance4:node4 instance5:node5 instance6:node6] 
+  Nodes: region1: [instance1:node1 instance2:node2 instance3:node3] region2: [instance4:node4 instance5:node5 instance6:node6]
 `,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			payload, err := GetTopologyRequest([]byte(tc.input))
+			payload, err := topology.GetTopologyRequest([]byte(tc.input))
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {

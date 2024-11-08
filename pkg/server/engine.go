@@ -18,23 +18,25 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/common"
-	"github.com/NVIDIA/topograph/pkg/factory"
+	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/metrics"
-	"github.com/NVIDIA/topograph/pkg/utils"
+	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/registry"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 type asyncController struct {
-	queue *utils.TrailingDelayQueue
+	queue *TrailingDelayQueue
 }
 
-func processRequest(item interface{}) (interface{}, *common.HTTPError) {
-	tr := item.(*common.TopologyRequest)
+func processRequest(item interface{}) (interface{}, *HTTPError) {
+	tr := item.(*topology.Request)
 	var code int
 	start := time.Now()
 
@@ -49,55 +51,82 @@ func processRequest(item interface{}) (interface{}, *common.HTTPError) {
 	return ret, err
 }
 
-func processTopologyRequest(tr *common.TopologyRequest) ([]byte, *common.HTTPError) {
+func processTopologyRequest(tr *topology.Request) ([]byte, *HTTPError) {
 	klog.InfoS("Creating topology config", "provider", tr.Provider.Name, "engine", tr.Engine.Name)
 
-	eng, httpErr := factory.GetEngine(tr.Engine.Name)
-	if httpErr != nil {
-		klog.Error(httpErr.Error())
-		return nil, httpErr
+	engLoader, err := registry.Engines.Get(tr.Engine.Name)
+	if err != nil {
+		klog.Error(err.Error())
+		if errors.Is(err, engines.ErrUnsupportedEngine) {
+			return nil, NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+		return nil, NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	prv, httpErr := factory.GetProvider(tr.Provider.Name, tr.Provider.Params)
-	if httpErr != nil {
-		klog.Error(httpErr.Error())
-		return nil, httpErr
+	prvLoader, err := registry.Providers.Get(tr.Provider.Name)
+	if err != nil {
+		klog.Error(err.Error())
+		if errors.Is(err, providers.ErrUnsupportedProvider) {
+			return nil, NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+		return nil, NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	ctx := context.TODO()
+	ctx := context.Background()
+
+	eng, err := engLoader(ctx, engines.Config{})
+	if err != nil {
+		// TODO: Logic to determine between StatusBadRequest and StatusInternalServerError
+		return nil, NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	prv, err := prvLoader(ctx, providers.Config{
+		Creds:  checkCredentials(tr.Provider.Creds, srv.cfg.Credentials),
+		Params: tr.Provider.Params,
+	})
+	if err != nil {
+		// TODO: Logic to determine between StatusBadRequest and StatusInternalServerError
+		return nil, NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	// Optional provider interface if it directly supports getting compute instances.
+	// (e.g., Test provider)
+	type simpleGetComputeInstances interface {
+		GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error)
+	}
 
 	// if the instance/node mapping is not provided in the payload, get the mapping from the provider
 	computeInstances := tr.Nodes
 	if len(computeInstances) == 0 {
 		var err error
-		computeInstances, err = prv.GetComputeInstances(ctx, eng)
+		switch t := prv.(type) {
+		case simpleGetComputeInstances:
+			computeInstances, err = t.GetComputeInstances(ctx)
+		default:
+			computeInstances, err = eng.GetComputeInstances(ctx, prv)
+		}
+
 		if err != nil {
-			return nil, common.NewHTTPError(http.StatusInternalServerError, err.Error())
+			return nil, NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 	}
 
-	creds, err := prv.GetCredentials(checkCredentials(tr.Provider.Creds, srv.cfg.Credentials))
-	if err != nil {
-		klog.Error(err.Error())
-		return nil, common.NewHTTPError(http.StatusUnauthorized, err.Error())
-	}
-
-	var root *common.Vertex
+	var root *topology.Vertex
 	if srv.cfg.FwdSvcURL != nil {
 		// forward the request to the global service
 		root, err = forwardRequest(ctx, tr, *srv.cfg.FwdSvcURL, computeInstances)
 	} else {
-		root, err = prv.GenerateTopologyConfig(ctx, creds, srv.cfg.PageSize, computeInstances)
+		root, err = prv.GenerateTopologyConfig(ctx, srv.cfg.PageSize, computeInstances)
 	}
 	if err != nil {
 		klog.Error(err.Error())
-		return nil, common.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return nil, NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	data, err := eng.GenerateOutput(ctx, root, tr.Engine.Params)
 	if err != nil {
 		klog.Error(err.Error())
-		return nil, common.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return nil, NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	return data, nil

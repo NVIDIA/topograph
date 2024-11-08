@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-package utils
+package files_test
 
 import (
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/internal/files"
 )
 
 func TestValidateFile(t *testing.T) {
@@ -59,7 +61,7 @@ func TestValidateFile(t *testing.T) {
 				defer func() { _ = f.Close() }()
 				tc.fname = f.Name()
 			}
-			err := ValidateFile(tc.fname, tc.descr)
+			err := files.Validate(tc.fname, tc.descr)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {

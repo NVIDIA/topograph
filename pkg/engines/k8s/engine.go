@@ -20,18 +20,42 @@ import (
 	"bytes"
 	"context"
 
+	k8s_core_v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/NVIDIA/topograph/pkg/common"
+	"github.com/NVIDIA/topograph/internal/config"
+	"github.com/NVIDIA/topograph/pkg/engines"
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
+
+const NAME = "k8s"
 
 type K8sEngine struct {
 	kubeClient *kubernetes.Clientset
 }
 
-func GetK8sEngine() (*K8sEngine, error) {
+type Params struct {
+	TopoConfigPath         string `mapstructure:"topology_config_path"`
+	TopoConfigmapName      string `mapstructure:"topology_configmap_name"`
+	TopoConfigmapNamespace string `mapstructure:"topology_configmap_namespace"`
+}
+
+type k8sNodeInfo interface {
+	GetNodeRegion(node *k8s_core_v1.Node) (string, error)
+	GetNodeInstance(node *k8s_core_v1.Node) (string, error)
+}
+
+func NamedLoader() (string, engines.Loader) {
+	return NAME, Loader
+}
+
+func Loader(ctx context.Context, config engines.Config) (engines.Engine, error) {
+	return New()
+}
+
+func New() (*K8sEngine, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -45,7 +69,7 @@ func GetK8sEngine() (*K8sEngine, error) {
 	return &K8sEngine{kubeClient: kubeClient}, nil
 }
 
-func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *common.Vertex, params map[string]string) ([]byte, error) {
+func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
 	if err := NewTopologyLabeler().ApplyNodeLabels(ctx, tree, eng); err != nil {
 		return nil, err
 	}
@@ -55,11 +79,16 @@ func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *common.Vertex, p
 		return nil, err
 	}
 
+	var p Params
+	if err := config.Decode(params, &p); err != nil {
+		return nil, err
+	}
+
 	cfg := buf.Bytes()
 
-	filename := params[common.KeyTopoConfigPath]
-	cmName := params[common.KeyTopoConfigmapName]
-	cmNamespace := params[common.KeyTopoConfigmapNamespace]
+	filename := p.TopoConfigPath
+	cmName := p.TopoConfigmapName
+	cmNamespace := p.TopoConfigmapNamespace
 	err = eng.UpdateTopologyConfigmap(ctx, cmName, cmNamespace, map[string]string{filename: string(cfg)})
 	if err != nil {
 		return nil, err
