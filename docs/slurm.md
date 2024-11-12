@@ -47,7 +47,7 @@ Then run the topograph service as normal.
 
 You must then start the toposim service as such, setting the path to the test model that you want to use in simulation:
 ```bash
-/usr/local/bin/topograph -m /usr/local/bin/tests/models/<cluster-model>.yaml
+/usr/local/bin/toposim -m /usr/local/bin/tests/models/<cluster-model>.yaml
 ```
 
 You can then verify the topology results via simulation by querying topograph, and specifying the test model path as a parameter to the provider.
