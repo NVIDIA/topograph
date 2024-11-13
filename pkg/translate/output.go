@@ -31,7 +31,7 @@ import (
 func ToGraph(wr io.Writer, root *topology.Vertex) error {
 	if len(root.Metadata) != 0 {
 		if root.Metadata[topology.KeyPlugin] == topology.TopologyBlock {
-			return toBlockTopology(wr, root)
+			return toBlockTopologyDFS(wr, root)
 		} else if root.Metadata[topology.KeyPlugin] == topology.TopologyTree {
 			return toTreeTopology(wr, root)
 		}
@@ -111,7 +111,7 @@ func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
 	return strconv.Itoa(int(bs))
 }
 
-func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
+func toBlockTopologyBFS(wr io.Writer, root *topology.Vertex) error {
 	// traverse tree topology and when a node is reached, check within blockRoot for domain and print that domain.
 	// keep a map of which domain has been printed
 	treeRoot := root.Vertices[topology.TopologyTree]
@@ -153,6 +153,55 @@ func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
 	blockSize = getBlockSize(domainVisited, blockSize)
 	_, err = wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blockSize)))
 	return err
+}
+
+func toBlockTopologyDFS(wr io.Writer, root *topology.Vertex) error {
+	// traverse tree topology in DFS manner and when a node is reached, check within blockRoot for domain and print that domain.
+	// keep a map of which domain has been printed
+	treeRoot := root.Vertices[topology.TopologyTree]
+	blockRoot := root.Vertices[topology.TopologyBlock]
+	visited := make(map[string]bool)
+	domainVisited := make(map[string]int)
+
+	if treeRoot != nil {
+		err := dfsTraversal(wr, treeRoot, blockRoot, visited, domainVisited)
+		if err != nil {
+			return err
+		}
+	}
+	err := printDisconnectedBlocks(wr, blockRoot, domainVisited)
+	if err != nil {
+		return err
+	}
+	blockSize := ""
+	if _, exists := root.Metadata[topology.KeyBlockSizes]; exists {
+		blockSize = root.Metadata[topology.KeyBlockSizes]
+	}
+	blockSize = getBlockSize(domainVisited, blockSize)
+	_, err = wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blockSize)))
+	return err
+}
+
+func dfsTraversal(wr io.Writer, curVertex *topology.Vertex, blockRoot *topology.Vertex, visited map[string]bool, domainVisited map[string]int) error {
+	visited[curVertex.ID] = true
+	keys := sortVertices(curVertex)
+	for _, key := range keys {
+		w := curVertex.Vertices[key]
+		if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
+			err := findBlock(wr, w.ID, blockRoot, domainVisited)
+			if err != nil {
+				return err
+			}
+		} else {
+			if !visited[w.ID] {
+				err := dfsTraversal(wr, w, blockRoot, visited, domainVisited)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func toTreeTopology(wr io.Writer, root *topology.Vertex) error {
@@ -418,6 +467,7 @@ func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
 		Vertices: map[string]*topology.Vertex{"S5": sw5, "S6": sw6},
 	}
 	ibRoot1 := &topology.Vertex{
+		ID:       "ibRoot1",
 		Vertices: map[string]*topology.Vertex{"S4": sw4},
 	}
 
@@ -434,6 +484,7 @@ func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
 		Vertices: map[string]*topology.Vertex{"S2": sw2, "S3": sw3},
 	}
 	ibRoot2 := &topology.Vertex{
+		ID:       "ibRoot2",
 		Vertices: map[string]*topology.Vertex{"S1": sw1},
 	}
 
@@ -522,6 +573,80 @@ func GetBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 			topology.KeyEngine:     engines.EngineSLURM,
 			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
+		},
+	}
+	return root, instance2node
+}
+
+func GetBlockWithDFSIBTestSet() (*topology.Vertex, map[string]string) {
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105",
+		"I22": "Node202", "I25": "Node205",
+	}
+
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
+
+	sw2 := &topology.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
+	}
+
+	sw4 := &topology.Vertex{
+		ID:       "S4",
+		Vertices: map[string]*topology.Vertex{"I22": n22},
+	}
+
+	sw5 := &topology.Vertex{
+		ID:       "S5",
+		Vertices: map[string]*topology.Vertex{"I25": n25},
+	}
+
+	sw3 := &topology.Vertex{
+		ID:       "S3",
+		Vertices: map[string]*topology.Vertex{"S5": sw5},
+	}
+	sw1 := &topology.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*topology.Vertex{"S4": sw4},
+	}
+
+	sw0 := &topology.Vertex{
+		ID:       "S0",
+		Vertices: map[string]*topology.Vertex{"S1": sw1, "S2": sw2, "S3": sw3},
+	}
+
+	treeRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S0": sw0},
+	}
+
+	block2 := &topology.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
+	}
+	block1 := &topology.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*topology.Vertex{"I22": n22},
+	}
+
+	block3 := &topology.Vertex{
+		ID:       "B3",
+		Vertices: map[string]*topology.Vertex{"I25": n25},
+	}
+
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2, "B3": block3},
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
+		Metadata: map[string]string{
+			topology.KeyEngine:     engines.EngineSLURM,
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "1",
 		},
 	}
 	return root, instance2node

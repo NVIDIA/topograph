@@ -136,7 +136,7 @@ func TestToGraph(t *testing.T) {
 	nv1 := &topology.Vertex{ID: "nvlink-nv1", Vertices: map[string]*topology.Vertex{"n10-1": v101, "n10-2": v102, "n11-1": v111, "n11-2": v112}}
 
 	extra := &topology.Vertex{ID: topology.NoTopology, Vertices: map[string]*topology.Vertex{"cpu1": cpu1}}
-	treeRoot := &topology.Vertex{Vertices: map[string]*topology.Vertex{"nvlink-nv1": nv1, "sw3": sw3, topology.NoTopology: extra}}
+	treeRoot := &topology.Vertex{Vertices: map[string]*topology.Vertex{"sw3": sw3, topology.NoTopology: extra}}
 	blockRoot := &topology.Vertex{Vertices: map[string]*topology.Vertex{"nvlink-nv1": nv1}}
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
