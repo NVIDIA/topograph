@@ -203,7 +203,7 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 	if block_topology {
 		root := &topology.Vertex{
 			Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
-			Metadata: map[string]string{topology.KeyPlugin: topology.TopologyTree},
+			Metadata: map[string]string{topology.KeyPlugin: topology.TopologyBlock},
 		}
 		return root, instance2node
 	}
