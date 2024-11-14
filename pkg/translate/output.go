@@ -29,10 +29,14 @@ import (
 )
 
 func ToGraph(wr io.Writer, root *topology.Vertex) error {
-	if len(root.Metadata) != 0 && root.Metadata[topology.KeyPlugin] == topology.ValTopologyBlock {
-		return toBlockTopology(wr, root)
+	if len(root.Metadata) != 0 {
+		if root.Metadata[topology.KeyPlugin] == topology.TopologyBlock {
+			return toBlockTopology(wr, root)
+		} else if root.Metadata[topology.KeyPlugin] == topology.TopologyTree {
+			return toTreeTopology(wr, root)
+		}
 	}
-	return toTreeTopology(wr, root)
+	return fmt.Errorf("topology metadata not set in root node")
 }
 
 func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int) error {
@@ -110,8 +114,8 @@ func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
 func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
 	// traverse tree topology and when a node is reached, check within blockRoot for domain and print that domain.
 	// keep a map of which domain has been printed
-	treeRoot := root.Vertices[topology.ValTopologyTree]
-	blockRoot := root.Vertices[topology.ValTopologyBlock]
+	treeRoot := root.Vertices[topology.TopologyTree]
+	blockRoot := root.Vertices[topology.TopologyBlock]
 	visited := make(map[string]bool)
 	queue := []*topology.Vertex{treeRoot}
 	domainVisited := make(map[string]int)
@@ -369,6 +373,9 @@ func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]str
 	}
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{"S1": sw1},
+		Metadata: map[string]string{
+			topology.KeyPlugin: topology.TopologyTree,
+		},
 	}
 
 	return root, instance2node
@@ -456,10 +463,10 @@ func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
 	}
 
 	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.ValTopologyBlock: blockRoot, topology.ValTopologyTree: treeRoot},
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
 			topology.KeyEngine:     engines.EngineSLURM,
-			topology.KeyPlugin:     topology.ValTopologyBlock,
+			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}
@@ -510,10 +517,10 @@ func GetBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 	}
 
 	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.ValTopologyBlock: blockRoot, topology.ValTopologyTree: treeRoot},
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
 			topology.KeyEngine:     engines.EngineSLURM,
-			topology.KeyPlugin:     topology.ValTopologyBlock,
+			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}
@@ -548,10 +555,10 @@ func GetBlockTestSet() (*topology.Vertex, map[string]string) {
 	}
 
 	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.ValTopologyBlock: blockRoot},
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot},
 		Metadata: map[string]string{
 			topology.KeyEngine:     engines.EngineSLURM,
-			topology.KeyPlugin:     topology.ValTopologyBlock,
+			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}

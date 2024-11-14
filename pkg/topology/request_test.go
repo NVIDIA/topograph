@@ -102,7 +102,7 @@ func TestPayload(t *testing.T) {
 				Engine: topology.Engine{
 					Name: "slurm",
 					Params: map[string]any{
-						topology.KeyPlugin:     topology.ValTopologyBlock,
+						topology.KeyPlugin:     topology.TopologyBlock,
 						topology.KeyBlockSizes: "30,120",
 					},
 				},

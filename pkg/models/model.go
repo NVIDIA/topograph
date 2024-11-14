@@ -140,12 +140,13 @@ func getNetworkLayers(name string, swmap map[string]string) ([]string, error) {
 	}
 }
 
-func (model *Model) ToTree() (*topology.Vertex, map[string]string) {
+func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 	instance2node := make(map[string]string)
 	nodeVertexMap := make(map[string]*topology.Vertex)
 	swVertexMap := make(map[string]*topology.Vertex)
 	swRootMap := make(map[string]bool)
 	blockVertexMap := make(map[string]*topology.Vertex)
+	var block_topology bool = false
 
 	// Create all the vertices for each node
 	for k, v := range model.Nodes {
@@ -164,6 +165,9 @@ func (model *Model) ToTree() (*topology.Vertex, map[string]string) {
 		blockVertexMap[cb.Name] = &topology.Vertex{ID: cb.Name, Vertices: make(map[string]*topology.Vertex)}
 		for _, node := range cb.Nodes {
 			blockVertexMap[cb.Name].Vertices[node] = nodeVertexMap[node]
+		}
+		if len(cb.NVLink) != 0 {
+			block_topology = true
 		}
 	}
 
@@ -196,11 +200,13 @@ func (model *Model) ToTree() (*topology.Vertex, map[string]string) {
 	for k, v := range blockVertexMap {
 		blockRoot.Vertices[k] = v
 	}
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{
-			topology.ValTopologyBlock: blockRoot,
-			topology.ValTopologyTree:  treeRoot,
-		},
+	if block_topology {
+		root := &topology.Vertex{
+			Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
+			Metadata: map[string]string{topology.KeyPlugin: topology.TopologyBlock},
+		}
+		return root, instance2node
 	}
-	return root, instance2node
+	treeRoot.Metadata = map[string]string{topology.KeyPlugin: topology.TopologyTree}
+	return treeRoot, instance2node
 }

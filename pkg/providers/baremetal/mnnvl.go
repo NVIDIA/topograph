@@ -197,7 +197,7 @@ func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.V
 	blockRoot := &topology.Vertex{
 		Vertices: make(map[string]*topology.Vertex),
 	}
-	root.Vertices[topology.ValTopologyTree] = treeRoot
+	root.Vertices[topology.TopologyTree] = treeRoot
 	for domainName, domain := range domainMap {
 		tree := &topology.Vertex{
 			ID:       domainName,
@@ -209,10 +209,9 @@ func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.V
 		blockRoot.Vertices[domainName] = tree
 	}
 	// add root metadata
-	root.Metadata[topology.KeyEngine] = engines.EngineSLURM // TODO: Check if this should be dynamic
-	root.Metadata[topology.KeyPlugin] = topology.ValTopologyBlock
-	root.Vertices[topology.ValTopologyBlock] = blockRoot
-
+	root.Metadata[topology.KeyEngine] = engines.EngineSLURM
+	root.Metadata[topology.KeyPlugin] = topology.TopologyBlock
+	root.Vertices[topology.TopologyBlock] = blockRoot
 	return root
 }
 

@@ -32,10 +32,10 @@ const (
 	KeySkipReload             = "skip_reload"
 	KeyModelPath              = "model_path"
 
-	KeyPlugin        = "plugin"
-	ValTopologyTree  = "topology/tree"
-	ValTopologyBlock = "topology/block"
-	NoTopology       = "no-topology"
+	KeyPlugin     = "plugin"
+	TopologyTree  = "topology/tree"
+	TopologyBlock = "topology/block"
+	NoTopology    = "no-topology"
 )
 
 // Vertex is a tree node, representing a compute node or a network switch, where

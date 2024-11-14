@@ -71,7 +71,7 @@ func getTopologyFormat(params map[string]any) string {
 			}
 		}
 	}
-	return topology.ValTopologyTree
+	return topology.TopologyTree
 }
 
 func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, format string) *topology.Vertex {
@@ -171,7 +171,7 @@ func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, for
 	}
 
 	metadata := map[string]string{topology.KeyPlugin: format}
-	if format == topology.ValTopologyBlock {
+	if format == topology.TopologyBlock {
 		blockRoot := &topology.Vertex{
 			Vertices: make(map[string]*topology.Vertex),
 		}
@@ -181,14 +181,13 @@ func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, for
 
 		return &topology.Vertex{
 			Vertices: map[string]*topology.Vertex{
-				topology.ValTopologyBlock: blockRoot,
-				topology.ValTopologyTree:  treeRoot,
+				topology.TopologyBlock: blockRoot,
+				topology.TopologyTree:  treeRoot,
 			},
 			Metadata: metadata,
 		}
 	} else {
 		treeRoot.Metadata = metadata
-
 		return treeRoot
 	}
 }

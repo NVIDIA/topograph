@@ -148,7 +148,7 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 			plugin = tree.Metadata[topology.KeyPlugin]
 		}
 		if len(plugin) == 0 {
-			plugin = topology.ValTopologyTree
+			plugin = topology.TopologyTree
 		}
 		if _, err := buf.WriteString(fmt.Sprintf(TopologyHeader, plugin)); err != nil {
 			return nil, err

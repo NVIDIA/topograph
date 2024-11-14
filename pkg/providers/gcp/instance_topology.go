@@ -143,6 +143,9 @@ func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
 
 	root := &topology.Vertex{
 		Vertices: make(map[string]*topology.Vertex),
+		Metadata: map[string]string{
+			topology.KeyPlugin: topology.TopologyTree,
+		},
 	}
 	for name, node := range forest {
 		root.Vertices[name] = node

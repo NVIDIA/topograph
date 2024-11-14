@@ -62,7 +62,7 @@ func New(cfg providers.Config) (*Provider, error) {
 		if err != nil {
 			return nil, err // Wrapped by models.NewModelFromFile
 		}
-		provider.tree, provider.instance2node = model.ToTree()
+		provider.tree, provider.instance2node = model.ToGraph()
 	}
 	return provider, nil
 }

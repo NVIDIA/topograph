@@ -19,6 +19,7 @@ package test
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/pkg/engines"
@@ -59,10 +60,14 @@ func (eng *TestEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex
 	}
 
 	if len(tree.Metadata) == 0 {
-		tree.Metadata = make(map[string]string)
+		return nil, fmt.Errorf("metadata for test engine not set")
 	}
 
-	tree.Metadata[topology.KeyPlugin] = p.Plugin
-	tree.Metadata[topology.KeyBlockSizes] = p.BlockSizes
+	if len(p.Plugin) != 0 {
+		tree.Metadata[topology.KeyPlugin] = p.Plugin
+	}
+	if len(p.BlockSizes) != 0 {
+		tree.Metadata[topology.KeyBlockSizes] = p.BlockSizes
+	}
 	return slurm.GenerateOutputParams(ctx, tree, &p)
 }
