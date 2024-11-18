@@ -147,7 +147,6 @@ Topograph offers three endpoints for interacting with the service. Below are the
       "secret_access_key": "secret"
     },
     "params": {
-      "use_simulation": "false",
       "model_path": ""
     }
   },
