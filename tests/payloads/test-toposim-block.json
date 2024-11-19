@@ -1,0 +1,19 @@
+{
+	"provider": 
+	{
+		"name": "test",
+		"params": 
+		{
+			"model_path": "tests/models/medium-block.yaml"
+		}
+	},
+	"engine": 
+	{
+		"name": "test",
+		"params": 
+		{
+			"plugin": "topology/block",
+			"block_sizes": "2,4"
+		}
+	}
+}

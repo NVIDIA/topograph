@@ -19,21 +19,15 @@ package aws
 import (
 	"context"
 	"fmt"
+	"strconv"
 
-	// "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	// "github.com/aws/aws-sdk-go-v2/credentials"
-	// "github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 
-	// v1 "k8s.io/api/core/v1"
-
-	// "github.com/NVIDIA/topograph/internal/exec"
 	int_config "github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
-	// "github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const NAME_SIM = "aws-sim"
@@ -47,11 +41,9 @@ type SimClient struct {
 }
 
 func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
+	fmt.Println("HERE")
+	fmt.Println("Count: " + strconv.Itoa(len(client.model.PhysicalLayers)))
 	return nil, fmt.Errorf("aws simulation not yet implemented")
-}
-
-func getSimClient(m *models.Model) EC2Client {
-	return SimClient{model: m}
 }
 
 func NamedLoaderSim() (string, providers.Loader) {
@@ -79,7 +71,7 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 		if err != nil {
 			return nil, fmt.Errorf("unable to load model file for AWS simulation, %v", err)
 		}
-		simClient := getSimClient(csp_model)
+		simClient := SimClient{model: csp_model}
 
 		return &Client{
 			EC2: simClient,

@@ -105,3 +105,11 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace (
+	github.com/aws/aws-sdk-go-v2 v1.32.4 => github.com/pkedy/aws-sdk-go-v2 v0.0.0-20241115203348-0198b6c98cd9
+	github.com/aws/aws-sdk-go-v2/config v1.28.4 => github.com/pkedy/aws-sdk-go-v2/config v0.0.0-20241115203348-0198b6c98cd9
+	// github.com/aws/aws-sdk-go-v2/credentials v1.17.45 => github.com/pkedy/aws-sdk-go-v2/credentials v0.0.0-20241115203348-0198b6c98cd9
+	// github.com/aws/aws-sdk-go-v2/service/autoscaling v1.48.0 => github.com/pkedy/aws-sdk-go-v2/service/autoscaling v0.0.0-20241115203348-0198b6c98cd9
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.188.0 => github.com/pkedy/aws-sdk-go-v2/service/ec2 v0.0.0-20241115203348-0198b6c98cd9
+)

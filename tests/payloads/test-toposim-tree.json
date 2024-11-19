@@ -1,0 +1,14 @@
+{
+	"provider": 
+	{
+		"name": "test",
+		"params": 
+		{
+			"model_path": "tests/models/medium-tree.yaml"
+		}
+	},
+	"engine": 
+	{
+		"name": "test"
+	}
+}

@@ -1,3 +1,5 @@
+# Switch Model
+#
 #          S1 
 #       /      \
 #      /        \     
@@ -9,6 +11,16 @@
 # | I25 |   | I36 |
 #  ------    ------
 #   CB2       CB3
+#
+# Physical Layers:
+#
+#         R1
+#        /  \
+#      AZ1  AZ2
+#       |    |
+#      D1   D2
+#      |    |
+#     CB2  CB3
 #
 switches:
 - name: S1
@@ -24,3 +36,19 @@ capacity_blocks:
 - name: CB3
   type: H100
   nodes: [I34,I35,I36]
+physical_layers:
+- name: R1
+  type: region
+  sub_layers: [AZ1, AZ2]
+- name: AZ1
+  type: availability_zone
+  sub_layers: [D1]
+- name: AZ2
+  type: availability_zone
+  sub_layers: [D2]
+- name: D1
+  type: data_center
+  capacity_blocks: [CB2]
+- name: D2
+  type: data_center
+  capacity_blocks: [CB3]

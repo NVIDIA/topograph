@@ -1,0 +1,31 @@
+{
+	"provider": 
+	{
+		"name": "aws-sim",
+		"params": 
+		{
+			"model_path": "tests/models/small-tree.yaml"
+		}
+	},
+	"engine": 
+	{
+		"name": "test",
+		"params": 
+		{
+			"plugin": "topology/block",
+			"block_sizes": "30,120"
+		}
+	},
+	"nodes": 
+	[
+		{
+			"region": "R1",
+			"instances": 
+			{
+				"instance1": "I21",
+				"instance2": "I25",
+				"instance3": "I36"
+			}
+		}
+	]
+}

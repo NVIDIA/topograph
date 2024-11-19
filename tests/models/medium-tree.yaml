@@ -44,3 +44,4 @@ capacity_blocks:
 - name: cb14
   type: H100
   nodes: [n14-1,n14-2]
+physical_layers: []
