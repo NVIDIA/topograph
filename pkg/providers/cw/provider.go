@@ -19,10 +19,11 @@ package cw
 import (
 	"context"
 	"fmt"
-	"os/exec"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
+	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/ib"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -44,18 +45,42 @@ func New() (*Provider, error) {
 	return &Provider{}, nil
 }
 
+// getNodeList retrieves all the nodenames on the cluster
+func getNodeList(cis []topology.ComputeInstances) []string {
+	nodes := []string{}
+	for _, ci := range cis {
+		for _, node := range ci.Instances {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
+}
+
+func getIbOutput(ctx context.Context, nodes []string) ([]byte, error) {
+	for _, node := range nodes {
+		args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
+		stdout, err := exec.Exec(ctx, "pdsh", args, nil)
+		if err != nil {
+			return nil, fmt.Errorf("Exec error while pdsh IB command\n")
+		}
+		if strings.Contains(stdout.String(), "Topology file:") {
+			return stdout.Bytes(), nil
+		}
+	}
+	return nil, nil
+}
+
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	if len(instances) > 1 {
 		return nil, fmt.Errorf("CW does not support mult-region topology requests")
 	}
 
-	cmd := exec.CommandContext(ctx, "ibnetdiscover")
+	nodes := getNodeList(instances)
 
-	output, err := cmd.Output()
+	output, err := getIbOutput(ctx, nodes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getIbOutput failed with err: %v\n", err)
 	}
-
 	return ib.GenerateTopologyConfig(output)
 }
 
