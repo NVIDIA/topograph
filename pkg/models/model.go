@@ -57,6 +57,7 @@ type PhysicalLayers struct {
 const (
 	PhysicalLayerRegion = "region"
 	PhysicalLayerAZ     = "availability_zone"
+	PhysicalLayerPG     = "placement_group"
 )
 
 type Node struct {

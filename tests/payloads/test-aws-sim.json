@@ -4,17 +4,12 @@
 		"name": "aws-sim",
 		"params": 
 		{
-			"model_path": "tests/models/small-tree.yaml"
+			"model_path": "tests/models/medium-tree.yaml"
 		}
 	},
 	"engine": 
 	{
-		"name": "test",
-		"params": 
-		{
-			"plugin": "topology/block",
-			"block_sizes": "30,120"
-		}
+		"name": "test"
 	},
 	"nodes": 
 	[
@@ -22,9 +17,14 @@
 			"region": "R1",
 			"instances": 
 			{
-				"instance1": "I21",
-				"instance2": "I25",
-				"instance3": "I36"
+				"n11-1": "n11-1",
+                "n11-2": "n11-2",
+				"n12-1": "n12-1",
+                "n12-2": "n12-2",
+                "n13-1": "n13-1",
+                "n13-2": "n13-2",
+				"n14-1": "n14-1",
+                "n14-2": "n14-2"
 			}
 		}
 	]

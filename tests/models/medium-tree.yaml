@@ -11,6 +11,19 @@
 #  -------    -------    -------    -------    -------
 #   cb10       cb11       cb12       cb13       cb14
 #
+# Physical Layers:
+#
+#         R1
+#        /  \
+#       /    \
+#     AZ1   AZ2
+#      |     |
+#     G1    G2
+#     |     |
+#   cb10,  cb13
+#   cb11,  cb14
+#   cb12
+#
 switches:
 - name: sw3
   switches: [sw21,sw22]
@@ -44,4 +57,19 @@ capacity_blocks:
 - name: cb14
   type: H100
   nodes: [n14-1,n14-2]
-physical_layers: []
+physical_layers:
+- name: R1
+  type: region
+  sub_layers: [AZ1, AZ2]
+- name: AZ1
+  type: availability_zone
+  sub_layers: [G1]
+- name: AZ2
+  type: availability_zone
+  sub_layers: [G2]
+- name: G1
+  type: placement_group
+  capacity_blocks: [cb10, cb11, cb12]
+- name: G2
+  type: placement_group
+  capacity_blocks: [cb13, cb14]
