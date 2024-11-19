@@ -23,7 +23,7 @@ import (
 )
 
 func TestNewModelFromFile(t *testing.T) {
-	cfg, err := NewModelFromFile("../../tests/models/medium-h100.yaml")
+	cfg, err := NewModelFromFile("../../tests/models/medium-tree.yaml")
 	require.NoError(t, err)
 
 	expected := &Model{
@@ -86,59 +86,95 @@ func TestNewModelFromFile(t *testing.T) {
 				Nodes: []string{"n14-1", "n14-2"},
 			},
 		},
-
+		PhysicalLayers: []PhysicalLayers{
+			{
+				Name:      "R1",
+				Type:      "region",
+				SubLayers: []string{"AZ1", "AZ2"},
+			},
+			{
+				Name:      "AZ1",
+				Type:      "availability_zone",
+				SubLayers: []string{"G1"},
+			},
+			{
+				Name:      "AZ2",
+				Type:      "availability_zone",
+				SubLayers: []string{"G2"},
+			},
+			{
+				Name:           "G1",
+				Type:           "placement_group",
+				CapacityBlocks: []string{"cb10", "cb11", "cb12"},
+			},
+			{
+				Name:           "G2",
+				Type:           "placement_group",
+				CapacityBlocks: []string{"cb13", "cb14"},
+			},
+		},
 		Nodes: map[string]*Node{
 			"n10-1": {
-				Name:   "n10-1",
-				Type:   "H100",
-				NVLink: "nv1",
+				Name:          "n10-1",
+				Type:          "H100",
+				NVLink:        "nv1",
+				CapacityBlock: "cb10",
 			},
 			"n10-2": {
-				Name:   "n10-2",
-				Type:   "H100",
-				NVLink: "nv1",
+				Name:          "n10-2",
+				Type:          "H100",
+				NVLink:        "nv1",
+				CapacityBlock: "cb10",
 			},
 			"n11-1": {
-				Name:      "n11-1",
-				Type:      "H100",
-				NVLink:    "nv1",
-				NetLayers: []string{"sw11", "sw21", "sw3"},
+				Name:          "n11-1",
+				Type:          "H100",
+				NVLink:        "nv1",
+				NetLayers:     []string{"sw11", "sw21", "sw3"},
+				CapacityBlock: "cb11",
 			},
 			"n11-2": {
-				Name:      "n11-2",
-				Type:      "H100",
-				NVLink:    "nv1",
-				NetLayers: []string{"sw11", "sw21", "sw3"},
+				Name:          "n11-2",
+				Type:          "H100",
+				NVLink:        "nv1",
+				NetLayers:     []string{"sw11", "sw21", "sw3"},
+				CapacityBlock: "cb11",
 			},
 			"n12-1": {
-				Name:      "n12-1",
-				Type:      "H100",
-				NetLayers: []string{"sw12", "sw21", "sw3"},
+				Name:          "n12-1",
+				Type:          "H100",
+				NetLayers:     []string{"sw12", "sw21", "sw3"},
+				CapacityBlock: "cb12",
 			},
 			"n12-2": {
-				Name:      "n12-2",
-				Type:      "H100",
-				NetLayers: []string{"sw12", "sw21", "sw3"},
+				Name:          "n12-2",
+				Type:          "H100",
+				NetLayers:     []string{"sw12", "sw21", "sw3"},
+				CapacityBlock: "cb12",
 			},
 			"n13-1": {
-				Name:      "n13-1",
-				Type:      "H100",
-				NetLayers: []string{"sw13", "sw22", "sw3"},
+				Name:          "n13-1",
+				Type:          "H100",
+				NetLayers:     []string{"sw13", "sw22", "sw3"},
+				CapacityBlock: "cb13",
 			},
 			"n13-2": {
-				Name:      "n13-2",
-				Type:      "H100",
-				NetLayers: []string{"sw13", "sw22", "sw3"},
+				Name:          "n13-2",
+				Type:          "H100",
+				NetLayers:     []string{"sw13", "sw22", "sw3"},
+				CapacityBlock: "cb13",
 			},
 			"n14-1": {
-				Name:      "n14-1",
-				Type:      "H100",
-				NetLayers: []string{"sw14", "sw22", "sw3"},
+				Name:          "n14-1",
+				Type:          "H100",
+				NetLayers:     []string{"sw14", "sw22", "sw3"},
+				CapacityBlock: "cb14",
 			},
 			"n14-2": {
-				Name:      "n14-2",
-				Type:      "H100",
-				NetLayers: []string{"sw14", "sw22", "sw3"},
+				Name:          "n14-2",
+				Type:          "H100",
+				NetLayers:     []string{"sw14", "sw22", "sw3"},
+				CapacityBlock: "cb14",
 			},
 		},
 	}
