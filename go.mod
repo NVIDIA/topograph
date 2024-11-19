@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/compute v1.28.2
 	cloud.google.com/go/compute/metadata v0.5.2
 	github.com/agrea/ptr v0.2.0
-	github.com/aws/aws-sdk-go-v2 v1.32.3
+	github.com/aws/aws-sdk-go-v2 v1.32.4
 	github.com/aws/aws-sdk-go-v2/config v1.28.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.42
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18
@@ -36,11 +36,11 @@ require (
 require (
 	cloud.google.com/go/auth v0.10.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.5 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.22 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.22 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.24.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.32.3 // indirect
@@ -106,10 +106,10 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-// replace (
-// 	github.com/aws/aws-sdk-go-v2 v1.32.4 => github.com/pkedy/aws-sdk-go-v2 v0.0.0-20241115203348-0198b6c98cd9
-// 	github.com/aws/aws-sdk-go-v2/config v1.28.4 => github.com/pkedy/aws-sdk-go-v2/config v0.0.0-20241115203348-0198b6c98cd9
-// 	// github.com/aws/aws-sdk-go-v2/credentials v1.17.45 => github.com/pkedy/aws-sdk-go-v2/credentials v0.0.0-20241115203348-0198b6c98cd9
-// 	// github.com/aws/aws-sdk-go-v2/service/autoscaling v1.48.0 => github.com/pkedy/aws-sdk-go-v2/service/autoscaling v0.0.0-20241115203348-0198b6c98cd9
-// 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.188.0 => github.com/pkedy/aws-sdk-go-v2/service/ec2 v0.0.0-20241115203348-0198b6c98cd9
-// )
+replace (
+	github.com/aws/aws-sdk-go-v2 v1.32.4 => github.com/pkedy/aws-sdk-go-v2 v0.0.0-20241115203348-0198b6c98cd9
+	github.com/aws/aws-sdk-go-v2/config v1.28.4 => github.com/pkedy/aws-sdk-go-v2/config v0.0.0-20241115203348-0198b6c98cd9
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.45 => github.com/pkedy/aws-sdk-go-v2/credentials v0.0.0-20241115203348-0198b6c98cd9
+	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.48.0 => github.com/pkedy/aws-sdk-go-v2/service/autoscaling v0.0.0-20241115203348-0198b6c98cd9
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.187.0 => github.com/pkedy/aws-sdk-go-v2/service/ec2 v0.0.0-20241115203348-0198b6c98cd9
+)

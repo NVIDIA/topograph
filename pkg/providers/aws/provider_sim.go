@@ -100,7 +100,7 @@ func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec
 				instTopo.AvailabilityZone = &az
 				instTopo.ZoneId = &az
 				instTopo.GroupName = &pg
-				// instTopo.CapacityBlockID = &node.CapacityBlock
+				instTopo.CapacityBlockId = &node.CapacityBlock
 				var netLayers []string
 				for j := len(node.NetLayers) - 1; j >= 0; j-- {
 					netLayers = append(netLayers, node.NetLayers[j])
