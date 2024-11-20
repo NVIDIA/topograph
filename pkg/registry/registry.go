@@ -33,6 +33,7 @@ import (
 
 var Providers = providers.NewRegistry(
 	aws.NamedLoader,
+	aws.NamedLoaderSim,
 	baremetal.NamedLoader,
 	cw.NamedLoader,
 	gcp.NamedLoader,
