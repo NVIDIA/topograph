@@ -1,4 +1,9 @@
+<p align="center"><a href="https://github.com/NVIDIA/topograph" target="_blank"><img src="docs/assets/topograph-logo.png" width="100" alt="Logo"></a></p>
+
 # Topograph
+
+![Build Status](https://github.com/NVIDIA/topograph/actions/workflows/go.yml/badge.svg)
+![Static Badge](https://img.shields.io/badge/license-Apache_2.0-green)
 
 Topograph is a component designed to expose the underlying physical network topology of a cluster to enable a workload manager make network-topology aware scheduling decisions.
 
