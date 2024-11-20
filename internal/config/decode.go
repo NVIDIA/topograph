@@ -59,7 +59,7 @@ type FromStringer interface {
 func Decode(input any, output any) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      output,
-		ErrorUnused: true,
+		ErrorUnused: false,
 		DecodeHook:  decodeHook,
 	})
 	if err != nil {

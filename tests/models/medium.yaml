@@ -1,0 +1,69 @@
+#               ______ sw3 _____
+#              /                \
+#          sw21                  sw22
+#         /    \               /     \
+#     sw11      sw12       sw13       sw14
+#      |         |          |          |
+#      |         |          |          |
+#  -------    -------    -------    -------
+# | n11-1 |  | n12-1 |  | n13-1 |  | n14-1 |
+# | n11-2 |  | n12-2 |  | n13-2 |  | n14-2 |
+#  -------    -------    -------    -------
+#   cb11       cb12       cb13       cb14
+#
+# Metadata:
+# sw3: region:us-west
+# sw21: availability_zone:zone1
+# sw22: availability_zone:zone2
+# sw11: group:cb11
+# sw12: group:cb12
+# sw13: group:cb13
+# sw14: group:cb14
+#
+
+switches:
+- name: sw3
+  metadata:
+    region: us-west
+  switches: [sw21,sw22]
+- name: sw21
+  metadata:
+    availability_zone: zone1
+  switches: [sw11,sw12]
+- name: sw22
+  metadata:
+    availability_zone: zone2
+  switches: [sw13,sw14]
+- name: sw11
+  metadata:
+    group: cb11
+  capacity_blocks: [cb11]
+- name: sw12
+  metadata:
+    group: cb12
+  capacity_blocks: [cb12]
+- name: sw13
+  metadata:
+    group: cb13
+  capacity_blocks: [cb13]
+- name: sw14
+  metadata:
+    group: cb14
+  capacity_blocks: [cb14]
+capacity_blocks:
+- name: cb11
+  type: GB200
+  nvlink: nvl1
+  nodes: [n11-1,n11-2]
+- name: cb12
+  type: GB200
+  nvlink: nvl2
+  nodes: [n12-1,n12-2]
+- name: cb13
+  type: GB200
+  nvlink: nvl3
+  nodes: [n13-1,n13-2]
+- name: cb14
+  type: GB200
+  nvlink: nvl4
+  nodes: [n14-1,n14-2]

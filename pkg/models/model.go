@@ -26,18 +26,18 @@ import (
 )
 
 type Model struct {
-	Switches       []Switch         `yaml:"switches"`
-	CapacityBlocks []CapacityBlock  `yaml:"capacity_blocks"`
-	PhysicalLayers []PhysicalLayers `yaml:"physical_layers"`
+	Switches       []*Switch        `yaml:"switches"`
+	CapacityBlocks []*CapacityBlock `yaml:"capacity_blocks"`
 
-	// defived
+	// derived
 	Nodes map[string]*Node
 }
 
 type Switch struct {
-	Name           string   `yaml:"name"`
-	Switches       []string `yaml:"switches"`
-	CapacityBlocks []string `yaml:"capacity_blocks"`
+	Name           string            `yaml:"name"`
+	Metadata       map[string]string `yaml:"metadata"`
+	Switches       []string          `yaml:"switches"`
+	CapacityBlocks []string          `yaml:"capacity_blocks"`
 }
 
 type CapacityBlock struct {
@@ -47,21 +47,9 @@ type CapacityBlock struct {
 	Nodes  []string `yaml:"nodes"`
 }
 
-type PhysicalLayers struct {
-	Name           string   `yaml:"name"`
-	Type           string   `yaml:"type"`
-	SubLayers      []string `yaml:"sub_layers"`
-	CapacityBlocks []string `yaml:"capacity_blocks"`
-}
-
-const (
-	PhysicalLayerRegion = "region"
-	PhysicalLayerAZ     = "availability_zone"
-	PhysicalLayerPG     = "placement_group"
-)
-
 type Node struct {
 	Name          string
+	Metadata      map[string]string
 	Type          string
 	NVLink        string
 	NetLayers     []string
@@ -83,45 +71,44 @@ func NewModelFromFile(fname string) (*Model, error) {
 		return nil, err
 	}
 
-	if err = validateLayers(model.PhysicalLayers); err != nil {
-		return nil, err
-	}
-
 	return model, err
 }
 
 func (m *Model) setNodeMap() error {
 	// switch map child:parent
-	swmap := make(map[string]string)
+	swmap := make(map[string]*Switch)
 	// capacity block map cb:switch
-	cbmap := make(map[string]string)
+	cbmap := make(map[string]*Switch)
+
 	for _, parent := range m.Switches {
 		for _, sw := range parent.Switches {
 			if p, ok := swmap[sw]; ok {
 				// a child switch cannot have more than one parent switch
 				return fmt.Errorf("switch %q has two parent switches %q and %q", sw, parent.Name, p)
 			}
-			swmap[sw] = parent.Name
+			swmap[sw] = parent
 		}
 		for _, cb := range parent.CapacityBlocks {
 			if p, ok := cbmap[cb]; ok {
 				// a capacity block cannot have more than one switch
 				return fmt.Errorf("capacity block %q has two switches %q and %q", cb, parent.Name, p)
 			}
-			cbmap[cb] = parent.Name
+			cbmap[cb] = parent
 		}
 	}
 
 	m.Nodes = make(map[string]*Node)
 	for _, cb := range m.CapacityBlocks {
 		var netLayers []string
+		var metadata map[string]string
+		var err error
+
 		sw, ok := cbmap[cb.Name]
 		if ok {
-			net, err := getNetworkLayers(sw, swmap)
+			netLayers, metadata, err = getNetworkLayers(sw, swmap)
 			if err != nil {
 				return err
 			}
-			netLayers = net
 		}
 
 		for _, name := range cb.Nodes {
@@ -130,6 +117,7 @@ func (m *Model) setNodeMap() error {
 			}
 			m.Nodes[name] = &Node{
 				Name:          name,
+				Metadata:      metadata,
 				Type:          cb.Type,
 				NVLink:        cb.NVLink,
 				NetLayers:     netLayers,
@@ -141,80 +129,28 @@ func (m *Model) setNodeMap() error {
 	return nil
 }
 
-func getNetworkLayers(name string, swmap map[string]string) ([]string, error) {
-	sw := make(map[string]bool)
-	res := []string{}
-	for {
-		// check for circular switch topology
-		if _, ok := sw[name]; ok {
-			return nil, fmt.Errorf("circular topology for switch %q", name)
-		}
-		sw[name] = true
-		res = append(res, name)
+func getNetworkLayers(sw *Switch, swmap map[string]*Switch) ([]string, map[string]string, error) {
+	visited := make(map[string]struct{})
+	layers := []string{}
+	metadata := make(map[string]string)
 
+	for {
+		name := sw.Name
+		// check for circular switch topology
+		if _, ok := visited[name]; ok {
+			return nil, nil, fmt.Errorf("circular dependency detected in topology for switch %q", name)
+		}
+		visited[name] = struct{}{}
+		layers = append(layers, name)
+		for k, v := range sw.Metadata {
+			metadata[k] = v
+		}
 		parent, ok := swmap[name]
 		if !ok {
-			return res, nil
+			return layers, metadata, nil
 		}
-		name = parent
+		sw = parent
 	}
-}
-
-// Check to make sure each layer is unique and has only a single parent, if any, and enumerates them into a map of layer name to parent index within the layers list
-// If the layer has no entry within the map, it means that the layer has no parent
-func getLayerParentMap(layers []PhysicalLayers) (map[string]int, error) {
-	parentMap := make(map[string]int)
-	for i, layer := range layers {
-		layerName := layer.Name
-		var parentCount int = 0
-		for j, checkLayer := range layers {
-			if i == j {
-				continue
-			}
-			if layerName == checkLayer.Name {
-				return nil, fmt.Errorf("duplicated physical layer name %q", layerName)
-			}
-			for _, subLayerName := range checkLayer.SubLayers {
-				if layerName == subLayerName {
-					parentMap[layerName] = j
-					parentCount++
-					break
-				}
-			}
-		}
-		if parentCount > 1 {
-			return nil, fmt.Errorf("physical layer with name %q has more than one parent (%d parents)", layerName, parentCount)
-		}
-	}
-	return parentMap, nil
-}
-
-func validateLayers(layers []PhysicalLayers) error {
-	// Validates the parent structure of the layers and gets the map of nodes to parents
-	parentMap, err := getLayerParentMap(layers)
-	if err != nil {
-		return err
-	}
-
-	// Check to make sure there are no loops among the physical layers
-	for _, layer := range layers {
-		layerName := layer.Name
-		currLayerIdx, ok := parentMap[layerName]
-		if ok {
-			currLayerName := layers[currLayerIdx].Name
-			for {
-				currLayerIdx, ok = parentMap[currLayerName]
-				if !ok {
-					break
-				}
-				currLayerName = layers[currLayerIdx].Name
-				if currLayerName == layerName {
-					return fmt.Errorf("circular layer dependencies involving layer with name %q", layerName)
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
@@ -286,43 +222,4 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 	}
 	treeRoot.Metadata = map[string]string{topology.KeyPlugin: topology.TopologyTree}
 	return treeRoot, instance2node
-}
-
-// Get a map that maps from the name of each node in the model to the cloestest physical layer that shares the given type.
-// If no entry exists for the node in the returned map, then there is no layer the node exists in with the given type
-func (model *Model) NodeToLayerMap(layerType string) (map[string]string, error) {
-	// Maps each capacity block to a parent physical layer index
-	cbToLayer := make(map[string]int)
-	for idx, layer := range model.PhysicalLayers {
-		for _, cbName := range layer.CapacityBlocks {
-			cbToLayer[cbName] = idx
-		}
-	}
-
-	// Goes through each node, gets the capacity block, and walks up the parent tree to find the cloest layer of the given type
-	nodeToLayer := make(map[string]string)
-	layerParentMap, err := getLayerParentMap(model.PhysicalLayers)
-	if err != nil {
-		return nil, err
-	}
-	for _, node := range model.Nodes {
-		cb := node.CapacityBlock
-		layerIdx, ok := cbToLayer[cb]
-		if !ok {
-			return nil, fmt.Errorf("capacity block %q not found in any physical layer", cb)
-		}
-		for {
-			layer := model.PhysicalLayers[layerIdx]
-			if layer.Type == layerType {
-				nodeToLayer[node.Name] = layer.Name
-				break
-			}
-			layerIdx, ok = layerParentMap[layer.Name]
-			if !ok {
-				break
-			}
-		}
-	}
-
-	return nodeToLayer, nil
 }
