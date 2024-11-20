@@ -44,6 +44,8 @@ type SimClient struct {
 	NextTokens map[string]string
 }
 
+var simulationClient *Client = nil
+
 func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
 
 	// If we need to calculate new results (a previous token was not given)
@@ -94,18 +96,19 @@ func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec
 				}
 
 				// Sets up the structure for the instance
-				var instTopo types.InstanceTopology
-				instTopo.InstanceId = &instanceId
-				instTopo.InstanceType = &node.Type
-				instTopo.AvailabilityZone = &az
-				instTopo.ZoneId = &az
-				instTopo.GroupName = &pg
-				instTopo.CapacityBlockId = &node.CapacityBlock
 				var netLayers []string
 				for j := len(node.NetLayers) - 1; j >= 0; j-- {
 					netLayers = append(netLayers, node.NetLayers[j])
 				}
-				instTopo.NetworkNodes = netLayers
+				instTopo := types.InstanceTopology{
+					InstanceId:       &instanceId,
+					InstanceType:     &node.Type,
+					AvailabilityZone: &az,
+					ZoneId:           &az,
+					GroupName:        &pg,
+					CapacityBlockId:  &node.CapacityBlock,
+					NetworkNodes:     netLayers,
+				}
 				instances = append(instances, instTopo)
 			}
 
@@ -156,16 +159,21 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 		return nil, fmt.Errorf("no model path for AWS simulation")
 	}
 
-	clientFactory := func(region string) (*Client, error) {
+	// Initializes the singleton, simulation client to be used, if not already done
+	if simulationClient == nil {
 		csp_model, err := models.NewModelFromFile(p.ModelPath)
 		if err != nil {
 			return nil, fmt.Errorf("unable to load model file for AWS simulation, %v", err)
 		}
 		simClient := SimClient{Model: csp_model}
 
-		return &Client{
+		simulationClient = &Client{
 			EC2: simClient,
-		}, nil
+		}
+	}
+
+	clientFactory := func(region string) (*Client, error) {
+		return simulationClient, nil
 	}
 
 	return New(clientFactory, imdsClient), nil
