@@ -4,7 +4,7 @@
 		"name": "test",
 		"params": 
 		{
-			"model_path": "tests/models/medium-block.yaml"
+			"model_path": "tests/models/medium.yaml"
 		}
 	},
 	"engine": 

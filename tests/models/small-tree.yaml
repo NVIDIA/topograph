@@ -26,4 +26,3 @@ capacity_blocks:
 - name: CB3
   type: H100
   nodes: [I34,I35,I36]
-physical_layers: []

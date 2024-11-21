@@ -26,17 +26,18 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
-	int_config "github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
 )
 
-const NAME_SIM = "aws-sim"
-const DEFAULT_MAX_RESULTS = 20
+const (
+	NAME_SIM = "aws-sim"
 
-type SimParams struct {
-	ModelPath string `mapstructure:"model_path"`
-}
+	AvailabilityZoneKey = "availability_zone"
+	GroupNameKey        = "group"
+
+	DEFAULT_MAX_RESULTS = 20
+)
 
 type SimClient struct {
 	Model      *models.Model
@@ -44,23 +45,11 @@ type SimClient struct {
 	NextTokens map[string]string
 }
 
-var simulationClient *Client = nil
-
 func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
 
 	// If we need to calculate new results (a previous token was not given)
 	givenToken := params.NextToken
 	if givenToken == nil {
-		// Gets availability zone and placement group for each instance
-		instanceAzs, err := client.Model.NodeToLayerMap(models.PhysicalLayerAZ)
-		if err != nil {
-			return nil, err
-		}
-		instancePgs, err := client.Model.NodeToLayerMap(models.PhysicalLayerPG)
-		if err != nil {
-			return nil, err
-		}
-
 		// Refreshes the clients internal storage for outputs
 		client.Outputs = make(map[string](*[]types.InstanceTopology))
 		client.NextTokens = make(map[string]string)
@@ -86,12 +75,15 @@ func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec
 
 				// Gets the availability zone and placement group of the instance
 				node := client.Model.Nodes[instanceId]
-				az, ok := instanceAzs[instanceId]
-				if !ok {
+				var az, pg string
+				if len(node.Metadata) != 0 {
+					az = node.Metadata[AvailabilityZoneKey]
+					pg = node.Metadata[GroupNameKey]
+				}
+				if len(az) == 0 {
 					return nil, fmt.Errorf("availability zone not found for instance %q in aws simulation", instanceId)
 				}
-				pg, ok := instancePgs[instanceId]
-				if !ok {
+				if len(pg) == 0 {
 					return nil, fmt.Errorf("placement group not found for instance %q in aws simulation", instanceId)
 				}
 
@@ -151,29 +143,23 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 
 	imdsClient := imds.NewFromConfig(defaultCfg)
 
-	var p SimParams
-	if err := int_config.Decode(cfg.Params, &p); err != nil {
-		return nil, fmt.Errorf("error decoding params: %w", err)
-	}
-	if len(p.ModelPath) == 0 {
-		return nil, fmt.Errorf("no model path for AWS simulation")
+	p, err := providers.GetSimulationParams(cfg.Params)
+	if err != nil {
+		return nil, err
 	}
 
-	// Initializes the singleton, simulation client to be used, if not already done
-	if simulationClient == nil {
-		csp_model, err := models.NewModelFromFile(p.ModelPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to load model file for AWS simulation, %v", err)
-		}
-		simClient := SimClient{Model: csp_model}
+	csp_model, err := models.NewModelFromFile(p.ModelPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load model file for AWS simulation, %v", err)
+	}
+	simClient := SimClient{Model: csp_model}
 
-		simulationClient = &Client{
-			EC2: simClient,
-		}
+	client := &Client{
+		EC2: simClient,
 	}
 
 	clientFactory := func(region string) (*Client, error) {
-		return simulationClient, nil
+		return client, nil
 	}
 
 	return New(clientFactory, imdsClient), nil
