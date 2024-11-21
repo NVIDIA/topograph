@@ -1,0 +1,11 @@
+{
+  "provider": {
+    "name": "oci-sim",
+    "params": {
+      "model_path": "tests/models/medium.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  }
+}

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	OCICommon "github.com/oracle/oci-go-sdk/v65/common"
+	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/common/auth"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/oracle/oci-go-sdk/v65/identity"
@@ -34,36 +34,40 @@ import (
 const (
 	NAME = "oci"
 
-	authTenancyID     = "tenancy_id"
-	authUserID        = "user_id"
-	authRegion        = "region"
-	authFingerprint   = "fingerprint"
-	authPrivateKey    = "private_key"
-	authPassphrase    = "passphrase"
-	authCompartmentID = "compartment_id"
+	authTenancyID   = "tenancy_id"
+	authUserID      = "user_id"
+	authRegion      = "region"
+	authFingerprint = "fingerprint"
+	authPrivateKey  = "private_key"
+	authPassphrase  = "passphrase"
 )
 
-type Provider struct {
+type baseProvider struct {
 	clientFactory ClientFactory
 }
 
-type ClientFactory func(region string) (Client, error)
+type ClientFactory func(region string, pageSize *int) (Client, error)
 
 type Client interface {
-	CompartmentID() string
-	ListAvailabilityDomains(ctx context.Context, request identity.ListAvailabilityDomainsRequest) (response identity.ListAvailabilityDomainsResponse, err error)
-	ListComputeCapacityTopologies(ctx context.Context, request core.ListComputeCapacityTopologiesRequest) (response core.ListComputeCapacityTopologiesResponse, err error)
-	ListComputeCapacityTopologyComputeBareMetalHosts(ctx context.Context, request core.ListComputeCapacityTopologyComputeBareMetalHostsRequest) (response core.ListComputeCapacityTopologyComputeBareMetalHostsResponse, err error)
+	TenantID() *string
+	Limit() *int
+	ListAvailabilityDomains(context.Context, identity.ListAvailabilityDomainsRequest) (identity.ListAvailabilityDomainsResponse, error)
+	ListComputeHosts(context.Context, core.ListComputeHostsRequest) (core.ListComputeHostsResponse, error)
 }
 
 type ociClient struct {
 	identity.IdentityClient
 	core.ComputeClient
-	compartmentID string
+	tenantID string
+	limit    *int
 }
 
-func (c *ociClient) CompartmentID() string {
-	return c.compartmentID
+func (c *ociClient) TenantID() *string {
+	return &c.tenantID
+}
+
+func (c *ociClient) Limit() *int {
+	return c.limit
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -76,27 +80,20 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		return nil, err
 	}
 
-	// if compartmentID is not set, use the tenant ID instead
-	var compartmentID string
-	if len(config.Creds) != 0 {
-		compartmentID = config.Creds[authCompartmentID]
-	}
-	if len(compartmentID) == 0 {
-		compartmentID, err = provider.TenancyOCID()
-		if err != nil {
-			return nil, fmt.Errorf("unable to get tenancy OCID from config: %s", err.Error())
-		}
+	tenantID, err := provider.TenancyOCID()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get tenancy OCID from config: %v", err)
 	}
 
-	clientFactory := func(region string) (Client, error) {
+	clientFactory := func(region string, pageSize *int) (Client, error) {
 		identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create identity client. Bailing out : %v", err)
+			return nil, fmt.Errorf("unable to create identity client: %v", err)
 		}
 
 		computeClient, err := core.NewComputeClientWithConfigurationProvider(provider)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get compute client: %s", err.Error())
+			return nil, fmt.Errorf("unable to get compute client: %v", err)
 		}
 
 		if len(region) != 0 {
@@ -108,14 +105,15 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		return &ociClient{
 			IdentityClient: identityClient,
 			ComputeClient:  computeClient,
-			compartmentID:  compartmentID,
+			tenantID:       tenantID,
+			limit:          pageSize,
 		}, nil
 	}
 
 	return New(clientFactory), nil
 }
 
-func getConfigurationProvider(creds map[string]string) (OCICommon.ConfigurationProvider, error) {
+func getConfigurationProvider(creds map[string]string) (common.ConfigurationProvider, error) {
 	if len(creds) != 0 {
 		var tenancyID, userID, region, fingerprint, privateKey, passphrase string
 		klog.Info("Using provided credentials")
@@ -136,11 +134,11 @@ func getConfigurationProvider(creds map[string]string) (OCICommon.ConfigurationP
 		}
 		passphrase = creds[authPassphrase]
 
-		return OCICommon.NewRawConfigurationProvider(tenancyID, userID, region, fingerprint, privateKey, &passphrase), nil
+		return common.NewRawConfigurationProvider(tenancyID, userID, region, fingerprint, privateKey, &passphrase), nil
 	}
 
 	klog.Info("No credentials provided, trying default configuration provider")
-	configProvider := OCICommon.DefaultConfigProvider()
+	configProvider := common.DefaultConfigProvider()
 	_, err := configProvider.AuthType()
 	if err == nil {
 		return configProvider, nil
@@ -156,19 +154,23 @@ func getConfigurationProvider(creds map[string]string) (OCICommon.ConfigurationP
 	return configProvider, nil
 }
 
-func New(ociClientFactory ClientFactory) *Provider {
-	return &Provider{
-		clientFactory: ociClientFactory,
-	}
-}
-
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	topo, err := GenerateInstanceTopology(ctx, p.clientFactory, instances)
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
 	return topo.ToThreeTierGraph(NAME, instances, true)
+}
+
+type Provider struct {
+	baseProvider
+}
+
+func New(ociClientFactory ClientFactory) *Provider {
+	return &Provider{
+		baseProvider: baseProvider{clientFactory: ociClientFactory},
+	}
 }
 
 // Engine support

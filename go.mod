@@ -17,7 +17,7 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oklog/run v1.1.0
-	github.com/oracle/oci-go-sdk/v65 v65.78.0
+	github.com/oracle/oci-go-sdk/v65 v65.88.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
