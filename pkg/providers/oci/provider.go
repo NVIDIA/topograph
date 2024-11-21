@@ -37,23 +37,29 @@ type Provider struct {
 	clientFactory ClientFactory
 }
 
-type ClientFactory func(region string) (Client, error)
+type ClientFactory func(region string, pageSize *int) (Client, error)
 
 type Client interface {
-	TenancyOCID() string
-	ListAvailabilityDomains(ctx context.Context, request identity.ListAvailabilityDomainsRequest) (response identity.ListAvailabilityDomainsResponse, err error)
-	ListComputeCapacityTopologies(ctx context.Context, request core.ListComputeCapacityTopologiesRequest) (response core.ListComputeCapacityTopologiesResponse, err error)
-	ListComputeCapacityTopologyComputeBareMetalHosts(ctx context.Context, request core.ListComputeCapacityTopologyComputeBareMetalHostsRequest) (response core.ListComputeCapacityTopologyComputeBareMetalHostsResponse, err error)
+	TenancyOCID() *string
+	Limit() *int
+	ListAvailabilityDomains(context.Context, identity.ListAvailabilityDomainsRequest) (identity.ListAvailabilityDomainsResponse, error)
+	ListComputeHosts(context.Context, core.ListComputeHostsRequest) (core.ListComputeHostsResponse, error)
+	ListComputeGpuMemoryFabrics(context.Context, core.ListComputeGpuMemoryFabricsRequest) (core.ListComputeGpuMemoryFabricsResponse, error)
 }
 
 type ociClient struct {
 	identity.IdentityClient
 	core.ComputeClient
 	tenancyOCID string
+	limit       *int
 }
 
-func (c *ociClient) TenancyOCID() string {
-	return c.tenancyOCID
+func (c *ociClient) TenancyOCID() *string {
+	return &c.tenancyOCID
+}
+
+func (c *ociClient) Limit() *int {
+	return c.limit
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -66,7 +72,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		return nil, err
 	}
 
-	clientFactory := func(region string) (Client, error) {
+	clientFactory := func(region string, limit *int) (Client, error) {
 		identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create identity client. Bailing out : %v", err)
@@ -92,6 +98,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 			IdentityClient: identityClient,
 			ComputeClient:  computeClient,
 			tenancyOCID:    tenacyOCID,
+			limit:          limit,
 		}, nil
 	}
 
@@ -145,13 +152,13 @@ func New(ociClientFactory ClientFactory) *Provider {
 	}
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	cfg, err := GenerateInstanceTopology(ctx, p.clientFactory, instances)
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	cfg, blockMap, err := GenerateInstanceTopology(ctx, p.clientFactory, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	return toGraph(cfg, instances)
+	return toGraph(cfg, blockMap, instances)
 }
 
 // Engine support
