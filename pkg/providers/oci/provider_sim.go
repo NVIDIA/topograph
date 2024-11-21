@@ -38,6 +38,10 @@ const (
 	errClientFactory
 	errListAvailabilityDomains
 	errListComputeHosts
+<<<<<<< HEAD
+=======
+	errListComputeGpuMemoryFabrics
+>>>>>>> ad5b662 (implement mock API for OCI)
 )
 
 type simClient struct {
@@ -52,7 +56,11 @@ var httpResponce = &http.Response{
 	StatusCode: 200,
 }
 
+<<<<<<< HEAD
 func (c *simClient) TenantID() *string {
+=======
+func (c *simClient) CompartmentID() *string {
+>>>>>>> ad5b662 (implement mock API for OCI)
 	return ptr.String("simulation")
 }
 

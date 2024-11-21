@@ -38,6 +38,13 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 		}
 	}
 
+	// set accelerator block domains
+	for i, inst := range topo.Instances {
+		if domain, ok := blockMap[inst.BlockID]; ok {
+			topo.Instances[i].AcceleratorID = domain
+		}
+	}
+
 	return topo, nil
 }
 
