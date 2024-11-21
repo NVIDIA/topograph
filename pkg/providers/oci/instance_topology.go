@@ -29,158 +29,181 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func GenerateInstanceTopology(ctx context.Context, factory ClientFactory, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
+func GenerateInstanceTopology(ctx context.Context, factory ClientFactory, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
 	topo := topology.NewClusterTopology()
+	blockMap := make(map[string]string)
 
 	for _, ci := range cis {
-		if err := generateInstanceTopology(ctx, factory, &ci, topo); err != nil {
+		client, err := factory(ci.Region, pageSize)
+		if err != nil {
 			return nil, err
+		}
+		err = getComputeHostInfo(ctx, client, topo, ci.Instances, blockMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// set accelerator block domains
+	for i, inst := range topo.Instances {
+		if domain, ok := blockMap[inst.BlockID]; ok {
+			topo.Instances[i].AcceleratorID = domain
 		}
 	}
 
 	return topo, nil
 }
 
-func generateInstanceTopology(ctx context.Context, factory ClientFactory, ci *topology.ComputeInstances, topo *topology.ClusterTopology) error {
-	client, err := factory(ci.Region)
-	if err != nil {
-		return err
+func getComputeHostInfo(ctx context.Context, client Client, topo *topology.ClusterTopology, instMap, blockMap map[string]string) error {
+	req := identity.ListAvailabilityDomainsRequest{
+		CompartmentId: &bcmnonprod_gb200_compartment_ocid,
+		//CompartmentId: client.TenancyOCID(),
 	}
 
-	if err := getBareMetalHostSummaries(ctx, client, topo, ci.Instances); err != nil {
-		return fmt.Errorf("unable to populate compute capacity topology: %v", err)
+	// TODO: remove print
+	fmt.Printf("CALL ListAvailabilityDomains. CompartmentId=%s\n", *req.CompartmentId)
+	start := time.Now()
+	resp, err := client.ListAvailabilityDomains(ctx, req)
+	reportLatency(resp.HTTPResponse(), start, "ListAvailabilityDomains")
+	if err != nil {
+		return fmt.Errorf("unable to get availability domains: %v", err)
 	}
+
+	// TODO: remove print loop
+	for _, item := range resp.Items {
+		fmt.Printf("AVAILABILITY DOMAIN %s\n", *item.Name)
+	}
+
+	for _, ad := range resp.Items {
+		err := getComputeHostSummary(ctx, client, ad.Name, topo, instMap)
+		if err != nil {
+			return fmt.Errorf("unable to get hosts info: %v", err)
+		}
+
+		if err = getLocalBlockMap(ctx, client, ad.Name, blockMap); err != nil {
+			return fmt.Errorf("unable to get local block map: %v", err)
+		}
+	}
+
+	klog.V(4).Infof("Returning host info for %d nodes and %d blocks", topo.Len(), len(blockMap))
 
 	return nil
 }
 
-func getComputeCapacityTopologies(ctx context.Context, client Client) (cct []core.ComputeCapacityTopologySummary, err error) {
-	compartmentId := client.TenancyOCID()
-
-	adRequest := identity.ListAvailabilityDomainsRequest{
-		CompartmentId: &compartmentId,
+func getComputeHostSummary(ctx context.Context, client Client, availabilityDomain *string, topo *topology.ClusterTopology, instMap map[string]string) error {
+	// TODO: identify CompartmentId at runtime
+	req := core.ListComputeHostsRequest{
+		CompartmentId: &bcmnonprod_gb200_compartment_ocid,
+		//CompartmentId:      client.TenancyOCID(),
+		AvailabilityDomain: availabilityDomain,
+		Limit:              client.Limit(),
 	}
 
-	timeStart := time.Now()
-	ads, err := client.ListAvailabilityDomains(ctx, adRequest)
-	if err != nil {
-		return cct, fmt.Errorf("unable to get AD: %v", err)
-	}
-	requestLatency.WithLabelValues("ListAvailabilityDomains", ads.HTTPResponse().Status).Observe(time.Since(timeStart).Seconds())
-
-	for _, ad := range ads.Items {
-		cctRequest := core.ListComputeCapacityTopologiesRequest{
-			CompartmentId:      &compartmentId,
-			AvailabilityDomain: ad.Name,
-		}
-
-		for {
-			timeStart := time.Now()
-			resp, err := client.ListComputeCapacityTopologies(ctx, cctRequest)
-			requestLatency.WithLabelValues("ListComputeCapacityTopologies", resp.HTTPResponse().Status).Observe(time.Since(timeStart).Seconds())
-			if err != nil {
-				if resp.HTTPResponse().StatusCode == http.StatusNotFound {
-					return cct, fmt.Errorf("%v for getting ComputeCapacityTopology in %s: %v", resp.HTTPResponse().StatusCode, *ad.Name, err)
-				} else {
-					return cct, fmt.Errorf("unable to get ComputeCapacity Topologies in %s : %v", *ad.Name, err)
-				}
-			}
-			cct = append(cct, resp.Items...)
-			klog.V(4).Infof("Received computeCapacityTopology %d groups; processed %d", len(resp.Items), len(cct))
-			if resp.OpcNextPage != nil {
-				cctRequest.Page = resp.OpcNextPage
-			} else {
-				break
-			}
-		}
-	}
-
-	return cct, nil
-}
-
-func getBMHSummaryPerComputeCapacityTopology(ctx context.Context, client Client, topologyID string, topo *topology.ClusterTopology, instanceMap map[string]string) error {
-	compartmentId := client.TenancyOCID()
-	request := core.ListComputeCapacityTopologyComputeBareMetalHostsRequest{
-		ComputeCapacityTopologyId: &topologyID,
-		CompartmentId:             &compartmentId,
-	}
 	for {
-		timeStart := time.Now()
-		response, err := client.ListComputeCapacityTopologyComputeBareMetalHosts(ctx, request)
-		requestLatency.WithLabelValues("ListComputeCapacityTopologyComputeBareMetalHosts", response.HTTPResponse().Status).Observe(time.Since(timeStart).Seconds())
+		// TODO: remove print
+		fmt.Printf("CALL ListComputeHosts. CompartmentId=%s AD=%s\n", *req.CompartmentId, *availabilityDomain)
+		start := time.Now()
+		resp, err := client.ListComputeHosts(ctx, req)
+		reportLatency(resp.HTTPResponse(), start, "ListComputeHosts")
 		if err != nil {
-			klog.Errorln(err.Error())
-			break
+			return err
 		}
+		// TODO: remove print
+		fmt.Printf("RES ListComputeHosts: status=%s hosts=%d\n", resp.HTTPResponse().Status, len(resp.Items))
+		for _, host := range resp.Items {
+			// TODO: remove print
+			fmt.Printf("--> INSTANCE %s\n", *host.Id)
 
-		for _, bmh := range response.Items {
-			inst, err := convert(&bmh)
+			inst, err := convert(&host)
 			if err != nil {
 				klog.Warning(err.Error())
 				continue
 			}
 
-			if _, ok := instanceMap[*bmh.InstanceId]; ok {
-				klog.V(4).Infof("Adding host topology %s", bmh.String())
+			if _, ok := instMap[*host.Id]; ok {
+				klog.V(4).Infof("Adding host %s", host.String())
 				topo.Append(inst)
 			} else {
-				klog.V(4).Infof("Skipping bmhSummary %s", bmh.String())
+				klog.V(4).Infof("Skipping host %s", host.String())
 			}
 		}
 
-		if response.OpcNextPage != nil {
-			request.Page = response.OpcNextPage
+		if resp.OpcNextPage != nil {
+			req.Page = resp.OpcNextPage
 		} else {
-			break
+			return nil
 		}
 	}
-
-	return nil
 }
 
-func getBareMetalHostSummaries(ctx context.Context, client Client, topo *topology.ClusterTopology, instanceMap map[string]string) error {
-	computeCapacityTopology, err := getComputeCapacityTopologies(ctx, client)
-	if err != nil {
-		return fmt.Errorf("unable to get compute capacity topologies: %s", err.Error())
+// getLocalBlockMap returns a map between LocalBlocks and ComputeGpuMemoryFabrics
+func getLocalBlockMap(ctx context.Context, client Client, availabilityDomain *string, blockMap map[string]string) error {
+	req := core.ListComputeGpuMemoryFabricsRequest{
+		CompartmentId: &bcmnonprod_gb200_compartment_ocid,
+		//CompartmentId:      client.TenancyOCID(),
+		AvailabilityDomain: availabilityDomain,
+		Limit:              client.Limit(),
 	}
-	klog.V(4).Infof("Received computeCapacityTopology for %d groups", len(computeCapacityTopology))
 
-	for _, cct := range computeCapacityTopology {
-		if err := getBMHSummaryPerComputeCapacityTopology(ctx, client, *cct.Id, topo, instanceMap); err != nil {
-			return fmt.Errorf("unable to get bare metal hosts info: %v", err)
+	for {
+		// TODO: remove print
+		fmt.Printf("CALL ListComputeGpuMemoryFabricsRequest. CompartmentId=%s\n", *req.CompartmentId)
+		start := time.Now()
+		resp, err := client.ListComputeGpuMemoryFabrics(ctx, req)
+		reportLatency(resp.HTTPResponse(), start, "ListComputeGpuMemoryFabrics")
+		if err != nil {
+			return err
+		}
+
+		for _, fabrics := range resp.Items {
+			blockMap[*fabrics.ComputeLocalBlockId] = *fabrics.Id
+			// TODO: remove print
+			fmt.Printf("--> ComputeLocalBlockId=%s fabricsId=%s\n", *fabrics.ComputeLocalBlockId, *fabrics.Id)
+		}
+
+		if resp.OpcNextPage != nil {
+			req.Page = resp.OpcNextPage
+		} else {
+			return nil
 		}
 	}
-	klog.V(4).Infof("Returning bareMetalHostSummaries for %d nodes", topo.Len())
-
-	return nil
 }
 
-func convert(bmh *core.ComputeBareMetalHostSummary) (*topology.InstanceTopology, error) {
-	if bmh.InstanceId == nil {
-		return nil, fmt.Errorf("Instance ID is nil for bmhSummary %s", bmh.String())
+func convert(host *core.ComputeHostSummary) (*topology.InstanceTopology, error) {
+	if host.Id == nil {
+		return nil, fmt.Errorf("InstanceID is nil for host %s", host.String())
 	}
 
-	if bmh.ComputeLocalBlockId == nil {
-		missingAncestor.WithLabelValues("localBlock", *bmh.InstanceId).Add(float64(1))
-		return nil, fmt.Errorf("ComputeLocalBlockId is nil for instance %q", *bmh.InstanceId)
+	if host.LocalBlockId == nil {
+		missingHostData.WithLabelValues("LocalBlock", *host.Id).Add(float64(1))
+		return nil, fmt.Errorf("LocalBlockId is nil for instance %q", *host.Id)
 	}
 
-	if bmh.ComputeNetworkBlockId == nil {
-		missingAncestor.WithLabelValues("networkBlock", *bmh.InstanceId).Add(float64(1))
-		return nil, fmt.Errorf("ComputeNetworkBlockId is nil for instance %q", *bmh.InstanceId)
+	if host.NetworkBlockId == nil {
+		missingHostData.WithLabelValues("networkBlock", *host.Id).Add(float64(1))
+		return nil, fmt.Errorf("NetworkBlockId is nil for instance %q", *host.Id)
 	}
 
-	if bmh.ComputeHpcIslandId == nil {
-		missingAncestor.WithLabelValues("hpcIsland", *bmh.InstanceId).Add(float64(1))
-		return nil, fmt.Errorf("ComputeHpcIslandId is nil for instance %q", *bmh.InstanceId)
+	if host.HpcIslandId == nil {
+		missingHostData.WithLabelValues("hpcIsland", *host.Id).Add(float64(1))
+		return nil, fmt.Errorf("HpcIslandId is nil for instance %q", *host.Id)
 	}
 
 	topo := &topology.InstanceTopology{
-		InstanceID:   *bmh.InstanceId,
-		BlockID:      *bmh.ComputeLocalBlockId,
-		SpineID:      *bmh.ComputeNetworkBlockId,
-		DatacenterID: *bmh.ComputeHpcIslandId,
+		InstanceID:   *host.Id,
+		BlockID:      *host.LocalBlockId,
+		SpineID:      *host.NetworkBlockId,
+		DatacenterID: *host.HpcIslandId,
 	}
 
 	return topo, nil
+}
+
+func reportLatency(resp *http.Response, since time.Time, method string) {
+	duration := time.Since(since).Seconds()
+	if resp != nil {
+		requestLatency.WithLabelValues(method, resp.Status).Observe(duration)
+	} else {
+		requestLatency.WithLabelValues(method, "Fatal").Observe(duration)
+	}
 }
