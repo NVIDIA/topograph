@@ -41,6 +41,13 @@ BlockName=B1 Nodes=Node[104-106]
 BlockName=B2 Nodes=Node[201-202],Node205
 BlockSizes=3
 `
+
+	testBlockConfigDFS = `BlockName=B1 Nodes=Node202
+BlockName=B2 Nodes=Node[104-105]
+BlockName=B3 Nodes=Node205
+BlockSizes=1
+`
+
 	shortNameExpectedResult = `# switch.3.1=hpcislandid-1
 SwitchName=switch.3.1 Switches=switch.2.[1-2]
 # switch.2.1=network-block-1
@@ -94,6 +101,20 @@ func TestToBlockIBTopology(t *testing.T) {
 	require.NoError(t, err)
 	switch buf.String() {
 	case testBlockConfig:
+		// nop
+	default:
+		t.Errorf("unexpected result %s", buf.String())
+	}
+}
+
+func TestToBlockDFSIBTopology(t *testing.T) {
+	v, _ := GetBlockWithDFSIBTestSet()
+	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyBlock)
+	buf := &bytes.Buffer{}
+	err := ToGraph(buf, v)
+	require.NoError(t, err)
+	switch buf.String() {
+	case testBlockConfigDFS:
 		// nop
 	default:
 		t.Errorf("unexpected result %s", buf.String())

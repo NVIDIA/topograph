@@ -107,13 +107,12 @@ func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, for
 		if len(ins.NvlinkDomain) != 0 {
 			klog.V(4).Infof("Adding node %q to NVLink domain %q", nodeName, ins.NvlinkDomain)
 			switchName := fmt.Sprintf("nvlink-%s", ins.NvlinkDomain)
-			sw, ok := forest[switchName]
+			sw, ok := blocks[switchName]
 			if !ok {
 				sw = &topology.Vertex{
 					ID:       switchName,
 					Vertices: map[string]*topology.Vertex{id: vertex},
 				}
-				forest[switchName] = sw
 				blocks[switchName] = sw
 			} else {
 				sw.Vertices[id] = vertex
