@@ -51,12 +51,22 @@ var (
 		},
 		[]string{"provider"},
 	)
+
+	blockSizeValidationErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "blocksize_error_total",
+			Help:      "Total number of blocksize validation errors.",
+			Subsystem: "topograph",
+		},
+		[]string{"type"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(httpRequestsTotal)
 	prometheus.MustRegister(httpRequestDuration)
 	prometheus.MustRegister(missingTopologyNodes)
+	prometheus.MustRegister(blockSizeValidationErrorsTotal)
 }
 
 func Add(provider, engine string, code int, duration time.Duration) {
@@ -67,4 +77,8 @@ func Add(provider, engine string, code int, duration time.Duration) {
 
 func SetMissingTopology(provider string, count int) {
 	missingTopologyNodes.WithLabelValues(provider).Set(float64(count))
+}
+
+func AddBlockSizeValidationError(errorType string) {
+	blockSizeValidationErrorsTotal.WithLabelValues(errorType).Inc()
 }

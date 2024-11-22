@@ -24,7 +24,10 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/klog/v2"
+
 	"github.com/NVIDIA/topograph/pkg/engines"
+	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -98,12 +101,14 @@ func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
 		blockSizes := strings.Split(adminBlockSize, ",")
 		planningBS, err := strconv.Atoi(blockSizes[0])
 		if err != nil {
-			fmt.Printf("Alert, strconv Atoi for admin provided blockSize %v failed with err: %v! Ignoring it\n", blockSizes[0], err)
+			metrics.AddBlockSizeValidationError("parsing error")
+			klog.Warningf("Failed to parse blockSize %v: %v. Ignoring.", blockSizes[0], err)
 		} else {
 			if planningBS > 0 && planningBS <= minDomainSize {
 				return adminBlockSize
 			}
-			fmt.Printf("Alert Overriden planning blockSize of %v does not meet criteria, minimum domain size %v! Ignoring it\n", planningBS, minDomainSize)
+			metrics.AddBlockSizeValidationError("bad domain size")
+			klog.Warningf("Overriden planning blockSize of %v does not meet criteria, minimum domain size %v. Ignoring.", planningBS, minDomainSize)
 		}
 	}
 	logDsize := math.Log2(float64(minDomainSize))
