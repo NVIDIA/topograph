@@ -23,7 +23,6 @@ import (
 )
 
 func TestGetSimParams(t *testing.T) {
-
 	testCases := []struct {
 		name   string
 		params map[string]any

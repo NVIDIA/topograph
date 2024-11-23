@@ -21,10 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NVIDIA/topograph/pkg/server"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/stretchr/testify/require"
 	"k8s.io/klog/v2"
+
+	"github.com/NVIDIA/topograph/pkg/server"
 )
 
 func TestTrailingDelayQueue(t *testing.T) {
