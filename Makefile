@@ -23,7 +23,7 @@ GIT_REF =$(shell git rev-parse --abbrev-ref HEAD)
 IMAGE_TAG ?=$(GIT_REF)
 
 .PHONY: build
-build: proto
+build:
 	@for target in $(TARGETS); do        \
 	  echo "Building $${target}";        \
 	  CGO_ENABLED=0 go build -a -o $(OUTPUT_DIR)/$${target}        \

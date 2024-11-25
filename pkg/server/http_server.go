@@ -40,6 +40,10 @@ type HttpServer struct {
 var srv *HttpServer
 
 func InitHttpServer(ctx context.Context, cfg *config.Config) {
+	srv = initHttpServer(ctx, cfg)
+}
+
+func initHttpServer(ctx context.Context, cfg *config.Config) *HttpServer {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/v1/generate", generate)
@@ -47,7 +51,7 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 	mux.HandleFunc("/healthz", healthz)
 	mux.Handle("/metrics", promhttp.Handler())
 
-	srv = &HttpServer{
+	return &HttpServer{
 		ctx: ctx,
 		cfg: cfg,
 		srv: &http.Server{
