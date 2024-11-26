@@ -63,7 +63,6 @@ SwitchName=switch.1.2 Nodes=node-2
 
 func TestToTreeTopology(t *testing.T) {
 	v, _ := GetTreeTestSet(false)
-	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyTree)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -72,7 +71,6 @@ func TestToTreeTopology(t *testing.T) {
 
 func TestToBlockTopology(t *testing.T) {
 	v, _ := GetBlockTestSet()
-	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyBlock)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -81,7 +79,6 @@ func TestToBlockTopology(t *testing.T) {
 
 func TestToBlockMultiIBTopology(t *testing.T) {
 	v, _ := GetBlockWithMultiIBTestSet()
-	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyBlock)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -95,7 +92,6 @@ func TestToBlockMultiIBTopology(t *testing.T) {
 
 func TestToBlockIBTopology(t *testing.T) {
 	v, _ := GetBlockWithIBTestSet()
-	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyBlock)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -109,7 +105,6 @@ func TestToBlockIBTopology(t *testing.T) {
 
 func TestToBlockDFSIBTopology(t *testing.T) {
 	v, _ := GetBlockWithDFSIBTestSet()
-	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyBlock)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)
@@ -163,12 +158,8 @@ func TestToSlurmNameShortener(t *testing.T) {
 				},
 			},
 		},
-		Metadata: map[string]string{
-			topology.KeyPlugin: topology.TopologyTree,
-		},
 	}
 
-	require.Equal(t, v.Metadata[topology.KeyPlugin], topology.TopologyTree)
 	buf := &bytes.Buffer{}
 	err := ToGraph(buf, v)
 	require.NoError(t, err)

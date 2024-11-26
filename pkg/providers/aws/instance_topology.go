@@ -179,15 +179,16 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 		forest[topology.NoTopology] = sw
 	}
 
-	root := &topology.Vertex{
+	treeRoot := &topology.Vertex{
 		Vertices: make(map[string]*topology.Vertex),
-		Metadata: map[string]string{
-			topology.KeyPlugin: topology.TopologyTree,
-		},
 	}
 	for name, node := range forest {
-		root.Vertices[name] = node
+		treeRoot.Vertices[name] = node
 	}
 
+	root := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
+	}
+	root.Vertices[topology.TopologyTree] = treeRoot
 	return root, nil
 }

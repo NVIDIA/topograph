@@ -148,8 +148,17 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 			plugin = tree.Metadata[topology.KeyPlugin]
 		}
 		if len(plugin) == 0 {
+			if tree.Vertices[topology.TopologyBlock] != nil {
+				plugin = topology.TopologyBlock
+			} else {
+				plugin = topology.TopologyTree
+			}
+		} else if plugin == topology.TopologyBlock && tree.Vertices[topology.TopologyBlock] == nil {
+			klog.Infof("Admin provided plugin %v not valid, overriding with %v", plugin, topology.TopologyTree)
 			plugin = topology.TopologyTree
+			tree.Metadata[topology.KeyPlugin] = plugin
 		}
+
 		if _, err := buf.WriteString(fmt.Sprintf(TopologyHeader, plugin)); err != nil {
 			return nil, err
 		}

@@ -19,7 +19,6 @@ package test
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/pkg/engines"
@@ -57,10 +56,6 @@ func (eng *TestEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex
 	var p slurm.Params
 	if err := config.Decode(params, &p); err != nil {
 		return nil, err
-	}
-
-	if len(tree.Metadata) == 0 {
-		return nil, fmt.Errorf("metadata for test engine not set")
 	}
 
 	if len(p.Plugin) != 0 {
