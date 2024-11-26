@@ -141,15 +141,17 @@ func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
 		sw1.Vertices[id2] = sw2
 	}
 
-	root := &topology.Vertex{
+	treeRoot := &topology.Vertex{
 		Vertices: make(map[string]*topology.Vertex),
-		Metadata: map[string]string{
-			topology.KeyPlugin: topology.TopologyTree,
-		},
 	}
 	for name, node := range forest {
-		root.Vertices[name] = node
+		treeRoot.Vertices[name] = node
 	}
+
+	root := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
+	}
+	root.Vertices[topology.TopologyTree] = treeRoot
 
 	return root, nil
 }

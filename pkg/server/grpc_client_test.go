@@ -140,7 +140,6 @@ func TestToGraph(t *testing.T) {
 	blockRoot := &topology.Vertex{Vertices: map[string]*topology.Vertex{"nvlink-nv1": nv1}}
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
-		Metadata: map[string]string{topology.KeyPlugin: topology.TopologyBlock},
 	}
 
 	require.Equal(t, root, toGraph(&pb.TopologyResponse{Instances: instances}, cis, topology.TopologyBlock))

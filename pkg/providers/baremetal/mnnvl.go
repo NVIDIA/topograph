@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/NVIDIA/topograph/internal/exec"
-	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/ib"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -208,9 +207,6 @@ func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.V
 		}
 		blockRoot.Vertices[domainName] = tree
 	}
-	// add root metadata
-	root.Metadata[topology.KeyEngine] = engines.EngineSLURM
-	root.Metadata[topology.KeyPlugin] = topology.TopologyBlock
 	root.Vertices[topology.TopologyBlock] = blockRoot
 	return root
 }

@@ -64,13 +64,14 @@ func GenerateTopologyConfig(data []byte) (*topology.Vertex, error) {
 	}
 	seen = make(map[int]map[string]*Switch)
 	root.simplify(root.getHeight())
-	rootNode, err := root.toGraph()
+	treeNode, err := root.toGraph()
 	if err != nil {
 		return nil, err
 	}
-	rootNode.Metadata = map[string]string{
-		topology.KeyPlugin: topology.TopologyTree,
+	rootNode := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
 	}
+	rootNode.Vertices[topology.TopologyTree] = treeNode
 	return rootNode, nil
 }
 

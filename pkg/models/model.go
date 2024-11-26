@@ -213,13 +213,15 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 	for k, v := range blockVertexMap {
 		blockRoot.Vertices[k] = v
 	}
-	if block_topology {
-		root := &topology.Vertex{
-			Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
-			Metadata: map[string]string{topology.KeyPlugin: topology.TopologyBlock},
-		}
-		return root, instance2node
+
+	rootNode := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
 	}
-	treeRoot.Metadata = map[string]string{topology.KeyPlugin: topology.TopologyTree}
-	return treeRoot, instance2node
+
+	if block_topology {
+		rootNode.Vertices[topology.TopologyBlock] = blockRoot
+	}
+
+	rootNode.Vertices[topology.TopologyTree] = treeRoot
+	return rootNode, instance2node
 }

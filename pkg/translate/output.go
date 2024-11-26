@@ -26,7 +26,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -39,7 +38,10 @@ func ToGraph(wr io.Writer, root *topology.Vertex) error {
 			return toTreeTopology(wr, root)
 		}
 	}
-	return fmt.Errorf("topology metadata not set in root node")
+	if root.Vertices[topology.TopologyBlock] != nil {
+		return toBlockTopology(wr, root)
+	}
+	return toTreeTopology(wr, root)
 }
 
 func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int) error {
@@ -383,9 +385,6 @@ func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]str
 	}
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{"S1": sw1},
-		Metadata: map[string]string{
-			topology.KeyPlugin: topology.TopologyTree,
-		},
 	}
 
 	return root, instance2node
@@ -477,8 +476,6 @@ func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
-			topology.KeyEngine:     engines.EngineSLURM,
-			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}
@@ -531,8 +528,6 @@ func GetBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
-			topology.KeyEngine:     engines.EngineSLURM,
-			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}
@@ -605,8 +600,6 @@ func GetBlockWithDFSIBTestSet() (*topology.Vertex, map[string]string) {
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
-			topology.KeyEngine:     engines.EngineSLURM,
-			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "1",
 		},
 	}
@@ -643,8 +636,6 @@ func GetBlockTestSet() (*topology.Vertex, map[string]string) {
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot},
 		Metadata: map[string]string{
-			topology.KeyEngine:     engines.EngineSLURM,
-			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}

@@ -169,7 +169,9 @@ func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, for
 		treeRoot.Vertices[name] = node
 	}
 
-	metadata := map[string]string{topology.KeyPlugin: format}
+	root := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
+	}
 	if format == topology.TopologyBlock {
 		blockRoot := &topology.Vertex{
 			Vertices: make(map[string]*topology.Vertex),
@@ -177,16 +179,9 @@ func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, for
 		for name, domain := range blocks {
 			blockRoot.Vertices[name] = domain
 		}
-
-		return &topology.Vertex{
-			Vertices: map[string]*topology.Vertex{
-				topology.TopologyBlock: blockRoot,
-				topology.TopologyTree:  treeRoot,
-			},
-			Metadata: metadata,
-		}
-	} else {
-		treeRoot.Metadata = metadata
-		return treeRoot
+		root.Vertices[topology.TopologyBlock] = blockRoot
 	}
+	root.Vertices[topology.TopologyTree] = treeRoot
+	return root
+
 }
