@@ -32,7 +32,7 @@ build:
 	done
 
 .PHONY: build-arm64
-build-arm64: proto
+build-arm64:
 	@echo "Building for arm64"
 	@for target in $(TARGETS); do        \
 	  echo "Building $${target}";        \
@@ -95,14 +95,11 @@ image-push: image-build
 ssl:
 	SSL_DIR=ssl ./scripts/configure-ssl.sh
 
-.PHONY: deb
-deb: build
-	scripts/build-deb.sh $(GIT_REF)
+.PHONY: deb rpm
+deb rpm: build
+	scripts/build-$@.sh $(GIT_REF)
 
 .PHONY: deb-arm64
 deb-arm64: build-arm64
-	ARCH=arm64 scripts/build-deb-arm64.sh $(GIT_REF)
+	ARCH=arm64 scripts/build-deb.sh $(GIT_REF)
 
-.PHONY: rpm
-rpm: build
-	scripts/build-rpm.sh $(GIT_REF)
