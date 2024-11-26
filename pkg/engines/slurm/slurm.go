@@ -154,6 +154,7 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 				plugin = topology.TopologyTree
 			}
 		} else if plugin == topology.TopologyBlock && tree.Vertices[topology.TopologyBlock] == nil {
+			//TODO: add Prometheus metrics to surface this validation error
 			klog.Infof("Admin provided plugin %v not valid, overriding with %v", plugin, topology.TopologyTree)
 			plugin = topology.TopologyTree
 			tree.Metadata[topology.KeyPlugin] = plugin
