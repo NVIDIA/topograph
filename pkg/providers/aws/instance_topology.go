@@ -27,6 +27,7 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 var defaultPageSize int32 = 100
@@ -111,6 +112,7 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 
 	forest := make(map[string]*topology.Vertex)
 	nodes := make(map[string]*topology.Vertex)
+	domainMap := translate.NewDomainMap()
 
 	for _, inst := range top {
 		//klog.V(4).Infof("Checking instance %q", c.InstanceId)
@@ -120,6 +122,11 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 		}
 		klog.V(4).Infof("Found node %q instance %q", nodeName, *inst.InstanceId)
 		delete(i2n, *inst.InstanceId)
+
+		// update domain map
+		if inst.CapacityBlockId != nil {
+			domainMap.AddHost(*inst.CapacityBlockId, nodeName)
+		}
 
 		instance := &topology.Vertex{
 			Name: nodeName,
@@ -187,8 +194,11 @@ func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*to
 	}
 
 	root := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
+		Vertices: map[string]*topology.Vertex{topology.TopologyTree: treeRoot},
 	}
-	root.Vertices[topology.TopologyTree] = treeRoot
+	if len(domainMap) != 0 {
+		root.Vertices[topology.TopologyBlock] = domainMap.ToBlocks()
+	}
+
 	return root, nil
 }
