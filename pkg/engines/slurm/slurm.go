@@ -30,6 +30,7 @@ import (
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/internal/files"
 	"github.com/NVIDIA/topograph/pkg/engines"
+	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
@@ -49,7 +50,7 @@ type Params struct {
 	Plugin         string `mapstructure:"plugin"`
 	TopoConfigPath string `mapstructure:"topology_config_path"`
 	BlockSizes     string `mapstructure:"block_sizes"`
-	SkipReload     string `mapstructure:"skip_reload"` // TODO: Should this be a bool
+	Reconfigure    bool   `mapstructure:"reconfigure"`
 }
 
 type instanceMapper interface {
@@ -140,38 +141,45 @@ func GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[strin
 
 func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Params) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	path := params.TopoConfigPath
+	path, plugin := params.TopoConfigPath, params.Plugin
+
+	// set and validate plugin
+	switch plugin {
+	case "":
+		plugin = topology.TopologyTree
+	case topology.TopologyTree:
+		if _, ok := tree.Vertices[topology.TopologyTree]; !ok {
+			return nil, fmt.Errorf("missing tree topology")
+		}
+	case topology.TopologyBlock:
+		if _, ok := tree.Vertices[topology.TopologyTree]; !ok {
+			return nil, fmt.Errorf("missing tree topology")
+		}
+		if _, ok := tree.Vertices[topology.TopologyBlock]; !ok {
+			return nil, fmt.Errorf("missing block topology")
+		}
+	default:
+		klog.Infof("Unsupported topology plugin %s. Using %s", plugin, topology.TopologyTree)
+		plugin = topology.TopologyTree
+		metrics.AddValidationError("unsupported plugin")
+	}
 
 	if len(path) != 0 {
-		var plugin string
-		if len(tree.Metadata) != 0 {
-			plugin = tree.Metadata[topology.KeyPlugin]
-		}
-		if len(plugin) == 0 {
-			if tree.Vertices[topology.TopologyBlock] != nil {
-				plugin = topology.TopologyBlock
-			} else {
-				plugin = topology.TopologyTree
-			}
-		} else if plugin == topology.TopologyBlock && tree.Vertices[topology.TopologyBlock] == nil {
-			//TODO: add Prometheus metrics to surface this validation error
-			klog.Infof("Admin provided plugin %v not valid, overriding with %v", plugin, topology.TopologyTree)
-			plugin = topology.TopologyTree
-			tree.Metadata[topology.KeyPlugin] = plugin
-		}
-
 		if _, err := buf.WriteString(fmt.Sprintf(TopologyHeader, plugin)); err != nil {
 			return nil, err
 		}
 	}
 
-	blockSize := params.BlockSizes
-
-	if len(blockSize) != 0 {
-		tree.Metadata[topology.KeyBlockSizes] = blockSize
+	if len(tree.Metadata) == 0 {
+		tree.Metadata = make(map[string]string)
 	}
 
-	err := translate.ToGraph(buf, tree)
+	tree.Metadata[topology.KeyPlugin] = plugin
+	if len(params.BlockSizes) != 0 {
+		tree.Metadata[topology.KeyBlockSizes] = params.BlockSizes
+	}
+
+	err := translate.Write(buf, tree)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +187,7 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 	cfg := buf.Bytes()
 
 	if len(path) == 0 {
+		klog.Info("Returning topology config")
 		return cfg, nil
 	}
 
@@ -186,9 +195,7 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 	if err = files.Create(path, cfg); err != nil {
 		return nil, err
 	}
-	if len(params.SkipReload) > 0 {
-		klog.Infof("Skip SLURM reconfiguration")
-	} else {
+	if params.Reconfigure {
 		if err = reconfigure(ctx); err != nil {
 			return nil, err
 		}

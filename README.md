@@ -57,12 +57,12 @@ http:
 # provider: the provider that topograph will use (optional)
 # Valid options include "aws", "oci", "gcp", "cw", "baremetal" or "test".
 # Can be overridden if the provider is specified in a topology request to topograph
-provider: "aws"
+provider: test
 
 # engine: the engine that topograph will use (optional)
-# Valid options include "slurm", "k8s", or "test".
+# Valid options include "slurm" or "k8s".
 # Can be overridden if the engine is specified in a topology request to topograph
-engine: "slurm"
+engine: slurm
 
 # request_aggregation_delay: defines the delay before processing a request (required).
 # Topograph aggregates multiple sequential requests within this delay into a single request,
@@ -132,9 +132,9 @@ Topograph offers three endpoints for interacting with the service. Below are the
   - **engine parameters**: (optional) A key-value map with engine-specific parameters.
     - **slurm parameters**:
       - **topology_config_path**: (optional) A string specifying the file path for the topology configuration. If omitted, the topology config content is returned in the HTTP response.
-      - **plugin**: (optional) A string specifying topology plugin. Default topology/tree.
-      - **block_sizes**: (optional) A string specifying block size for topology/block plugin
-      - **skip_reload**: (optional) If present, the cluster reconfiguration is skipped.
+      - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
+      - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
+      - **reconfigure**: (optional) If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`
     - **k8s parameters**:
       - **topology_config_path**: (mandatory) A string specifying the key for the topology config in the ConfigMap.
       - **topology_configmap_name**: (mandatory) A string specifying the name of the ConfigMap containing the topology config.

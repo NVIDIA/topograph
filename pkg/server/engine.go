@@ -53,6 +53,7 @@ func processRequest(item interface{}) (interface{}, *HTTPError) {
 
 func processTopologyRequest(tr *topology.Request) ([]byte, *HTTPError) {
 	klog.InfoS("Creating topology config", "provider", tr.Provider.Name, "engine", tr.Engine.Name)
+	defer klog.Info("Topology request completed")
 
 	engLoader, err := registry.Engines.Get(tr.Engine.Name)
 	if err != nil {

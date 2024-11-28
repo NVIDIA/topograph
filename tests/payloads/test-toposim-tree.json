@@ -1,14 +1,11 @@
 {
-	"provider": 
-	{
-		"name": "test",
-		"params": 
-		{
-			"model_path": "tests/models/medium.yaml"
-		}
-	},
-	"engine": 
-	{
-		"name": "test"
-	}
+  "provider": {
+    "name": "test",
+    "params": {
+      "model_path": "tests/models/medium.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  }
 }

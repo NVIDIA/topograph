@@ -4,8 +4,8 @@ http:
   ssl: false
 
 # Set provider and engine for topograph to use
-# provider: "test"
-# engine: "test"
+# provider: test
+# engine: slurm
 
 # waiting period before processing a request
 request_aggregation_delay: 15s

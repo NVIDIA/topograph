@@ -1,19 +1,15 @@
 {
-	"provider": 
-	{
-		"name": "test",
-		"params": 
-		{
-			"model_path": "tests/models/medium.yaml"
-		}
-	},
-	"engine": 
-	{
-		"name": "test",
-		"params": 
-		{
-			"plugin": "topology/block",
-			"block_sizes": "2,4"
-		}
-	}
+  "provider": {
+    "name": "test",
+    "params": {
+      "model_path": "tests/models/medium.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "block_sizes": "2,4"
+    }
+  }
 }
