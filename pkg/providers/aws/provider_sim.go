@@ -98,7 +98,7 @@ func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec
 					AvailabilityZone: &az,
 					ZoneId:           &az,
 					GroupName:        &pg,
-					CapacityBlockId:  &node.CapacityBlock,
+					CapacityBlockId:  &node.NVLink,
 					NetworkNodes:     netLayers,
 				}
 				instances = append(instances, instTopo)

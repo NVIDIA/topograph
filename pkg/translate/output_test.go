@@ -161,8 +161,12 @@ func TestToSlurmNameShortener(t *testing.T) {
 		},
 	}
 
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyTree: v},
+	}
+
 	buf := &bytes.Buffer{}
-	err := Write(buf, v)
+	err := Write(buf, root)
 	require.NoError(t, err)
 	require.Equal(t, shortNameExpectedResult, buf.String())
 }

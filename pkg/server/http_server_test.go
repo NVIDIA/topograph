@@ -57,6 +57,9 @@ func TestServer(t *testing.T) {
 	defer srv.Stop(nil)
 	go func() { _ = srv.Start() }()
 
+	// let the server start
+	time.Sleep(time.Second)
+
 	testCases := []struct {
 		name     string
 		endpoint string
@@ -69,7 +72,25 @@ func TestServer(t *testing.T) {
 			expected: "OK\n",
 		},
 		{
-			name:     "Case 2: mock AWS request",
+			name:     "Case 2: send test request for tree topology",
+			endpoint: "generate",
+			payload: `
+{
+  "provider": {
+    "name": "test"
+  },
+  "engine": {
+    "name": "slurm"
+  }
+}
+`,
+			expected: `SwitchName=S1 Switches=S[2-3]
+SwitchName=S2 Nodes=Node[201-202],Node205
+SwitchName=S3 Nodes=Node[304-306]
+`,
+		},
+		{
+			name:     "Case 3: mock AWS request for tree topology",
 			endpoint: "generate",
 			payload: `
 {
@@ -106,6 +127,48 @@ SwitchName=sw11 Nodes=n11-[1-2]
 SwitchName=sw12 Nodes=n12-[1-2]
 SwitchName=sw13 Nodes=n13-[1-2]
 SwitchName=sw14 Nodes=n14-[1-2]
+`,
+		},
+		{
+			name:     "Case 4: mock AWS request for block topology",
+			endpoint: "generate",
+			payload: `
+{
+  "provider": {
+    "name": "aws-sim",
+    "params": {
+      "model_path": "../../tests/models/medium.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+	"params": {
+      "plugin": "topology/block",
+      "block_sizes": "2,4"
+    }
+  },
+  "nodes": [
+    {
+      "region": "R1",
+      "instances": {
+        "n11-1": "n11-1",
+        "n11-2": "n11-2",
+        "n12-1": "n12-1",
+        "n12-2": "n12-2",
+        "n13-1": "n13-1",
+        "n13-2": "n13-2",
+        "n14-1": "n14-1",
+        "n14-2": "n14-2"
+      }
+    }
+  ]
+}
+`,
+			expected: `BlockName=nvl1 Nodes=n11-[1-2]
+BlockName=nvl2 Nodes=n12-[1-2]
+BlockName=nvl3 Nodes=n13-[1-2]
+BlockName=nvl4 Nodes=n14-[1-2]
+BlockSizes=2,4
 `,
 		},
 	}

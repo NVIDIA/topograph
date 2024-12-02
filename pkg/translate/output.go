@@ -41,7 +41,7 @@ func Write(wr io.Writer, root *topology.Vertex) error {
 		return toBlockTopology(wr, root)
 	}
 
-	return toTreeTopology(wr, root)
+	return toTreeTopology(wr, root.Vertices[topology.TopologyTree])
 }
 
 func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int) error {
@@ -383,10 +383,13 @@ func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]str
 		ID:       "S1",
 		Vertices: map[string]*topology.Vertex{"S2": sw2, s3name: sw3},
 	}
-	root := &topology.Vertex{
+	treeRoot := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{"S1": sw1},
 	}
 
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyTree: treeRoot},
+	}
 	return root, instance2node
 }
 
