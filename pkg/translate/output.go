@@ -30,17 +30,17 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func ToGraph(wr io.Writer, root *topology.Vertex) error {
+func Write(wr io.Writer, root *topology.Vertex) error {
+	var plugin string
+
 	if len(root.Metadata) != 0 {
-		if root.Metadata[topology.KeyPlugin] == topology.TopologyBlock {
-			return toBlockTopology(wr, root)
-		} else if root.Metadata[topology.KeyPlugin] == topology.TopologyTree {
-			return toTreeTopology(wr, root)
-		}
+		plugin = root.Metadata[topology.KeyPlugin]
 	}
-	if root.Vertices[topology.TopologyBlock] != nil {
+
+	if plugin == topology.TopologyBlock {
 		return toBlockTopology(wr, root)
 	}
+
 	return toTreeTopology(wr, root)
 }
 
@@ -103,13 +103,13 @@ func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
 		blockSizes := strings.Split(adminBlockSize, ",")
 		planningBS, err := strconv.Atoi(blockSizes[0])
 		if err != nil {
-			metrics.AddBlockSizeValidationError("parsing error")
+			metrics.AddValidationError("block size parsing error")
 			klog.Warningf("Failed to parse blockSize %v: %v. Ignoring.", blockSizes[0], err)
 		} else {
 			if planningBS > 0 && planningBS <= minDomainSize {
 				return adminBlockSize
 			}
-			metrics.AddBlockSizeValidationError("bad domain size")
+			metrics.AddValidationError("bad block domain size")
 			klog.Warningf("Overriden planning blockSize of %v does not meet criteria, minimum domain size %v. Ignoring.", planningBS, minDomainSize)
 		}
 	}
@@ -476,6 +476,7 @@ func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
+			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}
@@ -528,6 +529,7 @@ func GetBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
+			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}
@@ -600,6 +602,7 @@ func GetBlockWithDFSIBTestSet() (*topology.Vertex, map[string]string) {
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
+			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "1",
 		},
 	}
@@ -636,6 +639,7 @@ func GetBlockTestSet() (*topology.Vertex, map[string]string) {
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot},
 		Metadata: map[string]string{
+			topology.KeyPlugin:     topology.TopologyBlock,
 			topology.KeyBlockSizes: "3",
 		},
 	}

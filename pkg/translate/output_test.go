@@ -20,8 +20,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const (
@@ -64,7 +65,7 @@ SwitchName=switch.1.2 Nodes=node-2
 func TestToTreeTopology(t *testing.T) {
 	v, _ := GetTreeTestSet(false)
 	buf := &bytes.Buffer{}
-	err := ToGraph(buf, v)
+	err := Write(buf, v)
 	require.NoError(t, err)
 	require.Equal(t, testTreeConfig, buf.String())
 }
@@ -72,7 +73,7 @@ func TestToTreeTopology(t *testing.T) {
 func TestToBlockTopology(t *testing.T) {
 	v, _ := GetBlockTestSet()
 	buf := &bytes.Buffer{}
-	err := ToGraph(buf, v)
+	err := Write(buf, v)
 	require.NoError(t, err)
 	require.Equal(t, testBlockConfig, buf.String())
 }
@@ -80,7 +81,7 @@ func TestToBlockTopology(t *testing.T) {
 func TestToBlockMultiIBTopology(t *testing.T) {
 	v, _ := GetBlockWithMultiIBTestSet()
 	buf := &bytes.Buffer{}
-	err := ToGraph(buf, v)
+	err := Write(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
 	case testBlockConfig2:
@@ -93,7 +94,7 @@ func TestToBlockMultiIBTopology(t *testing.T) {
 func TestToBlockIBTopology(t *testing.T) {
 	v, _ := GetBlockWithIBTestSet()
 	buf := &bytes.Buffer{}
-	err := ToGraph(buf, v)
+	err := Write(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
 	case testBlockConfig:
@@ -106,7 +107,7 @@ func TestToBlockIBTopology(t *testing.T) {
 func TestToBlockDFSIBTopology(t *testing.T) {
 	v, _ := GetBlockWithDFSIBTestSet()
 	buf := &bytes.Buffer{}
-	err := ToGraph(buf, v)
+	err := Write(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
 	case testBlockConfigDFS:
@@ -161,7 +162,7 @@ func TestToSlurmNameShortener(t *testing.T) {
 	}
 
 	buf := &bytes.Buffer{}
-	err := ToGraph(buf, v)
+	err := Write(buf, v)
 	require.NoError(t, err)
 	require.Equal(t, shortNameExpectedResult, buf.String())
 }

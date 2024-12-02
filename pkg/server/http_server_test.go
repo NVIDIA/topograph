@@ -80,7 +80,7 @@ func TestServer(t *testing.T) {
     }
   },
   "engine": {
-    "name": "test"
+    "name": "slurm"
   },
   "nodes": [
     {

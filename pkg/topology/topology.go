@@ -29,8 +29,6 @@ const (
 	KeyTopoConfigmapName      = "topology_configmap_name"
 	KeyTopoConfigmapNamespace = "topology_configmap_namespace"
 	KeyBlockSizes             = "block_sizes"
-	KeySkipReload             = "skip_reload"
-	KeyModelPath              = "model_path"
 
 	KeyPlugin     = "plugin"
 	TopologyTree  = "topology/tree"

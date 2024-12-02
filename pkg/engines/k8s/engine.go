@@ -74,7 +74,7 @@ func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex,
 		return nil, err
 	}
 	buf := &bytes.Buffer{}
-	err := translate.ToGraph(buf, tree)
+	err := translate.Write(buf, tree)
 	if err != nil {
 		return nil, err
 	}

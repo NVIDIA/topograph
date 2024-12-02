@@ -39,8 +39,8 @@ curl http://localhost:49021/healthz
 #### Using Toposim
 To test the service on a simulated cluster, first add the following lines to `/etc/topograph/topograph-config.yaml` so that topograph knows to run topology in simulation and to forward any topology requests to toposim.
 ```bash
-provider: "test"
-engine: "test"
+provider: test
+engine: slurm
 forward_service_url: dns:localhost:49025
 ```
 Then run the topograph service as normal.

@@ -20,7 +20,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/engines/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
-	engine_test "github.com/NVIDIA/topograph/pkg/engines/test"
 
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
@@ -44,5 +43,4 @@ var Providers = providers.NewRegistry(
 var Engines = engines.NewRegistry(
 	k8s.NamedLoader,
 	slurm.NamedLoader,
-	engine_test.NamedLoader,
 )

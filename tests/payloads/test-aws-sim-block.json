@@ -6,7 +6,7 @@
     }
   },
   "engine": {
-    "name": "test",
+    "name": "slurm",
     "params": {
       "plugin": "topology/block",
       "block_sizes": "2,4"
