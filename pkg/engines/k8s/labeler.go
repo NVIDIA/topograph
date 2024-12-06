@@ -24,6 +24,18 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const (
+	hierarchyLayerAccelerator = "network.topology.kubernetes.io/accelerator"
+	hierarchyLayerBlock       = "network.topology.kubernetes.io/block"
+	hierarchyLayerSpine       = "network.topology.kubernetes.io/spine"
+	hierarchyLayerDatacenter  = "network.topology.kubernetes.io/datacenter"
+)
+
+var switchNetworkHierarchy = []string{hierarchyLayerBlock, hierarchyLayerSpine, hierarchyLayerDatacenter}
+
+// map nodename:[label name: label value]
+type nodeLabelMap map[string]map[string]string
+
 type Labeler interface {
 	AddNodeLabels(context.Context, string, map[string]string) error
 }
@@ -39,45 +51,84 @@ func NewTopologyLabeler() *topologyLabeler {
 }
 
 func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, v *topology.Vertex, labeler Labeler) error {
-	if v == nil {
+	if v == nil || len(v.Vertices) == 0 {
 		return nil
 	}
-	levels := []string{}
-	if len(v.ID) != 0 {
-		levels = append(levels, v.ID)
+
+	nodeMap := make(nodeLabelMap)
+	if blockRoot, ok := v.Vertices[topology.TopologyBlock]; ok {
+		if err := l.getBlockNodeLabels(blockRoot, nodeMap); err != nil {
+			return err
+		}
 	}
 
-	return l.applyNodeLabels(ctx, v, labeler, levels)
+	if treeRoot, ok := v.Vertices[topology.TopologyTree]; ok {
+		layers := []string{}
+		if len(treeRoot.ID) != 0 {
+			layers = append(layers, treeRoot.ID)
+		}
+		if err := l.getTreeNodeLabels(treeRoot, nodeMap, layers); err != nil {
+			return err
+		}
+	}
+
+	for nodeName, labels := range nodeMap {
+		if err := labeler.AddNodeLabels(ctx, nodeName, labels); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (l *topologyLabeler) applyNodeLabels(ctx context.Context, v *topology.Vertex, labeler Labeler, levels []string) error {
+func (l *topologyLabeler) getTreeNodeLabels(v *topology.Vertex, nodeMap nodeLabelMap, layers []string) error {
 	if len(v.Vertices) == 0 { // compute node
-		if len(levels) != 0 {
-			if v.ID != levels[0] {
-				return fmt.Errorf("instance ID mismatch: expected %s, got %s", v.ID, levels[0])
+		if len(layers) != 0 {
+			if v.ID != layers[0] {
+				return fmt.Errorf("instance ID mismatch: expected %s, got %s", v.ID, layers[0])
 			}
-
-			labels := make(map[string]string)
-			for i, sw := range levels[1:] {
+			nodeName := v.Name
+			labels, ok := nodeMap[nodeName]
+			if !ok {
+				labels = make(map[string]string)
+				nodeMap[nodeName] = labels
+			}
+			for i, sw := range layers[1:] {
 				if len(sw) == 0 {
 					break
 				}
-				labels[fmt.Sprintf("topology.kubernetes.io/network-level-%d", i+1)] = l.checkLabel(sw)
-			}
-
-			if err := labeler.AddNodeLabels(ctx, v.Name, labels); err != nil {
-				return err
+				if i < len(switchNetworkHierarchy) {
+					labels[(switchNetworkHierarchy[i])] = l.checkLabel(sw)
+				}
 			}
 		}
 		return nil
 	}
 
 	for _, w := range v.Vertices {
-		if err := l.applyNodeLabels(ctx, w, labeler, append([]string{w.ID}, levels...)); err != nil {
+		if err := l.getTreeNodeLabels(w, nodeMap, append([]string{w.ID}, layers...)); err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (l *topologyLabeler) getBlockNodeLabels(v *topology.Vertex, nodeMap nodeLabelMap) error {
+	for _, block := range v.Vertices {
+		for _, node := range block.Vertices {
+			nodeName := node.Name
+			labels, ok := nodeMap[nodeName]
+			if !ok {
+				labels = make(map[string]string)
+				nodeMap[nodeName] = labels
+			}
+			if val, ok := labels[hierarchyLayerAccelerator]; ok {
+				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, block.ID, nodeName)
+			}
+			labels[hierarchyLayerAccelerator] = l.checkLabel(block.ID)
+		}
+	}
 	return nil
 }
 
