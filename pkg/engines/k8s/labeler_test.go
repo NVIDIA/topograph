@@ -38,16 +38,99 @@ func (l *testLabeler) AddNodeLabels(_ context.Context, nodeName string, labels m
 	return nil
 }
 
-func TestApplyNodeLabels(t *testing.T) {
+func TestApplyNodeLabelsWithTree(t *testing.T) {
 	root, _ := translate.GetTreeTestSet(true)
 	labeler := &testLabeler{data: make(map[string]map[string]string)}
 	data := map[string]map[string]string{
-		"Node201": {"topology.kubernetes.io/network-level-1": "S2", "topology.kubernetes.io/network-level-2": "S1"},
-		"Node202": {"topology.kubernetes.io/network-level-1": "S2", "topology.kubernetes.io/network-level-2": "S1"},
-		"Node205": {"topology.kubernetes.io/network-level-1": "S2", "topology.kubernetes.io/network-level-2": "S1"},
-		"Node304": {"topology.kubernetes.io/network-level-1": "xf946c4acef2d5939", "topology.kubernetes.io/network-level-2": "S1"},
-		"Node305": {"topology.kubernetes.io/network-level-1": "xf946c4acef2d5939", "topology.kubernetes.io/network-level-2": "S1"},
-		"Node306": {"topology.kubernetes.io/network-level-1": "xf946c4acef2d5939", "topology.kubernetes.io/network-level-2": "S1"},
+		"Node201": {"network.topology.kubernetes.io/block": "S2", "network.topology.kubernetes.io/spine": "S1"},
+		"Node202": {"network.topology.kubernetes.io/block": "S2", "network.topology.kubernetes.io/spine": "S1"},
+		"Node205": {"network.topology.kubernetes.io/block": "S2", "network.topology.kubernetes.io/spine": "S1"},
+		"Node304": {"network.topology.kubernetes.io/block": "xf946c4acef2d5939", "network.topology.kubernetes.io/spine": "S1"},
+		"Node305": {"network.topology.kubernetes.io/block": "xf946c4acef2d5939", "network.topology.kubernetes.io/spine": "S1"},
+		"Node306": {"network.topology.kubernetes.io/block": "xf946c4acef2d5939", "network.topology.kubernetes.io/spine": "S1"},
+	}
+
+	err := NewTopologyLabeler().ApplyNodeLabels(context.TODO(), root, labeler)
+	require.NoError(t, err)
+	require.Equal(t, data, labeler.data)
+}
+
+func TestApplyNodeLabelsWithBlock(t *testing.T) {
+	root, _ := translate.GetBlockWithMultiIBTestSet()
+	labeler := &testLabeler{data: make(map[string]map[string]string)}
+	data := map[string]map[string]string{
+		"Node104": {
+			"network.topology.kubernetes.io/accelerator": "B1",
+			"network.topology.kubernetes.io/block":       "S2",
+			"network.topology.kubernetes.io/spine":       "S1",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot2",
+		},
+		"Node105": {
+			"network.topology.kubernetes.io/accelerator": "B1",
+			"network.topology.kubernetes.io/block":       "S2",
+			"network.topology.kubernetes.io/spine":       "S1",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot2",
+		},
+		"Node106": {
+			"network.topology.kubernetes.io/accelerator": "B1",
+			"network.topology.kubernetes.io/block":       "S2",
+			"network.topology.kubernetes.io/spine":       "S1",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot2",
+		},
+		"Node201": {
+			"network.topology.kubernetes.io/accelerator": "B2",
+			"network.topology.kubernetes.io/block":       "S3",
+			"network.topology.kubernetes.io/spine":       "S1",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot2",
+		},
+		"Node202": {
+			"network.topology.kubernetes.io/accelerator": "B2",
+			"network.topology.kubernetes.io/block":       "S3",
+			"network.topology.kubernetes.io/spine":       "S1",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot2",
+		},
+		"Node205": {
+			"network.topology.kubernetes.io/accelerator": "B2",
+			"network.topology.kubernetes.io/block":       "S3",
+			"network.topology.kubernetes.io/spine":       "S1",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot2",
+		},
+		"Node301": {
+			"network.topology.kubernetes.io/accelerator": "B3",
+			"network.topology.kubernetes.io/block":       "S5",
+			"network.topology.kubernetes.io/spine":       "S4",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot1",
+		},
+		"Node302": {
+			"network.topology.kubernetes.io/accelerator": "B3",
+			"network.topology.kubernetes.io/block":       "S5",
+			"network.topology.kubernetes.io/spine":       "S4",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot1",
+		},
+		"Node303": {
+			"network.topology.kubernetes.io/accelerator": "B3",
+			"network.topology.kubernetes.io/block":       "S5",
+			"network.topology.kubernetes.io/spine":       "S4",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot1",
+		},
+		"Node401": {
+			"network.topology.kubernetes.io/accelerator": "B4",
+			"network.topology.kubernetes.io/block":       "S6",
+			"network.topology.kubernetes.io/spine":       "S4",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot1",
+		},
+		"Node402": {
+			"network.topology.kubernetes.io/accelerator": "B4",
+			"network.topology.kubernetes.io/block":       "S6",
+			"network.topology.kubernetes.io/spine":       "S4",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot1",
+		},
+		"Node403": {
+			"network.topology.kubernetes.io/accelerator": "B4",
+			"network.topology.kubernetes.io/block":       "S6",
+			"network.topology.kubernetes.io/spine":       "S4",
+			"network.topology.kubernetes.io/datacenter":  "ibRoot1",
+		},
 	}
 
 	err := NewTopologyLabeler().ApplyNodeLabels(context.TODO(), root, labeler)
