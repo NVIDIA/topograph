@@ -138,7 +138,7 @@ func mapOfAny2string(m map[string]any, prefix string, hide bool, suffix string) 
 			if hide {
 				terms = append(terms, fmt.Sprintf("%s:***", key))
 			} else {
-				terms = append(terms, fmt.Sprintf("%s:%s", key, m[key]))
+				terms = append(terms, fmt.Sprintf("%s:%v", key, m[key]))
 			}
 		}
 		sb.WriteString(strings.Join(terms, " "))
