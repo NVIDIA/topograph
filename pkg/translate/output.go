@@ -351,6 +351,17 @@ func split(input string) (string, string) {
 }
 
 func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]string) {
+	//
+	//        S1
+	//      /    \
+	//    S2      S3
+	//    |       |
+	//   ---     ---
+	//   I14     I21
+	//   I15     I22
+	//   I16     I25
+	//   ---     ---
+	//
 	var s3name string
 	if testForLongLabelName {
 		s3name = "S3very-very-long-id-to-check-label-value-limits-of-63-characters"
@@ -394,6 +405,19 @@ func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]str
 }
 
 func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
+	//
+	//     ibRoot2        ibRoot1
+	//        |               |
+	//        S1              S4
+	//      /    \          /    \
+	//    S2      S3      S5      S6
+	//    |       |       |       |
+	//   ---     ---     ---     ---
+	//   I14\    I21\    I31\    I41\
+	//   I15-B1  I22-B2  I32-B3  I42-B4
+	//   I16/    I25/     I33/   I43/
+	//   ---     ---      ---    ---
+	//
 	instance2node := map[string]string{
 		"I14": "Node104", "I15": "Node105", "I16": "Node106",
 		"I21": "Node201", "I22": "Node202", "I25": "Node205",
