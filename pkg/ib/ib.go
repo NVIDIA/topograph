@@ -57,7 +57,6 @@ func GenerateTopologyConfig(data []byte) (*topology.Vertex, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse ibnetdiscover file: %v", err)
 	}
-
 	root, err := buildTree(switches, hca)
 	if err != nil {
 		return nil, fmt.Errorf("unable to build tree: %v", err)
@@ -68,11 +67,7 @@ func GenerateTopologyConfig(data []byte) (*topology.Vertex, error) {
 	if err != nil {
 		return nil, err
 	}
-	rootNode := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-	}
-	rootNode.Vertices[topology.TopologyTree] = treeNode
-	return rootNode, nil
+	return treeNode, nil
 }
 
 func (sw *Switch) toGraph() (*topology.Vertex, error) {

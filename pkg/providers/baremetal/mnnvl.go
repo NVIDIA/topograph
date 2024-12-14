@@ -55,6 +55,7 @@ func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 		return nil, fmt.Errorf("exec error in sinfo: %v", err)
 	}
 
+	// scan each line containing slurm partition and the nodes in it
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		nodeLine := scanner.Text()
@@ -63,16 +64,13 @@ func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 			continue
 		}
 		partitionName := strings.TrimSpace(arr[0])
-		state := strings.TrimSpace(arr[4])
 		nodeList := strings.TrimSpace(arr[5])
-		if strings.HasPrefix(state, "down") || strings.HasSuffix(state, "*") {
-			continue
-		}
 		nodesArr := deCompressNodeNames(nodeList)
+		// map of slurm partition name  -> node names
 		partitionNodeMap[partitionName] = append(partitionNodeMap[partitionName], nodesArr...)
 	}
-
 	for pName, nodes := range partitionNodeMap {
+		// for each partition in slurm, find the IB tree it belongs to
 		if _, exists := partitionVisitedMap[pName]; !exists {
 			for _, node := range nodes {
 				if _, exists := nodeVisited[node]; !exists {
@@ -95,6 +93,8 @@ func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 						ibKey := ibPrefix + strconv.Itoa(ibCount)
 						treeRoot.Vertices[ibKey] = ibRoot
 						break
+					} else {
+						fmt.Printf("Missing ibnetdiscover output\n")
 					}
 				} else {
 					partitionVisitedMap[pName] = true
@@ -102,60 +102,87 @@ func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 			}
 		}
 	}
-
 	return treeRoot, nil
 }
 
 // deCompressNodeNames returns array of node names
 func deCompressNodeNames(nodeList string) []string {
 	nodeArr := []string{}
+	// split entries by comma
+	// example : nodename-1-[001-004,007,91-99,100],nodename-2-89
 	arr := strings.Split(nodeList, ",")
 	prefix := ""
 	var nodeName string
 
+	// example : nodename-1-[001-004 , 007, 91-99 , 100], nodename-2-89
 	for _, entry := range arr {
+		// example : nodename-1-[001-004
 		if strings.Contains(entry, "[") {
-			tuple := strings.Split(entry, "[")
+			// example : 100]
+			entryWithoutSuffix := strings.TrimSuffix(entry, "]")
+			tuple := strings.Split(entryWithoutSuffix, "[")
 			prefix = tuple[0]
+			// example : nodename-1-[001-004
 			if strings.Contains(tuple[1], "-") {
 				nr := strings.Split(tuple[1], "-")
-				start, _ := strconv.Atoi(nr[0])
-				end, _ := strconv.Atoi(nr[1])
+				w := len(nr[0])
+				start, err := strconv.Atoi(nr[0])
+				if err != nil {
+					fmt.Printf("Atoi err for range start\n")
+				}
+				end, err := strconv.Atoi(nr[1])
+				if err != nil {
+					fmt.Printf("Atoi err for range end\n")
+				}
 				for i := start; i <= end; i++ {
-					nodeName = prefix + strconv.Itoa(i)
+					suffixNum := fmt.Sprintf(fmt.Sprintf("%%0%dd", w), i)
+					nodeName = prefix + suffixNum
 					nodeArr = append(nodeArr, nodeName)
 				}
+				// avoid another nodename append at the end
 				continue
 			} else {
+				// example : nodename-1-[001
 				nv := tuple[1]
 				nodeName = prefix + nv
 			}
 		} else { // no [ means, this could be whole nodename or suffix
+			// example: 100], nodename-2-89, 90
 			if len(prefix) > 0 { //prefix exists, so must be a suffix.
 				if strings.HasSuffix(entry, "]") { //if suffix has ], reset prefix
 					nv := strings.Split(entry, "]")
 					nodeName = prefix + nv[0]
 					prefix = ""
 				} else if strings.Contains(entry, "-") { // suffix containing range of nodes
+					// example: 100-102]
 					nr := strings.Split(entry, "-")
-					start, _ := strconv.Atoi(nr[0])
-					end, _ := strconv.Atoi(nr[1])
+					w := len(nr[0])
+					start, err := strconv.Atoi(nr[0])
+					if err != nil {
+						fmt.Printf("Atoi err for range start when prefix is set\n")
+					}
+					end, err := strconv.Atoi(nr[1])
+					if err != nil {
+						fmt.Printf("Atoi err for range end when prefix is set\n")
+					}
 					for i := start; i <= end; i++ {
-						nodeName = prefix + strconv.Itoa(i)
+						suffixNum := fmt.Sprintf(fmt.Sprintf("%%0%dd", w), i)
+						nodeName = prefix + suffixNum
 						nodeArr = append(nodeArr, nodeName)
 					}
+					// avoid another nodename append at the end
 					continue
 				} else {
+					//example: 90
 					nodeName = prefix + entry
 				}
 			} else { // no prefix yet, must be whole nodename
+				//example: nodename-2-89
 				nodeName = entry
 			}
-
 		}
 		nodeArr = append(nodeArr, nodeName)
 	}
-
 	return nodeArr
 }
 
