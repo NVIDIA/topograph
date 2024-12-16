@@ -65,7 +65,10 @@ func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 		}
 		partitionName := strings.TrimSpace(arr[0])
 		nodeList := strings.TrimSpace(arr[5])
-		nodesArr := deCompressNodeNames(nodeList)
+		nodesArr, err := deCompressNodeNames(nodeList)
+		if err != nil {
+			return nil, fmt.Errorf("deCompressNodeNames failed : %v", err)
+		}
 		// map of slurm partition name  -> node names
 		partitionNodeMap[partitionName] = append(partitionNodeMap[partitionName], nodesArr...)
 	}
@@ -106,7 +109,7 @@ func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 }
 
 // deCompressNodeNames returns array of node names
-func deCompressNodeNames(nodeList string) []string {
+func deCompressNodeNames(nodeList string) ([]string, error) {
 	nodeArr := []string{}
 	// split entries by comma
 	// example : nodename-1-[001-004,007,91-99,100],nodename-2-89
@@ -128,11 +131,11 @@ func deCompressNodeNames(nodeList string) []string {
 				w := len(nr[0])
 				start, err := strconv.Atoi(nr[0])
 				if err != nil {
-					fmt.Printf("Atoi err for range start\n")
+					return nil, fmt.Errorf("Atoi err for range start: %v", err)
 				}
 				end, err := strconv.Atoi(nr[1])
 				if err != nil {
-					fmt.Printf("Atoi err for range end\n")
+					return nil, fmt.Errorf("Atoi err for range end: %v", err)
 				}
 				for i := start; i <= end; i++ {
 					suffixNum := fmt.Sprintf(fmt.Sprintf("%%0%dd", w), i)
@@ -159,11 +162,11 @@ func deCompressNodeNames(nodeList string) []string {
 					w := len(nr[0])
 					start, err := strconv.Atoi(nr[0])
 					if err != nil {
-						fmt.Printf("Atoi err for range start when prefix is set\n")
+						return nil, fmt.Errorf("Atoi err for range start when prefix is set: %v", err)
 					}
 					end, err := strconv.Atoi(nr[1])
 					if err != nil {
-						fmt.Printf("Atoi err for range end when prefix is set\n")
+						return nil, fmt.Errorf("Atoi err for range end when prefix is set: %v", err)
 					}
 					for i := start; i <= end; i++ {
 						suffixNum := fmt.Sprintf(fmt.Sprintf("%%0%dd", w), i)
@@ -183,7 +186,7 @@ func deCompressNodeNames(nodeList string) []string {
 		}
 		nodeArr = append(nodeArr, nodeName)
 	}
-	return nodeArr
+	return nodeArr, nil
 }
 
 // getClusterOutput reads output from nodeInfo and populates the structs
