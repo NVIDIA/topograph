@@ -198,17 +198,26 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 	}
 
 	scanner := bufio.NewScanner(stdout)
+	cliqueId := ""
+	clusterUUID := ""
+	domainName := ""
 	for scanner.Scan() {
 		nodeLine := scanner.Text()
 		arr := strings.Split(nodeLine, ":")
 		nodeName := arr[0]
-		clusterUUID := strings.TrimSpace(arr[2])
-		if !domainIDExists(clusterUUID, domainMap) {
-			domainMap[clusterUUID] = domain{
+		itemName := strings.TrimSpace(arr[1])
+		if itemName == "CliqueId" {
+			cliqueId = strings.TrimSpace(arr[2])
+			continue
+		}
+		clusterUUID = strings.TrimSpace(arr[2])
+		domainName = clusterUUID + cliqueId
+		if !domainIDExists(domainName, domainMap) {
+			domainMap[domainName] = domain{
 				nodeMap: make(map[string]bool),
 			}
 		}
-		nodeMap := domainMap[clusterUUID].nodeMap
+		nodeMap := domainMap[domainName].nodeMap
 		nodeMap[nodeName] = true
 	}
 	if err := scanner.Err(); err != nil {
@@ -244,7 +253,7 @@ func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.V
 func generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	domainMap := make(map[string]domain) // domainID: domain
 	nodes := getNodeList(cis)
-	err := getClusterOutput(ctx, domainMap, nodes, "nvidia-smi -q | grep ClusterUUID")
+	err := getClusterOutput(ctx, domainMap, nodes, `nvidia-smi -q | grep "ClusterUUID\|CliqueId"`)
 	if err != nil {
 		return nil, fmt.Errorf("getClusterOutput failed: %v", err)
 	}
