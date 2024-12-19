@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agrea/ptr"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,6 +37,7 @@ http:
   port: 49021
   ssl: true
 request_aggregation_delay: 15s
+page_size: 50
 ssl:
   cert: %s
   key: %s
@@ -89,6 +91,7 @@ func TestConfig(t *testing.T) {
 			SSL:  true,
 		},
 		RequestAggregationDelay: 15 * time.Second,
+		PageSize:                ptr.Int(50),
 		SSL: &SSL{
 			Cert:   cert.Name(),
 			Key:    key.Name(),

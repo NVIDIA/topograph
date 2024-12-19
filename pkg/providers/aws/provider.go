@@ -177,8 +177,8 @@ func New(clientFactory ClientFactory, imdsClient IDMSClient) *Provider {
 	}
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	topology, err := p.generateInstanceTopology(ctx, int32(pageSize), instances)
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	topology, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}

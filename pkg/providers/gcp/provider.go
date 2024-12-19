@@ -81,7 +81,7 @@ func New(clientFactory ClientFactory) (*Provider, error) {
 	}, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	if len(instances) > 1 {
 		return nil, fmt.Errorf("GCP does not support mult-region topology requests")
 	}

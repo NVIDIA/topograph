@@ -75,6 +75,6 @@ func (p *Provider) GetComputeInstances(_ context.Context) ([]topology.ComputeIns
 	}, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(_ context.Context, _ int, _ []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(_ context.Context, _ *int, _ []topology.ComputeInstances) (*topology.Vertex, error) {
 	return p.tree, nil
 }
