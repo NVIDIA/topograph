@@ -32,11 +32,21 @@ import (
 
 var defaultPageSize int32 = 100
 
-func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize int32, cis []topology.ComputeInstances) ([]types.InstanceTopology, error) {
-	var err error
-	topology := []types.InstanceTopology{}
+func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) ([]types.InstanceTopology, error) {
+	var (
+		err      error
+		topology []types.InstanceTopology
+		limit    int32
+	)
+
+	if pageSize != nil {
+		limit = int32(*pageSize)
+	} else {
+		limit = defaultPageSize
+	}
+
 	for _, ci := range cis {
-		if topology, err = p.generateInstanceTopologyForRegionInstances(ctx, pageSize, &ci, topology); err != nil {
+		if topology, err = p.generateInstanceTopologyForRegionInstances(ctx, limit, &ci, topology); err != nil {
 			return nil, err
 		}
 	}

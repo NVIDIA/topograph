@@ -26,7 +26,7 @@ import (
 )
 
 type Provider interface {
-	GenerateTopologyConfig(ctx context.Context, pageSize int, instances []topology.ComputeInstances) (*topology.Vertex, error)
+	GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error)
 }
 
 type Config struct {

@@ -34,7 +34,7 @@ type Config struct {
 	RequestAggregationDelay time.Duration     `yaml:"request_aggregation_delay"`
 	Provider                string            `yaml:"provider,omitempty"`
 	Engine                  string            `yaml:"engine,omitempty"`
-	PageSize                int               `yaml:"page_size,omitempty"`
+	PageSize                *int              `yaml:"page_size,omitempty"`
 	SSL                     *SSL              `yaml:"ssl,omitempty"`
 	CredsPath               *string           `yaml:"credentials_path,omitempty"`
 	FwdSvcURL               *string           `yaml:"forward_service_url,omitempty"`

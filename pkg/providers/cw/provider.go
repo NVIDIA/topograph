@@ -44,7 +44,7 @@ func New() (*Provider, error) {
 	return &Provider{}, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	if len(instances) > 1 {
 		return nil, fmt.Errorf("CW does not support mult-region topology requests")
 	}

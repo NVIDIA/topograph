@@ -145,7 +145,7 @@ func New(ociClientFactory ClientFactory) *Provider {
 	}
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	cfg, err := GenerateInstanceTopology(ctx, p.clientFactory, instances)
 	if err != nil {
 		return nil, err
