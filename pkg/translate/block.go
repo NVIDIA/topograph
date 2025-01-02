@@ -17,6 +17,7 @@
 package translate
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -40,14 +41,24 @@ func (m DomainMap) ToBlocks() *topology.Vertex {
 	}
 	sort.Strings(domainNames)
 
-	for _, domainName := range domainNames {
-		domain := m[domainName]
+	for i, domainName := range domainNames {
+		nodes := make([]string, 0, len(m[domainName]))
+		for node := range m[domainName] {
+			nodes = append(nodes, node)
+		}
+		sort.Strings(nodes)
+
 		vertex := &topology.Vertex{
-			ID:       domainName,
+			ID:       fmt.Sprintf("block%03d", i+1),
+			Name:     domainName,
 			Vertices: make(map[string]*topology.Vertex),
 		}
-		for node := range domain {
-			vertex.Vertices[node] = &topology.Vertex{Name: node, ID: node}
+
+		for _, node := range nodes {
+			vertex.Vertices[node] = &topology.Vertex{
+				Name: node,
+				ID:   node,
+			}
 		}
 
 		blockRoot.Vertices[domainName] = vertex
