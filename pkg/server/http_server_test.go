@@ -164,10 +164,14 @@ SwitchName=sw14 Nodes=n14-[1-2]
   ]
 }
 `,
-			expected: `BlockName=nvl1 Nodes=n11-[1-2]
-BlockName=nvl2 Nodes=n12-[1-2]
-BlockName=nvl3 Nodes=n13-[1-2]
-BlockName=nvl4 Nodes=n14-[1-2]
+			expected: `# block001=nvl1
+BlockName=block001 Nodes=n11-[1-2]
+# block002=nvl2
+BlockName=block002 Nodes=n12-[1-2]
+# block003=nvl3
+BlockName=block003 Nodes=n13-[1-2]
+# block004=nvl4
+BlockName=block004 Nodes=n14-[1-2]
 BlockSizes=2,4
 `,
 		},

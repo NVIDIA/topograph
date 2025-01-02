@@ -50,7 +50,11 @@ func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]i
 		for _, node := range block.Vertices { //nodes within each domain
 			nodes = append(nodes, node.Name)
 		}
-		_, err := wr.Write([]byte(fmt.Sprintf("BlockName=%s Nodes=%s\n", block.ID, strings.Join(compress(nodes), ","))))
+		var comment string
+		if len(block.Name) != 0 {
+			comment = fmt.Sprintf("# %s=%s\n", block.ID, block.Name)
+		}
+		_, err := wr.Write([]byte(fmt.Sprintf("%sBlockName=%s Nodes=%s\n", comment, block.ID, strings.Join(compress(nodes), ","))))
 		if err != nil {
 			return err
 		}

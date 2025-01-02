@@ -41,7 +41,8 @@ func TestToBlocks(t *testing.T) {
 			blocks: &topology.Vertex{
 				Vertices: map[string]*topology.Vertex{
 					"domain1": {
-						ID: "domain1",
+						Name: "domain1",
+						ID:   "block001",
 						Vertices: map[string]*topology.Vertex{
 							"host1": {ID: "host1", Name: "host1"},
 							"host2": {ID: "host2", Name: "host2"},
@@ -59,14 +60,16 @@ func TestToBlocks(t *testing.T) {
 			blocks: &topology.Vertex{
 				Vertices: map[string]*topology.Vertex{
 					"domain1": {
-						ID: "domain1",
+						Name: "domain1",
+						ID:   "block001",
 						Vertices: map[string]*topology.Vertex{
 							"host1": {ID: "host1", Name: "host1"},
 							"host2": {ID: "host2", Name: "host2"},
 						},
 					},
 					"domain2": {
-						ID: "domain2",
+						Name: "domain2",
+						ID:   "block002",
 						Vertices: map[string]*topology.Vertex{
 							"host3": {ID: "host3", Name: "host3"},
 						},
