@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/config"
+	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/registry"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -103,22 +105,21 @@ func generate(w http.ResponseWriter, r *http.Request) {
 }
 
 func readRequest(w http.ResponseWriter, r *http.Request) *topology.Request {
+	start := time.Now()
+
 	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return nil
+		return httpError(w, "", "", "Invalid request method", http.StatusMethodNotAllowed, time.Since(start))
 	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Unable to read request body", http.StatusInternalServerError)
-		return nil
+		return httpError(w, "", "", "Unable to read request body", http.StatusInternalServerError, time.Since(start))
 	}
 	defer func() { _ = r.Body.Close() }()
 
 	tr, err := topology.GetTopologyRequest(body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return nil
+		return httpError(w, "", "", err.Error(), http.StatusBadRequest, time.Since(start))
 	}
 
 	// If provider and engine are not passed in the payload, use the ones specified in the config
@@ -132,8 +133,7 @@ func readRequest(w http.ResponseWriter, r *http.Request) *topology.Request {
 	klog.Info(tr.String())
 
 	if err = validate(tr); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return nil
+		return httpError(w, tr.Provider.Name, tr.Engine.Name, err.Error(), http.StatusBadRequest, time.Since(start))
 	}
 
 	return tr
@@ -193,4 +193,10 @@ func getresult(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(res.Status)
 		_, _ = w.Write(res.Ret.([]byte))
 	}
+}
+
+func httpError(w http.ResponseWriter, provider, engine, msg string, code int, duration time.Duration) *topology.Request {
+	metrics.Add(provider, engine, code, duration)
+	http.Error(w, msg, code)
+	return nil
 }
