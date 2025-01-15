@@ -19,6 +19,7 @@ package models
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"gopkg.in/yaml.v3"
 
@@ -30,7 +31,8 @@ type Model struct {
 	CapacityBlocks []*CapacityBlock `yaml:"capacity_blocks"`
 
 	// derived
-	Nodes map[string]*Node
+	Nodes     map[string]*Node
+	Instances []topology.ComputeInstances
 }
 
 type Switch struct {
@@ -54,6 +56,11 @@ type Node struct {
 	NVLink        string
 	NetLayers     []string
 	CapacityBlock string
+}
+
+func (n *Node) String() string {
+	return fmt.Sprintf("Node: %s Metadata: %v Type: %s NVL: %s NetLayers: %v CBlock: %s",
+		n.Name, n.Metadata, n.Type, n.NVLink, n.NetLayers, n.CapacityBlock)
 }
 
 func NewModelFromFile(fname string) (*Model, error) {
@@ -98,6 +105,7 @@ func (m *Model) setNodeMap() error {
 	}
 
 	m.Nodes = make(map[string]*Node)
+	regions := make(map[string]map[string]string)
 	for _, cb := range m.CapacityBlocks {
 		var netLayers []string
 		var metadata map[string]string
@@ -123,7 +131,31 @@ func (m *Model) setNodeMap() error {
 				NetLayers:     netLayers,
 				CapacityBlock: cb.Name,
 			}
+
+			region, ok := metadata["region"]
+			if !ok {
+				region = "none"
+			}
+			if _, ok := regions[region]; !ok {
+				regions[region] = make(map[string]string)
+
+			}
+			regions[region][name] = name
 		}
+	}
+
+	regionNames := make([]string, 0, len(regions))
+	for region := range regions {
+		regionNames = append(regionNames, region)
+	}
+	sort.Strings(regionNames)
+
+	m.Instances = make([]topology.ComputeInstances, 0, len(regions))
+	for _, region := range regionNames {
+		m.Instances = append(m.Instances, topology.ComputeInstances{
+			Region:    region,
+			Instances: regions[region],
+		})
 	}
 
 	return nil

@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestNewModelFromFile(t *testing.T) {
@@ -186,6 +188,21 @@ func TestNewModelFromFile(t *testing.T) {
 				NVLink:        "nvl4",
 				NetLayers:     []string{"sw14", "sw22", "sw3"},
 				CapacityBlock: "cb14",
+			},
+		},
+		Instances: []topology.ComputeInstances{
+			{
+				Region: "us-west",
+				Instances: map[string]string{
+					"n11-1": "n11-1",
+					"n11-2": "n11-2",
+					"n12-1": "n12-1",
+					"n12-2": "n12-2",
+					"n13-1": "n13-1",
+					"n13-2": "n13-2",
+					"n14-1": "n14-1",
+					"n14-2": "n14-2",
+				},
 			},
 		},
 	}
