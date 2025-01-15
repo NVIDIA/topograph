@@ -136,11 +136,12 @@ func (m *Model) setNodeMap() error {
 			if !ok {
 				region = "none"
 			}
-			if _, ok := regions[region]; !ok {
-				regions[region] = make(map[string]string)
-
+			r, ok := regions[region]
+			if !ok {
+				r = make(map[string]string)
+				regions[region] = r
 			}
-			regions[region][name] = name
+			r[name] = name
 		}
 	}
 
