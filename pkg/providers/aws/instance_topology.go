@@ -32,7 +32,7 @@ import (
 
 var defaultPageSize int32 = 100
 
-func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) ([]types.InstanceTopology, error) {
+func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) ([]types.InstanceTopology, error) {
 	var (
 		err      error
 		topology []types.InstanceTopology
@@ -54,7 +54,7 @@ func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize *int, 
 	return topology, nil
 }
 
-func (p *Provider) generateInstanceTopologyForRegionInstances(ctx context.Context, pageSize int32, ci *topology.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
+func (p *baseProvider) generateInstanceTopologyForRegionInstances(ctx context.Context, pageSize int32, ci *topology.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
 	if len(ci.Region) == 0 {
 		return nil, fmt.Errorf("must specify region to query instance topology")
 	}

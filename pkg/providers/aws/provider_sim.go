@@ -28,6 +28,7 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const (
@@ -162,5 +163,26 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 		return client, nil
 	}
 
-	return New(clientFactory, imdsClient), nil
+	return NewSim(clientFactory, imdsClient), nil
+}
+
+type SimProvider struct {
+	baseProvider
+}
+
+func NewSim(clientFactory ClientFactory, imdsClient IDMSClient) *SimProvider {
+	return &SimProvider{
+		baseProvider: baseProvider{
+			clientFactory: clientFactory,
+			imdsClient:    imdsClient,
+		},
+	}
+}
+
+// Engine support
+
+func (p *SimProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
+	client, _ := p.clientFactory("")
+
+	return client.EC2.(SimClient).Model.Instances, nil
 }

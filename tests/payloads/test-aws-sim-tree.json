@@ -6,21 +6,9 @@
     }
   },
   "engine": {
-    "name": "slurm"
-  },
-  "nodes": [
-    {
-      "region": "R1",
-      "instances": {
-        "n11-1": "n11-1",
-        "n11-2": "n11-2",
-        "n12-1": "n12-1",
-        "n12-2": "n12-2",
-        "n13-1": "n13-1",
-        "n13-2": "n13-2",
-        "n14-1": "n14-1",
-        "n14-2": "n14-2"
-      }
+    "name": "slurm",
+    "params": {
+      "topology_config_path": "topology.conf"
     }
-  ]
+  }
 }

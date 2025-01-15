@@ -25,11 +25,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const (
-	// TODO: Try to remove this
-	EngineSLURM = "slurm"
-)
-
 type Engine interface {
 	GetComputeInstances(ctx context.Context, environment Environment) ([]topology.ComputeInstances, error)
 	GenerateOutput(ctx context.Context, vertex *topology.Vertex, params map[string]any) ([]byte, error)

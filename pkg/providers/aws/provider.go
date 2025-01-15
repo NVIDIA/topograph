@@ -48,7 +48,7 @@ const (
 	tokenTimeDelay = 15 * time.Second
 )
 
-type Provider struct {
+type baseProvider struct {
 	clientFactory ClientFactory
 	imdsClient    IDMSClient
 }
@@ -170,14 +170,7 @@ func getCredentialsFromProvider(ctx context.Context) (creds aws.Credentials, err
 	}
 }
 
-func New(clientFactory ClientFactory, imdsClient IDMSClient) *Provider {
-	return &Provider{
-		clientFactory: clientFactory,
-		imdsClient:    imdsClient,
-	}
-}
-
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	topology, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
@@ -186,6 +179,19 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize *int, in
 	klog.Infof("Extracted topology for %d instances", len(topology))
 
 	return toGraph(topology, instances)
+}
+
+type Provider struct {
+	baseProvider
+}
+
+func New(clientFactory ClientFactory, imdsClient IDMSClient) *Provider {
+	return &Provider{
+		baseProvider: baseProvider{
+			clientFactory: clientFactory,
+			imdsClient:    imdsClient,
+		},
+	}
 }
 
 // Engine support
