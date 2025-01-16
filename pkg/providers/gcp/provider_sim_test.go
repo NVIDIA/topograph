@@ -76,6 +76,7 @@ func TestProviderSim(t *testing.T) {
 		model     string
 		pageSize  *int
 		instances []topology.ComputeInstances
+		params    map[string]any
 		apiErr    int
 		topology  string
 		err       string
@@ -87,11 +88,11 @@ func TestProviderSim(t *testing.T) {
 		},
 
 		{
-			name:  "Case 3: no ComputeInstances",
+			name:  "Case 2: no ComputeInstances",
 			model: clusterModel,
 		},
 		{
-			name:  "Case 4.1: ClientFactory API error",
+			name:  "Case 3.1: ClientFactory API error",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -103,7 +104,7 @@ func TestProviderSim(t *testing.T) {
 			err:    "failed to get client: API error",
 		},
 		{
-			name:  "Case 4.2: ProjectID API error",
+			name:  "Case 3.2: ProjectID API error",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -115,7 +116,7 @@ func TestProviderSim(t *testing.T) {
 			err:    "failed to get project ID: API error",
 		},
 		{
-			name:  "Case 4.3: Instances API error",
+			name:  "Case 3.3: Instances API error",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -127,7 +128,7 @@ func TestProviderSim(t *testing.T) {
 			err:    "failed to get instance topology: API error",
 		},
 		{
-			name: "Case 4.4: unsupported instance ID",
+			name: "Case 3.4: unsupported instance ID",
 			model: `
 switches:
 - name: core
@@ -151,7 +152,17 @@ capacity_blocks:
 			err: `failed to get instance topology: invalid instance ID "n11"; must be numerical`,
 		},
 		{
-			name:  "Case 5: single node",
+			name:  "Case 4: missing region",
+			model: clusterModel,
+			instances: []topology.ComputeInstances{
+				{
+					Instances: map[string]string{"11": "node11", "12": "nodeCPU"},
+				},
+			},
+			err: "failed to get instance topology: must specify region",
+		},
+		{
+			name:  "Case 5: valid single cluster",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -159,13 +170,14 @@ capacity_blocks:
 					Instances: map[string]string{"11": "node11", "12": "nodeCPU"},
 				},
 			},
-			topology: `SwitchName=spine Switches=tor
+			topology: `SwitchName=core Switches=spine
+SwitchName=spine Switches=tor
 SwitchName=no-topology Nodes=nodeCPU
 SwitchName=tor Nodes=node11
 `,
 		},
 		{
-			name:  "Case 6: valid input, no pagination",
+			name:  "Case 6: valid cluster, no pagination",
 			model: clusterModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -173,24 +185,44 @@ SwitchName=tor Nodes=node11
 					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22"},
 				},
 			},
-			topology: `SwitchName=spine Switches=tor[1-2]
+			topology: `SwitchName=core Switches=spine
+SwitchName=spine Switches=tor[1-2]
 SwitchName=tor1 Nodes=node[11-12]
 SwitchName=tor2 Nodes=node[21-22]
 `,
 		},
 		{
-			name:     "Case 7: valid input, pagination",
+			name:     "Case 7: valid cluster, pagination",
 			model:    clusterModel,
 			pageSize: ptr.Int(2),
 			instances: []topology.ComputeInstances{
 				{
 					Region:    "region",
-					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22"},
+					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22", "31": "node31"},
 				},
 			},
-			topology: `SwitchName=spine Switches=tor[1-2]
+			topology: `SwitchName=core Switches=spine
+SwitchName=spine Switches=tor[1-2]
+SwitchName=no-topology Nodes=node31
 SwitchName=tor1 Nodes=node[11-12]
 SwitchName=tor2 Nodes=node[21-22]
+`,
+		},
+		{
+			name:   "Case 8: valid cluster in block format",
+			model:  clusterModel,
+			params: map[string]any{"plugin": "topology/block"},
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22", "31": "node31"},
+				},
+			},
+			topology: `# block001=tor1
+BlockName=block001 Nodes=node[11-12]
+# block002=tor2
+BlockName=block002 Nodes=node[21-22]
+BlockSizes=2,4
 `,
 		},
 	}
@@ -228,7 +260,7 @@ SwitchName=tor2 Nodes=node[21-22]
 				require.EqualError(t, err, tc.err)
 			} else {
 				require.NoError(t, err)
-				data, err := slurm.GenerateOutput(ctx, topo, nil)
+				data, err := slurm.GenerateOutput(ctx, topo, tc.params)
 				require.NoError(t, err)
 				require.Equal(t, tc.topology, string(data))
 			}

@@ -21,27 +21,27 @@ import (
 )
 
 var (
-	physicalHostIDChunks = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name:      "physical_host_id_chunks",
+	missingTopologyInfo = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "missing_topology_info",
 			Subsystem: "topograph_gcp",
-			Help:      "Number of chunks in physical host ID as in /AA/BB/CCC",
+			Help:      "Number of times instance topology not found",
 		}, []string{"instance_name"},
 	)
 
-	resourceStatusNotFound = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name:      "resource_status_not_found",
+	missingResourceStatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "missing_resource_status",
 			Subsystem: "topograph_gcp",
 			Help:      "Number of times resource status not found",
 		}, []string{"instance_name"},
 	)
 
-	physicalHostNotFound = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name:      "physical_host_not_found",
+	missingPhysicalHostTopology = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "missing_physical_host_topology",
 			Subsystem: "topograph_gcp",
-			Help:      "Number of times physical host not found",
+			Help:      "Number of times physical host topology not found",
 		}, []string{"instance_name"},
 	)
 
@@ -57,8 +57,8 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(physicalHostIDChunks)
-	prometheus.MustRegister(resourceStatusNotFound)
-	prometheus.MustRegister(physicalHostNotFound)
+	prometheus.MustRegister(missingTopologyInfo)
+	prometheus.MustRegister(missingResourceStatus)
+	prometheus.MustRegister(missingPhysicalHostTopology)
 	prometheus.MustRegister(requestLatency)
 }

@@ -216,14 +216,7 @@ func TestServerLocal(t *testing.T) {
 			endpoint: "generate",
 			provider: "gcp-sim",
 			payload:  slurmTreePayload,
-			expected: `SwitchName=sw21 Switches=sw[11-12]
-SwitchName=sw22 Switches=sw[13-14]
-SwitchName=sw11 Nodes=n-[1101-1102]
-SwitchName=sw12 Nodes=n-[1201-1202]
-SwitchName=sw13 Nodes=n-[1301-1302]
-SwitchName=no-topology Nodes=n-CPU
-SwitchName=sw14 Nodes=n-[1401-1402]
-`,
+			expected: slurmTreeConfig,
 		},
 	}
 

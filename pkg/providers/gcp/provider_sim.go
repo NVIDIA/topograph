@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strconv"
 
-	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/agrea/ptr"
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/iterator"
@@ -90,7 +90,6 @@ func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesR
 
 	for indx = from; indx < from+int(*c.pageSize); indx++ {
 		node := c.model.Nodes[c.instanceIDs[indx]]
-		physicalHost := fmt.Sprintf("/%s/%s/%s", node.NetLayers[1], node.NetLayers[0], node.Name)
 		instanceID, err := strconv.ParseUint(node.Name, 10, 64)
 		if err != nil {
 			return &simInstanceIter{err: fmt.Errorf("invalid instance ID %q; must be numerical", node.Name)}, ""
@@ -99,7 +98,11 @@ func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesR
 			Id:   &instanceID,
 			Name: &node.Name,
 			ResourceStatus: &computepb.ResourceStatus{
-				PhysicalHost: &physicalHost,
+				PhysicalHostTopology: &computepb.ResourceStatusPhysicalHostTopology{
+					Cluster:  &node.NetLayers[2],
+					Block:    &node.NetLayers[1],
+					Subblock: &node.NetLayers[0],
+				},
 			},
 		}
 		iter.instances = append(iter.instances, instance)
