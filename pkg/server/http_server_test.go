@@ -214,13 +214,14 @@ BlockSizes=8,16,32
   ]
 }
 `,
-			expected: `SwitchName=sw21 Switches=sw[11-12]
+			expected: `SwitchName=sw3 Switches=sw[21-22]
+SwitchName=sw21 Switches=sw[11-12]
 SwitchName=sw22 Switches=sw[13-14]
 SwitchName=sw11 Nodes=n-[1101-1102]
 SwitchName=sw12 Nodes=n-[1201-1202]
 SwitchName=sw13 Nodes=n-[1301-1302]
-SwitchName=no-topology Nodes=n-CPU
 SwitchName=sw14 Nodes=n-[1401-1402]
+SwitchName=no-topology Nodes=n-CPU
 `,
 		},
 	}
@@ -271,7 +272,9 @@ SwitchName=sw14 Nodes=n-[1401-1402]
 func stringToLineMap(str string) map[string]struct{} {
 	m := make(map[string]struct{})
 	for _, line := range strings.Split(str, "\n") {
-		m[line] = struct{}{}
+		if len(line) != 0 {
+			m[line] = struct{}{}
+		}
 	}
 
 	return m
