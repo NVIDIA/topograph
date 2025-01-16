@@ -20,9 +20,8 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
-	"cloud.google.com/go/compute/apiv1/computepb"
+	"cloud.google.com/go/compute/apiv2alpha/computepb"
 	"github.com/agrea/ptr"
 	"k8s.io/klog/v2"
 
@@ -70,24 +69,28 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			if _, ok := ci.Instances[instanceId]; ok {
 				if instance.ResourceStatus == nil {
 					klog.InfoS("ResourceStatus is not set", "instance", instanceId)
-					resourceStatusNotFound.WithLabelValues(instanceId).Set(1)
+					missingResourceStatus.WithLabelValues(instanceId).Inc()
 					continue
 				}
-				resourceStatusNotFound.WithLabelValues(instanceId).Set(0)
 
-				if instance.ResourceStatus.PhysicalHost == nil {
-					klog.InfoS("PhysicalHost is not set", "instance", instanceId)
-					physicalHostNotFound.WithLabelValues(instanceId).Set(1)
+				if instance.ResourceStatus.PhysicalHostTopology == nil {
+					klog.InfoS("PhysicalHostTopology is not set", "instance", instanceId)
+					missingPhysicalHostTopology.WithLabelValues(instanceId).Inc()
 					continue
 				}
-				physicalHostNotFound.WithLabelValues(instanceId).Set(0)
 
-				tokens := strings.Split(*instance.ResourceStatus.PhysicalHost, "/")
-				physicalHostIDChunks.WithLabelValues(instanceId).Set(float64(getTokenCount(tokens)))
+				if instance.ResourceStatus.PhysicalHostTopology.Cluster == nil ||
+					instance.ResourceStatus.PhysicalHostTopology.Block == nil ||
+					instance.ResourceStatus.PhysicalHostTopology.Subblock == nil {
+					klog.InfoS("Missing topology info", "instance", instanceId)
+					missingTopologyInfo.WithLabelValues(instanceId).Inc()
+					continue
+				}
 				inst := &topology.InstanceTopology{
-					InstanceID: instanceId,
-					SpineID:    tokens[1],
-					BlockID:    tokens[2],
+					InstanceID:    instanceId,
+					DatacenterID:  instance.ResourceStatus.PhysicalHostTopology.GetCluster(),
+					SpineID:       instance.ResourceStatus.PhysicalHostTopology.GetBlock(),
+					AcceleratorID: instance.ResourceStatus.PhysicalHostTopology.GetSubblock(),
 				}
 				klog.Infof("Adding topology: %s", inst.String())
 				topo.Append(inst)
@@ -100,16 +103,6 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 		}
 		req.PageToken = &token
 	}
-}
-
-func getTokenCount(tokens []string) int {
-	c := 0
-	for _, q := range tokens {
-		if len(q) > 0 {
-			c += 1
-		}
-	}
-	return c
 }
 
 func castPageSize(val *int) *uint32 {

@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	compute_v1 "cloud.google.com/go/compute/apiv1"
-	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	compute_v2 "cloud.google.com/go/compute/apiv2alpha"
+	computepb "cloud.google.com/go/compute/apiv2alpha/computepb"
 	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/iterator"
@@ -47,8 +47,8 @@ type Client interface {
 }
 
 type gcpClient struct {
-	zoneClient     *compute_v1.ZonesClient
-	instanceClient *compute_v1.InstancesClient
+	zoneClient     *compute_v2.ZonesClient
+	instanceClient *compute_v2.InstancesClient
 }
 
 func (c *gcpClient) ProjectID(ctx context.Context) (string, error) {
@@ -95,12 +95,12 @@ func NamedLoader() (string, providers.Loader) {
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
 	clientFactory := func() (Client, error) {
-		zoneClient, err := compute_v1.NewZonesRESTClient(ctx)
+		zoneClient, err := compute_v2.NewZonesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get zones client: %s", err.Error())
 		}
 
-		instanceClient, err := compute_v1.NewInstancesRESTClient(ctx)
+		instanceClient, err := compute_v2.NewInstancesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get instances client: %s", err.Error())
 		}
