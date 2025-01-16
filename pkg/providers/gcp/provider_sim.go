@@ -19,9 +19,8 @@ package gcp
 import (
 	"context"
 	"fmt"
-	"strconv"
 
-	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	"cloud.google.com/go/compute/apiv2alpha/computepb"
 	gax "github.com/googleapis/gax-go/v2"
 
 	"github.com/NVIDIA/topograph/pkg/models"
@@ -49,13 +48,14 @@ func (c *SimClient) Instances(ctx context.Context, req *computepb.ListInstancesR
 	instances := make([]*computepb.Instance, 0, len(c.Model.Nodes))
 
 	for _, node := range c.Model.Nodes {
-		physicalHost := fmt.Sprintf("/%s/%s/%s", node.NetLayers[1], node.NetLayers[0], node.Name)
-		instanceID, _ := strconv.ParseUint(node.Name, 10, 64)
 		instance := &computepb.Instance{
-			Id:   &instanceID,
 			Name: &node.Name,
 			ResourceStatus: &computepb.ResourceStatus{
-				PhysicalHost: &physicalHost,
+				PhysicalHostTopology: &computepb.ResourceStatusPhysicalHostTopology{
+					Cluster:  &node.NetLayers[2],
+					Block:    &node.NetLayers[1],
+					Subblock: &node.NetLayers[0],
+				},
 			},
 		}
 		instances = append(instances, instance)
