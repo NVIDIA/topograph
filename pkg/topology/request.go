@@ -63,9 +63,9 @@ func (p *Request) String() string {
 	sb.WriteString("TopologyRequest:\n")
 	sb.WriteString(fmt.Sprintf("  Provider:%s\n", spacer(p.Provider.Name)))
 	sb.WriteString(map2string(p.Provider.Creds, "  Credentials", true, "\n"))
-	sb.WriteString(mapOfAny2string(p.Provider.Params, "  Parameters", false, "\n"))
+	sb.WriteString(map2string(p.Provider.Params, "  Parameters", false, "\n"))
 	sb.WriteString(fmt.Sprintf("  Engine:%s\n", spacer(p.Engine.Name)))
-	sb.WriteString(mapOfAny2string(p.Engine.Params, "  Parameters", false, "\n"))
+	sb.WriteString(map2string(p.Engine.Params, "  Parameters", false, "\n"))
 	sb.WriteString("  Nodes:")
 	for _, nodes := range p.Nodes {
 		sb.WriteByte(' ')
@@ -97,33 +97,7 @@ func spacer(value string) string {
 	return ""
 }
 
-func map2string(m map[string]string, prefix string, hide bool, suffix string) string {
-	var sb strings.Builder
-	sb.WriteString(prefix)
-	sb.WriteString(": [")
-	if n := len(m); n != 0 {
-		keys := make([]string, 0, n)
-		for key := range m {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		terms := make([]string, 0, n)
-		for _, key := range keys {
-			if hide {
-				terms = append(terms, fmt.Sprintf("%s:***", key))
-			} else {
-				terms = append(terms, fmt.Sprintf("%s:%s", key, m[key]))
-			}
-		}
-		sb.WriteString(strings.Join(terms, " "))
-	}
-	sb.WriteString("]")
-	sb.WriteString(suffix)
-
-	return sb.String()
-}
-
-func mapOfAny2string(m map[string]any, prefix string, hide bool, suffix string) string {
+func map2string[T string | any](m map[string]T, prefix string, hide bool, suffix string) string {
 	var sb strings.Builder
 	sb.WriteString(prefix)
 	sb.WriteString(": [")
