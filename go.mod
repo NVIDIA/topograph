@@ -1,8 +1,6 @@
 module github.com/NVIDIA/topograph
 
-go 1.23
-
-toolchain go1.23.2
+go 1.23.3
 
 require (
 	cloud.google.com/go/compute v1.33.0
@@ -106,6 +104,7 @@ require (
 )
 
 replace (
+	cloud.google.com/go/compute v1.33.0 => ../../google/cloud.google.com/go/compute
 	github.com/aws/aws-sdk-go-v2 v1.32.4 => github.com/pkedy/aws-sdk-go-v2 v0.0.0-20241115203348-0198b6c98cd9
 	github.com/aws/aws-sdk-go-v2/config v1.28.4 => github.com/pkedy/aws-sdk-go-v2/config v0.0.0-20241115203348-0198b6c98cd9
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.45 => github.com/pkedy/aws-sdk-go-v2/credentials v0.0.0-20241115203348-0198b6c98cd9
