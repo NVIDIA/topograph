@@ -1,0 +1,14 @@
+{
+  "provider": {
+    "name": "gcp-sim",
+    "params": {
+      "model_path": "tests/models/medium.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "topology_config_path": "topology.conf"
+    }
+  }
+}

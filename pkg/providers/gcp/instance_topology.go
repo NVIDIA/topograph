@@ -19,14 +19,11 @@ package gcp
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
 
-	"cloud.google.com/go/compute/apiv1/computepb"
-	"cloud.google.com/go/compute/metadata"
-	"google.golang.org/api/iterator"
+	"cloud.google.com/go/compute/apiv2alpha/computepb"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 type InstanceTopology struct {
@@ -34,72 +31,60 @@ type InstanceTopology struct {
 }
 
 type InstanceInfo struct {
-	clusterID string
-	rackID    string
-	name      string
+	clusterID  string
+	blockID    string
+	subBlockID string
+	name       string
 }
 
-func (p *Provider) generateInstanceTopology(ctx context.Context, instanceToNodeMap map[string]string) (*InstanceTopology, error) {
+func (p *baseProvider) generateInstanceTopology(ctx context.Context, instanceToNodeMap map[string]string) (*InstanceTopology, error) {
 	client, err := p.clientFactory()
 	if err != nil {
 		return nil, err
 	}
 
-	projectID, err := metadata.ProjectIDWithContext(ctx)
+	projectID, err := client.ProjectID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get project ID: %s", err.Error())
 	}
+
 	listZoneRequest := computepb.ListZonesRequest{Project: projectID}
-	zones := make([]string, 0)
-
-	timeNow := time.Now()
-	res := client.Zones.List(ctx, &listZoneRequest)
-	requestLatency.WithLabelValues("ListZones").Observe(time.Since(timeNow).Seconds())
-
-	for {
-		zone, err := res.Next()
-		if err == iterator.Done {
-			break
-		}
-		zones = append(zones, *zone.Name)
-	}
+	zones := client.Zones(ctx, &listZoneRequest)
 
 	instanceTopology := &InstanceTopology{instances: make([]*InstanceInfo, 0)}
 
 	for _, zone := range zones {
-		timeNow := time.Now()
 		listInstanceRequest := computepb.ListInstancesRequest{Project: projectID, Zone: zone}
-		requestLatency.WithLabelValues("ListInstances").Observe(time.Since(timeNow).Seconds())
+		instances := client.Instances(ctx, &listInstanceRequest)
 
-		resInstance := client.Instances.List(ctx, &listInstanceRequest)
-		for {
-			instance, err := resInstance.Next()
-			if err == iterator.Done {
-				break
-			}
+		for _, instance := range instances {
 			_, isNodeInCluster := instanceToNodeMap[*instance.Name]
 
 			if instance.ResourceStatus == nil {
-				resourceStatusNotFound.WithLabelValues(*instance.Name).Set(1)
+				missingResourceStatus.WithLabelValues(*instance.Name).Inc()
 				continue
 			}
-			resourceStatusNotFound.WithLabelValues(*instance.Name).Set(0)
 
-			if instance.ResourceStatus.PhysicalHost == nil {
-				physicalHostNotFound.WithLabelValues(*instance.Name).Set(1)
+			if instance.ResourceStatus.PhysicalHostTopology == nil {
+				missingPhysicalHostTopology.WithLabelValues(*instance.Name).Inc()
 				continue
 			}
-			physicalHostNotFound.WithLabelValues(*instance.Name).Set(0)
 
+			// TODO: manage orphan inctances
 			if isNodeInCluster {
-				tokens := strings.Split(*instance.ResourceStatus.PhysicalHost, "/")
-				physicalHostIDChunks.WithLabelValues(*instance.Name).Set(float64(getTokenCount(tokens)))
-				instanceObj := &InstanceInfo{
-					name:      *instance.Name,
-					clusterID: tokens[1],
-					rackID:    tokens[2],
+				if instance.ResourceStatus.PhysicalHostTopology.Cluster == nil ||
+					instance.ResourceStatus.PhysicalHostTopology.Block == nil ||
+					instance.ResourceStatus.PhysicalHostTopology.Subblock == nil {
+					missingTopologyInfo.WithLabelValues(*instance.Name).Inc()
+				} else {
+					instanceObj := &InstanceInfo{
+						name:       *instance.Name,
+						clusterID:  instance.ResourceStatus.PhysicalHostTopology.GetCluster(),
+						blockID:    instance.ResourceStatus.PhysicalHostTopology.GetBlock(),
+						subBlockID: instance.ResourceStatus.PhysicalHostTopology.GetSubblock(),
+					}
+					instanceTopology.instances = append(instanceTopology.instances, instanceObj)
 				}
-				instanceTopology.instances = append(instanceTopology.instances, instanceObj)
 			}
 		}
 	}
@@ -110,6 +95,7 @@ func (p *Provider) generateInstanceTopology(ctx context.Context, instanceToNodeM
 func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
 	forest := make(map[string]*topology.Vertex)
 	nodes := make(map[string]*topology.Vertex)
+	domainMap := translate.NewDomainMap()
 
 	for _, c := range cfg.instances {
 		instance := &topology.Vertex{
@@ -117,7 +103,20 @@ func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
 			ID:   c.name,
 		}
 
-		id2 := c.rackID
+		domainMap.AddHost(c.subBlockID, c.name)
+
+		id1 := c.subBlockID
+		sw1, ok := nodes[id1]
+		if !ok {
+			sw1 = &topology.Vertex{
+				ID:       id1,
+				Vertices: make(map[string]*topology.Vertex),
+			}
+			nodes[id1] = sw1
+		}
+		sw1.Vertices[instance.ID] = instance
+
+		id2 := c.blockID
 		sw2, ok := nodes[id2]
 		if !ok {
 			sw2 = &topology.Vertex{
@@ -126,19 +125,19 @@ func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
 			}
 			nodes[id2] = sw2
 		}
-		sw2.Vertices[instance.ID] = instance
+		sw2.Vertices[instance.ID] = sw1
 
-		id1 := c.clusterID
-		sw1, ok := nodes[id1]
+		id3 := c.clusterID
+		sw3, ok := nodes[id3]
 		if !ok {
-			sw1 = &topology.Vertex{
-				ID:       id1,
+			sw3 = &topology.Vertex{
+				ID:       id3,
 				Vertices: make(map[string]*topology.Vertex),
 			}
-			nodes[id1] = sw1
-			forest[id1] = sw1
+			nodes[id3] = sw3
+			forest[id3] = sw3
 		}
-		sw1.Vertices[id2] = sw2
+		sw3.Vertices[id2] = sw2
 	}
 
 	treeRoot := &topology.Vertex{
@@ -152,6 +151,10 @@ func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
 		Vertices: make(map[string]*topology.Vertex),
 	}
 	root.Vertices[topology.TopologyTree] = treeRoot
+
+	if len(domainMap) != 0 {
+		root.Vertices[topology.TopologyBlock] = domainMap.ToBlocks()
+	}
 
 	return root, nil
 }
