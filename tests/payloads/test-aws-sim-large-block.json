@@ -1,0 +1,16 @@
+{
+  "provider": {
+    "name": "aws-sim",
+    "params": {
+      "model_path": "tests/models/large.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "block_sizes": "8,16,32",
+      "topology_config_path": "topology.conf"
+    }
+  }
+}
