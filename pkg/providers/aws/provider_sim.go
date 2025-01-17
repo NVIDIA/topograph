@@ -42,17 +42,16 @@ const (
 
 type SimClient struct {
 	Model      *models.Model
-	Outputs    map[string](*[]types.InstanceTopology)
+	Outputs    map[string]([]types.InstanceTopology)
 	NextTokens map[string]string
 }
 
-func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
-
+func (client *SimClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
 	// If we need to calculate new results (a previous token was not given)
 	givenToken := params.NextToken
 	if givenToken == nil {
 		// Refreshes the clients internal storage for outputs
-		client.Outputs = make(map[string](*[]types.InstanceTopology))
+		client.Outputs = make(map[string][]types.InstanceTopology)
 		client.NextTokens = make(map[string]string)
 
 		// Sets the maximum number of results to return per output
@@ -65,12 +64,10 @@ func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec
 		var firstToken string
 		var instanceIdx int = 0
 		for instanceIdx < len(params.InstanceIds) {
-
 			// Only collect a list up to params.MaxResults
 			var instances []types.InstanceTopology
 			var i int
 			for i = 0; i < maxResults && i+instanceIdx < len(params.InstanceIds); i++ {
-
 				// Gets the instance ID
 				instanceId := params.InstanceIds[instanceIdx+i]
 
@@ -109,7 +106,7 @@ func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec
 			if instanceIdx == 0 {
 				firstToken = token
 			}
-			client.Outputs[token] = &instances
+			client.Outputs[token] = instances
 			instanceIdx += i
 			if instanceIdx < len(params.InstanceIds) {
 				var nextToken string = strconv.Itoa(instanceIdx)
@@ -123,7 +120,7 @@ func (client SimClient) DescribeInstanceTopology(ctx context.Context, params *ec
 
 	// Otherwise return the requested, already calculated output
 	output := ec2.DescribeInstanceTopologyOutput{
-		Instances: *client.Outputs[*givenToken],
+		Instances: client.Outputs[*givenToken],
 	}
 	nextToken, ok := client.NextTokens[*givenToken]
 	if ok {
@@ -153,7 +150,7 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 	if err != nil {
 		return nil, fmt.Errorf("unable to load model file for AWS simulation, %v", err)
 	}
-	simClient := SimClient{Model: csp_model}
+	simClient := &SimClient{Model: csp_model}
 
 	client := &Client{
 		EC2: simClient,
@@ -184,5 +181,5 @@ func NewSim(clientFactory ClientFactory, imdsClient IDMSClient) *SimProvider {
 func (p *SimProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
 	client, _ := p.clientFactory("")
 
-	return client.EC2.(SimClient).Model.Instances, nil
+	return client.EC2.(*SimClient).Model.Instances, nil
 }
