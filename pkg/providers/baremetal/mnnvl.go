@@ -2,6 +2,7 @@ package baremetal
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-// domain contains map of each domainID(clusterUUID) -> list of nodeNames in that domain
+// domain contains map of each domainID(clusterUUID) -> map of nodeNames in that domain
 // Each domain will be a separate NVL Domain
 type domain struct {
 	nodeMap map[string]bool // nodeName: true
@@ -39,22 +40,8 @@ func domainIDExists(id string, domainMap map[string]domain) bool {
 	return false
 }
 
-func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
-	nodeVisited := make(map[string]bool)
-	treeRoot := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-	}
-	ibPrefix := "IB"
-	ibCount := 0
+func populatePartitions(stdout *bytes.Buffer) (map[string][]string, error) {
 	partitionNodeMap := make(map[string][]string)
-	partitionVisitedMap := make(map[string]bool)
-
-	args := []string{"-h"}
-	stdout, err := exec.Exec(ctx, "sinfo", args, nil)
-	if err != nil {
-		return nil, fmt.Errorf("exec error in sinfo: %v", err)
-	}
-
 	// scan each line containing slurm partition and the nodes in it
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
@@ -71,6 +58,28 @@ func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 		}
 		// map of slurm partition name  -> node names
 		partitionNodeMap[partitionName] = append(partitionNodeMap[partitionName], nodesArr...)
+	}
+	return partitionNodeMap, nil
+}
+
+func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
+	nodeVisited := make(map[string]bool)
+	treeRoot := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
+	}
+	ibPrefix := "IB"
+	ibCount := 0
+	partitionVisitedMap := make(map[string]bool)
+
+	args := []string{"-h"}
+	stdout, err := exec.Exec(ctx, "sinfo", args, nil)
+	if err != nil {
+		return nil, fmt.Errorf("exec error in sinfo: %v", err)
+	}
+
+	partitionNodeMap, err := populatePartitions(stdout)
+	if err != nil {
+		return nil, fmt.Errorf("populatePartitions failed : %v", err)
 	}
 	for pName, nodes := range partitionNodeMap {
 		// for each partition in slurm, find the IB tree it belongs to
@@ -116,15 +125,17 @@ func deCompressNodeNames(nodeList string) ([]string, error) {
 	arr := strings.Split(nodeList, ",")
 	prefix := ""
 	var nodeName string
+	resetPrefix := false
 
 	// example : nodename-1-[001-004 , 007, 91-99 , 100], nodename-2-89
 	for _, entry := range arr {
 		// example : nodename-1-[001-004
 		if strings.Contains(entry, "[") {
-			// example : 100]
+			// example : nodename-1-[001-004]
 			entryWithoutSuffix := strings.TrimSuffix(entry, "]")
 			tuple := strings.Split(entryWithoutSuffix, "[")
 			prefix = tuple[0]
+			resetPrefix = false
 			// example : nodename-1-[001-004
 			if strings.Contains(tuple[1], "-") {
 				nr := strings.Split(tuple[1], "-")
@@ -153,10 +164,10 @@ func deCompressNodeNames(nodeList string) ([]string, error) {
 			// example: 100], nodename-2-89, 90
 			if len(prefix) > 0 { //prefix exists, so must be a suffix.
 				if strings.HasSuffix(entry, "]") { //if suffix has ], reset prefix
-					nv := strings.Split(entry, "]")
-					nodeName = prefix + nv[0]
-					prefix = ""
-				} else if strings.Contains(entry, "-") { // suffix containing range of nodes
+					entry = strings.TrimSuffix(entry, "]")
+					resetPrefix = true
+				}
+				if strings.Contains(entry, "-") { // suffix containing range of nodes
 					// example: 100-102]
 					nr := strings.Split(entry, "-")
 					w := len(nr[0])
@@ -173,11 +184,17 @@ func deCompressNodeNames(nodeList string) ([]string, error) {
 						nodeName = prefix + suffixNum
 						nodeArr = append(nodeArr, nodeName)
 					}
+					if resetPrefix {
+						prefix = ""
+					}
 					// avoid another nodename append at the end
 					continue
 				} else {
 					//example: 90
 					nodeName = prefix + entry
+					if resetPrefix {
+						prefix = ""
+					}
 				}
 			} else { // no prefix yet, must be whole nodename
 				//example: nodename-2-89
@@ -189,14 +206,8 @@ func deCompressNodeNames(nodeList string) ([]string, error) {
 	return nodeArr, nil
 }
 
-// getClusterOutput reads output from nodeInfo and populates the structs
-func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []string, cmd string) error {
-	args := []string{"-R", "ssh", "-w", strings.Join(nodes, ","), cmd}
-	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
-	if err != nil {
-		return fmt.Errorf("exec error while pdsh: %v", err)
-	}
-
+func populateDomains(stdout *bytes.Buffer) (map[string]domain, error) {
+	domainMap := make(map[string]domain) // domainID: domain
 	scanner := bufio.NewScanner(stdout)
 	cliqueId := ""
 	clusterUUID := ""
@@ -204,7 +215,7 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 	for scanner.Scan() {
 		nodeLine := scanner.Text()
 		arr := strings.Split(nodeLine, ":")
-		nodeName := arr[0]
+		nodeName := strings.TrimSpace(arr[0])
 		itemName := strings.TrimSpace(arr[1])
 		if itemName == "CliqueId" {
 			cliqueId = strings.TrimSpace(arr[2])
@@ -221,10 +232,19 @@ func getClusterOutput(ctx context.Context, domainMap map[string]domain, nodes []
 		nodeMap[nodeName] = true
 	}
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("scanner error while reading pdsh output: %v", err)
+		return nil, fmt.Errorf("scanner error while reading pdsh output: %v", err)
 	}
+	return domainMap, nil
+}
 
-	return nil
+// getClusterOutput reads output from nodeInfo and populates the structs
+func getClusterOutput(ctx context.Context, nodes []string, cmd string) (map[string]domain, error) {
+	args := []string{"-R", "ssh", "-w", strings.Join(nodes, ","), cmd}
+	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
+	if err != nil {
+		return nil, fmt.Errorf("exec error while pdsh: %v", err)
+	}
+	return populateDomains(stdout)
 }
 
 func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.Vertex {
@@ -251,9 +271,9 @@ func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.V
 }
 
 func generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
-	domainMap := make(map[string]domain) // domainID: domain
+
 	nodes := getNodeList(cis)
-	err := getClusterOutput(ctx, domainMap, nodes, `nvidia-smi -q | grep "ClusterUUID\|CliqueId"`)
+	domainMap, err := getClusterOutput(ctx, nodes, `nvidia-smi -q | grep "ClusterUUID\|CliqueId"`)
 	if err != nil {
 		return nil, fmt.Errorf("getClusterOutput failed: %v", err)
 	}

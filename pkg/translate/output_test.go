@@ -36,6 +36,11 @@ BlockName=B2 Nodes=Node[201-202],Node205
 BlockSizes=3
 `
 
+	testBlockConfigDiffNumNodes = `BlockName=B1 Nodes=Node[104-106]
+BlockName=B2 Nodes=Node[201-202],Node[205-206]
+BlockSizes=2
+`
+
 	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
 BlockName=B4 Nodes=Node[401-403]
 BlockName=B1 Nodes=Node[104-106]
@@ -98,6 +103,19 @@ func TestToBlockIBTopology(t *testing.T) {
 	require.NoError(t, err)
 	switch buf.String() {
 	case testBlockConfig:
+		// nop
+	default:
+		t.Errorf("unexpected result %s", buf.String())
+	}
+}
+
+func TestToBlockDiffNumNode(t *testing.T) {
+	v, _ := GetBlockWithDiffNumNodeTestSet()
+	buf := &bytes.Buffer{}
+	err := Write(buf, v)
+	require.NoError(t, err)
+	switch buf.String() {
+	case testBlockConfigDiffNumNodes:
 		// nop
 	default:
 		t.Errorf("unexpected result %s", buf.String())
