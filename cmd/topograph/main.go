@@ -33,9 +33,9 @@ import (
 var GitTag string
 
 func main() {
-	var c string
+	var cfg string
 	var version bool
-	flag.StringVar(&c, "c", "/etc/topograph/topograph-config.yaml", "config file")
+	flag.StringVar(&cfg, "c", "/etc/topograph/topograph-config.yaml", "config file")
 	flag.BoolVar(&version, "version", false, "show the version")
 
 	klog.InitFlags(nil)
@@ -47,7 +47,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := mainInternal(c); err != nil {
+	if err := mainInternal(cfg); err != nil {
 		klog.Error(err.Error())
 		os.Exit(1)
 	}
