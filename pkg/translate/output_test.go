@@ -76,7 +76,7 @@ func TestToTreeTopology(t *testing.T) {
 }
 
 func TestToBlockTopology(t *testing.T) {
-	v, _ := GetBlockTestSet()
+	v, _ := getBlockTestSet()
 	buf := &bytes.Buffer{}
 	err := Write(buf, v)
 	require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestToBlockMultiIBTopology(t *testing.T) {
 }
 
 func TestToBlockIBTopology(t *testing.T) {
-	v, _ := GetBlockWithIBTestSet()
+	v, _ := getBlockWithIBTestSet()
 	buf := &bytes.Buffer{}
 	err := Write(buf, v)
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestToBlockIBTopology(t *testing.T) {
 }
 
 func TestToBlockDiffNumNode(t *testing.T) {
-	v, _ := GetBlockWithDiffNumNodeTestSet()
+	v, _ := getBlockWithDiffNumNodeTestSet()
 	buf := &bytes.Buffer{}
 	err := Write(buf, v)
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestToBlockDiffNumNode(t *testing.T) {
 }
 
 func TestToBlockDFSIBTopology(t *testing.T) {
-	v, _ := GetBlockWithDFSIBTestSet()
+	v, _ := getBlockWithDFSIBTestSet()
 	buf := &bytes.Buffer{}
 	err := Write(buf, v)
 	require.NoError(t, err)
@@ -272,4 +272,266 @@ func TestSplit(t *testing.T) {
 			require.Equal(t, tc.suffix, suffix)
 		})
 	}
+}
+
+func getBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
+	//
+	//     ibRoot1
+	//        |
+	//        S1
+	//      /    \
+	//    S2      S3
+	//    |       |
+	//   ---     ---
+	//   I14\    I21\
+	//   I15-B1  I22-B2
+	//   I16/    I25/
+	//   ---     ---
+	//
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105", "I16": "Node106",
+		"I21": "Node201", "I22": "Node202", "I25": "Node205",
+	}
+
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &topology.Vertex{ID: "I16", Name: "Node106"}
+
+	n21 := &topology.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
+
+	sw2 := &topology.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	sw3 := &topology.Vertex{
+		ID:       "S3",
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+	sw1 := &topology.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*topology.Vertex{"S2": sw2, "S3": sw3},
+	}
+	treeRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S1": sw1},
+	}
+
+	block1 := &topology.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	block2 := &topology.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2},
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
+		Metadata: map[string]string{
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "3",
+		},
+	}
+	return root, instance2node
+}
+
+func getBlockWithDFSIBTestSet() (*topology.Vertex, map[string]string) {
+	//
+	//     		 ibRoot1
+	//       /      |        \
+	//   S1         S2         S3
+	//   |          |          |
+	//   S4        ---         S5
+	//   |         I14\        |
+	//  ---			  B2      ---
+	//  I22-B1     I15/       I25-B3
+	//  ---        ---        ---
+	//
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105",
+		"I22": "Node202", "I25": "Node205",
+	}
+
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
+
+	sw2 := &topology.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
+	}
+
+	sw4 := &topology.Vertex{
+		ID:       "S4",
+		Vertices: map[string]*topology.Vertex{"I22": n22},
+	}
+
+	sw5 := &topology.Vertex{
+		ID:       "S5",
+		Vertices: map[string]*topology.Vertex{"I25": n25},
+	}
+
+	sw3 := &topology.Vertex{
+		ID:       "S3",
+		Vertices: map[string]*topology.Vertex{"S5": sw5},
+	}
+	sw1 := &topology.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*topology.Vertex{"S4": sw4},
+	}
+
+	sw0 := &topology.Vertex{
+		ID:       "S0",
+		Vertices: map[string]*topology.Vertex{"S1": sw1, "S2": sw2, "S3": sw3},
+	}
+
+	treeRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S0": sw0},
+	}
+
+	block2 := &topology.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
+	}
+	block1 := &topology.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*topology.Vertex{"I22": n22},
+	}
+
+	block3 := &topology.Vertex{
+		ID:       "B3",
+		Vertices: map[string]*topology.Vertex{"I25": n25},
+	}
+
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2, "B3": block3},
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
+		Metadata: map[string]string{
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "1",
+		},
+	}
+	return root, instance2node
+}
+
+func getBlockTestSet() (*topology.Vertex, map[string]string) {
+	//
+	//	---        ---
+	//   I14\      I21\
+	//   I15-B1    I22-B2
+	//   I16/      I25/
+	//   ---       ---
+	//
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105", "I16": "Node106",
+		"I21": "Node201", "I22": "Node202", "I25": "Node205",
+	}
+
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &topology.Vertex{ID: "I16", Name: "Node106"}
+
+	n21 := &topology.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
+
+	block1 := &topology.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	block2 := &topology.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
+	}
+
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2},
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot},
+		Metadata: map[string]string{
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "3",
+		},
+	}
+	return root, instance2node
+}
+
+func getBlockWithDiffNumNodeTestSet() (*topology.Vertex, map[string]string) {
+	//
+	//     ibRoot1
+	//        |
+	//        S1
+	//      /    \
+	//    S2      S3
+	//    |       |
+	//   ---     ---
+	//   I14\    I21\
+	//   I15-B1  I22-B2
+	//   I16/    I25  /
+	//           I26 /
+	//   ---     ---
+	//
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105", "I16": "Node106",
+		"I21": "Node201", "I22": "Node202", "I25": "Node205", "I26": "Node206",
+	}
+
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+	n16 := &topology.Vertex{ID: "I16", Name: "Node106"}
+
+	n21 := &topology.Vertex{ID: "I21", Name: "Node201"}
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
+	n26 := &topology.Vertex{ID: "I26", Name: "Node206"}
+
+	sw2 := &topology.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	sw3 := &topology.Vertex{
+
+		ID:       "S3",
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25, "I26": n26},
+	}
+	sw1 := &topology.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*topology.Vertex{"S2": sw2, "S3": sw3},
+	}
+	treeRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S1": sw1},
+	}
+
+	block1 := &topology.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
+	}
+	block2 := &topology.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25, "I26": n26},
+	}
+
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2},
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
+		Metadata: map[string]string{
+			topology.KeyPlugin: topology.TopologyBlock,
+		},
+	}
+	return root, instance2node
 }
