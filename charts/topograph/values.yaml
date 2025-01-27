@@ -8,7 +8,7 @@ image:
   repository: ghcr.io/nvidia/topograph
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "main"
+  tag: main
 
 imagePullSecrets: []
 nameOverride: ""
