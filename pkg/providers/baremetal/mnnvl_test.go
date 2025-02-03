@@ -21,11 +21,11 @@ func createTestCases() []testCase {
 	for i := 1; i <= 4; i++ {
 		nodeArr0 = append(nodeArr0, fmt.Sprintf("nodename-1-00%v", i))
 	}
-	nodeArr0 = append(nodeArr0, fmt.Sprintf("nodename-1-007"))
+	nodeArr0 = append(nodeArr0, "nodename-1-007")
 	for i := 91; i <= 99; i++ {
 		nodeArr0 = append(nodeArr0, fmt.Sprintf("nodename-1-%v", i))
 	}
-	nodeArr0 = append(nodeArr0, fmt.Sprintf("nodename-1-100"))
+	nodeArr0 = append(nodeArr0, "nodename-1-100")
 	nodeArr0 = append(nodeArr0, "nodename-2-89")
 	case0 := testCase{
 		name:     "Case0",
@@ -59,11 +59,11 @@ func createTestCases() []testCase {
 	for i := 1; i <= 4; i++ {
 		nodeArr2 = append(nodeArr2, fmt.Sprintf("nodename-1-00%v", i))
 	}
-	nodeArr2 = append(nodeArr2, fmt.Sprintf("nodename-1-007"))
+	nodeArr2 = append(nodeArr2, "nodename-1-007")
 	for i := 91; i <= 99; i++ {
 		nodeArr2 = append(nodeArr2, fmt.Sprintf("nodename-1-%v", i))
 	}
-	nodeArr2 = append(nodeArr2, fmt.Sprintf("nodename-1-100"))
+	nodeArr2 = append(nodeArr2, "nodename-1-100")
 	case2 := testCase{
 		name:     "Case2",
 		nodeList: "nodename-2-89,nodename-1-[001-004,007,91-99,100]",
@@ -76,11 +76,11 @@ func createTestCases() []testCase {
 	for i := 1; i <= 4; i++ {
 		nodeArr3 = append(nodeArr3, fmt.Sprintf("alpha-1-00%v", i))
 	}
-	nodeArr3 = append(nodeArr3, fmt.Sprintf("alpha-1-007"))
+	nodeArr3 = append(nodeArr3, "alpha-1-007")
 	for i := 91; i <= 99; i++ {
 		nodeArr3 = append(nodeArr3, fmt.Sprintf("alpha-1-%v", i))
 	}
-	nodeArr3 = append(nodeArr3, fmt.Sprintf("alpha-1-100"))
+	nodeArr3 = append(nodeArr3, "alpha-1-100")
 	nodeArr3 = append(nodeArr3, "beta-2-89")
 
 	case3 := testCase{
