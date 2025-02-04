@@ -31,15 +31,6 @@ func getNodeList(cis []topology.ComputeInstances) []string {
 	return nodes
 }
 
-// Check if domainID exists in the map
-func domainIDExists(id string, domainMap map[string]domain) bool {
-	if _, exists := domainMap[id]; exists {
-		return true
-	}
-
-	return false
-}
-
 func populatePartitions(stdout *bytes.Buffer) (map[string][]string, error) {
 	partitionNodeMap := make(map[string][]string)
 	// scan each line containing slurm partition and the nodes in it
@@ -223,7 +214,7 @@ func populateDomains(stdout *bytes.Buffer) (map[string]domain, error) {
 		}
 		clusterUUID = strings.TrimSpace(arr[2])
 		domainName = clusterUUID + cliqueId
-		if !domainIDExists(domainName, domainMap) {
+		if _, exists := domainMap[domainName]; !exists {
 			domainMap[domainName] = domain{
 				nodeMap: make(map[string]bool),
 			}
