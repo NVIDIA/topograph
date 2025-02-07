@@ -19,12 +19,16 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	compute "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/compute/metadata"
+	"github.com/agrea/ptr"
 	"google.golang.org/api/iterator"
+	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -39,72 +43,63 @@ type InstanceInfo struct {
 	name      string
 }
 
-func (p *Provider) generateInstanceTopology(ctx context.Context, instanceToNodeMap map[string]string) (*InstanceTopology, error) {
+func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*InstanceTopology, error) {
+	insTop := &InstanceTopology{
+		instances: []*InstanceInfo{},
+	}
+
+	maxRes := castPageSize(pageSize)
+	for _, ci := range cis {
+		err := p.generateRegionInstanceTopology(ctx, insTop, maxRes, &ci)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return insTop, nil
+}
+
+func (p *Provider) generateRegionInstanceTopology(ctx context.Context, insTop *InstanceTopology, maxRes *uint32, ci *topology.ComputeInstances) error {
 	client, err := p.clientFactory()
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("unable to get client: %v", err)
 	}
 
 	projectID, err := metadata.ProjectIDWithContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get project ID: %s", err.Error())
+		return fmt.Errorf("unable to get project ID: %v", err)
 	}
-	listZoneRequest := computepb.ListZonesRequest{Project: projectID}
-	zones := make([]string, 0)
 
-	timeNow := time.Now()
-	res := client.Zones.List(ctx, &listZoneRequest)
-	requestLatency.WithLabelValues("ListZones").Observe(time.Since(timeNow).Seconds())
+	klog.InfoS("Getting instance topology", "region", ci.Region, "project", projectID)
 
+	req := computepb.ListInstancesRequest{
+		Project:    projectID,
+		Zone:       ci.Region,
+		MaxResults: maxRes,
+		PageToken:  nil,
+	}
+
+	var cycle int
 	for {
-		zone, err := res.Next()
-		if err == iterator.Done {
-			break
-		}
-		zones = append(zones, *zone.Name)
-	}
+		cycle++
+		klog.V(4).Infof("Starting cycle %d", cycle)
 
-	instanceTopology := &InstanceTopology{instances: make([]*InstanceInfo, 0)}
-
-	for _, zone := range zones {
 		timeNow := time.Now()
-		listInstanceRequest := computepb.ListInstancesRequest{Project: projectID, Zone: zone}
+		resp := client.Instances.List(ctx, &req)
 		requestLatency.WithLabelValues("ListInstances").Observe(time.Since(timeNow).Seconds())
 
-		resInstance := client.Instances.List(ctx, &listInstanceRequest)
-		for {
-			instance, err := resInstance.Next()
-			if err == iterator.Done {
-				break
-			}
-			_, isNodeInCluster := instanceToNodeMap[*instance.Name]
+		processInstanceList(insTop, resp, ci)
 
-			if instance.ResourceStatus == nil {
-				resourceStatusNotFound.WithLabelValues(*instance.Name).Set(1)
-				continue
-			}
-			resourceStatusNotFound.WithLabelValues(*instance.Name).Set(0)
+		klog.V(4).Infof("Processed %d nodes", len(insTop.instances))
 
-			if instance.ResourceStatus.PhysicalHost == nil {
-				physicalHostNotFound.WithLabelValues(*instance.Name).Set(1)
-				continue
-			}
-			physicalHostNotFound.WithLabelValues(*instance.Name).Set(0)
-
-			if isNodeInCluster {
-				tokens := strings.Split(*instance.ResourceStatus.PhysicalHost, "/")
-				physicalHostIDChunks.WithLabelValues(*instance.Name).Set(float64(getTokenCount(tokens)))
-				instanceObj := &InstanceInfo{
-					name:      *instance.Name,
-					clusterID: tokens[1],
-					rackID:    tokens[2],
-				}
-				instanceTopology.instances = append(instanceTopology.instances, instanceObj)
-			}
+		if token := resp.PageInfo().Token; token == "" {
+			break
+		} else {
+			req.PageToken = &token
 		}
 	}
 
-	return instanceTopology, nil
+	return nil
 }
 
 func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
@@ -156,6 +151,44 @@ func (cfg *InstanceTopology) toGraph() (*topology.Vertex, error) {
 	return root, nil
 }
 
+func processInstanceList(insTop *InstanceTopology, resp *compute.InstanceIterator, ci *topology.ComputeInstances) {
+	for {
+		instance, err := resp.Next()
+		if err == iterator.Done {
+			return
+		}
+		instanceId := strconv.FormatUint(*instance.Id, 10)
+		klog.Infof("Checking INSTANCE %s", instanceId)
+		if _, ok := ci.Instances[instanceId]; ok {
+			klog.Infof("FOUND INSTANCE %s", instanceId)
+			if instance.ResourceStatus == nil {
+				klog.Infof("ResourceStatus is not set for INSTANCE %s", instanceId)
+				resourceStatusNotFound.WithLabelValues(instanceId).Set(1)
+				continue
+			}
+			resourceStatusNotFound.WithLabelValues(instanceId).Set(0)
+
+			if instance.ResourceStatus.PhysicalHost == nil {
+				klog.Infof("PhysicalHost is not set for INSTANCE %s", instanceId)
+				physicalHostNotFound.WithLabelValues(instanceId).Set(1)
+				continue
+			}
+			physicalHostNotFound.WithLabelValues(instanceId).Set(0)
+
+			tokens := strings.Split(*instance.ResourceStatus.PhysicalHost, "/")
+			physicalHostIDChunks.WithLabelValues(instanceId).Set(float64(getTokenCount(tokens)))
+			instanceObj := &InstanceInfo{
+				name:      instanceId,
+				clusterID: tokens[1],
+				rackID:    tokens[2],
+			}
+			insTop.instances = append(insTop.instances, instanceObj)
+		} else {
+			klog.Infof("INSTANCE %s NOT IN MAP", instanceId)
+		}
+	}
+}
+
 func getTokenCount(tokens []string) int {
 	c := 0
 	for _, q := range tokens {
@@ -164,4 +197,12 @@ func getTokenCount(tokens []string) int {
 		}
 	}
 	return c
+}
+
+func castPageSize(val *int) *uint32 {
+	if val == nil {
+		return nil
+	}
+
+	return ptr.Uint32(uint32(*val))
 }
