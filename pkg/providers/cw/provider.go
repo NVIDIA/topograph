@@ -19,10 +19,10 @@ package cw
 import (
 	"context"
 	"fmt"
-	"os/exec"
 
 	v1 "k8s.io/api/core/v1"
 
+	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/ib"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -49,14 +49,12 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		return nil, fmt.Errorf("CW does not support mult-region topology requests")
 	}
 
-	cmd := exec.CommandContext(ctx, "ibnetdiscover")
-
-	output, err := cmd.Output()
+	output, err := exec.Exec(ctx, "ibnetdiscover", nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return ib.GenerateTopologyConfig(output)
+	return ib.GenerateTopologyConfig(output.Bytes())
 }
 
 // Engine support
@@ -72,7 +70,7 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 }
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion() (string, error) {
+func (p *Provider) GetComputeInstancesRegion(_ context.Context) (string, error) {
 	return "", nil
 }
 

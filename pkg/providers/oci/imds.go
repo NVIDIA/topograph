@@ -18,27 +18,24 @@ package oci
 
 import (
 	"bufio"
+	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"k8s.io/klog/v2"
+
+	"github.com/NVIDIA/topograph/internal/exec"
 )
 
 const (
-	IMDSURL = "http://169.254.169.254/opc/v2/instance/"
+	IMDSURL = "http://169.254.169.254/opc/v2/instance"
 )
 
-func instanceToNodeMap(nodes []string) (map[string]string, error) {
+func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
 	args := []string{"-w", strings.Join(nodes, ","), fmt.Sprintf("echo $(curl -s  -H \"Authorization: Bearer Oracle\" -L %s/id)", IMDSURL)}
-	cmd := exec.Command("pdsh", args...)
 
-	stdout, err := cmd.StdoutPipe()
+	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
 
@@ -57,9 +54,17 @@ func instanceToNodeMap(nodes []string) (map[string]string, error) {
 		return nil, err
 	}
 
-	if err := cmd.Wait(); err != nil {
-		return nil, err
+	return i2n, nil
+}
+
+func getRegion(ctx context.Context) (string, error) {
+	url := fmt.Sprintf("%s/region", IMDSURL)
+	args := []string{"-s", "-H", "Authorization: Bearer Oracle", "-L", url}
+
+	stdout, err := exec.Exec(ctx, "curl", args, nil)
+	if err != nil {
+		return "", err
 	}
 
-	return i2n, nil
+	return stdout.String(), nil
 }

@@ -46,7 +46,7 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	}
 
 	for _, ci := range cis {
-		if topology, err = p.generateInstanceTopologyForRegionInstances(ctx, limit, &ci, topology); err != nil {
+		if topology, err = p.generateRegionInstanceTopology(ctx, limit, &ci, topology); err != nil {
 			return nil, err
 		}
 	}
@@ -54,7 +54,7 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	return topology, nil
 }
 
-func (p *baseProvider) generateInstanceTopologyForRegionInstances(ctx context.Context, pageSize int32, ci *topology.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageSize int32, ci *topology.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
 	if len(ci.Region) == 0 {
 		return nil, fmt.Errorf("must specify region to query instance topology")
 	}
