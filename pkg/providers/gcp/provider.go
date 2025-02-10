@@ -112,7 +112,7 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 }
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion() (string, error) {
+func (p *Provider) GetComputeInstancesRegion(_ context.Context) (string, error) {
 	return "", nil
 }
 

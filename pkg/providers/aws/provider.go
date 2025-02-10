@@ -225,8 +225,8 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 }
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion() (string, error) {
-	output, err := p.imdsClient.GetRegion(context.Background(), &imds.GetRegionInput{})
+func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
+	output, err := p.imdsClient.GetRegion(ctx, &imds.GetRegionInput{})
 	if err != nil {
 		return "", err
 	}

@@ -54,8 +54,8 @@ type Params struct {
 }
 
 type instanceMapper interface {
-	Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error)
-	GetComputeInstancesRegion() (string, error)
+	Instances2NodeMap(context.Context, []string) (map[string]string, error)
+	GetComputeInstancesRegion(context.Context) (string, error)
 }
 
 var ErrEnvironmentUnsupported = errors.New("environment must implement instanceMapper")
@@ -87,11 +87,13 @@ func (eng *SlurmEngine) GetComputeInstances(ctx context.Context, environment eng
 	if err != nil {
 		return nil, err
 	}
+	klog.V(4).Infof("Detected instance map: %v", i2n)
 
-	region, err := instanceMapper.GetComputeInstancesRegion()
+	region, err := instanceMapper.GetComputeInstancesRegion(ctx)
 	if err != nil {
 		return nil, err
 	}
+	klog.V(4).Infof("Detected region: %s", region)
 
 	return []topology.ComputeInstances{{
 		Region:    region,

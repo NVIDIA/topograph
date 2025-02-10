@@ -158,12 +158,12 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	return instanceToNodeMap(nodes)
+	return instanceToNodeMap(ctx, nodes)
 }
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion() (string, error) {
-	return "", nil
+func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
+	return getRegion(ctx)
 }
 
 // GetNodeRegion implements k8s.k8sNodeInfo
