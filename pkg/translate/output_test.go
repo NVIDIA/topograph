@@ -27,24 +27,24 @@ import (
 
 const (
 	testTreeConfig = `SwitchName=S1 Switches=S[2-3]
-SwitchName=S2 Nodes=Node[201-202],Node205
+SwitchName=S2 Nodes=Node[201-202,205]
 SwitchName=S3 Nodes=Node[304-306]
 `
 
 	testBlockConfig = `BlockName=B1 Nodes=Node[104-106]
-BlockName=B2 Nodes=Node[201-202],Node205
+BlockName=B2 Nodes=Node[201-202,205]
 BlockSizes=3
 `
 
 	testBlockConfigDiffNumNodes = `BlockName=B1 Nodes=Node[104-106]
-BlockName=B2 Nodes=Node[201-202],Node[205-206]
+BlockName=B2 Nodes=Node[201-202,205-206]
 BlockSizes=2,4
 `
 
 	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
 BlockName=B4 Nodes=Node[401-403]
 BlockName=B1 Nodes=Node[104-106]
-BlockName=B2 Nodes=Node[201-202],Node205
+BlockName=B2 Nodes=Node[201-202,205]
 BlockSizes=3
 `
 
@@ -187,91 +187,6 @@ func TestToSlurmNameShortener(t *testing.T) {
 	err := Write(buf, root)
 	require.NoError(t, err)
 	require.Equal(t, shortNameExpectedResult, buf.String())
-}
-
-func TestCompress(t *testing.T) {
-	testCases := []struct {
-		name          string
-		input, output []string
-	}{
-		{
-			name:   "Case 1: empty list",
-			output: []string{},
-		},
-		{
-			name:   "Case 2: ranges",
-			input:  []string{"eos0507", "eos0509", "eos0482", "eos0483", "eos0508", "eos0484"},
-			output: []string{"eos0[482-484]", "eos0[507-509]"},
-		},
-		{
-			name:   "Case 3: singles",
-			input:  []string{"eos0507", "eos0509", "eos0482"},
-			output: []string{"eos0482", "eos0507", "eos0509"},
-		},
-		{
-			name:   "Case 4: mix1",
-			input:  []string{"eos0507", "eos0509", "abc", "eos0482", "eos0508"},
-			output: []string{"abc", "eos0482", "eos0[507-509]"},
-		},
-		{
-			name:   "Case 5: mix2",
-			input:  []string{"eos0507", "eos0509", "abc", "eos0508", "eos0482"},
-			output: []string{"abc", "eos0482", "eos0[507-509]"},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.output, compress(tc.input))
-		})
-	}
-}
-
-func TestSplit(t *testing.T) {
-	testCases := []struct {
-		name                  string
-		input, prefix, suffix string
-	}{
-		{
-			name: "Case 1: empty string",
-		},
-		{
-			name:   "Case 2: no digits",
-			input:  "abc",
-			prefix: "abc",
-		},
-		{
-			name:   "Case 3: digits only",
-			input:  "12345",
-			suffix: "12345",
-		},
-		{
-			name:   "Case 4: digits only, leading zeros",
-			input:  "0012345",
-			prefix: "00",
-			suffix: "12345",
-		},
-		{
-			name:   "Case 5: mix",
-			input:  "abc1203045",
-			prefix: "abc",
-			suffix: "1203045",
-		},
-		{
-			name:   "Case 6: mix, leading zeros",
-			input:  "abc01203045",
-			prefix: "abc0",
-			suffix: "1203045",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			prefix, suffix := split(tc.input)
-			require.Equal(t, tc.prefix, prefix)
-			require.Equal(t, tc.suffix, suffix)
-		})
-	}
 }
 
 func TestGetBlockSize(t *testing.T) {

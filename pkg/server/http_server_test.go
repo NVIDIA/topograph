@@ -90,7 +90,7 @@ func TestServer(t *testing.T) {
 }
 `,
 			expected: `SwitchName=S1 Switches=S[2-3]
-SwitchName=S2 Nodes=Node[201-202],Node205
+SwitchName=S2 Nodes=Node[201-202,205]
 SwitchName=S3 Nodes=Node[304-306]
 `,
 		},
@@ -155,29 +155,29 @@ SwitchName=sw14 Nodes=n14-[1-2]
 }
 `,
 			expected: `# block001=nvl-1-1
-BlockName=block001 Nodes=n1-1-0[1-8]
+BlockName=block001 Nodes=n1-1-[01-08]
 # block002=nvl-1-2
-BlockName=block002 Nodes=n1-2-0[1-8]
+BlockName=block002 Nodes=n1-2-[01-08]
 # block003=nvl-2-1
-BlockName=block003 Nodes=n2-1-0[1-8]
+BlockName=block003 Nodes=n2-1-[01-08]
 # block004=nvl-2-2
-BlockName=block004 Nodes=n2-2-0[1-8]
+BlockName=block004 Nodes=n2-2-[01-08]
 # block005=nvl-3-1
-BlockName=block005 Nodes=n3-1-0[1-8]
+BlockName=block005 Nodes=n3-1-[01-08]
 # block006=nvl-3-2
-BlockName=block006 Nodes=n3-2-0[1-8]
+BlockName=block006 Nodes=n3-2-[01-08]
 # block007=nvl-4-1
-BlockName=block007 Nodes=n4-1-0[1-8]
+BlockName=block007 Nodes=n4-1-[01-08]
 # block008=nvl-4-2
-BlockName=block008 Nodes=n4-2-0[1-8]
+BlockName=block008 Nodes=n4-2-[01-08]
 # block009=nvl-5-1
-BlockName=block009 Nodes=n5-1-0[1-8]
+BlockName=block009 Nodes=n5-1-[01-08]
 # block010=nvl-5-2
-BlockName=block010 Nodes=n5-2-0[1-8]
+BlockName=block010 Nodes=n5-2-[01-08]
 # block011=nvl-6-1
-BlockName=block011 Nodes=n6-1-0[1-8]
+BlockName=block011 Nodes=n6-1-[01-08]
 # block012=nvl-6-2
-BlockName=block012 Nodes=n6-2-0[1-8]
+BlockName=block012 Nodes=n6-2-[01-08]
 BlockSizes=8,16,32
 `,
 		},
