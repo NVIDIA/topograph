@@ -38,7 +38,7 @@ BlockSizes=3
 
 	testBlockConfigDiffNumNodes = `BlockName=B1 Nodes=Node[104-106]
 BlockName=B2 Nodes=Node[201-202],Node[205-206]
-BlockSizes=2
+BlockSizes=2,4
 `
 
 	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
@@ -270,6 +270,131 @@ func TestSplit(t *testing.T) {
 			prefix, suffix := split(tc.input)
 			require.Equal(t, tc.prefix, prefix)
 			require.Equal(t, tc.suffix, suffix)
+		})
+	}
+}
+
+func TestGetBlockSize(t *testing.T) {
+	testCases := []struct {
+		name           string
+		domainVisited  map[string]int
+		adminBlockSize string
+		expectedOutput string
+	}{
+		{
+			name: "Case 1: #nodes/block same, #blocks power of 2, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 2,
+				"nvl2": 2,
+			},
+			adminBlockSize: "",
+			expectedOutput: "2,4",
+		},
+		{
+			name: "Case 2: #nodes/block different, #blocks power of 2, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 2,
+				"nvl2": 3,
+			},
+			adminBlockSize: "",
+			expectedOutput: "2,4",
+		},
+		{
+			name: "Case 3: #nodes/block same, #blocks !power of 2, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 2,
+				"nvl2": 2,
+				"nvl3": 2,
+			},
+			adminBlockSize: "",
+			expectedOutput: "2,4",
+		},
+		{
+			name: "Case 4: #nodes/block same, #blocks power of 2, admin provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 2,
+				"nvl2": 2,
+			},
+			adminBlockSize: "2",
+			expectedOutput: "2",
+		},
+		{
+			name: "Case 5: #nodes/block different, #blocks power of 2, admin provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 2,
+				"nvl2": 3,
+			},
+			adminBlockSize: "2",
+			expectedOutput: "2",
+		},
+		{
+			name: "Case 6: #nodes/block same, #blocks !power of 2, admin provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 2,
+				"nvl2": 2,
+				"nvl3": 2,
+			},
+			adminBlockSize: "2",
+			expectedOutput: "2",
+		},
+		{
+			name: "Case 7: #nodes/block same, #blocks power of 2, admin provided blocksizes",
+			domainVisited: map[string]int{
+				"nvl1": 3,
+				"nvl2": 3,
+				"nvl3": 3,
+				"nvl4": 3,
+			},
+			adminBlockSize: "3,6,12",
+			expectedOutput: "3,6,12",
+		},
+		{
+			name: "Case 8: #nodes/block different, #blocks power of 2, admin provided wrong base blocksize",
+			domainVisited: map[string]int{
+				"nvl1": 3,
+				"nvl2": 4,
+				"nvl3": 3,
+				"nvl4": 4,
+			},
+			adminBlockSize: "4",
+			expectedOutput: "2,4,8",
+		},
+		{
+			name: "Case 9: #nodes/block different, #blocks !power of 2, admin provided wrong blocksizes",
+			domainVisited: map[string]int{
+				"nvl1": 3,
+				"nvl2": 4,
+				"nvl3": 3,
+			},
+			adminBlockSize: "3,4",
+			expectedOutput: "2,4",
+		},
+		{
+			name: "Case 10: #nodes/block different, #blocks !power of 2, admin blocksizes parse error",
+			domainVisited: map[string]int{
+				"nvl1": 3,
+				"nvl2": 4,
+				"nvl3": 3,
+			},
+			adminBlockSize: "a,4",
+			expectedOutput: "2,4",
+		},
+		{
+			name: "Case 11: #nodes/block different, #blocks !power of 2, admin blocksizes parse error",
+			domainVisited: map[string]int{
+				"nvl1": 3,
+				"nvl2": 4,
+				"nvl3": 3,
+			},
+			adminBlockSize: "3,a",
+			expectedOutput: "2,4",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getBlockSize(tc.domainVisited, tc.adminBlockSize)
+			require.Equal(t, tc.expectedOutput, got)
 		})
 	}
 }

@@ -96,30 +96,63 @@ func printDisconnectedBlocks(wr io.Writer, root *topology.Vertex, domainVisited 
 	return nil
 }
 
+// getBlockSize returns blocksize for each possible level.
+// Admin provided blocksize is validated and is overriden with default blocksizes if validation fails.
 func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
+	// smallest domain size
 	minDomainSize := -1
 	for _, dSize := range domainVisited {
 		if minDomainSize == -1 || minDomainSize > dSize {
 			minDomainSize = dSize
 		}
 	}
-	if adminBlockSize != "" {
+
+	var outputbs []string
+	if len(strings.TrimSpace(adminBlockSize)) != 0 {
 		blockSizes := strings.Split(adminBlockSize, ",")
+		// validate base BlockSize
 		planningBS, err := strconv.Atoi(blockSizes[0])
 		if err != nil {
-			metrics.AddValidationError("block size parsing error")
-			klog.Warningf("Failed to parse blockSize %v: %v. Ignoring.", blockSizes[0], err)
+			metrics.AddValidationError("BlockSize parsing error")
+			klog.Warningf("Failed to parse blockSize %v: %v. Ignoring admin blockSizes.", blockSizes[0], err)
 		} else {
 			if planningBS > 0 && planningBS <= minDomainSize {
-				return adminBlockSize
+				outputbs = append(outputbs, blockSizes[0])
+				// validate higher level block sizes
+				for i := 1; i < len(blockSizes); i++ {
+					bs, err := strconv.Atoi(blockSizes[i])
+					if err != nil {
+						metrics.AddValidationError("BlockSize parsing error")
+						klog.Warningf("Failed to parse blockSize %v: %v. Ignoring admin blockSizes.", blockSizes[0], err)
+						break
+					} else {
+						if bs == int(math.Pow(2, float64(i)))*planningBS {
+							outputbs = append(outputbs, blockSizes[i])
+						}
+					}
+				}
+			} else {
+				metrics.AddValidationError("bad admin blockSize")
+				klog.Warningf("Overriding admin blockSizes. Planning blockSize of %v, does not meet criteria, should be > 0 & < %v.", planningBS, minDomainSize)
 			}
-			metrics.AddValidationError("bad block domain size")
-			klog.Warningf("Overriden planning blockSize of %v does not meet criteria, minimum domain size %v. Ignoring.", planningBS, minDomainSize)
+		}
+		if len(outputbs) == len(blockSizes) {
+			return strings.Join(outputbs, ",")
 		}
 	}
+
+	outputbs = nil
 	logDsize := math.Log2(float64(minDomainSize))
-	bs := math.Pow(2, float64(int(logDsize)))
-	return strconv.Itoa(int(bs))
+	bs := int(math.Pow(2, float64(int(logDsize))))
+	outputbs = append(outputbs, fmt.Sprintf("%d", bs))
+	maxnumblocks := int(math.Log2(float64(len(domainVisited))))
+
+	for i := 1; i <= maxnumblocks; i++ {
+		levelblocksize := int(math.Pow(2, float64(i))) * bs
+		outputbs = append(outputbs, fmt.Sprintf("%d", levelblocksize))
+	}
+
+	return strings.Join(outputbs, ",")
 }
 
 func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
