@@ -98,43 +98,49 @@ func printDisconnectedBlocks(wr io.Writer, root *topology.Vertex, domainVisited 
 
 // getBlockSize returns blocksize for each possible level.
 // Admin provided blocksize is validated and is overriden with default blocksizes if validation fails.
-func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
+func getBlockSize(domainSize map[string]int, adminBlockSize string) string {
 	// smallest domain size
 	minDomainSize := -1
-	for _, dSize := range domainVisited {
+	for _, dSize := range domainSize {
 		if minDomainSize == -1 || minDomainSize > dSize {
 			minDomainSize = dSize
 		}
 	}
 
+	maxnumbs := int(math.Log2(float64(len(domainSize))))
 	var outputbs []string
 	if len(strings.TrimSpace(adminBlockSize)) != 0 {
 		blockSizes := strings.Split(adminBlockSize, ",")
-		// validate base BlockSize
-		planningBS, err := strconv.Atoi(blockSizes[0])
-		if err != nil {
-			metrics.AddValidationError("BlockSize parsing error")
-			klog.Warningf("Failed to parse blockSize %v: %v. Ignoring admin blockSizes.", blockSizes[0], err)
-		} else {
-			if planningBS > 0 && planningBS <= minDomainSize {
-				outputbs = append(outputbs, blockSizes[0])
-				// validate higher level block sizes
-				for i := 1; i < len(blockSizes); i++ {
-					bs, err := strconv.Atoi(blockSizes[i])
-					if err != nil {
-						metrics.AddValidationError("BlockSize parsing error")
-						klog.Warningf("Failed to parse blockSize %v: %v. Ignoring admin blockSizes.", blockSizes[0], err)
-						break
-					} else {
-						if bs == int(math.Pow(2, float64(i)))*planningBS {
-							outputbs = append(outputbs, blockSizes[i])
-						}
-					}
-				}
-			} else {
-				metrics.AddValidationError("bad admin blockSize")
-				klog.Warningf("Overriding admin blockSizes. Planning blockSize of %v, does not meet criteria, should be > 0 & < %v.", planningBS, minDomainSize)
+		// parse blocksizes
+		var planningBS int
+		possiblebs := make(map[int]bool)
+		for i := 0; i < len(blockSizes); i++ {
+			bs, err := strconv.Atoi(blockSizes[i])
+			if err != nil {
+				metrics.AddValidationError("BlockSize parsing error")
+				klog.Warningf("Failed to parse blockSize %v: %v. Ignoring admin blockSizes.", blockSizes[i], err)
+				break
 			}
+			if i == 0 {
+				if bs <= 0 || bs > minDomainSize {
+					metrics.AddValidationError("bad admin blockSize")
+					klog.Warningf("Overriding admin blockSizes. Planning blockSize %v does not meet criteria, should be > 0 & <= %v.", bs, minDomainSize)
+					break
+				}
+				planningBS = bs
+				// get possible blocksizes with the planningBS
+				for l := 0; l <= maxnumbs; l++ {
+					levelblocksize := int(math.Pow(2, float64(l))) * planningBS
+					possiblebs[levelblocksize] = true
+				}
+			}
+
+			if _, exists := possiblebs[bs]; !exists {
+				metrics.AddValidationError("bad admin blockSize")
+				klog.Warningf("Overriding admin blockSizes. BlockSize %v should follow the pattern (2^n) * %v, with n <= %v", bs, planningBS, maxnumbs)
+				break
+			}
+			outputbs = append(outputbs, blockSizes[i])
 		}
 		if len(outputbs) == len(blockSizes) {
 			return strings.Join(outputbs, ",")
@@ -145,9 +151,8 @@ func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
 	logDsize := math.Log2(float64(minDomainSize))
 	bs := int(math.Pow(2, float64(int(logDsize))))
 	outputbs = append(outputbs, fmt.Sprintf("%d", bs))
-	maxnumblocks := int(math.Log2(float64(len(domainVisited))))
 
-	for i := 1; i <= maxnumblocks; i++ {
+	for i := 1; i <= maxnumbs; i++ {
 		levelblocksize := int(math.Pow(2, float64(i))) * bs
 		outputbs = append(outputbs, fmt.Sprintf("%d", levelblocksize))
 	}
