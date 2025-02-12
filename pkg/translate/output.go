@@ -96,30 +96,68 @@ func printDisconnectedBlocks(wr io.Writer, root *topology.Vertex, domainVisited 
 	return nil
 }
 
-func getBlockSize(domainVisited map[string]int, adminBlockSize string) string {
+// getBlockSize returns blocksize for each possible level.
+// Admin provided blocksize is validated and is overriden with default blocksizes if validation fails.
+func getBlockSize(domainSize map[string]int, adminBlockSize string) string {
+	// smallest domain size
 	minDomainSize := -1
-	for _, dSize := range domainVisited {
+	for _, dSize := range domainSize {
 		if minDomainSize == -1 || minDomainSize > dSize {
 			minDomainSize = dSize
 		}
 	}
-	if adminBlockSize != "" {
+
+	maxnumbs := int(math.Log2(float64(len(domainSize))))
+	var outputbs []string
+	if len(strings.TrimSpace(adminBlockSize)) != 0 {
 		blockSizes := strings.Split(adminBlockSize, ",")
-		planningBS, err := strconv.Atoi(blockSizes[0])
-		if err != nil {
-			metrics.AddValidationError("block size parsing error")
-			klog.Warningf("Failed to parse blockSize %v: %v. Ignoring.", blockSizes[0], err)
-		} else {
-			if planningBS > 0 && planningBS <= minDomainSize {
-				return adminBlockSize
+		// parse blocksizes
+		var planningBS int
+		possiblebs := make(map[int]bool)
+		for i := 0; i < len(blockSizes); i++ {
+			bs, err := strconv.Atoi(blockSizes[i])
+			if err != nil {
+				metrics.AddValidationError("BlockSize parsing error")
+				klog.Warningf("Failed to parse blockSize %v: %v. Ignoring admin blockSizes.", blockSizes[i], err)
+				break
 			}
-			metrics.AddValidationError("bad block domain size")
-			klog.Warningf("Overriden planning blockSize of %v does not meet criteria, minimum domain size %v. Ignoring.", planningBS, minDomainSize)
+			if i == 0 {
+				if bs <= 0 || bs > minDomainSize {
+					metrics.AddValidationError("bad admin blockSize")
+					klog.Warningf("Overriding admin blockSizes. Planning blockSize %v does not meet criteria, should be > 0 & <= %v.", bs, minDomainSize)
+					break
+				}
+				planningBS = bs
+				// get possible blocksizes with the planningBS
+				for l := 0; l <= maxnumbs; l++ {
+					levelblocksize := int(math.Pow(2, float64(l))) * planningBS
+					possiblebs[levelblocksize] = true
+				}
+			}
+
+			if _, exists := possiblebs[bs]; !exists {
+				metrics.AddValidationError("bad admin blockSize")
+				klog.Warningf("Overriding admin blockSizes. BlockSize %v should follow the pattern (2^n) * %v, with n <= %v", bs, planningBS, maxnumbs)
+				break
+			}
+			outputbs = append(outputbs, blockSizes[i])
+		}
+		if len(outputbs) == len(blockSizes) {
+			return strings.Join(outputbs, ",")
 		}
 	}
+
+	outputbs = nil
 	logDsize := math.Log2(float64(minDomainSize))
-	bs := math.Pow(2, float64(int(logDsize)))
-	return strconv.Itoa(int(bs))
+	bs := int(math.Pow(2, float64(int(logDsize))))
+	outputbs = append(outputbs, fmt.Sprintf("%d", bs))
+
+	for i := 1; i <= maxnumbs; i++ {
+		levelblocksize := int(math.Pow(2, float64(i))) * bs
+		outputbs = append(outputbs, fmt.Sprintf("%d", levelblocksize))
+	}
+
+	return strings.Join(outputbs, ",")
 }
 
 func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
