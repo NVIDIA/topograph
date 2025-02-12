@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -54,7 +55,7 @@ func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]i
 		if len(block.Name) != 0 {
 			comment = fmt.Sprintf("# %s=%s\n", block.ID, block.Name)
 		}
-		_, err := wr.Write([]byte(fmt.Sprintf("%sBlockName=%s Nodes=%s\n", comment, block.ID, strings.Join(compress(nodes), ","))))
+		_, err := wr.Write([]byte(fmt.Sprintf("%sBlockName=%s Nodes=%s\n", comment, block.ID, strings.Join(cluset.Compact(nodes), ","))))
 		if err != nil {
 			return err
 		}
@@ -266,7 +267,7 @@ func toTreeTopology(wr io.Writer, root *topology.Vertex) error {
 			comment = ""
 			switchName = sw
 		}
-		_, err := wr.Write([]byte(fmt.Sprintf("%sSwitchName=%s Nodes=%s\n", comment, switchName, strings.Join(compress(nodes), ","))))
+		_, err := wr.Write([]byte(fmt.Sprintf("%sSwitchName=%s Nodes=%s\n", comment, switchName, strings.Join(cluset.Compact(nodes), ","))))
 		if err != nil {
 			return err
 		}
@@ -295,101 +296,12 @@ func writeSwitch(wr io.Writer, v *topology.Vertex) error {
 	} else {
 		comment = fmt.Sprintf("# %s=%s\n", v.Name, v.ID)
 	}
-	_, err := wr.Write([]byte(fmt.Sprintf("%sSwitchName=%s Switches=%s\n", comment, v.Name, strings.Join(compress(arr), ","))))
+	_, err := wr.Write([]byte(fmt.Sprintf("%sSwitchName=%s Switches=%s\n", comment, v.Name, strings.Join(cluset.Compact(arr), ","))))
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// compress finds contiguos numerical suffixes in names and presents then as ranges.
-// example: ["eos0507", "eos0509", "eos0508"] -> ["eos0[507-509"]
-func compress(input []string) []string {
-	ret := []string{}
-	keys := []string{}
-	m := make(map[string][]int) // map of prefix : array of numerical suffix
-	for _, name := range input {
-		if prefix, suffix := split(name); len(suffix) == 0 {
-			ret = append(ret, name)
-		} else {
-			num, _ := strconv.Atoi(suffix)
-			if arr, ok := m[prefix]; !ok {
-				m[prefix] = []int{num}
-			} else {
-				m[prefix] = append(arr, num)
-			}
-		}
-	}
-
-	// we sort the prefix to get consistent output for tests
-	for prefix := range m {
-		keys = append(keys, prefix)
-	}
-	sort.Strings(keys)
-
-	for _, prefix := range keys {
-		arr := m[prefix]
-		sort.Ints(arr)
-		var start, end int
-		for i, num := range arr {
-			if i == 0 {
-				start = num
-				end = num
-			} else if num == end+1 {
-				end = num
-			} else if start == end {
-				ret = append(ret, fmt.Sprintf("%s%d", prefix, start))
-				start = num
-				end = num
-			} else {
-				ret = append(ret, fmt.Sprintf("%s[%d-%d]", prefix, start, end))
-				start = num
-				end = num
-			}
-		}
-		if start == end {
-			ret = append(ret, fmt.Sprintf("%s%d", prefix, end))
-		} else {
-			ret = append(ret, fmt.Sprintf("%s[%d-%d]", prefix, start, end))
-		}
-	}
-
-	return ret
-}
-
-// split divides a string into a prefix and a numerical suffix
-func split(input string) (string, string) {
-	n := len(input)
-	if n == 0 {
-		return input, ""
-	}
-
-	// find numerical suffix
-	i := n - 1
-	for i >= 0 {
-		if input[i] >= '0' && input[i] <= '9' {
-			i--
-		} else {
-			break
-		}
-	}
-	i++
-
-	// ignore leading zeros
-	for i < n {
-		if input[i] == '0' {
-			i++
-		} else {
-			break
-		}
-	}
-
-	if i == n { // no suffix
-		return input, ""
-	}
-
-	return input[:i], input[i:]
 }
 
 func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]string) {
