@@ -158,18 +158,17 @@ func processInstanceList(insTop *InstanceTopology, resp *compute.InstanceIterato
 			return
 		}
 		instanceId := strconv.FormatUint(*instance.Id, 10)
-		klog.Infof("Checking INSTANCE %s", instanceId)
+		klog.V(4).Infof("Checking instance %s", instanceId)
 		if _, ok := ci.Instances[instanceId]; ok {
-			klog.Infof("FOUND INSTANCE %s", instanceId)
 			if instance.ResourceStatus == nil {
-				klog.Infof("ResourceStatus is not set for INSTANCE %s", instanceId)
+				klog.InfoS("ResourceStatus is not set", "instance", instanceId)
 				resourceStatusNotFound.WithLabelValues(instanceId).Set(1)
 				continue
 			}
 			resourceStatusNotFound.WithLabelValues(instanceId).Set(0)
 
 			if instance.ResourceStatus.PhysicalHost == nil {
-				klog.Infof("PhysicalHost is not set for INSTANCE %s", instanceId)
+				klog.InfoS("PhysicalHost is not set", "instance", instanceId)
 				physicalHostNotFound.WithLabelValues(instanceId).Set(1)
 				continue
 			}
@@ -182,9 +181,8 @@ func processInstanceList(insTop *InstanceTopology, resp *compute.InstanceIterato
 				clusterID: tokens[1],
 				rackID:    tokens[2],
 			}
+			klog.InfoS("Topology", "instance", instanceId, "cluster", instanceObj.clusterID, "rack", instanceObj.rackID)
 			insTop.instances = append(insTop.instances, instanceObj)
-		} else {
-			klog.Infof("INSTANCE %s NOT IN MAP", instanceId)
 		}
 	}
 }
