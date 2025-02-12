@@ -81,17 +81,8 @@ func New(clientFactory ClientFactory) (*Provider, error) {
 	}, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	if len(instances) > 1 {
-		return nil, fmt.Errorf("GCP does not support mult-region topology requests")
-	}
-
-	var instanceToNode map[string]string
-	if len(instances) == 1 {
-		instanceToNode = instances[0].Instances
-	}
-
-	cfg, err := p.generateInstanceTopology(ctx, instanceToNode)
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	cfg, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
@@ -103,17 +94,12 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	i2n := make(map[string]string)
-	for _, node := range nodes {
-		i2n[node] = node
-	}
-
-	return i2n, nil
+	return instanceToNodeMap(ctx, nodes)
 }
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion(_ context.Context) (string, error) {
-	return "", nil
+func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
+	return getRegion(ctx)
 }
 
 // GetNodeRegion implements k8s.k8sNodeInfo
@@ -123,5 +109,5 @@ func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
 
 // GetNodeInstance implements k8s.k8sNodeInfo
 func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
-	return node.Labels["kubernetes.io/hostname"], nil
+	return node.Annotations["container.googleapis.com/instance_id"], nil
 }

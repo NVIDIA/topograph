@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/agrea/ptr"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,6 +56,28 @@ func TestGetTokenCount(t *testing.T) {
 			tokens := strings.Split(tc.physicaHostID, "/")
 			count := getTokenCount(tokens)
 			require.Equal(t, tc.count, count)
+		})
+	}
+}
+
+func TestCastPageSize(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    *int
+		pageSize *uint32
+	}{
+		{
+			name: "Case 1: nil",
+		},
+		{
+			name:     "Case 2: not nil",
+			input:    ptr.Int(5),
+			pageSize: ptr.Uint32(5),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.pageSize, castPageSize(tc.input))
 		})
 	}
 }
