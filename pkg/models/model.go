@@ -23,6 +23,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -74,6 +75,11 @@ func NewModelFromFile(fname string) (*Model, error) {
 		return nil, fmt.Errorf("failed to parse %s: %v", fname, err)
 	}
 
+	// expand nodes
+	for _, cb := range model.CapacityBlocks {
+		cb.Nodes = cluset.Expand(cb.Nodes)
+	}
+
 	if err = model.setNodeMap(); err != nil {
 		return nil, err
 	}
@@ -81,6 +87,7 @@ func NewModelFromFile(fname string) (*Model, error) {
 	return model, err
 }
 
+// setNodeMap populates map[instance ID : hostname]
 func (m *Model) setNodeMap() error {
 	// switch map child:parent
 	swmap := make(map[string]*Switch)
@@ -141,7 +148,7 @@ func (m *Model) setNodeMap() error {
 				r = make(map[string]string)
 				regions[region] = r
 			}
-			r[name] = name
+			r[name] = fmt.Sprintf("n-%s", name)
 		}
 	}
 

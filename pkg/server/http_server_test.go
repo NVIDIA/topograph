@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,14 +113,14 @@ SwitchName=S3 Nodes=Node[304-306]
     {
       "region": "R1",
       "instances": {
-        "n11-1": "n11-1",
-        "n11-2": "n11-2",
-        "n12-1": "n12-1",
-        "n12-2": "n12-2",
-        "n13-1": "n13-1",
-        "n13-2": "n13-2",
-        "n14-1": "n14-1",
-        "n14-2": "n14-2"
+        "1101": "n-1101",
+        "1102": "n-1102",
+        "1201": "n-1201",
+        "1202": "n-1202",
+        "1301": "n-1301",
+        "1302": "n-1302",
+        "1401": "n-1401",
+        "1402": "n-1402"
       }
     }
   ]
@@ -128,10 +129,10 @@ SwitchName=S3 Nodes=Node[304-306]
 			expected: `SwitchName=sw3 Switches=sw[21-22]
 SwitchName=sw21 Switches=sw[11-12]
 SwitchName=sw22 Switches=sw[13-14]
-SwitchName=sw11 Nodes=n11-[1-2]
-SwitchName=sw12 Nodes=n12-[1-2]
-SwitchName=sw13 Nodes=n13-[1-2]
-SwitchName=sw14 Nodes=n14-[1-2]
+SwitchName=sw11 Nodes=n-[1101-1102]
+SwitchName=sw12 Nodes=n-[1201-1202]
+SwitchName=sw13 Nodes=n-[1301-1302]
+SwitchName=sw14 Nodes=n-[1401-1402]
 `,
 		},
 		{
@@ -155,30 +156,71 @@ SwitchName=sw14 Nodes=n14-[1-2]
 }
 `,
 			expected: `# block001=nvl-1-1
-BlockName=block001 Nodes=n1-1-[01-08]
+BlockName=block001 Nodes=n-[1101-1108]
 # block002=nvl-1-2
-BlockName=block002 Nodes=n1-2-[01-08]
+BlockName=block002 Nodes=n-[1201-1208]
 # block003=nvl-2-1
-BlockName=block003 Nodes=n2-1-[01-08]
+BlockName=block003 Nodes=n-[2101-2108]
 # block004=nvl-2-2
-BlockName=block004 Nodes=n2-2-[01-08]
+BlockName=block004 Nodes=n-[2201-2208]
 # block005=nvl-3-1
-BlockName=block005 Nodes=n3-1-[01-08]
+BlockName=block005 Nodes=n-[3101-3108]
 # block006=nvl-3-2
-BlockName=block006 Nodes=n3-2-[01-08]
+BlockName=block006 Nodes=n-[3201-3208]
 # block007=nvl-4-1
-BlockName=block007 Nodes=n4-1-[01-08]
+BlockName=block007 Nodes=n-[4101-4108]
 # block008=nvl-4-2
-BlockName=block008 Nodes=n4-2-[01-08]
+BlockName=block008 Nodes=n-[4201-4208]
 # block009=nvl-5-1
-BlockName=block009 Nodes=n5-1-[01-08]
+BlockName=block009 Nodes=n-[5101-5108]
 # block010=nvl-5-2
-BlockName=block010 Nodes=n5-2-[01-08]
+BlockName=block010 Nodes=n-[5201-5208]
 # block011=nvl-6-1
-BlockName=block011 Nodes=n6-1-[01-08]
+BlockName=block011 Nodes=n-[6101-6108]
 # block012=nvl-6-2
-BlockName=block012 Nodes=n6-2-[01-08]
+BlockName=block012 Nodes=n-[6201-6208]
 BlockSizes=8,16,32
+`,
+		},
+		{
+			name:     "Case 4: mock GCP request for tree topology",
+			endpoint: "generate",
+			payload: `
+{
+  "provider": {
+    "name": "gcp-sim",
+    "params": {
+      "model_path": "../../tests/models/medium.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  },
+  "nodes": [
+    {
+      "region": "R1",
+      "instances": {
+        "1101": "n-1101",
+        "1102": "n-1102",
+        "1201": "n-1201",
+        "1202": "n-1202",
+        "1301": "n-1301",
+        "1302": "n-1302",
+        "1401": "n-1401",
+        "1402": "n-1402",
+		"1500": "n-CPU"
+      }
+    }
+  ]
+}
+`,
+			expected: `SwitchName=sw21 Switches=sw[11-12]
+SwitchName=sw22 Switches=sw[13-14]
+SwitchName=sw11 Nodes=n-[1101-1102]
+SwitchName=sw12 Nodes=n-[1201-1202]
+SwitchName=sw13 Nodes=n-[1301-1302]
+SwitchName=no-topology Nodes=n-CPU
+SwitchName=sw14 Nodes=n-[1401-1402]
 `,
 		},
 	}
@@ -222,6 +264,15 @@ BlockSizes=8,16,32
 
 		body, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
-		require.Equal(t, tc.expected, string(body))
+		require.Equal(t, stringToLineMap(tc.expected), stringToLineMap(string(body)))
 	}
+}
+
+func stringToLineMap(str string) map[string]struct{} {
+	m := make(map[string]struct{})
+	for _, line := range strings.Split(str, "\n") {
+		m[line] = struct{}{}
+	}
+
+	return m
 }

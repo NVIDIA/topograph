@@ -71,30 +71,30 @@ func TestNewModelFromFile(t *testing.T) {
 				Name:   "cb11",
 				Type:   "GB200",
 				NVLink: "nvl1",
-				Nodes:  []string{"n11-1", "n11-2"},
+				Nodes:  []string{"1101", "1102"},
 			},
 			{
 				Name:   "cb12",
 				Type:   "GB200",
 				NVLink: "nvl2",
-				Nodes:  []string{"n12-1", "n12-2"},
+				Nodes:  []string{"1201", "1202"},
 			},
 			{
 				Name:   "cb13",
 				Type:   "GB200",
 				NVLink: "nvl3",
-				Nodes:  []string{"n13-1", "n13-2"},
+				Nodes:  []string{"1301", "1302"},
 			},
 			{
 				Name:   "cb14",
 				Type:   "GB200",
 				NVLink: "nvl4",
-				Nodes:  []string{"n14-1", "n14-2"},
+				Nodes:  []string{"1401", "1402"},
 			},
 		},
 		Nodes: map[string]*Node{
-			"n11-1": {
-				Name: "n11-1",
+			"1101": {
+				Name: "1101",
 				Metadata: map[string]string{
 					"region":            "us-west",
 					"availability_zone": "zone1",
@@ -105,8 +105,8 @@ func TestNewModelFromFile(t *testing.T) {
 				NetLayers:     []string{"sw11", "sw21", "sw3"},
 				CapacityBlock: "cb11",
 			},
-			"n11-2": {
-				Name: "n11-2",
+			"1102": {
+				Name: "1102",
 				Metadata: map[string]string{
 					"region":            "us-west",
 					"availability_zone": "zone1",
@@ -117,8 +117,8 @@ func TestNewModelFromFile(t *testing.T) {
 				NetLayers:     []string{"sw11", "sw21", "sw3"},
 				CapacityBlock: "cb11",
 			},
-			"n12-1": {
-				Name: "n12-1",
+			"1201": {
+				Name: "1201",
 				Metadata: map[string]string{
 					"region":            "us-west",
 					"availability_zone": "zone1",
@@ -129,8 +129,8 @@ func TestNewModelFromFile(t *testing.T) {
 				NetLayers:     []string{"sw12", "sw21", "sw3"},
 				CapacityBlock: "cb12",
 			},
-			"n12-2": {
-				Name: "n12-2",
+			"1202": {
+				Name: "1202",
 				Metadata: map[string]string{
 					"region":            "us-west",
 					"availability_zone": "zone1",
@@ -141,8 +141,8 @@ func TestNewModelFromFile(t *testing.T) {
 				NetLayers:     []string{"sw12", "sw21", "sw3"},
 				CapacityBlock: "cb12",
 			},
-			"n13-1": {
-				Name: "n13-1",
+			"1301": {
+				Name: "1301",
 				Metadata: map[string]string{
 					"region":            "us-west",
 					"availability_zone": "zone2",
@@ -153,8 +153,8 @@ func TestNewModelFromFile(t *testing.T) {
 				NetLayers:     []string{"sw13", "sw22", "sw3"},
 				CapacityBlock: "cb13",
 			},
-			"n13-2": {
-				Name: "n13-2",
+			"1302": {
+				Name: "1302",
 				Metadata: map[string]string{
 					"region":            "us-west",
 					"availability_zone": "zone2",
@@ -165,8 +165,8 @@ func TestNewModelFromFile(t *testing.T) {
 				NetLayers:     []string{"sw13", "sw22", "sw3"},
 				CapacityBlock: "cb13",
 			},
-			"n14-1": {
-				Name: "n14-1",
+			"1401": {
+				Name: "1401",
 				Metadata: map[string]string{
 					"region":            "us-west",
 					"availability_zone": "zone2",
@@ -177,8 +177,8 @@ func TestNewModelFromFile(t *testing.T) {
 				NetLayers:     []string{"sw14", "sw22", "sw3"},
 				CapacityBlock: "cb14",
 			},
-			"n14-2": {
-				Name: "n14-2",
+			"1402": {
+				Name: "1402",
 				Metadata: map[string]string{
 					"region":            "us-west",
 					"availability_zone": "zone2",
@@ -194,14 +194,14 @@ func TestNewModelFromFile(t *testing.T) {
 			{
 				Region: "us-west",
 				Instances: map[string]string{
-					"n11-1": "n11-1",
-					"n11-2": "n11-2",
-					"n12-1": "n12-1",
-					"n12-2": "n12-2",
-					"n13-1": "n13-1",
-					"n13-2": "n13-2",
-					"n14-1": "n14-1",
-					"n14-2": "n14-2",
+					"1101": "n-1101",
+					"1102": "n-1102",
+					"1201": "n-1201",
+					"1202": "n-1202",
+					"1301": "n-1301",
+					"1302": "n-1302",
+					"1401": "n-1401",
+					"1402": "n-1402",
 				},
 			},
 		},

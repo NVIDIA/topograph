@@ -16,8 +16,8 @@ func TestCompactExpand(t *testing.T) {
 		},
 		{
 			name:      "Case 2: ranges",
-			expanded:  []string{"abc0507", "abc0509", "abc0482", "abc0483", "abc0508", "abc0484"},
-			compacted: []string{"abc[0482-0484,0507-0509]"},
+			expanded:  []string{"abc0507", "abc0509", "abc0482", "124", "abc0483", "abc0508", "abc0484", "123"},
+			compacted: []string{"[123-124]", "abc[0482-0484,0507-0509]"},
 		},
 		{
 			name:      "Case 3: singles",

@@ -6,8 +6,8 @@
 #      |         |          |          |
 #      |         |          |          |
 #  -------    -------    -------    -------
-# | n11-1 |  | n12-1 |  | n13-1 |  | n14-1 |
-# | n11-2 |  | n12-2 |  | n13-2 |  | n14-2 |
+# |  1101 |  |  1201 |  |  1301 |  |  1401 |
+# |  1102 |  |  1202 |  |  1302 |  |  1402 |
 #  -------    -------    -------    -------
 #   cb11       cb12       cb13       cb14
 #
@@ -54,16 +54,16 @@ capacity_blocks:
 - name: cb11
   type: GB200
   nvlink: nvl1
-  nodes: [n11-1,n11-2]
+  nodes: ["1101","1102"]
 - name: cb12
   type: GB200
   nvlink: nvl2
-  nodes: [n12-1,n12-2]
+  nodes: ["[1201-1202]"]
 - name: cb13
   type: GB200
   nvlink: nvl3
-  nodes: [n13-1,n13-2]
+  nodes: ["1301","1302"]
 - name: cb14
   type: GB200
   nvlink: nvl4
-  nodes: [n14-1,n14-2]
+  nodes: ["[1401-1402]"]
