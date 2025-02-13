@@ -52,12 +52,13 @@ type Switch struct {
 	Nodes    map[string]string  // ID:node name
 }
 
-func GenerateTopologyConfig(data []byte) (*topology.Vertex, error) {
+func GenerateTopologyConfig(data []byte, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	switches, hca, err := ParseIbnetdiscoverFile(data)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse ibnetdiscover file: %v", err)
 	}
-	root, err := buildTree(switches, hca)
+	nodes := getNodes(instances)
+	root, err := buildTree(switches, hca, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to build tree: %v", err)
 	}
@@ -77,7 +78,7 @@ func (sw *Switch) toGraph() (*topology.Vertex, error) {
 	vertex.ID = sw.Name
 	if len(sw.Children) == 0 {
 		for id, name := range sw.Nodes {
-			vertex.Vertices[id] = &topology.Vertex{
+			vertex.Vertices[name] = &topology.Vertex{
 				Name: name,
 				ID:   id,
 			}
@@ -164,62 +165,19 @@ func ParseIbnetdiscoverFile(data []byte) (map[string]*Switch, map[string]string,
 	return switches, hca, nil
 }
 
-func buildPatternFromName(nodeName string) string {
-	pattern := ""
-	gettingDigits := false
-	for _, c := range nodeName {
-		if strings.Contains("0123456789", string(c)) {
-			gettingDigits = true
-		} else {
-			if gettingDigits {
-				gettingDigits = false
-				pattern += `(\d+)`
-			}
-			if c == '.' {
-				pattern += `\.`
-
-			} else {
-				pattern += string(c)
-			}
-		}
-	}
-	if gettingDigits {
-		pattern += `(\d+)`
-	}
-	return strings.ToLower(pattern)
-}
-
-func buildTree(switches map[string]*Switch, hca map[string]string) (*Switch, error) {
+func buildTree(switches map[string]*Switch, hca map[string]string, nodesInCluster map[string]bool) (*Switch, error) {
 	// all visited nodes in tree
 	visited := make(map[string]bool)
 	// current level in the tree
 	level := make(map[string]*Switch)
-
-	nodeToPatternMap := make(map[string][]string)
-	for _, name := range hca {
-		builtPattern := buildPatternFromName(name)
-		if _, ok := nodeToPatternMap[builtPattern]; !ok {
-			nodeToPatternMap[builtPattern] = []string{}
-		}
-		nodeToPatternMap[builtPattern] = append(nodeToPatternMap[builtPattern], name)
-	}
-
-	computeNodePattern := ""
-	maxLen := 0
-	for pattern, names := range nodeToPatternMap {
-		if len(names) > maxLen {
-			maxLen = len(names)
-			computeNodePattern = pattern
-		}
-	}
-	computeNodePatternRegex := regexp.MustCompile(fmt.Sprintf("(?i)%s", computeNodePattern))
 
 	// first pass: find all leaves
 	for swID, sw := range switches {
 		for conID := range sw.Conn {
 			if nodeName, ok := hca[conID]; ok {
 				// If a switch has HCA, it is a leaf.
-				if len(nodeName) != 0 && computeNodePatternRegex.MatchString(nodeName) {
+				_, isActualNode := nodesInCluster[nodeName]
+				if len(nodeName) != 0 && isActualNode {
 					sw.Nodes[conID] = nodeName
 				}
 				delete(sw.Conn, conID)
@@ -354,4 +312,14 @@ func getChildrenName(children []*Switch) []string {
 func getChildrenList(children []string) string {
 	sort.Strings(children)
 	return strings.Join(children, ",")
+}
+
+func getNodes(instances []topology.ComputeInstances) map[string]bool {
+	nodes := make(map[string]bool)
+	for _, instance := range instances {
+		for _, node := range instance.Instances {
+			nodes[node] = true
+		}
+	}
+	return nodes
 }

@@ -425,7 +425,12 @@ func TestBuildTree(t *testing.T) {
 		},
 	}
 
-	tree, err := buildTree(switches, hca)
+	nodesInCluster := map[string]bool{
+		"HCA1": true,
+		"HCA2": true,
+		"HCA3": true,
+	}
+	tree, err := buildTree(switches, hca, nodesInCluster)
 
 	expectedRoot := &Switch{
 		Children: map[string]*Switch{
@@ -434,61 +439,4 @@ func TestBuildTree(t *testing.T) {
 	}
 	assert.NoError(t, err, "Building tree should not return an error")
 	assert.Equal(t, expectedRoot, tree, "Built tree should match the expected tree")
-}
-
-func TestBuildPatternFromName(t *testing.T) {
-	tests := []struct {
-		nodeName    string
-		wantRegex   string
-		match       string
-		shouldMatch bool
-	}{
-		{
-			nodeName:    "node123",
-			wantRegex:   `node(\d+)`,
-			match:       "node123",
-			shouldMatch: true,
-		},
-		{
-			nodeName:    "node-abc-456",
-			wantRegex:   `node-abc-(\d+)`,
-			match:       "node-abc-456",
-			shouldMatch: true,
-		},
-		{
-			nodeName:    "node001.example.com",
-			wantRegex:   `node(\d+)\.example\.com`,
-			match:       "node001.example.com",
-			shouldMatch: true,
-		},
-		{
-			nodeName:    "webserver007.domain.net",
-			wantRegex:   `webserver(\d+)\.domain\.net`,
-			match:       "webserver007.domain.net",
-			shouldMatch: true,
-		},
-		{
-			nodeName:    "node-no-numbers",
-			wantRegex:   `node-no-numbers`,
-			match:       "node-no-numbers",
-			shouldMatch: true,
-		},
-		{
-			nodeName:    "anotherNode.987example.org",
-			wantRegex:   `anothernode\.(\d+)example\.org`,
-			match:       "anotherNode.987example.org",
-			shouldMatch: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.nodeName, func(t *testing.T) {
-			gotPattern := buildPatternFromName(tt.nodeName)
-
-			// Check if the generated pattern matches the expected pattern
-			if gotPattern != tt.wantRegex {
-				t.Errorf("buildPatternFromName(%q) = %q; want %q", tt.nodeName, gotPattern, tt.wantRegex)
-			}
-		})
-	}
 }

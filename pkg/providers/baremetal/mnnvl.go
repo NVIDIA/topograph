@@ -53,7 +53,7 @@ func populatePartitions(stdout *bytes.Buffer) (map[string][]string, error) {
 	return partitionNodeMap, nil
 }
 
-func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
+func getIbTree(ctx context.Context, _ []string, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	nodeVisited := make(map[string]bool)
 	treeRoot := &topology.Vertex{
 		Vertices: make(map[string]*topology.Vertex),
@@ -88,7 +88,7 @@ func getIbTree(ctx context.Context, _ []string) (*topology.Vertex, error) {
 							nodeVisited[nodeName] = true
 						}
 						partitionVisitedMap[pName] = true
-						ibRoot, err := ib.GenerateTopologyConfig(stdout.Bytes())
+						ibRoot, err := ib.GenerateTopologyConfig(stdout.Bytes(), cis)
 						if err != nil {
 							return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v", err)
 						}
@@ -269,7 +269,7 @@ func generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances
 		return nil, fmt.Errorf("getClusterOutput failed: %v", err)
 	}
 	// get ibnetdiscover output from all unvisited nodes
-	treeRoot, err := getIbTree(ctx, nodes)
+	treeRoot, err := getIbTree(ctx, nodes, cis)
 	if err != nil {
 		return nil, fmt.Errorf("getIbTree failed: %v", err)
 	}
