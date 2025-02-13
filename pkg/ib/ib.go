@@ -78,7 +78,7 @@ func (sw *Switch) toGraph() (*topology.Vertex, error) {
 	vertex.ID = sw.Name
 	if len(sw.Children) == 0 {
 		for id, name := range sw.Nodes {
-			vertex.Vertices[id] = &topology.Vertex{
+			vertex.Vertices[name] = &topology.Vertex{
 				Name: name,
 				ID:   id,
 			}
