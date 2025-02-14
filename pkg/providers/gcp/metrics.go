@@ -21,34 +21,34 @@ import (
 )
 
 var (
-	physicalHostIDChunks = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name:      "physical_host_id_chunks",
-			Subsystem: "topogen_gcp",
-			Help:      "Number of chunks in physical host ID as in /AA/BB/CCC",
+	missingTopologyInfo = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "missing_topology_info",
+			Subsystem: "topograph_gcp",
+			Help:      "Number of times instance topology not found",
 		}, []string{"instance_name"},
 	)
 
-	resourceStatusNotFound = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name:      "resource_status_not_found",
-			Subsystem: "topogen_gcp",
+	missingResourceStatus = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "missing_resource_status",
+			Subsystem: "topograph_gcp",
 			Help:      "Number of times resource status not found",
 		}, []string{"instance_name"},
 	)
 
-	physicalHostNotFound = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name:      "physical_host_not_found",
-			Subsystem: "topogen_gcp",
-			Help:      "Number of times physical host not found",
+	missingPhysicalHostTopology = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "missing_physical_host_topology",
+			Subsystem: "topograph_gcp",
+			Help:      "Number of times physical host topology not found",
 		}, []string{"instance_name"},
 	)
 
 	requestLatency = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name:       "request_latency",
-			Subsystem:  "topogen_gcp",
+			Subsystem:  "topograph_gcp",
 			Help:       "Latency of requests",
 			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 		},
@@ -57,8 +57,8 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(physicalHostIDChunks)
-	prometheus.MustRegister(resourceStatusNotFound)
-	prometheus.MustRegister(physicalHostNotFound)
+	prometheus.MustRegister(missingTopologyInfo)
+	prometheus.MustRegister(missingResourceStatus)
+	prometheus.MustRegister(missingPhysicalHostTopology)
 	prometheus.MustRegister(requestLatency)
 }
