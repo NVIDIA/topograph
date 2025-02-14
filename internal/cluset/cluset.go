@@ -28,7 +28,7 @@ var compactRegexp, expandRegexp *regexp.Regexp
 
 func init() {
 	compactRegexp = regexp.MustCompile(`^(.*?)(0*\d+)$`)
-	expandRegexp = regexp.MustCompile(`^(.*)\[(.*?)\]$`)
+	expandRegexp = regexp.MustCompile(`^(.*?)\[(.*?)\]$`)
 }
 
 // Compact compresses a list of nodes into a compact range format

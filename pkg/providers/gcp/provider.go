@@ -19,10 +19,13 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"time"
 
 	compute_v1 "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
+	"google.golang.org/api/iterator"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -31,23 +34,59 @@ import (
 
 const NAME = "gcp"
 
-type Provider struct {
+type baseProvider struct {
 	clientFactory ClientFactory
 }
 
-type ClientFactory func() (*Client, error)
+type ClientFactory func() (Client, error)
 
-type Client struct {
-	Zones     ZonesClient
-	Instances InstancesClient
+type Client interface {
+	ProjectID(ctx context.Context) (string, error)
+	Zones(ctx context.Context, req *computepb.ListZonesRequest, opts ...gax.CallOption) []string
+	Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) ([]*computepb.Instance, string)
 }
 
-type ZonesClient interface {
-	List(ctx context.Context, req *computepb.ListZonesRequest, opts ...gax.CallOption) *compute_v1.ZoneIterator
+type gcpClient struct {
+	zoneClient     *compute_v1.ZonesClient
+	instanceClient *compute_v1.InstancesClient
 }
 
-type InstancesClient interface {
-	List(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) *compute_v1.InstanceIterator
+func (c *gcpClient) ProjectID(ctx context.Context) (string, error) {
+	return metadata.ProjectIDWithContext(ctx)
+}
+
+func (c *gcpClient) Zones(ctx context.Context, req *computepb.ListZonesRequest, opts ...gax.CallOption) []string {
+	now := time.Now()
+	iter := c.zoneClient.List(ctx, req, opts...)
+	requestLatency.WithLabelValues("ListZones").Observe(time.Since(now).Seconds())
+
+	zones := make([]string, 0)
+	for {
+		zone, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		zones = append(zones, *zone.Name)
+	}
+
+	return zones
+}
+
+func (c *gcpClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) ([]*computepb.Instance, string) {
+	now := time.Now()
+	iter := c.instanceClient.List(ctx, req, opts...)
+	requestLatency.WithLabelValues("ListInstances").Observe(time.Since(now).Seconds())
+
+	instances := make([]*computepb.Instance, 0)
+	for {
+		instance, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		instances = append(instances, instance)
+	}
+
+	return instances, iter.PageInfo().Token
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -55,39 +94,43 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
-	clientFactory := func() (*Client, error) {
-		zonesClient, err := compute_v1.NewZonesRESTClient(ctx)
+	clientFactory := func() (Client, error) {
+		zoneClient, err := compute_v1.NewZonesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get zones client: %s", err.Error())
 		}
 
-		instancesClient, err := compute_v1.NewInstancesRESTClient(ctx)
+		instanceClient, err := compute_v1.NewInstancesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get instances client: %s", err.Error())
 		}
 
-		return &Client{
-			Zones:     zonesClient,
-			Instances: instancesClient,
+		return &gcpClient{
+			zoneClient:     zoneClient,
+			instanceClient: instanceClient,
 		}, nil
 	}
 
-	return New(clientFactory)
+	return New(clientFactory), nil
 }
 
-func New(clientFactory ClientFactory) (*Provider, error) {
-	return &Provider{
-		clientFactory: clientFactory,
-	}, nil
-}
-
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
 	cfg, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	return cfg.toGraph()
+	return cfg.toGraph(instances)
+}
+
+type Provider struct {
+	baseProvider
+}
+
+func New(clientFactory ClientFactory) *Provider {
+	return &Provider{
+		baseProvider: baseProvider{clientFactory: clientFactory},
+	}
 }
 
 // Engine support
