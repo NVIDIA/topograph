@@ -58,7 +58,7 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 }
 
 func getRegion(ctx context.Context) (string, error) {
-	url := fmt.Sprintf("%s/zone", IMDSURL)
+	url := fmt.Sprintf("%s/instance/zone", IMDSURL)
 	args := []string{"-s", "-H", "Metadata-Flavor: Google", url}
 	stdout, err := exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
