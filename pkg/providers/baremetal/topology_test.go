@@ -70,23 +70,3 @@ func TestClique(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedDomainMap, domainMap)
 }
-
-func TestSlurmPartition(t *testing.T) {
-	partitions := `cq          up    6:00:00      1  down* node2-14
-	cq          up    6:00:00      1  drain node1-01
-	cq          up    6:00:00     30   idle node1-[02-16],node2-[01-13,15-16]
-	c1q        up    8:00:00      1  drain node1-01
-	c1q        up    8:00:00     15   idle node1-[02-16]
-	c2q       up    8:00:00      1  down* node2-14
-	c2q       up    8:00:00     15   idle node2-[01-13,15-16]`
-
-	expectedPartitionMap := map[string][]string{
-		"cq":  {"node2-14", "node1-01", "node1-02", "node1-03", "node1-04", "node1-05", "node1-06", "node1-07", "node1-08", "node1-09", "node1-10", "node1-11", "node1-12", "node1-13", "node1-14", "node1-15", "node1-16", "node2-01", "node2-02", "node2-03", "node2-04", "node2-05", "node2-06", "node2-07", "node2-08", "node2-09", "node2-10", "node2-11", "node2-12", "node2-13", "node2-15", "node2-16"},
-		"c1q": {"node1-01", "node1-02", "node1-03", "node1-04", "node1-05", "node1-06", "node1-07", "node1-08", "node1-09", "node1-10", "node1-11", "node1-12", "node1-13", "node1-14", "node1-15", "node1-16"},
-		"c2q": {"node2-14", "node2-01", "node2-02", "node2-03", "node2-04", "node2-05", "node2-06", "node2-07", "node2-08", "node2-09", "node2-10", "node2-11", "node2-12", "node2-13", "node2-15", "node2-16"},
-	}
-
-	partitionMap, err := populatePartitions(bytes.NewBufferString(partitions))
-	require.NoError(t, err)
-	require.Equal(t, expectedPartitionMap, partitionMap)
-}

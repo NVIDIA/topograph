@@ -28,7 +28,7 @@ import (
 )
 
 func Exec(ctx context.Context, exe string, args []string, env map[string]string) (*bytes.Buffer, error) {
-	klog.Infof("Execute command %s", strings.Join(append([]string{exe}, args...), " "))
+	klog.V(2).Infof("Execute command %s", strings.Join(append([]string{exe}, args...), " "))
 	cmd := exec.CommandContext(ctx, exe, args...)
 
 	cmd.Env = os.Environ()
