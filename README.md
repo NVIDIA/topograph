@@ -29,11 +29,11 @@ If a node's status changes (e.g., a node goes down or comes up), the Node Observ
 Provider interfaces with CSPs to retrieve topology-related information from the cluster and converts topology data into an internal representation.
 
 ### 4. Engine
-Engine translates network topology from the internal format into a format expected by the workload manager
+Engine translates network topology from the internal format into a format expected by the workload manager.
 
 ## Workflow
 
-- The API Server listens on the port and notifies the Provider about incoming requests. In kubernetes, the incoming requests sent by the Node Observer, which watches changes in the node status.
+- The API Server listens on the port and notifies the Provider about incoming requests. In Kubernetes, the incoming requests are sent by the Node Observer, which watches changes in the node status.
 - The Provider receives notifications and invokes CSP API to retrieve topology-related information.
 - The Engine converts the topology information into the format expected by the user cluster (e.g., SLURM or Kubernetes).
 
