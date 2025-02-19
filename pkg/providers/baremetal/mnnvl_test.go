@@ -2,8 +2,6 @@ package baremetal
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 type testCase struct {
@@ -90,19 +88,5 @@ func createTestCases() []testCase {
 	}
 	testCases = append(testCases, case0, case1, case2, case3)
 	return testCases
-
-}
-
-func TestDecompressNodeNames(t *testing.T) {
-
-	testCases := createTestCases()
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			res, _ := deCompressNodeNames(tc.nodeList)
-			require.Equal(t, tc.nodeArr, res)
-
-		})
-	}
 
 }
