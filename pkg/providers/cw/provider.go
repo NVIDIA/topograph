@@ -54,7 +54,7 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		return nil, err
 	}
 
-	return ib.GenerateTopologyConfig(output.Bytes())
+	return ib.GenerateTopologyConfig(output.Bytes(), instances)
 }
 
 // Engine support
