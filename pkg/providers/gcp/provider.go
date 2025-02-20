@@ -115,12 +115,12 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 }
 
 func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	cfg, err := p.generateInstanceTopology(ctx, pageSize, instances)
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	return cfg.toGraph(instances)
+	return topo.ToThreeTierGraph(NAME, instances)
 }
 
 type Provider struct {

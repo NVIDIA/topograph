@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package translate
+package topology
 
 import (
 	"testing"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,23 +26,23 @@ func TestToBlocks(t *testing.T) {
 	testCases := []struct {
 		name      string
 		domainMap DomainMap
-		blocks    *topology.Vertex
+		blocks    *Vertex
 	}{
 		{
 			name: "Case 1: no input",
-			blocks: &topology.Vertex{
-				Vertices: make(map[string]*topology.Vertex),
+			blocks: &Vertex{
+				Vertices: make(map[string]*Vertex),
 			},
 		},
 		{
 			name:      "Case 2: one block",
 			domainMap: DomainMap{"domain1": {"host1": struct{}{}, "host2": struct{}{}}},
-			blocks: &topology.Vertex{
-				Vertices: map[string]*topology.Vertex{
+			blocks: &Vertex{
+				Vertices: map[string]*Vertex{
 					"domain1": {
 						Name: "domain1",
 						ID:   "block001",
-						Vertices: map[string]*topology.Vertex{
+						Vertices: map[string]*Vertex{
 							"host1": {ID: "host1", Name: "host1"},
 							"host2": {ID: "host2", Name: "host2"},
 						},
@@ -57,12 +56,12 @@ func TestToBlocks(t *testing.T) {
 				"domain1": {"host1": struct{}{}, "host2": struct{}{}},
 				"domain2": {"host3": struct{}{}},
 			},
-			blocks: &topology.Vertex{
-				Vertices: map[string]*topology.Vertex{
+			blocks: &Vertex{
+				Vertices: map[string]*Vertex{
 					"domain1": {
 						Name: "domain1",
 						ID:   "block001",
-						Vertices: map[string]*topology.Vertex{
+						Vertices: map[string]*Vertex{
 							"host1": {ID: "host1", Name: "host1"},
 							"host2": {ID: "host2", Name: "host2"},
 						},
@@ -70,7 +69,7 @@ func TestToBlocks(t *testing.T) {
 					"domain2": {
 						Name: "domain2",
 						ID:   "block002",
-						Vertices: map[string]*topology.Vertex{
+						Vertices: map[string]*Vertex{
 							"host3": {ID: "host3", Name: "host3"},
 						},
 					},

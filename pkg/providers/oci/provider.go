@@ -146,12 +146,12 @@ func New(ociClientFactory ClientFactory) *Provider {
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	cfg, err := GenerateInstanceTopology(ctx, p.clientFactory, instances)
+	topo, err := GenerateInstanceTopology(ctx, p.clientFactory, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	return toGraph(cfg, instances)
+	return topo.ToThreeTierGraph(NAME, instances)
 }
 
 // Engine support

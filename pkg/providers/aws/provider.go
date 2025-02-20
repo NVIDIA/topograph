@@ -171,14 +171,14 @@ func getCredentialsFromProvider(ctx context.Context) (creds aws.Credentials, err
 }
 
 func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	topology, err := p.generateInstanceTopology(ctx, pageSize, instances)
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	klog.Infof("Extracted topology for %d instances", len(topology))
+	klog.Infof("Extracted topology for %d instances", topo.Len())
 
-	return toGraph(topology, instances)
+	return topo.ToThreeTierGraph(NAME, instances)
 }
 
 type Provider struct {

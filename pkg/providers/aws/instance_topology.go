@@ -25,19 +25,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
-	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 var defaultPageSize int32 = 100
 
-func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) ([]types.InstanceTopology, error) {
-	var (
-		err      error
-		topology []types.InstanceTopology
-		limit    int32
-	)
+func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
+	var limit int32
 
 	if pageSize != nil {
 		limit = int32(*pageSize)
@@ -45,24 +39,25 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 		limit = defaultPageSize
 	}
 
+	topo := topology.NewClusterTopology()
 	for _, ci := range cis {
-		if topology, err = p.generateRegionInstanceTopology(ctx, limit, &ci, topology); err != nil {
+		if err := p.generateRegionInstanceTopology(ctx, limit, &ci, topo); err != nil {
 			return nil, err
 		}
 	}
 
-	return topology, nil
+	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageSize int32, ci *topology.ComputeInstances, topology []types.InstanceTopology) ([]types.InstanceTopology, error) {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageSize int32, ci *topology.ComputeInstances, topo *topology.ClusterTopology) error {
 	if len(ci.Region) == 0 {
-		return nil, fmt.Errorf("must specify region to query instance topology")
+		return fmt.Errorf("must specify region to query instance topology")
 	}
 	klog.Infof("Getting instance topology for %s region", ci.Region)
 
 	client, err := p.clientFactory(ci.Region)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	input := &ec2.DescribeInstanceTopologyInput{}
 
@@ -89,16 +84,16 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 		output, err := client.EC2.DescribeInstanceTopology(ctx, input)
 		if err != nil {
 			apiLatency.WithLabelValues(ci.Region, "Error").Observe(time.Since(start).Seconds())
-			return nil, fmt.Errorf("failed to describe instance topology: %v", err)
+			return fmt.Errorf("failed to describe instance topology: %v", err)
 		}
 		apiLatency.WithLabelValues(ci.Region, "Success").Observe(time.Since(start).Seconds())
 		total += len(output.Instances)
 		for _, elem := range output.Instances {
 			if _, ok := ci.Instances[*elem.InstanceId]; ok {
-				topology = append(topology, elem)
+				topo.Append(convert(&elem))
 			}
 		}
-		klog.V(4).Infof("Received instance topology for %d nodes; processed %d; selected %d", len(output.Instances), total, len(topology))
+		klog.V(4).Infof("Received instance topology for %d nodes; processed %d; selected %d", len(output.Instances), total, topo.Len())
 
 		if output.NextToken == nil {
 			break
@@ -107,108 +102,18 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 		}
 	}
 
-	klog.Infof("Returning instance topology for %d nodes", len(topology))
-	return topology, nil
+	return nil
 }
 
-func toGraph(top []types.InstanceTopology, cis []topology.ComputeInstances) (*topology.Vertex, error) {
-	i2n := make(map[string]string)
-	for _, ci := range cis {
-		for instance, node := range ci.Instances {
-			i2n[instance] = node
-		}
+func convert(inst *types.InstanceTopology) *topology.InstanceTopology {
+	topo := &topology.InstanceTopology{
+		InstanceID:   *inst.InstanceId,
+		BlockID:      inst.NetworkNodes[2],
+		SpineID:      inst.NetworkNodes[1],
+		DatacenterID: inst.NetworkNodes[0],
 	}
-	klog.V(4).Infof("Instance/Node map %v", i2n)
-
-	forest := make(map[string]*topology.Vertex)
-	nodes := make(map[string]*topology.Vertex)
-	domainMap := translate.NewDomainMap()
-
-	for _, inst := range top {
-		//klog.V(4).Infof("Checking instance %q", c.InstanceId)
-		nodeName, ok := i2n[*inst.InstanceId]
-		if !ok {
-			continue
-		}
-		klog.V(4).Infof("Found node %q instance %q", nodeName, *inst.InstanceId)
-		delete(i2n, *inst.InstanceId)
-
-		// update domain map
-		if inst.CapacityBlockId != nil {
-			domainMap.AddHost(*inst.CapacityBlockId, nodeName)
-		}
-
-		instance := &topology.Vertex{
-			Name: nodeName,
-			ID:   *inst.InstanceId,
-		}
-		// process level 3 node
-		id3 := inst.NetworkNodes[2]
-		sw3, ok := nodes[id3]
-		if !ok { //
-			sw3 = &topology.Vertex{
-				ID:       id3,
-				Vertices: make(map[string]*topology.Vertex),
-			}
-			nodes[id3] = sw3
-		}
-		sw3.Vertices[instance.ID] = instance
-
-		// process level 2 node
-		id2 := inst.NetworkNodes[1]
-		sw2, ok := nodes[id2]
-		if !ok { //
-			sw2 = &topology.Vertex{
-				ID:       id2,
-				Vertices: make(map[string]*topology.Vertex),
-			}
-			nodes[id2] = sw2
-		}
-		sw2.Vertices[id3] = sw3
-
-		// process level 1 node
-		id1 := inst.NetworkNodes[0]
-		sw1, ok := nodes[id1]
-		if !ok { //
-			sw1 = &topology.Vertex{
-				ID:       id1,
-				Vertices: make(map[string]*topology.Vertex),
-			}
-			nodes[id1] = sw1
-			forest[id1] = sw1
-		}
-		sw1.Vertices[id2] = sw2
+	if inst.CapacityBlockId != nil {
+		topo.AcceleratorID = *inst.CapacityBlockId
 	}
-
-	if len(i2n) != 0 {
-		klog.V(4).Infof("Adding nodes w/o topology: %v", i2n)
-		metrics.SetMissingTopology(NAME, len(i2n))
-		sw := &topology.Vertex{
-			ID:       topology.NoTopology,
-			Vertices: make(map[string]*topology.Vertex),
-		}
-		for instanceID, nodeName := range i2n {
-			sw.Vertices[instanceID] = &topology.Vertex{
-				Name: nodeName,
-				ID:   instanceID,
-			}
-		}
-		forest[topology.NoTopology] = sw
-	}
-
-	treeRoot := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-	}
-	for name, node := range forest {
-		treeRoot.Vertices[name] = node
-	}
-
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.TopologyTree: treeRoot},
-	}
-	if len(domainMap) != 0 {
-		root.Vertices[topology.TopologyBlock] = domainMap.ToBlocks()
-	}
-
-	return root, nil
+	return topo
 }
