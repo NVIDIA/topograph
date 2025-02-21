@@ -46,10 +46,10 @@ var (
 	missingTopologyNodes = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name:      "missing_topology",
-			Help:      "Total number of nodes with missing topology information.",
+			Help:      "Nodes with missing topology information.",
 			Subsystem: "topograph",
 		},
-		[]string{"provider"},
+		[]string{"provider", "node"},
 	)
 
 	validationErrorsTotal = prometheus.NewCounterVec(
@@ -75,8 +75,8 @@ func Add(provider, engine string, code int, duration time.Duration) {
 	httpRequestDuration.WithLabelValues(provider, engine, status).Observe(duration.Seconds())
 }
 
-func SetMissingTopology(provider string, count int) {
-	missingTopologyNodes.WithLabelValues(provider).Set(float64(count))
+func SetMissingTopology(provider, nodename string) {
+	missingTopologyNodes.WithLabelValues(provider, nodename).Set(1.0)
 }
 
 func AddValidationError(errorType string) {

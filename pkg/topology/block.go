@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-package translate
+package topology
 
 import (
 	"fmt"
 	"sort"
-
-	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 // DomainMap maps domain name to a map of hostnames
@@ -30,9 +28,9 @@ func NewDomainMap() DomainMap {
 	return make(DomainMap)
 }
 
-func (m DomainMap) ToBlocks() *topology.Vertex {
-	blockRoot := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
+func (m DomainMap) ToBlocks() *Vertex {
+	blockRoot := &Vertex{
+		Vertices: make(map[string]*Vertex),
 	}
 
 	domainNames := make([]string, 0, len(m))
@@ -48,14 +46,14 @@ func (m DomainMap) ToBlocks() *topology.Vertex {
 		}
 		sort.Strings(nodes)
 
-		vertex := &topology.Vertex{
+		vertex := &Vertex{
 			ID:       fmt.Sprintf("block%03d", i+1),
 			Name:     domainName,
-			Vertices: make(map[string]*topology.Vertex),
+			Vertices: make(map[string]*Vertex),
 		}
 
 		for _, node := range nodes {
-			vertex.Vertices[node] = &topology.Vertex{
+			vertex.Vertices[node] = &Vertex{
 				Name: node,
 				ID:   node,
 			}

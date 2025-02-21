@@ -74,6 +74,7 @@ func getTopologyFormat(params map[string]any) string {
 	return topology.TopologyTree
 }
 
+// TODO: replace with translate.ToThreeTierGraph()
 func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, format string) *topology.Vertex {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
@@ -148,7 +149,6 @@ func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, for
 
 	if len(i2n) != 0 {
 		klog.V(4).Infof("Adding nodes w/o topology: %v", i2n)
-		metrics.SetMissingTopology("GTS", len(i2n))
 		sw := &topology.Vertex{
 			ID:       topology.NoTopology,
 			Vertices: make(map[string]*topology.Vertex),
@@ -158,6 +158,7 @@ func toGraph(response *pb.TopologyResponse, cis []topology.ComputeInstances, for
 				Name: nodeName,
 				ID:   instanceID,
 			}
+			metrics.SetMissingTopology("GTS", nodeName)
 		}
 		forest[topology.NoTopology] = sw
 	}
