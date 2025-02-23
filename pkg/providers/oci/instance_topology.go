@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/core"
@@ -30,61 +29,12 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-type level int
-
-const (
-	localBlockLevel level = iota + 1
-	networkBlockLevel
-	hpcIslandLevel
-)
-
 func GenerateInstanceTopology(ctx context.Context, factory ClientFactory, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
 	topo := topology.NewClusterTopology()
 
 	for _, ci := range cis {
 		if err := generateInstanceTopology(ctx, factory, &ci, topo); err != nil {
 			return nil, err
-		}
-	}
-
-	// sort by network hierarchy
-	sort.Slice(topo.Instances, func(i, j int) bool {
-		if topo.Instances[i].DatacenterID != topo.Instances[j].DatacenterID {
-			return topo.Instances[i].DatacenterID < topo.Instances[j].DatacenterID
-		}
-
-		if topo.Instances[i].SpineID != topo.Instances[j].SpineID {
-			return topo.Instances[i].SpineID < topo.Instances[j].SpineID
-		}
-
-		if topo.Instances[i].BlockID != topo.Instances[j].BlockID {
-			return topo.Instances[i].BlockID < topo.Instances[j].BlockID
-		}
-
-		return topo.Instances[i].InstanceID < topo.Instances[j].InstanceID
-	})
-
-	// assign switch names
-	levelSwitchCount := map[level]int{localBlockLevel: 0, networkBlockLevel: 0, hpcIslandLevel: 0}
-	switches := make(map[string]struct{})
-	for i, inst := range topo.Instances {
-		_, ok := switches[inst.BlockID]
-		if !ok {
-			levelSwitchCount[localBlockLevel]++
-			topo.Instances[i].BlockName = fmt.Sprintf("Switch.%d.%d", localBlockLevel, levelSwitchCount[localBlockLevel])
-			switches[inst.BlockID] = struct{}{}
-		}
-		_, ok = switches[inst.SpineID]
-		if !ok {
-			levelSwitchCount[networkBlockLevel]++
-			topo.Instances[i].SpineName = fmt.Sprintf("Switch.%d.%d", networkBlockLevel, levelSwitchCount[networkBlockLevel])
-			switches[inst.SpineID] = struct{}{}
-		}
-		_, ok = switches[inst.DatacenterID]
-		if !ok {
-			levelSwitchCount[hpcIslandLevel]++
-			topo.Instances[i].DatacenterName = fmt.Sprintf("Switch.%d.%d", hpcIslandLevel, levelSwitchCount[hpcIslandLevel])
-			switches[inst.SpineID] = struct{}{}
 		}
 	}
 

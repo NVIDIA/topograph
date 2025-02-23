@@ -36,15 +36,15 @@ func TestToBlocks(t *testing.T) {
 		},
 		{
 			name:      "Case 2: one block",
-			domainMap: DomainMap{"domain1": {"host1": struct{}{}, "host2": struct{}{}}},
+			domainMap: DomainMap{"domain1": {"host1": "instance1", "host2": "instance2"}},
 			blocks: &Vertex{
 				Vertices: map[string]*Vertex{
 					"domain1": {
 						Name: "domain1",
 						ID:   "block001",
 						Vertices: map[string]*Vertex{
-							"host1": {ID: "host1", Name: "host1"},
-							"host2": {ID: "host2", Name: "host2"},
+							"host1": {ID: "instance1", Name: "host1"},
+							"host2": {ID: "instance2", Name: "host2"},
 						},
 					},
 				},
@@ -53,8 +53,8 @@ func TestToBlocks(t *testing.T) {
 		{
 			name: "Case 3: two blocks",
 			domainMap: DomainMap{
-				"domain1": {"host1": struct{}{}, "host2": struct{}{}},
-				"domain2": {"host3": struct{}{}},
+				"domain1": {"host1": "instance1", "host2": "instance2"},
+				"domain2": {"host3": "instance3"},
 			},
 			blocks: &Vertex{
 				Vertices: map[string]*Vertex{
@@ -62,15 +62,15 @@ func TestToBlocks(t *testing.T) {
 						Name: "domain1",
 						ID:   "block001",
 						Vertices: map[string]*Vertex{
-							"host1": {ID: "host1", Name: "host1"},
-							"host2": {ID: "host2", Name: "host2"},
+							"host1": {ID: "instance1", Name: "host1"},
+							"host2": {ID: "instance2", Name: "host2"},
 						},
 					},
 					"domain2": {
 						Name: "domain2",
 						ID:   "block002",
 						Vertices: map[string]*Vertex{
-							"host3": {ID: "host3", Name: "host3"},
+							"host3": {ID: "instance3", Name: "host3"},
 						},
 					},
 				},
@@ -82,8 +82,8 @@ func TestToBlocks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			domainMap := NewDomainMap()
 			for domainName, domain := range tc.domainMap {
-				for hostname := range domain {
-					domainMap.AddHost(domainName, hostname)
+				for hostname, instance := range domain {
+					domainMap.AddHost(domainName, instance, hostname)
 				}
 			}
 			require.Equal(t, tc.blocks, domainMap.ToBlocks())

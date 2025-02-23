@@ -151,7 +151,7 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances)
+	return topo.ToThreeTierGraph(NAME, instances, true)
 }
 
 // Engine support
