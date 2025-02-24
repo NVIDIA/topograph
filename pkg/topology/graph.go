@@ -17,9 +17,20 @@
 package topology
 
 import (
+	"fmt"
+	"sort"
+
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/metrics"
+)
+
+type band int
+
+const (
+	blockBand band = iota + 1
+	spineBand
+	datacenterBand
 )
 
 type ClusterTopology struct {
@@ -50,7 +61,7 @@ func (c *ClusterTopology) Len() int {
 	return len(c.Instances)
 }
 
-func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstances) (*Vertex, error) {
+func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstances, normalize bool) (*Vertex, error) {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
 		for instance, node := range ci.Instances {
@@ -61,6 +72,10 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 	forest := make(map[string]*Vertex)
 	nodes := make(map[string]*Vertex)
 	domainMap := NewDomainMap()
+
+	if normalize {
+		c.Normalize()
+	}
 
 	for _, inst := range c.Instances {
 		nodeName, ok := i2n[inst.InstanceID]
@@ -77,7 +92,7 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 		}
 
 		if len(inst.AcceleratorID) != 0 {
-			domainMap.AddHost(inst.AcceleratorID, nodeName)
+			domainMap.AddHost(inst.AcceleratorID, inst.InstanceID, nodeName)
 		}
 
 		swNames := [3]string{inst.BlockName, inst.SpineName, inst.DatacenterName}
@@ -135,4 +150,54 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 	}
 
 	return root, nil
+}
+
+func (c *ClusterTopology) Normalize() {
+	// sort by network hierarchy
+	sort.Slice(c.Instances, func(i, j int) bool {
+		if c.Instances[i].DatacenterID != c.Instances[j].DatacenterID {
+			return c.Instances[i].DatacenterID < c.Instances[j].DatacenterID
+		}
+
+		if c.Instances[i].SpineID != c.Instances[j].SpineID {
+			return c.Instances[i].SpineID < c.Instances[j].SpineID
+		}
+
+		if c.Instances[i].BlockID != c.Instances[j].BlockID {
+			return c.Instances[i].BlockID < c.Instances[j].BlockID
+		}
+
+		return c.Instances[i].InstanceID < c.Instances[j].InstanceID
+	})
+
+	// normalize switch names
+	bandCounts := map[band]int{blockBand: 0, spineBand: 0, datacenterBand: 0}
+
+	switches := make(map[string]string)
+	for i, inst := range c.Instances {
+		name, ok := switches[inst.BlockID]
+		if !ok {
+			bandCounts[blockBand]++
+			c.Instances[i].BlockName = fmt.Sprintf("switch.%d.%d", blockBand, bandCounts[blockBand])
+			switches[inst.BlockID] = name
+		} else {
+			c.Instances[i].BlockName = name
+		}
+		name, ok = switches[inst.SpineID]
+		if !ok {
+			bandCounts[spineBand]++
+			c.Instances[i].SpineName = fmt.Sprintf("switch.%d.%d", spineBand, bandCounts[spineBand])
+			switches[inst.SpineID] = name
+		} else {
+			c.Instances[i].SpineName = name
+		}
+		name, ok = switches[inst.DatacenterID]
+		if !ok {
+			bandCounts[datacenterBand]++
+			c.Instances[i].DatacenterName = fmt.Sprintf("switch.%d.%d", datacenterBand, bandCounts[datacenterBand])
+			switches[inst.SpineID] = name
+		} else {
+			c.Instances[i].DatacenterName = name
+		}
+	}
 }

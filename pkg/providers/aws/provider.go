@@ -178,7 +178,7 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 
 	klog.Infof("Extracted topology for %d instances", topo.Len())
 
-	return topo.ToThreeTierGraph(NAME, instances)
+	return topo.ToThreeTierGraph(NAME, instances, false)
 }
 
 type Provider struct {

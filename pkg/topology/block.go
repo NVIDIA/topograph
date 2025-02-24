@@ -21,8 +21,8 @@ import (
 	"sort"
 )
 
-// DomainMap maps domain name to a map of hostnames
-type DomainMap map[string]map[string]struct{}
+// DomainMap maps domain name to a map of hostname:instance
+type DomainMap map[string]map[string]string
 
 func NewDomainMap() DomainMap {
 	return make(DomainMap)
@@ -40,8 +40,9 @@ func (m DomainMap) ToBlocks() *Vertex {
 	sort.Strings(domainNames)
 
 	for i, domainName := range domainNames {
-		nodes := make([]string, 0, len(m[domainName]))
-		for node := range m[domainName] {
+		nodeMap := m[domainName]
+		nodes := make([]string, 0, len(nodeMap))
+		for node := range nodeMap {
 			nodes = append(nodes, node)
 		}
 		sort.Strings(nodes)
@@ -55,7 +56,7 @@ func (m DomainMap) ToBlocks() *Vertex {
 		for _, node := range nodes {
 			vertex.Vertices[node] = &Vertex{
 				Name: node,
-				ID:   node,
+				ID:   nodeMap[node],
 			}
 		}
 
@@ -65,11 +66,11 @@ func (m DomainMap) ToBlocks() *Vertex {
 	return blockRoot
 }
 
-func (m DomainMap) AddHost(domain, host string) {
+func (m DomainMap) AddHost(domain, instance, host string) {
 	d, ok := m[domain]
 	if !ok {
-		m[domain] = make(map[string]struct{})
+		m[domain] = make(map[string]string)
 		d = m[domain]
 	}
-	d[host] = struct{}{}
+	d[host] = instance
 }
