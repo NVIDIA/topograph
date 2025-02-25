@@ -17,48 +17,11 @@
 package gcp
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/agrea/ptr"
 	"github.com/stretchr/testify/require"
 )
-
-func TestGetTokenCount(t *testing.T) {
-	testCases := []struct {
-		name          string
-		physicaHostID string
-		count         int
-	}{
-		{
-			name:          "Regular Test case",
-			physicaHostID: "/AA/BB/CC",
-			count:         3,
-		},
-		{
-			name:          "Rack ID missing in physical host ID",
-			physicaHostID: "/AA//CC",
-			count:         2,
-		},
-		{
-			name:          "No cluster ID, rack ID or host ID",
-			physicaHostID: "///",
-			count:         0,
-		},
-		{
-			name:          "Empty physical host ID",
-			physicaHostID: "",
-			count:         0,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tokens := strings.Split(tc.physicaHostID, "/")
-			count := getTokenCount(tokens)
-			require.Equal(t, tc.count, count)
-		})
-	}
-}
 
 func TestCastPageSize(t *testing.T) {
 	testCases := []struct {
