@@ -76,6 +76,12 @@ func TestToThreeTierGraphNoNorm(t *testing.T) {
 	}
 	require.Equal(t, len(instances), topo.Len())
 
+	inst0 := "Instance:i-001 Block:nn-11111111 Spine:nn-55555555 Datacenter:nn-77777777 Accelerator:acc-111111"
+	require.Equal(t, inst0, topo.Instances[0].String())
+
+	inst2 := "Instance:i-003 Block:nn-33333333 Spine:nn-66666666 Datacenter:nn-77777777"
+	require.Equal(t, inst2, topo.Instances[2].String())
+
 	v31 := &Vertex{ID: "nn-11111111", Vertices: map[string]*Vertex{"i-001": n1}}
 	v32 := &Vertex{ID: "nn-22222222", Vertices: map[string]*Vertex{"i-002": n2}}
 	v33 := &Vertex{ID: "nn-33333333", Vertices: map[string]*Vertex{"i-003": n3}}
@@ -206,4 +212,10 @@ func TestToThreeTierGraphNorm(t *testing.T) {
 	graph, err := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, true)
 	require.NoError(t, err)
 	require.Equal(t, expected, graph)
+
+	inst0 := "Instance:i-001 Block:nn-11111111 (switch.1.1) Spine:nn-55555555 (switch.2.1) Datacenter:nn-77777777 (switch.3.1) Accelerator:acc-111111"
+	require.Equal(t, inst0, topo.Instances[0].String())
+
+	inst2 := "Instance:i-003 Block:nn-33333333 (switch.1.3) Spine:nn-66666666 (switch.2.2) Datacenter:nn-77777777 (switch.3.1)"
+	require.Equal(t, inst2, topo.Instances[2].String())
 }
