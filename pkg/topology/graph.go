@@ -19,6 +19,7 @@ package topology
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"k8s.io/klog/v2"
 
@@ -38,15 +39,42 @@ type ClusterTopology struct {
 }
 
 type InstanceTopology struct {
-	InstanceID      string
-	AcceleratorID   string
-	AcceleratorName string // optional
-	BlockID         string
-	BlockName       string // optional
-	SpineID         string
-	SpineName       string // optional
-	DatacenterID    string
-	DatacenterName  string // optional
+	InstanceID     string
+	BlockID        string
+	BlockName      string // optional
+	SpineID        string
+	SpineName      string // optional
+	DatacenterID   string
+	DatacenterName string // optional
+	AcceleratorID  string
+}
+
+func (inst *InstanceTopology) String() string {
+	var buf strings.Builder
+	buf.WriteString("Instance:" + inst.InstanceID)
+	if len(inst.BlockID) != 0 {
+		buf.WriteString(" Block:" + inst.BlockID)
+		if len(inst.BlockName) != 0 {
+			buf.WriteString(" (" + inst.BlockName + ")")
+		}
+	}
+	if len(inst.SpineID) != 0 {
+		buf.WriteString(" Spine:" + inst.SpineID)
+		if len(inst.SpineName) != 0 {
+			buf.WriteString(" (" + inst.SpineName + ")")
+		}
+	}
+	if len(inst.DatacenterID) != 0 {
+		buf.WriteString(" Datacenter:" + inst.DatacenterID)
+		if len(inst.DatacenterName) != 0 {
+			buf.WriteString(" (" + inst.DatacenterName + ")")
+		}
+	}
+	if len(inst.AcceleratorID) != 0 {
+		buf.WriteString(" Accelerator:" + inst.AcceleratorID)
+	}
+
+	return buf.String()
 }
 
 func NewClusterTopology() *ClusterTopology {
@@ -83,7 +111,7 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 			continue
 		}
 
-		klog.V(4).Infof("Found node %q instance %q", nodeName, inst.InstanceID)
+		klog.V(4).InfoS("Found", "node", nodeName, "instance", inst.InstanceID)
 		delete(i2n, inst.InstanceID)
 
 		instance := &Vertex{
@@ -98,7 +126,7 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 		swNames := [3]string{inst.BlockName, inst.SpineName, inst.DatacenterName}
 		for i, swID := range []string{inst.BlockID, inst.SpineID, inst.DatacenterID} {
 			if len(swID) == 0 {
-				break
+				continue
 			}
 
 			sw, ok := nodes[swID]
@@ -178,26 +206,25 @@ func (c *ClusterTopology) Normalize() {
 		name, ok := switches[inst.BlockID]
 		if !ok {
 			bandCounts[blockBand]++
-			c.Instances[i].BlockName = fmt.Sprintf("switch.%d.%d", blockBand, bandCounts[blockBand])
+			name = fmt.Sprintf("switch.%d.%d", blockBand, bandCounts[blockBand])
 			switches[inst.BlockID] = name
-		} else {
-			c.Instances[i].BlockName = name
 		}
+		c.Instances[i].BlockName = name
+
 		name, ok = switches[inst.SpineID]
 		if !ok {
 			bandCounts[spineBand]++
-			c.Instances[i].SpineName = fmt.Sprintf("switch.%d.%d", spineBand, bandCounts[spineBand])
+			name = fmt.Sprintf("switch.%d.%d", spineBand, bandCounts[spineBand])
 			switches[inst.SpineID] = name
-		} else {
-			c.Instances[i].SpineName = name
 		}
+		c.Instances[i].SpineName = name
+
 		name, ok = switches[inst.DatacenterID]
 		if !ok {
 			bandCounts[datacenterBand]++
-			c.Instances[i].DatacenterName = fmt.Sprintf("switch.%d.%d", datacenterBand, bandCounts[datacenterBand])
-			switches[inst.SpineID] = name
-		} else {
-			c.Instances[i].DatacenterName = name
+			name = fmt.Sprintf("switch.%d.%d", datacenterBand, bandCounts[datacenterBand])
+			switches[inst.DatacenterID] = name
 		}
+		c.Instances[i].DatacenterName = name
 	}
 }

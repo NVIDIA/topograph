@@ -60,10 +60,8 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 		PageToken:  nil,
 	}
 
-	var cycle int
 	for {
-		cycle++
-		klog.V(4).Infof("Starting cycle %d", cycle)
+		klog.V(4).InfoS("ListInstances", "request", req.String())
 		instances, token := client.Instances(ctx, &req)
 		for _, instance := range instances {
 			instanceId := strconv.FormatUint(*instance.Id, 10)
@@ -91,7 +89,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 					SpineID:    tokens[1],
 					BlockID:    tokens[2],
 				}
-				klog.InfoS("Topology", "instance", instanceId, "cluster", inst.SpineID, "rack", inst.BlockID)
+				klog.Infof("Adding topology: %s", inst.String())
 				topo.Append(inst)
 			}
 		}
