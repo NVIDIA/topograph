@@ -46,7 +46,7 @@ func processRequest(item interface{}) (interface{}, *HTTPError) {
 	} else {
 		code = http.StatusOK
 	}
-	metrics.Add(tr.Provider.Name, tr.Engine.Name, code, time.Since(start))
+	metrics.AddTopologyRequest(tr.Provider.Name, tr.Engine.Name, code, time.Since(start))
 
 	return ret, err
 }
