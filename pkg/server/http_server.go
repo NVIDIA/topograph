@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -45,6 +46,31 @@ func InitHttpServer(ctx context.Context, cfg *config.Config) {
 	srv = initHttpServer(ctx, cfg)
 }
 
+// responseRecorder wraps ResponseWriter to capture status code
+type responseRecorder struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+// Override WriteHeader to capture status code
+func (rw *responseRecorder) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// LoggingMiddleware logs request/response details
+func LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		duration := time.Since(start)
+		from, _, _ := net.SplitHostPort(r.RemoteAddr)
+		klog.InfoS("HTTP", "method", r.Method, "path", r.URL.Path, "proto", r.Proto, "from", from, "status", rec.statusCode, "duration", duration.Seconds())
+		metrics.AddHttpRequest(r.Method, r.URL.Path, r.Proto, from, rec.statusCode, duration)
+	})
+}
+
 func initHttpServer(ctx context.Context, cfg *config.Config) *HttpServer {
 	mux := http.NewServeMux()
 
@@ -58,7 +84,7 @@ func initHttpServer(ctx context.Context, cfg *config.Config) *HttpServer {
 		cfg: cfg,
 		srv: &http.Server{
 			Addr:    fmt.Sprintf(":%d", cfg.HTTP.Port),
-			Handler: mux,
+			Handler: LoggingMiddleware(mux),
 		},
 		async: &asyncController{
 			queue: NewTrailingDelayQueue(processRequest, cfg.RequestAggregationDelay),
@@ -196,7 +222,7 @@ func getresult(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpError(w http.ResponseWriter, provider, engine, msg string, code int, duration time.Duration) *topology.Request {
-	metrics.Add(provider, engine, code, duration)
+	metrics.AddTopologyRequest(provider, engine, code, duration)
 	http.Error(w, msg, code)
 	return nil
 }

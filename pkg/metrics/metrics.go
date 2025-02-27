@@ -24,19 +24,20 @@ import (
 )
 
 var (
-	httpRequestsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name:      "requests_total",
-			Help:      "Total number of topology generation requests.",
-			Subsystem: "topograph",
-		},
-		[]string{"provider", "engine", "status"},
-	)
-
 	httpRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
+			Name:      "http_request_duration_seconds",
+			Help:      "HTTP request duration in seconds.",
+			Subsystem: "topograph",
+			Buckets:   prometheus.DefBuckets,
+		},
+		[]string{"method", "path", "proto", "from", "status"},
+	)
+
+	topologyRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
 			Name:      "request_duration_seconds",
-			Help:      "Topology generator request duration in seconds.",
+			Help:      "Topology request duration in seconds.",
 			Subsystem: "topograph",
 			Buckets:   prometheus.DefBuckets,
 		},
@@ -63,16 +64,20 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(httpRequestsTotal)
 	prometheus.MustRegister(httpRequestDuration)
+	prometheus.MustRegister(topologyRequestDuration)
 	prometheus.MustRegister(missingTopologyNodes)
 	prometheus.MustRegister(validationErrorsTotal)
 }
 
-func Add(provider, engine string, code int, duration time.Duration) {
+func AddHttpRequest(method, path, proto, from string, code int, duration time.Duration) {
 	status := fmt.Sprintf("%d", code)
-	httpRequestsTotal.WithLabelValues(provider, engine, status).Inc()
-	httpRequestDuration.WithLabelValues(provider, engine, status).Observe(duration.Seconds())
+	httpRequestDuration.WithLabelValues(method, path, proto, from, status).Observe(duration.Seconds())
+}
+
+func AddTopologyRequest(provider, engine string, code int, duration time.Duration) {
+	status := fmt.Sprintf("%d", code)
+	topologyRequestDuration.WithLabelValues(provider, engine, status).Observe(duration.Seconds())
 }
 
 func SetMissingTopology(provider, nodename string) {
