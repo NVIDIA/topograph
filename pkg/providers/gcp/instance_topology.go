@@ -24,6 +24,7 @@ import (
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/agrea/ptr"
+	"google.golang.org/api/iterator"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -32,25 +33,27 @@ import (
 func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
 	client, err := p.clientFactory()
 	if err != nil {
-		return nil, fmt.Errorf("unable to get client: %v", err)
+		return nil, fmt.Errorf("failed to get client: %v", err)
 	}
 
 	projectID, err := client.ProjectID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get project ID: %v", err)
+		return nil, fmt.Errorf("failed to get project ID: %v", err)
 	}
 
 	topo := topology.NewClusterTopology()
 
 	maxRes := castPageSize(pageSize)
 	for _, ci := range cis {
-		p.generateRegionInstanceTopology(ctx, client, projectID, maxRes, topo, &ci)
+		if err := p.generateRegionInstanceTopology(ctx, client, projectID, maxRes, topo, &ci); err != nil {
+			return nil, fmt.Errorf("failed to get instance topology: %v", err)
+		}
 	}
 
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, maxRes *uint32, topo *topology.ClusterTopology, ci *topology.ComputeInstances) {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, maxRes *uint32, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
 	klog.InfoS("Getting instance topology", "region", ci.Region, "project", projectID)
 
 	req := computepb.ListInstancesRequest{
@@ -62,8 +65,16 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 
 	for {
 		klog.V(4).InfoS("ListInstances", "request", req.String())
-		instances, token := client.Instances(ctx, &req)
-		for _, instance := range instances {
+		iter, token := client.Instances(ctx, &req)
+		for {
+			instance, err := iter.Next()
+			if err != nil {
+				if err == iterator.Done {
+					break
+				} else {
+					return err
+				}
+			}
 			instanceId := strconv.FormatUint(*instance.Id, 10)
 			klog.V(4).Infof("Checking instance %s", instanceId)
 
@@ -96,7 +107,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 
 		if len(token) == 0 {
 			klog.V(4).Infof("Total processed nodes: %d", topo.Len())
-			return
+			return nil
 		}
 		req.PageToken = &token
 	}

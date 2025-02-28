@@ -23,6 +23,7 @@ import (
 
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	gax "github.com/googleapis/gax-go/v2"
+	"google.golang.org/api/iterator"
 
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -33,35 +34,88 @@ const (
 	NAME_SIM = "gcp-sim"
 )
 
-type SimClient struct {
-	Model *models.Model
+type simClient struct {
+	model *models.Model
+	pages []*simInstanceIter
 }
 
-func (c *SimClient) ProjectID(ctx context.Context) (string, error) {
+type simInstanceIter struct {
+	instances []*computepb.Instance
+	indx      int
+	next      bool
+	err       bool
+}
+
+func (iter *simInstanceIter) Next() (*computepb.Instance, error) {
+	if iter.err {
+		return nil, fmt.Errorf("iterator error")
+	}
+
+	if iter.indx >= len(iter.instances) {
+		return nil, iterator.Done
+	}
+	ret := iter.instances[iter.indx]
+	iter.indx++
+
+	return ret, nil
+}
+
+func newSimClient(model *models.Model) (*simClient, error) {
+	// divide nodes into 2 pages
+	n := len(model.Nodes)
+	nodeNames := make([]string, 0, n)
+	for name := range model.Nodes {
+		nodeNames = append(nodeNames, name)
+	}
+	mid := n / 2
+	pages := make([]*simInstanceIter, 2)
+
+	for i, pair := range []struct{ from, to int }{
+		{from: 0, to: mid},
+		{from: mid + 1, to: n - 1},
+	} {
+		if pair.from > pair.to {
+			pages[i] = &simInstanceIter{}
+		} else {
+			instances := make([]*computepb.Instance, 0, pair.to-pair.from+1)
+			for j := pair.from; j <= pair.to; j++ {
+				node := model.Nodes[nodeNames[j]]
+				physicalHost := fmt.Sprintf("/%s/%s/%s", node.NetLayers[1], node.NetLayers[0], node.Name)
+				instanceID, err := strconv.ParseUint(node.Name, 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("invalid instance ID %q; must be numerical", node.Name)
+				}
+				instance := &computepb.Instance{
+					Id:   &instanceID,
+					Name: &node.Name,
+					ResourceStatus: &computepb.ResourceStatus{
+						PhysicalHost: &physicalHost,
+					},
+				}
+				instances = append(instances, instance)
+			}
+			pages[i] = &simInstanceIter{instances: instances}
+		}
+	}
+
+	pages[0].next = true
+
+	return &simClient{
+		model: model,
+		pages: pages,
+	}, nil
+}
+
+func (c *simClient) ProjectID(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-func (c *SimClient) Zones(ctx context.Context, req *computepb.ListZonesRequest, opts ...gax.CallOption) []string {
-	return []string{"zone"}
-}
-
-func (c *SimClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) ([]*computepb.Instance, string) {
-	instances := make([]*computepb.Instance, 0, len(c.Model.Nodes))
-
-	for _, node := range c.Model.Nodes {
-		physicalHost := fmt.Sprintf("/%s/%s/%s", node.NetLayers[1], node.NetLayers[0], node.Name)
-		instanceID, _ := strconv.ParseUint(node.Name, 10, 64)
-		instance := &computepb.Instance{
-			Id:   &instanceID,
-			Name: &node.Name,
-			ResourceStatus: &computepb.ResourceStatus{
-				PhysicalHost: &physicalHost,
-			},
-		}
-		instances = append(instances, instance)
+func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string) {
+	if req.PageToken == nil {
+		return c.pages[0], "next"
+	} else {
+		return c.pages[1], ""
 	}
-
-	return instances, ""
 }
 
 func NamedLoaderSim() (string, providers.Loader) {
@@ -74,35 +128,37 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 		return nil, err
 	}
 
-	csp_model, err := models.NewModelFromFile(p.ModelPath)
+	model, err := models.NewModelFromFile(p.ModelPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to load model file for simulation, %v", err)
+		return nil, fmt.Errorf("failed to load model file for simulation: %v", err)
 	}
-	simClient := &SimClient{
-		Model: csp_model,
+
+	client, err := newSimClient(model)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create simulation client: %v", err)
 	}
 
 	clientFactory := func() (Client, error) {
-		return simClient, nil
+		return client, nil
 	}
 
 	return NewSim(clientFactory), nil
 }
 
-type SimProvider struct {
+type simProvider struct {
 	baseProvider
 }
 
-func NewSim(clientFactory ClientFactory) *SimProvider {
-	return &SimProvider{
+func NewSim(clientFactory ClientFactory) *simProvider {
+	return &simProvider{
 		baseProvider: baseProvider{clientFactory: clientFactory},
 	}
 }
 
 // Engine support
 
-func (p *SimProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
+func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
 	client, _ := p.clientFactory()
 
-	return client.(*SimClient).Model.Instances, nil
+	return client.(*simClient).model.Instances, nil
 }

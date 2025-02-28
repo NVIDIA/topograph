@@ -25,7 +25,6 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
-	"google.golang.org/api/iterator"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -40,14 +39,16 @@ type baseProvider struct {
 
 type ClientFactory func() (Client, error)
 
+type InstanceIterator interface {
+	Next() (*computepb.Instance, error)
+}
+
 type Client interface {
 	ProjectID(ctx context.Context) (string, error)
-	Zones(ctx context.Context, req *computepb.ListZonesRequest, opts ...gax.CallOption) []string
-	Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) ([]*computepb.Instance, string)
+	Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string)
 }
 
 type gcpClient struct {
-	zoneClient     *compute_v1.ZonesClient
 	instanceClient *compute_v1.InstancesClient
 }
 
@@ -55,38 +56,11 @@ func (c *gcpClient) ProjectID(ctx context.Context) (string, error) {
 	return metadata.ProjectIDWithContext(ctx)
 }
 
-func (c *gcpClient) Zones(ctx context.Context, req *computepb.ListZonesRequest, opts ...gax.CallOption) []string {
-	now := time.Now()
-	iter := c.zoneClient.List(ctx, req, opts...)
-	requestLatency.WithLabelValues("ListZones").Observe(time.Since(now).Seconds())
-
-	zones := make([]string, 0)
-	for {
-		zone, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		zones = append(zones, *zone.Name)
-	}
-
-	return zones
-}
-
-func (c *gcpClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) ([]*computepb.Instance, string) {
+func (c *gcpClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string) {
 	now := time.Now()
 	iter := c.instanceClient.List(ctx, req, opts...)
 	requestLatency.WithLabelValues("ListInstances").Observe(time.Since(now).Seconds())
-
-	instances := make([]*computepb.Instance, 0)
-	for {
-		instance, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		instances = append(instances, instance)
-	}
-
-	return instances, iter.PageInfo().Token
+	return iter, iter.PageInfo().Token
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -95,18 +69,12 @@ func NamedLoader() (string, providers.Loader) {
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
 	clientFactory := func() (Client, error) {
-		zoneClient, err := compute_v1.NewZonesRESTClient(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("unable to get zones client: %s", err.Error())
-		}
-
 		instanceClient, err := compute_v1.NewInstancesRESTClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get instances client: %s", err.Error())
+			return nil, fmt.Errorf("failed to get instances client: %s", err.Error())
 		}
 
 		return &gcpClient{
-			zoneClient:     zoneClient,
 			instanceClient: instanceClient,
 		}, nil
 	}
