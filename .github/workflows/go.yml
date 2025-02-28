@@ -52,7 +52,15 @@ jobs:
         go-version: '1.23.2'
 
     - name: Test
-      run: go test -v ./...
+      run: go test -v -coverpkg=./... -coverprofile=coverage.out -covermode=atomic ./...
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.out
+        fail_ci_if_error: true
+        verbose: true
 
   build:
     runs-on: ubuntu-latest
