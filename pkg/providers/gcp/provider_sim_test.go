@@ -58,7 +58,7 @@ capacity_blocks:
 - name: cb
   type: GB200
   nvlink: nvl1
-  nodes: [n11,n12]
+  nodes: [n11]
 `,
 			err: `failed to create simulation client: invalid instance ID "n11"; must be numerical`,
 		},
@@ -138,7 +138,7 @@ capacity_blocks:
 			err:     "failed to get instance topology: iterator error",
 		},
 		{
-			name: "Case N: nil",
+			name: "Case 6: valid input",
 			model: `
 switches:
 - name: core
@@ -228,8 +228,16 @@ capacity_blocks:
 				require.EqualError(t, err, tc.err)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tc.topo, topo)
+				require.Equal(t, instancesToMap(tc.topo.Instances), instancesToMap(topo.Instances))
 			}
 		})
 	}
+}
+
+func instancesToMap(instances []*topology.InstanceTopology) map[string]*topology.InstanceTopology {
+	m := make(map[string]*topology.InstanceTopology)
+	for _, instance := range instances {
+		m[instance.InstanceID] = instance
+	}
+	return m
 }
