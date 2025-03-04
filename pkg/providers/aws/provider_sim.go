@@ -40,14 +40,22 @@ const (
 	DEFAULT_MAX_RESULTS = 20
 )
 
-type SimClient struct {
-	Model      *models.Model
-	Outputs    map[string]([]types.InstanceTopology)
-	NextTokens map[string]string
+type simClient struct {
+	Model       *models.Model
+	Outputs     map[string]([]types.InstanceTopology)
+	NextTokens  map[string]string
+	InstanceIds []string
 }
 
-func (client *SimClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
+func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
 	// If we need to calculate new results (a previous token was not given)
+	var instanceIds []string
+	if len(params.InstanceIds) != 0 {
+		instanceIds = params.InstanceIds
+	} else {
+		instanceIds = client.InstanceIds
+	}
+
 	givenToken := params.NextToken
 	if givenToken == nil {
 		// Refreshes the clients internal storage for outputs
@@ -63,26 +71,29 @@ func (client *SimClient) DescribeInstanceTopology(ctx context.Context, params *e
 		// Creates the list of instances whose topology is requested
 		var firstToken string
 		var instanceIdx int = 0
-		for instanceIdx < len(params.InstanceIds) {
+		for instanceIdx < len(instanceIds) {
 			// Only collect a list up to params.MaxResults
 			var instances []types.InstanceTopology
 			var i int
-			for i = 0; i < maxResults && i+instanceIdx < len(params.InstanceIds); i++ {
+			for i = 0; i < maxResults && i+instanceIdx < len(instanceIds); i++ {
 				// Gets the instance ID
-				instanceId := params.InstanceIds[instanceIdx+i]
+				instanceId := instanceIds[instanceIdx+i]
 
 				// Gets the availability zone and placement group of the instance
-				node := client.Model.Nodes[instanceId]
+				node, ok := client.Model.Nodes[instanceId]
+				if !ok {
+					continue
+				}
 				var az, pg string
 				if len(node.Metadata) != 0 {
 					az = node.Metadata[AvailabilityZoneKey]
 					pg = node.Metadata[GroupNameKey]
 				}
 				if len(az) == 0 {
-					return nil, fmt.Errorf("availability zone not found for instance %q in aws simulation", instanceId)
+					return nil, fmt.Errorf("availability zone not found for instance %q in AWS simulation", instanceId)
 				}
 				if len(pg) == 0 {
-					return nil, fmt.Errorf("placement group not found for instance %q in aws simulation", instanceId)
+					return nil, fmt.Errorf("placement group not found for instance %q in AWS simulation", instanceId)
 				}
 
 				// Sets up the structure for the instance
@@ -108,7 +119,7 @@ func (client *SimClient) DescribeInstanceTopology(ctx context.Context, params *e
 			}
 			client.Outputs[token] = instances
 			instanceIdx += i
-			if instanceIdx < len(params.InstanceIds) {
+			if instanceIdx < len(instanceIds) {
 				var nextToken string = strconv.Itoa(instanceIdx)
 				client.NextTokens[token] = nextToken
 			}
@@ -146,15 +157,20 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 		return nil, err
 	}
 
-	csp_model, err := models.NewModelFromFile(p.ModelPath)
+	model, err := models.NewModelFromFile(p.ModelPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to load model file for AWS simulation, %v", err)
+		return nil, fmt.Errorf("failed to load model file for AWS simulation: %v", err)
 	}
-	simClient := &SimClient{Model: csp_model}
 
-	client := &Client{
-		EC2: simClient,
+	sim := &simClient{
+		Model:       model,
+		InstanceIds: make([]string, 0, len(model.Nodes)),
 	}
+	for _, node := range model.Nodes {
+		sim.InstanceIds = append(sim.InstanceIds, node.Name)
+	}
+
+	client := &Client{EC2: sim}
 
 	clientFactory := func(region string) (*Client, error) {
 		return client, nil
@@ -163,12 +179,12 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 	return NewSim(clientFactory, imdsClient), nil
 }
 
-type SimProvider struct {
+type simProvider struct {
 	baseProvider
 }
 
-func NewSim(clientFactory ClientFactory, imdsClient IDMSClient) *SimProvider {
-	return &SimProvider{
+func NewSim(clientFactory ClientFactory, imdsClient IDMSClient) *simProvider {
+	return &simProvider{
 		baseProvider: baseProvider{
 			clientFactory: clientFactory,
 			imdsClient:    imdsClient,
@@ -178,8 +194,8 @@ func NewSim(clientFactory ClientFactory, imdsClient IDMSClient) *SimProvider {
 
 // Engine support
 
-func (p *SimProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
+func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
 	client, _ := p.clientFactory("")
 
-	return client.EC2.(*SimClient).Model.Instances, nil
+	return client.EC2.(*simClient).Model.Instances, nil
 }

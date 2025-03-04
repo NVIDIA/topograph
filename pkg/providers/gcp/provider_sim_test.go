@@ -21,12 +21,51 @@ import (
 	"os"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
 
-const ignoreErrMsg = "_IGNORE_"
+const (
+	ignoreErrMsg = "_IGNORE_"
+
+	singleCluster = `
+switches:
+- name: core
+  switches: [spine]
+- name: spine
+  switches: [tor]
+- name: tor
+  capacity_blocks: [cb]
+capacity_blocks:
+- name: cb
+  type: GB200
+  nvlink: nvl1
+  nodes: [11]	
+`
+
+	mediumCluster = `
+switches:
+- name: core
+  switches: [spine]
+- name: spine
+  switches: [tor1,tor2]
+- name: tor1
+  capacity_blocks: [cb1]
+- name: tor2
+  capacity_blocks: [cb2]
+capacity_blocks:
+- name: cb1
+  type: GB200
+  nvlink: nvl1
+  nodes: [11,12]
+- name: cb2
+  type: GB200
+  nvlink: nvl2
+  nodes: [21,22]
+`
+)
 
 func TestProviderSim(t *testing.T) {
 	ctx := context.Background()
@@ -35,8 +74,8 @@ func TestProviderSim(t *testing.T) {
 		name      string
 		model     string
 		instances []topology.ComputeInstances
-		iterErr   bool
-		topo      *topology.ClusterTopology
+		apiErr    bool
+		topology  string
 		err       string
 	}{
 		{
@@ -63,132 +102,48 @@ capacity_blocks:
 			err: `failed to create simulation client: invalid instance ID "n11"; must be numerical`,
 		},
 		{
-			name: "Case 3: no ComputeInstances",
-			model: `
-switches:
-- name: core
-  switches: [spine]
-- name: spine
-  switches: [tor]
-- name: tor
-  capacity_blocks: [cb]
-capacity_blocks:
-- name: cb
-  type: GB200
-  nvlink: nvl1
-  nodes: [11,12]
-`,
-			topo: topology.NewClusterTopology(),
+			name:  "Case 3: no ComputeInstances",
+			model: mediumCluster,
 		},
 		{
-			name: "Case 4: single node",
-			model: `
-switches:
-- name: core
-  switches: [spine]
-- name: spine
-  switches: [tor]
-- name: tor
-  capacity_blocks: [cb]
-capacity_blocks:
-- name: cb
-  type: GB200
-  nvlink: nvl1
-  nodes: [11]
+			name:  "Case 4: single node",
+			model: singleCluster,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"11": "node11", "12": "nodeCPU"},
+				},
+			},
+			topology: `SwitchName=spine Switches=tor
+SwitchName=no-topology Nodes=nodeCPU
+SwitchName=tor Nodes=node11
 `,
+		},
+		{
+			name:  "Case 5: page iterator error",
+			model: singleCluster,
 			instances: []topology.ComputeInstances{
 				{
 					Region:    "region",
 					Instances: map[string]string{"11": "node11"},
 				},
 			},
-			topo: &topology.ClusterTopology{
-				Instances: []*topology.InstanceTopology{
-					{
-						InstanceID: "11",
-						BlockID:    "tor",
-						SpineID:    "spine",
-					},
-				},
-			},
+			apiErr: true,
+			err:    "failed to get instance topology: iterator error",
 		},
 		{
-			name: "Case 5: page iterator error",
-			model: `
-switches:
-- name: core
-  switches: [spine]
-- name: spine
-  switches: [tor]
-- name: tor
-  capacity_blocks: [cb]
-capacity_blocks:
-- name: cb
-  type: GB200
-  nvlink: nvl1
-  nodes: [11]
-`,
-			instances: []topology.ComputeInstances{
-				{
-					Region:    "region",
-					Instances: map[string]string{"11": "node11"},
-				},
-			},
-			iterErr: true,
-			err:     "failed to get instance topology: iterator error",
-		},
-		{
-			name: "Case 6: valid input",
-			model: `
-switches:
-- name: core
-  switches: [spine]
-- name: spine
-  switches: [tor1,tor2]
-- name: tor1
-  capacity_blocks: [cb1]
-- name: tor2
-  capacity_blocks: [cb2]
-capacity_blocks:
-- name: cb1
-  type: GB200
-  nvlink: nvl1
-  nodes: [11,12]
-- name: cb2
-  type: GB200
-  nvlink: nvl2
-  nodes: [21,22]
-`,
+			name:  "Case 6: valid input",
+			model: mediumCluster,
 			instances: []topology.ComputeInstances{
 				{
 					Region:    "region",
 					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22"},
 				},
 			},
-			topo: &topology.ClusterTopology{
-				Instances: []*topology.InstanceTopology{
-					{
-						InstanceID: "11",
-						BlockID:    "tor1",
-						SpineID:    "spine",
-					},
-					{
-						InstanceID: "12",
-						BlockID:    "tor1",
-						SpineID:    "spine",
-					},
-					{
-						InstanceID: "21",
-						BlockID:    "tor2",
-						SpineID:    "spine",
-					},
-					{
-						InstanceID: "22",
-						BlockID:    "tor2",
-						SpineID:    "spine",
-					},
-				},
-			},
+			topology: `SwitchName=spine Switches=tor[1-2]
+SwitchName=tor1 Nodes=node[11-12]
+SwitchName=tor2 Nodes=node[21-22]
+`,
 		},
 	}
 
@@ -218,26 +173,20 @@ capacity_blocks:
 			}
 			provider := sim.(*simProvider)
 
-			if tc.iterErr {
+			if tc.apiErr {
 				cl, _ := provider.clientFactory()
 				cl.(*simClient).pages[0].err = true
 			}
 
-			topo, err := provider.generateInstanceTopology(ctx, nil, tc.instances)
+			topo, err := provider.GenerateTopologyConfig(ctx, nil, tc.instances)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, instancesToMap(tc.topo.Instances), instancesToMap(topo.Instances))
+				data, err := slurm.GenerateOutput(ctx, topo, nil)
+				require.NoError(t, err)
+				require.Equal(t, tc.topology, string(data))
 			}
 		})
 	}
-}
-
-func instancesToMap(instances []*topology.InstanceTopology) map[string]*topology.InstanceTopology {
-	m := make(map[string]*topology.InstanceTopology)
-	for _, instance := range instances {
-		m[instance.InstanceID] = instance
-	}
-	return m
 }
