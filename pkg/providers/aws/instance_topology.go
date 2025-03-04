@@ -69,9 +69,6 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 			input.InstanceIds = append(input.InstanceIds, instanceID)
 		}
 	} else {
-		if pageSize == 0 {
-			pageSize = defaultPageSize
-		}
 		klog.Infof("Getting instance topology with page size %d", pageSize)
 		input.MaxResults = &pageSize
 	}
