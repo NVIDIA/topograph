@@ -24,6 +24,7 @@ import (
 
 type SimulationParams struct {
 	ModelPath string `mapstructure:"model_path"`
+	APIError  int    `mapstructure:"api_error"`
 }
 
 func GetSimulationParams(params map[string]any) (*SimulationParams, error) {
