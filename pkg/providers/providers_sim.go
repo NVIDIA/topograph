@@ -17,13 +17,17 @@
 package providers
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NVIDIA/topograph/internal/config"
 )
 
+var APIError = errors.New("API error")
+
 type SimulationParams struct {
 	ModelPath string `mapstructure:"model_path"`
+	APIError  int    `mapstructure:"api_error"`
 }
 
 func GetSimulationParams(params map[string]any) (*SimulationParams, error) {

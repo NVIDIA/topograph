@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	"github.com/agrea/ptr"
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/iterator"
 
@@ -32,23 +33,29 @@ import (
 
 const (
 	NAME_SIM = "gcp-sim"
+
+	errNoce = iota
+	errClientFactory
+	errProjectID
+	errInstances
 )
 
 type simClient struct {
-	model *models.Model
-	pages []*simInstanceIter
+	model       *models.Model
+	pageSize    *uint32
+	instanceIDs []string
+	apiErr      int
 }
 
 type simInstanceIter struct {
 	instances []*computepb.Instance
 	indx      int
-	next      bool
-	err       bool
+	err       error
 }
 
 func (iter *simInstanceIter) Next() (*computepb.Instance, error) {
-	if iter.err {
-		return nil, fmt.Errorf("iterator error")
+	if iter.err != nil {
+		return nil, iter.err
 	}
 
 	if iter.indx >= len(iter.instances) {
@@ -60,62 +67,59 @@ func (iter *simInstanceIter) Next() (*computepb.Instance, error) {
 	return ret, nil
 }
 
-func newSimClient(model *models.Model) (*simClient, error) {
-	// divide nodes into 2 pages
-	n := len(model.Nodes)
-	nodeNames := make([]string, 0, n)
-	for name := range model.Nodes {
-		nodeNames = append(nodeNames, name)
-	}
-	mid := n / 2
-	pages := make([]*simInstanceIter, 2)
-
-	for i, pair := range []struct{ from, to int }{
-		{from: 0, to: mid},
-		{from: mid + 1, to: n - 1},
-	} {
-		if pair.from > pair.to {
-			pages[i] = &simInstanceIter{}
-		} else {
-			instances := make([]*computepb.Instance, 0, pair.to-pair.from+1)
-			for j := pair.from; j <= pair.to; j++ {
-				node := model.Nodes[nodeNames[j]]
-				physicalHost := fmt.Sprintf("/%s/%s/%s", node.NetLayers[1], node.NetLayers[0], node.Name)
-				instanceID, err := strconv.ParseUint(node.Name, 10, 64)
-				if err != nil {
-					return nil, fmt.Errorf("invalid instance ID %q; must be numerical", node.Name)
-				}
-				instance := &computepb.Instance{
-					Id:   &instanceID,
-					Name: &node.Name,
-					ResourceStatus: &computepb.ResourceStatus{
-						PhysicalHost: &physicalHost,
-					},
-				}
-				instances = append(instances, instance)
-			}
-			pages[i] = &simInstanceIter{instances: instances}
-		}
-	}
-
-	pages[0].next = true
-
-	return &simClient{
-		model: model,
-		pages: pages,
-	}, nil
+func (c *simClient) PageSize() *uint32 {
+	return c.pageSize
 }
 
 func (c *simClient) ProjectID(ctx context.Context) (string, error) {
+	if c.apiErr == errProjectID {
+		return "", providers.APIError
+	}
+
 	return "", nil
 }
 
 func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string) {
-	if req.PageToken == nil {
-		return c.pages[0], "next"
-	} else {
-		return c.pages[1], ""
+	if c.apiErr == errInstances {
+		return &simInstanceIter{err: providers.APIError}, ""
 	}
+
+	var indx int
+	from := getPage(req.PageToken)
+	iter := &simInstanceIter{instances: make([]*computepb.Instance, 0)}
+
+	for indx = from; indx < from+int(*c.pageSize); indx++ {
+		node := c.model.Nodes[c.instanceIDs[indx]]
+		physicalHost := fmt.Sprintf("/%s/%s/%s", node.NetLayers[1], node.NetLayers[0], node.Name)
+		instanceID, err := strconv.ParseUint(node.Name, 10, 64)
+		if err != nil {
+			return &simInstanceIter{err: fmt.Errorf("invalid instance ID %q; must be numerical", node.Name)}, ""
+		}
+		instance := &computepb.Instance{
+			Id:   &instanceID,
+			Name: &node.Name,
+			ResourceStatus: &computepb.ResourceStatus{
+				PhysicalHost: &physicalHost,
+			},
+		}
+		iter.instances = append(iter.instances, instance)
+	}
+
+	var token string
+	if indx < len(c.instanceIDs) {
+		token = fmt.Sprintf("%d", indx)
+	}
+
+	return iter, token
+}
+
+func getPage(page *string) int {
+	if page == nil {
+		return 0
+	}
+
+	val, _ := strconv.ParseInt(*page, 10, 32)
+	return int(val)
 }
 
 func NamedLoaderSim() (string, providers.Loader) {
@@ -133,13 +137,27 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 		return nil, fmt.Errorf("failed to load model file for simulation: %v", err)
 	}
 
-	client, err := newSimClient(model)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create simulation client: %v", err)
+	instanceIDs := make([]string, 0, len(model.Nodes))
+	for _, node := range model.Nodes {
+		instanceIDs = append(instanceIDs, node.Name)
 	}
 
-	clientFactory := func() (Client, error) {
-		return client, nil
+	clientFactory := func(pageSize *int) (Client, error) {
+		if p.APIError == errClientFactory {
+			return nil, providers.APIError
+		}
+
+		limit := castPageSize(pageSize)
+		if limit == nil {
+			limit = ptr.Uint32(uint32(len(instanceIDs)))
+		}
+
+		return &simClient{
+			model:       model,
+			pageSize:    limit,
+			instanceIDs: instanceIDs,
+			apiErr:      p.APIError,
+		}, nil
 	}
 
 	return NewSim(clientFactory), nil
@@ -158,7 +176,7 @@ func NewSim(clientFactory ClientFactory) *simProvider {
 // Engine support
 
 func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
-	client, _ := p.clientFactory()
+	client, _ := p.clientFactory(nil)
 
 	return client.(*simClient).model.Instances, nil
 }

@@ -31,7 +31,7 @@ import (
 )
 
 func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
-	client, err := p.clientFactory()
+	client, err := p.clientFactory(pageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client: %v", err)
 	}
@@ -43,9 +43,8 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 
 	topo := topology.NewClusterTopology()
 
-	maxRes := castPageSize(pageSize)
 	for _, ci := range cis {
-		if err := p.generateRegionInstanceTopology(ctx, client, projectID, maxRes, topo, &ci); err != nil {
+		if err := p.generateRegionInstanceTopology(ctx, client, projectID, topo, &ci); err != nil {
 			return nil, fmt.Errorf("failed to get instance topology: %v", err)
 		}
 	}
@@ -53,13 +52,13 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, maxRes *uint32, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
 	klog.InfoS("Getting instance topology", "region", ci.Region, "project", projectID)
 
 	req := computepb.ListInstancesRequest{
 		Project:    projectID,
 		Zone:       ci.Region,
-		MaxResults: maxRes,
+		MaxResults: client.PageSize(),
 		PageToken:  nil,
 	}
 

@@ -24,13 +24,14 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/agrea/ptr"
 	"github.com/stretchr/testify/require"
 )
 
 const (
 	ignoreErrMsg = "_IGNORE_"
 
-	singleCluster = `
+	nodeModel = `
 switches:
 - name: core
   switches: [spine]
@@ -45,7 +46,7 @@ capacity_blocks:
   nodes: [11]	
 `
 
-	mediumCluster = `
+	clusterModel = `
 switches:
 - name: core
   switches: [spine]
@@ -73,8 +74,9 @@ func TestProviderSim(t *testing.T) {
 	testCases := []struct {
 		name      string
 		model     string
+		pageSize  *int
 		instances []topology.ComputeInstances
-		apiErr    bool
+		apiErr    int
 		topology  string
 		err       string
 	}{
@@ -83,8 +85,49 @@ func TestProviderSim(t *testing.T) {
 			model: `bad: model: error:`,
 			err:   ignoreErrMsg,
 		},
+
 		{
-			name: "Case 2: unsupported instance ID",
+			name:  "Case 3: no ComputeInstances",
+			model: clusterModel,
+		},
+		{
+			name:  "Case X.1: ClientFactory API error",
+			model: nodeModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"11": "node11"},
+				},
+			},
+			apiErr: errClientFactory,
+			err:    "failed to get client: API error",
+		},
+		{
+			name:  "Case X.2: ProjectID API error",
+			model: nodeModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"11": "node11"},
+				},
+			},
+			apiErr: errProjectID,
+			err:    "failed to get project ID: API error",
+		},
+		{
+			name:  "Case X.3: Instances API error",
+			model: nodeModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"11": "node11"},
+				},
+			},
+			apiErr: errInstances,
+			err:    "failed to get instance topology: API error",
+		},
+		{
+			name: "Case X.4: unsupported instance ID",
 			model: `
 switches:
 - name: core
@@ -99,15 +142,17 @@ capacity_blocks:
   nvlink: nvl1
   nodes: [n11]
 `,
-			err: `failed to create simulation client: invalid instance ID "n11"; must be numerical`,
-		},
-		{
-			name:  "Case 3: no ComputeInstances",
-			model: mediumCluster,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"11": "node11"},
+				},
+			},
+			err: `failed to get instance topology: invalid instance ID "n11"; must be numerical`,
 		},
 		{
 			name:  "Case 4: single node",
-			model: singleCluster,
+			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
 					Region:    "region",
@@ -120,20 +165,23 @@ SwitchName=tor Nodes=node11
 `,
 		},
 		{
-			name:  "Case 5: page iterator error",
-			model: singleCluster,
+			name:  "Case 5: valid input, no pagination",
+			model: clusterModel,
 			instances: []topology.ComputeInstances{
 				{
 					Region:    "region",
-					Instances: map[string]string{"11": "node11"},
+					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22"},
 				},
 			},
-			apiErr: true,
-			err:    "failed to get instance topology: iterator error",
+			topology: `SwitchName=spine Switches=tor[1-2]
+SwitchName=tor1 Nodes=node[11-12]
+SwitchName=tor2 Nodes=node[21-22]
+`,
 		},
 		{
-			name:  "Case 6: valid input",
-			model: mediumCluster,
+			name:     "Case 6: valid input, pagination",
+			model:    clusterModel,
+			pageSize: ptr.Int(2),
 			instances: []topology.ComputeInstances{
 				{
 					Region:    "region",
@@ -160,9 +208,12 @@ SwitchName=tor2 Nodes=node[21-22]
 			require.NoError(t, err)
 
 			cfg := providers.Config{
-				Params: map[string]any{"model_path": f.Name()},
+				Params: map[string]any{
+					"model_path": f.Name(),
+					"api_error":  tc.apiErr,
+				},
 			}
-			sim, err := LoaderSim(ctx, cfg)
+			provider, err := LoaderSim(ctx, cfg)
 			if err != nil {
 				if len(tc.err) == 0 {
 					require.NoError(t, err)
@@ -171,14 +222,8 @@ SwitchName=tor2 Nodes=node[21-22]
 				}
 				return
 			}
-			provider := sim.(*simProvider)
 
-			if tc.apiErr {
-				cl, _ := provider.clientFactory()
-				cl.(*simClient).pages[0].err = true
-			}
-
-			topo, err := provider.GenerateTopologyConfig(ctx, nil, tc.instances)
+			topo, err := provider.GenerateTopologyConfig(ctx, tc.pageSize, tc.instances)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {
