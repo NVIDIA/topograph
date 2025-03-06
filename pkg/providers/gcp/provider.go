@@ -37,7 +37,7 @@ type baseProvider struct {
 	clientFactory ClientFactory
 }
 
-type ClientFactory func() (Client, error)
+type ClientFactory func(pageSize *int) (Client, error)
 
 type InstanceIterator interface {
 	Next() (*computepb.Instance, error)
@@ -46,10 +46,16 @@ type InstanceIterator interface {
 type Client interface {
 	ProjectID(ctx context.Context) (string, error)
 	Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string)
+	PageSize() *uint32
 }
 
 type gcpClient struct {
 	instanceClient *compute_v1.InstancesClient
+	pageSize       *uint32
+}
+
+func (c *gcpClient) PageSize() *uint32 {
+	return c.pageSize
 }
 
 func (c *gcpClient) ProjectID(ctx context.Context) (string, error) {
@@ -68,7 +74,7 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
-	clientFactory := func() (Client, error) {
+	clientFactory := func(pageSize *int) (Client, error) {
 		instanceClient, err := compute_v1.NewInstancesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get instances client: %s", err.Error())
@@ -76,6 +82,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 
 		return &gcpClient{
 			instanceClient: instanceClient,
+			pageSize:       castPageSize(pageSize),
 		}, nil
 	}
 
