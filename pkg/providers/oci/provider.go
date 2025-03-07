@@ -33,27 +33,41 @@ import (
 
 const NAME = "oci"
 
-type Provider struct {
+// TODO: remove this var block
+var (
+	compute_api_endpoint_override     string = "https://compute-overlay-test.ap-mumbai-1.oci.oraclecloud.com/"
+	dgxc_bcm_compartment_ocid         string = "ocid1.compartment.oc1..aaaaaaaawp35i2f27nblfoopqwqhifwfr4utr5h6ukkrwigmwimbohtguyia"
+	bcmnonprod_gb200_compartment_ocid string = "ocid1.compartment.oc1..aaaaaaaaxh4absbzaatemvgvw57ryicj6c7p53pu26lixf6h56jtkks5nxvq"
+	bcmnonprod_compartment_ocid       string = "ocid1.compartment.oc1..aaaaaaaad7kyzazrcgcuqegsb65zqa6jb7ca4htyqyyibh46n2w5d3za4vvq"
+)
+
+type baseProvider struct {
 	clientFactory ClientFactory
 }
 
-type ClientFactory func(region string) (Client, error)
+type ClientFactory func(region string, pageSize *int) (Client, error)
 
 type Client interface {
-	TenancyOCID() string
-	ListAvailabilityDomains(ctx context.Context, request identity.ListAvailabilityDomainsRequest) (response identity.ListAvailabilityDomainsResponse, err error)
-	ListComputeCapacityTopologies(ctx context.Context, request core.ListComputeCapacityTopologiesRequest) (response core.ListComputeCapacityTopologiesResponse, err error)
-	ListComputeCapacityTopologyComputeBareMetalHosts(ctx context.Context, request core.ListComputeCapacityTopologyComputeBareMetalHostsRequest) (response core.ListComputeCapacityTopologyComputeBareMetalHostsResponse, err error)
+	TenancyOCID() *string
+	Limit() *int
+	ListAvailabilityDomains(context.Context, identity.ListAvailabilityDomainsRequest) (identity.ListAvailabilityDomainsResponse, error)
+	ListComputeHosts(context.Context, core.ListComputeHostsRequest) (core.ListComputeHostsResponse, error)
+	ListComputeGpuMemoryFabrics(context.Context, core.ListComputeGpuMemoryFabricsRequest) (core.ListComputeGpuMemoryFabricsResponse, error)
 }
 
 type ociClient struct {
 	identity.IdentityClient
 	core.ComputeClient
 	tenancyOCID string
+	limit       *int
 }
 
-func (c *ociClient) TenancyOCID() string {
-	return c.tenancyOCID
+func (c *ociClient) TenancyOCID() *string {
+	return &c.tenancyOCID
+}
+
+func (c *ociClient) Limit() *int {
+	return c.limit
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -66,22 +80,23 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		return nil, err
 	}
 
-	clientFactory := func(region string) (Client, error) {
+	clientFactory := func(region string, limit *int) (Client, error) {
 		identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create identity client. Bailing out : %v", err)
+			return nil, fmt.Errorf("unable to create identity client: %v", err)
 		}
 
 		tenacyOCID, err := provider.TenancyOCID()
 		if err != nil {
-			return nil, fmt.Errorf("unable to get tenancy OCID from config: %s", err.Error())
+			return nil, fmt.Errorf("unable to get tenancy OCID from config: %v", err)
 		}
 
 		computeClient, err := core.NewComputeClientWithConfigurationProvider(provider)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get compute client: %s", err.Error())
+			return nil, fmt.Errorf("unable to get compute client: %v", err)
 		}
-
+		// TODO: remove compute_api_endpoint_override
+		computeClient.Host = compute_api_endpoint_override
 		if len(region) != 0 {
 			klog.Infof("Use provided region %s", region)
 			identityClient.SetRegion(region)
@@ -92,6 +107,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 			IdentityClient: identityClient,
 			ComputeClient:  computeClient,
 			tenancyOCID:    tenacyOCID,
+			limit:          limit,
 		}, nil
 	}
 
@@ -139,19 +155,23 @@ func getConfigurationProvider(creds map[string]string) (OCICommon.ConfigurationP
 	return configProvider, nil
 }
 
-func New(ociClientFactory ClientFactory) *Provider {
-	return &Provider{
-		clientFactory: ociClientFactory,
-	}
-}
-
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	topo, err := GenerateInstanceTopology(ctx, p.clientFactory, instances)
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
 	return topo.ToThreeTierGraph(NAME, instances, true)
+}
+
+type Provider struct {
+	baseProvider
+}
+
+func New(ociClientFactory ClientFactory) *Provider {
+	return &Provider{
+		baseProvider: baseProvider{clientFactory: ociClientFactory},
+	}
 }
 
 // Engine support
