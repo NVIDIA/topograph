@@ -91,7 +91,7 @@ func TestProviderSim(t *testing.T) {
 			model: clusterModel,
 		},
 		{
-			name:  "Case X.1: ClientFactory API error",
+			name:  "Case 4.1: ClientFactory API error",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -103,7 +103,7 @@ func TestProviderSim(t *testing.T) {
 			err:    "failed to get client: API error",
 		},
 		{
-			name:  "Case X.2: ProjectID API error",
+			name:  "Case 4.2: ProjectID API error",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -115,7 +115,7 @@ func TestProviderSim(t *testing.T) {
 			err:    "failed to get project ID: API error",
 		},
 		{
-			name:  "Case X.3: Instances API error",
+			name:  "Case 4.3: Instances API error",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -127,7 +127,7 @@ func TestProviderSim(t *testing.T) {
 			err:    "failed to get instance topology: API error",
 		},
 		{
-			name: "Case X.4: unsupported instance ID",
+			name: "Case 4.4: unsupported instance ID",
 			model: `
 switches:
 - name: core
@@ -151,7 +151,7 @@ capacity_blocks:
 			err: `failed to get instance topology: invalid instance ID "n11"; must be numerical`,
 		},
 		{
-			name:  "Case 4: single node",
+			name:  "Case 5: single node",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -165,7 +165,7 @@ SwitchName=tor Nodes=node11
 `,
 		},
 		{
-			name:  "Case 5: valid input, no pagination",
+			name:  "Case 6: valid input, no pagination",
 			model: clusterModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -179,7 +179,7 @@ SwitchName=tor2 Nodes=node[21-22]
 `,
 		},
 		{
-			name:     "Case 6: valid input, pagination",
+			name:     "Case 7: valid input, pagination",
 			model:    clusterModel,
 			pageSize: ptr.Int(2),
 			instances: []topology.ComputeInstances{
