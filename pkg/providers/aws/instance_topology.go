@@ -31,17 +31,10 @@ import (
 var defaultPageSize int32 = 100
 
 func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
-	var limit int32
-
-	if pageSize != nil {
-		limit = int32(*pageSize)
-	} else {
-		limit = defaultPageSize
-	}
-
 	topo := topology.NewClusterTopology()
+
 	for _, ci := range cis {
-		if err := p.generateRegionInstanceTopology(ctx, limit, &ci, topo); err != nil {
+		if err := p.generateRegionInstanceTopology(ctx, pageSize, &ci, topo); err != nil {
 			return nil, err
 		}
 	}
@@ -49,15 +42,15 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageSize int32, ci *topology.ComputeInstances, topo *topology.ClusterTopology) error {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageSize *int, ci *topology.ComputeInstances, topo *topology.ClusterTopology) error {
 	if len(ci.Region) == 0 {
-		return fmt.Errorf("must specify region to query instance topology")
+		return fmt.Errorf("must specify region")
 	}
 	klog.Infof("Getting instance topology for %s region", ci.Region)
 
-	client, err := p.clientFactory(ci.Region)
+	client, err := p.clientFactory(ci.Region, pageSize)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get client: %v", err)
 	}
 	input := &ec2.DescribeInstanceTopologyInput{}
 
@@ -70,7 +63,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 		}
 	} else {
 		klog.Infof("Getting instance topology with page size %d", pageSize)
-		input.MaxResults = &pageSize
+		input.MaxResults = client.PageSize()
 	}
 
 	var cycle, total int
@@ -78,12 +71,13 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 		cycle++
 		klog.V(4).Infof("Starting cycle %d", cycle)
 		start := time.Now()
-		output, err := client.EC2.DescribeInstanceTopology(ctx, input)
+		output, err := client.ec2.DescribeInstanceTopology(ctx, input)
+		duration := time.Since(start).Seconds()
 		if err != nil {
-			apiLatency.WithLabelValues(ci.Region, "Error").Observe(time.Since(start).Seconds())
+			apiLatency.WithLabelValues(ci.Region, "Error").Observe(duration)
 			return fmt.Errorf("failed to describe instance topology: %v", err)
 		}
-		apiLatency.WithLabelValues(ci.Region, "Success").Observe(time.Since(start).Seconds())
+		apiLatency.WithLabelValues(ci.Region, "Success").Observe(duration)
 		total += len(output.Instances)
 		for _, elem := range output.Instances {
 			if _, ok := ci.Instances[*elem.InstanceId]; ok {
@@ -112,5 +106,14 @@ func convert(inst *types.InstanceTopology) *topology.InstanceTopology {
 	if inst.CapacityBlockId != nil {
 		topo.AcceleratorID = *inst.CapacityBlockId
 	}
+	klog.V(4).Infof("Adding instance topology %s", topo.String())
 	return topo
+}
+
+func setPageSize(val *int) int32 {
+	if val == nil {
+		return defaultPageSize
+	}
+
+	return int32(*val)
 }

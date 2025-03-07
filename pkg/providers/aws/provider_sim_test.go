@@ -33,7 +33,7 @@ import (
 const (
 	ignoreErrMsg = "_IGNORE_"
 
-	mediumCluster = `
+	clusterModel = `
 switches:
 - name: core
   switches: [spine]
@@ -60,7 +60,7 @@ capacity_blocks:
   nodes: [n21,n22]
 `
 
-	largeCluster = `
+	largeClusterModel = `
 switches:
 - name: core
   switches: [spine]
@@ -100,6 +100,7 @@ func TestProviderSim(t *testing.T) {
 		intervals []interval
 		pageSize  *int
 		params    map[string]any
+		apiErr    int
 		topology  string
 		err       string
 	}{
@@ -126,26 +127,29 @@ capacity_blocks:
 `,
 		},
 		{
-			name: "Case 3: missing region",
-			model: `
-switches:
-- name: core
-  switches: [spine]
-- name: spine
-  switches: [tor]
-- name: tor
-  capacity_blocks: [cb]
-capacity_blocks:
-- name: cb
-  type: GB200
-  nvlink: nvl1
-  nodes: [n11]
-`,
-			intervals: []interval{{11, 11}},
-			err:       `must specify region to query instance topology`,
+			name:      "Case 3.1: ClientFactory API error",
+			model:     clusterModel,
+			region:    "region",
+			intervals: []interval{{11, 12}},
+			apiErr:    errClientFactory,
+			err:       "failed to get client: API error",
 		},
 		{
-			name: "Case 4: missing availability zone",
+			name:      "Case 3.2: DescribeInstanceTopology API error",
+			model:     clusterModel,
+			region:    "region",
+			intervals: []interval{{11, 12}},
+			apiErr:    errDescribeInstanceTopology,
+			err:       "failed to describe instance topology: API error",
+		},
+		{
+			name:      "Case 4: missing region",
+			model:     clusterModel,
+			intervals: []interval{{11, 12}},
+			err:       `must specify region`,
+		},
+		{
+			name: "Case 5.1: missing availability zone",
 			model: `
 switches:
 - name: core
@@ -165,7 +169,7 @@ capacity_blocks:
 			err:       `failed to describe instance topology: availability zone not found for instance "n11" in AWS simulation`,
 		},
 		{
-			name: "Case 5: missing placement group",
+			name: "Case 5.2: missing placement group",
 			model: `
 switches:
 - name: core
@@ -187,20 +191,20 @@ capacity_blocks:
 			err:       `failed to describe instance topology: placement group not found for instance "n11" in AWS simulation`,
 		},
 		{
-			name:      "Case 6: valid medium cluster in tree format",
-			model:     mediumCluster,
+			name:      "Case 6: valid cluster in tree format",
+			model:     clusterModel,
 			region:    "region",
-			intervals: []interval{{11, 12}, {21, 22}, {31, 31}},
+			intervals: []interval{{11, 13}, {21, 23}},
 			topology: `SwitchName=core Switches=spine
 SwitchName=spine Switches=tor[1-2]
-SwitchName=no-topology Nodes=node31
+SwitchName=no-topology Nodes=node[13,23]
 SwitchName=tor1 Nodes=node[11-12]
 SwitchName=tor2 Nodes=node[21-22]
 `,
 		},
 		{
-			name:      "Case 7: valid medium cluster in block format",
-			model:     mediumCluster,
+			name:      "Case 7: valid cluster in block format",
+			model:     clusterModel,
 			region:    "region",
 			intervals: []interval{{11, 12}, {21, 22}, {31, 32}},
 			params:    map[string]any{"plugin": "topology/block"},
@@ -213,7 +217,7 @@ BlockSizes=2,4
 		},
 		{
 			name:      "Case 8: valid large cluster in block format",
-			model:     largeCluster,
+			model:     largeClusterModel,
 			region:    "region",
 			intervals: []interval{{101, 164}, {201, 264}},
 			pageSize:  ptr.Int(25),
@@ -240,7 +244,10 @@ BlockSizes=64,128
 			require.NoError(t, err)
 
 			cfg := providers.Config{
-				Params: map[string]any{"model_path": f.Name()},
+				Params: map[string]any{
+					"model_path": f.Name(),
+					"api_error":  tc.apiErr,
+				},
 			}
 			provider, err := LoaderSim(ctx, cfg)
 			if err != nil {

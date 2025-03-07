@@ -38,29 +38,37 @@ const (
 	GroupNameKey        = "group"
 
 	DEFAULT_MAX_RESULTS = 20
+
+	errNoce = iota
+	errClientFactory
+	errDescribeInstanceTopology
 )
 
 type simClient struct {
-	Model       *models.Model
-	Outputs     map[string]([]types.InstanceTopology)
-	NextTokens  map[string]string
-	InstanceIds []string
+	model       *models.Model
+	outputs     map[string]([]types.InstanceTopology)
+	nextTokens  map[string]string
+	instanceIds []string
+	apiErr      int
 }
 
 func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
+	if client.apiErr == errDescribeInstanceTopology {
+		return nil, providers.APIError
+	}
 	// If we need to calculate new results (a previous token was not given)
 	var instanceIds []string
 	if len(params.InstanceIds) != 0 {
 		instanceIds = params.InstanceIds
 	} else {
-		instanceIds = client.InstanceIds
+		instanceIds = client.instanceIds
 	}
 
 	givenToken := params.NextToken
 	if givenToken == nil {
 		// Refreshes the clients internal storage for outputs
-		client.Outputs = make(map[string][]types.InstanceTopology)
-		client.NextTokens = make(map[string]string)
+		client.outputs = make(map[string][]types.InstanceTopology)
+		client.nextTokens = make(map[string]string)
 
 		// Sets the maximum number of results to return per output
 		var maxResults int = DEFAULT_MAX_RESULTS
@@ -80,7 +88,7 @@ func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *e
 				instanceId := instanceIds[instanceIdx+i]
 
 				// Gets the availability zone and placement group of the instance
-				node, ok := client.Model.Nodes[instanceId]
+				node, ok := client.model.Nodes[instanceId]
 				if !ok {
 					continue
 				}
@@ -117,11 +125,11 @@ func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *e
 			if instanceIdx == 0 {
 				firstToken = token
 			}
-			client.Outputs[token] = instances
+			client.outputs[token] = instances
 			instanceIdx += i
 			if instanceIdx < len(instanceIds) {
 				var nextToken string = strconv.Itoa(instanceIdx)
-				client.NextTokens[token] = nextToken
+				client.nextTokens[token] = nextToken
 			}
 		}
 
@@ -131,9 +139,9 @@ func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *e
 
 	// Otherwise return the requested, already calculated output
 	output := ec2.DescribeInstanceTopologyOutput{
-		Instances: client.Outputs[*givenToken],
+		Instances: client.outputs[*givenToken],
 	}
-	nextToken, ok := client.NextTokens[*givenToken]
+	nextToken, ok := client.nextTokens[*givenToken]
 	if ok {
 		output.NextToken = &nextToken
 	}
@@ -163,17 +171,23 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 	}
 
 	sim := &simClient{
-		Model:       model,
-		InstanceIds: make([]string, 0, len(model.Nodes)),
+		model:       model,
+		instanceIds: make([]string, 0, len(model.Nodes)),
+		apiErr:      p.APIError,
 	}
 	for _, node := range model.Nodes {
-		sim.InstanceIds = append(sim.InstanceIds, node.Name)
+		sim.instanceIds = append(sim.instanceIds, node.Name)
 	}
 
-	client := &Client{EC2: sim}
+	clientFactory := func(region string, pageSize *int) (*Client, error) {
+		if p.APIError == errClientFactory {
+			return nil, providers.APIError
+		}
 
-	clientFactory := func(region string) (*Client, error) {
-		return client, nil
+		return &Client{
+			ec2:      sim,
+			pageSize: setPageSize(pageSize),
+		}, nil
 	}
 
 	return NewSim(clientFactory, imdsClient), nil
@@ -195,7 +209,7 @@ func NewSim(clientFactory ClientFactory, imdsClient IDMSClient) *simProvider {
 // Engine support
 
 func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
-	client, _ := p.clientFactory("")
+	client, _ := p.clientFactory("", nil)
 
-	return client.EC2.(*simClient).Model.Instances, nil
+	return client.ec2.(*simClient).model.Instances, nil
 }

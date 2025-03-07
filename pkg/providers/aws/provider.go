@@ -65,10 +65,15 @@ type CredsClient interface {
 	Retrieve(ctx context.Context) (aws.Credentials, error)
 }
 
-type ClientFactory func(region string) (*Client, error)
+type ClientFactory func(region string, pageSize *int) (*Client, error)
 
 type Client struct {
-	EC2 EC2Client
+	ec2      EC2Client
+	pageSize int32
+}
+
+func (c *Client) PageSize() *int32 {
+	return &c.pageSize
 }
 
 type Credentials struct {
@@ -94,7 +99,7 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, erro
 		return nil, err
 	}
 
-	clientFactory := func(region string) (*Client, error) {
+	clientFactory := func(region string, pageSize *int) (*Client, error) {
 		opts := []func(*config.LoadOptions) error{
 			config.WithRegion(region),
 			config.WithCredentialsProvider(
@@ -109,7 +114,8 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, erro
 		ec2Client := ec2.NewFromConfig(awsCfg)
 
 		return &Client{
-			EC2: ec2Client,
+			ec2:      ec2Client,
+			pageSize: setPageSize(pageSize),
 		}, nil
 	}
 
