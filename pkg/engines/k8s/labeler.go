@@ -25,10 +25,10 @@ import (
 )
 
 const (
-	hierarchyLayerAccelerator = "network.topology.kubernetes.io/accelerator"
-	hierarchyLayerBlock       = "network.topology.kubernetes.io/block"
-	hierarchyLayerSpine       = "network.topology.kubernetes.io/spine"
-	hierarchyLayerDatacenter  = "network.topology.kubernetes.io/datacenter"
+	hierarchyLayerAccelerator = "network.topology.nvidia.com/accelerator"
+	hierarchyLayerBlock       = "network.topology.nvidia.com/block"
+	hierarchyLayerSpine       = "network.topology.nvidia.com/spine"
+	hierarchyLayerDatacenter  = "network.topology.nvidia.com/datacenter"
 )
 
 var switchNetworkHierarchy = []string{hierarchyLayerBlock, hierarchyLayerSpine, hierarchyLayerDatacenter}
