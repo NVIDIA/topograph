@@ -31,7 +31,17 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const NAME = "oci"
+const (
+	NAME = "oci"
+
+	authTenancyID     = "tenancy_id"
+	authUserID        = "user_id"
+	authRegion        = "region"
+	authFingerprint   = "fingerprint"
+	authPrivateKey    = "private_key"
+	authPassphrase    = "passphrase"
+	authCompartmentID = "compartment_id"
+)
 
 type Provider struct {
 	clientFactory ClientFactory
@@ -40,7 +50,7 @@ type Provider struct {
 type ClientFactory func(region string) (Client, error)
 
 type Client interface {
-	TenancyOCID() string
+	CompartmentID() string
 	ListAvailabilityDomains(ctx context.Context, request identity.ListAvailabilityDomainsRequest) (response identity.ListAvailabilityDomainsResponse, err error)
 	ListComputeCapacityTopologies(ctx context.Context, request core.ListComputeCapacityTopologiesRequest) (response core.ListComputeCapacityTopologiesResponse, err error)
 	ListComputeCapacityTopologyComputeBareMetalHosts(ctx context.Context, request core.ListComputeCapacityTopologyComputeBareMetalHostsRequest) (response core.ListComputeCapacityTopologyComputeBareMetalHostsResponse, err error)
@@ -49,11 +59,11 @@ type Client interface {
 type ociClient struct {
 	identity.IdentityClient
 	core.ComputeClient
-	tenancyOCID string
+	compartmentID string
 }
 
-func (c *ociClient) TenancyOCID() string {
-	return c.tenancyOCID
+func (c *ociClient) CompartmentID() string {
+	return c.compartmentID
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -66,15 +76,22 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		return nil, err
 	}
 
+	// if compartmentID is not set, use the tenant ID instead
+	var compartmentID string
+	if len(config.Creds) != 0 {
+		compartmentID = config.Creds[authCompartmentID]
+	}
+	if len(compartmentID) == 0 {
+		compartmentID, err = provider.TenancyOCID()
+		if err != nil {
+			return nil, fmt.Errorf("unable to get tenancy OCID from config: %s", err.Error())
+		}
+	}
+
 	clientFactory := func(region string) (Client, error) {
 		identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create identity client. Bailing out : %v", err)
-		}
-
-		tenacyOCID, err := provider.TenancyOCID()
-		if err != nil {
-			return nil, fmt.Errorf("unable to get tenancy OCID from config: %s", err.Error())
 		}
 
 		computeClient, err := core.NewComputeClientWithConfigurationProvider(provider)
@@ -91,7 +108,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		return &ociClient{
 			IdentityClient: identityClient,
 			ComputeClient:  computeClient,
-			tenancyOCID:    tenacyOCID,
+			compartmentID:  compartmentID,
 		}, nil
 	}
 
@@ -102,22 +119,22 @@ func getConfigurationProvider(creds map[string]string) (OCICommon.ConfigurationP
 	if len(creds) != 0 {
 		var tenancyID, userID, region, fingerprint, privateKey, passphrase string
 		klog.Info("Using provided credentials")
-		if tenancyID = creds["tenancy_id"]; len(tenancyID) == 0 {
+		if tenancyID = creds[authTenancyID]; len(tenancyID) == 0 {
 			return nil, fmt.Errorf("credentials error: missing tenancy_id")
 		}
-		if userID = creds["user_id"]; len(userID) == 0 {
+		if userID = creds[authUserID]; len(userID) == 0 {
 			return nil, fmt.Errorf("credentials error: missing user_id")
 		}
-		if region = creds["region"]; len(region) == 0 {
+		if region = creds[authRegion]; len(region) == 0 {
 			return nil, fmt.Errorf("credentials error: missing region")
 		}
-		if fingerprint = creds["fingerprint"]; len(fingerprint) == 0 {
+		if fingerprint = creds[authFingerprint]; len(fingerprint) == 0 {
 			return nil, fmt.Errorf("credentials error: missing fingerprint")
 		}
-		if privateKey = creds["private_key"]; len(privateKey) == 0 {
+		if privateKey = creds[authPrivateKey]; len(privateKey) == 0 {
 			return nil, fmt.Errorf("credentials error: missing private_key")
 		}
-		passphrase = creds["passphrase"]
+		passphrase = creds[authPassphrase]
 
 		return OCICommon.NewRawConfigurationProvider(tenancyID, userID, region, fingerprint, privateKey, &passphrase), nil
 	}
