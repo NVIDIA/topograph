@@ -55,7 +55,7 @@ func generateInstanceTopology(ctx context.Context, factory ClientFactory, ci *to
 }
 
 func getComputeCapacityTopologies(ctx context.Context, client Client) (cct []core.ComputeCapacityTopologySummary, err error) {
-	compartmentId := client.TenancyOCID()
+	compartmentId := client.CompartmentID()
 
 	adRequest := identity.ListAvailabilityDomainsRequest{
 		CompartmentId: &compartmentId,
@@ -99,7 +99,7 @@ func getComputeCapacityTopologies(ctx context.Context, client Client) (cct []cor
 }
 
 func getBMHSummaryPerComputeCapacityTopology(ctx context.Context, client Client, topologyID string, topo *topology.ClusterTopology, instanceMap map[string]string) error {
-	compartmentId := client.TenancyOCID()
+	compartmentId := client.CompartmentID()
 	request := core.ListComputeCapacityTopologyComputeBareMetalHostsRequest{
 		ComputeCapacityTopologyId: &topologyID,
 		CompartmentId:             &compartmentId,
