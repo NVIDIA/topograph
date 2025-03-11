@@ -63,7 +63,7 @@ func (s *Server) Stop(err error) {
 }
 
 func (s *Server) DescribeTopology(ctx context.Context, in *pb.TopologyRequest) (*pb.TopologyResponse, error) {
-	klog.Infof("Received: %s", in.String())
+	klog.InfoS("DescribeTopology", "provider", in.GetProvider(), "region", in.GetRegion(), "#instances", len(in.GetInstanceIds()))
 
 	res := &pb.TopologyResponse{
 		Instances: make([]*pb.Instance, 0, len(in.InstanceIds)),
@@ -72,7 +72,8 @@ func (s *Server) DescribeTopology(ctx context.Context, in *pb.TopologyRequest) (
 	for _, instance := range in.InstanceIds {
 		node, ok := s.model.Nodes[instance]
 		if !ok {
-			return nil, fmt.Errorf("missing instance %s", instance)
+			klog.Warningf("Missing instance %s", instance)
+			continue
 		}
 		res.Instances = append(res.Instances, &pb.Instance{
 			Id:            node.Name,
