@@ -203,7 +203,7 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 
 	// Create all the vertices for each node
 	for k, v := range model.Nodes {
-		instance2node[k] = k
+		instance2node[k] = fmt.Sprintf("n-%s", k)
 		nodeVertexMap[k] = &topology.Vertex{ID: v.Name, Name: v.Name}
 	}
 

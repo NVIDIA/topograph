@@ -28,80 +28,34 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NVIDIA/topograph/pkg/config"
+	"github.com/agrea/ptr"
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/pkg/config"
+	"github.com/NVIDIA/topograph/pkg/models"
+	"github.com/NVIDIA/topograph/pkg/toposim"
 )
 
-func getAvailablePort() (int, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-
-	return listener.Addr().(*net.TCPAddr).Port, nil
-}
-
-func TestServer(t *testing.T) {
-	port, err := getAvailablePort()
-	require.NoError(t, err)
-
-	cfg := &config.Config{
-		HTTP: config.Endpoint{
-			Port: port,
-		},
-		RequestAggregationDelay: time.Second,
-	}
-	baseURL := fmt.Sprintf("http://localhost:%d", port)
-
-	srv = initHttpServer(context.TODO(), cfg)
-	defer srv.Stop(nil)
-	go func() { _ = srv.Start() }()
-
-	// let the server start
-	time.Sleep(time.Second)
-
-	testCases := []struct {
-		name     string
-		endpoint string
-		payload  string
-		expected string
-	}{
-		{
-			name:     "Case 1: test invalid endpoint",
-			endpoint: "invalid",
-			expected: "404 page not found\n",
-		},
-		{
-			name:     "Case 2: test healthz endpoint",
-			endpoint: "healthz",
-			expected: "OK\n",
-		},
-		{
-			name:     "Case 3: send test request for tree topology",
-			endpoint: "generate",
-			payload: `
+const (
+	simpleSlurmPayload = `
 {
   "provider": {
-    "name": "test"
+    "name": "%s"
   },
   "engine": {
     "name": "slurm"
   }
 }
-`,
-			expected: `SwitchName=S1 Switches=S[2-3]
+`
+	simpleSlurmConfig = `SwitchName=S1 Switches=S[2-3]
 SwitchName=S2 Nodes=Node[201-202,205]
 SwitchName=S3 Nodes=Node[304-306]
-`,
-		},
-		{
-			name:     "Case 4: mock AWS request for tree topology",
-			endpoint: "generate",
-			payload: `
+`
+
+	slurmTreePayload = `
 {
   "provider": {
-    "name": "aws-sim",
+    "name": "%s",
     "params": {
       "model_path": "../../tests/models/medium.yaml"
     }
@@ -120,28 +74,27 @@ SwitchName=S3 Nodes=Node[304-306]
         "1301": "n-1301",
         "1302": "n-1302",
         "1401": "n-1401",
-        "1402": "n-1402"
+        "1402": "n-1402",
+        "1500": "n-CPU"
       }
     }
   ]
 }
-`,
-			expected: `SwitchName=sw3 Switches=sw[21-22]
+`
+	slurmTreeConfig = `SwitchName=sw3 Switches=sw[21-22]
 SwitchName=sw21 Switches=sw[11-12]
 SwitchName=sw22 Switches=sw[13-14]
 SwitchName=sw11 Nodes=n-[1101-1102]
 SwitchName=sw12 Nodes=n-[1201-1202]
 SwitchName=sw13 Nodes=n-[1301-1302]
 SwitchName=sw14 Nodes=n-[1401-1402]
-`,
-		},
-		{
-			name:     "Case 5: mock AWS request for block topology",
-			endpoint: "generate",
-			payload: `
+SwitchName=no-topology Nodes=n-CPU
+`
+
+	slurmBlockPayload = `
 {
   "provider": {
-    "name": "aws-sim",
+    "name": "%s",
     "params": {
       "model_path": "../../tests/models/large.yaml"
     }
@@ -154,8 +107,8 @@ SwitchName=sw14 Nodes=n-[1401-1402]
     }
   }
 }
-`,
-			expected: `# block001=nvl-1-1
+`
+	slurmBlockConfig = `# block001=nvl-1-1
 BlockName=block001 Nodes=n-[1101-1108]
 # block002=nvl-1-2
 BlockName=block002 Nodes=n-[1201-1208]
@@ -180,40 +133,71 @@ BlockName=block011 Nodes=n-[6101-6108]
 # block012=nvl-6-2
 BlockName=block012 Nodes=n-[6201-6208]
 BlockSizes=8,16,32
-`,
+`
+)
+
+func TestServerLocal(t *testing.T) {
+	port, err := getAvailablePort()
+	require.NoError(t, err)
+
+	cfg := &config.Config{
+		HTTP: config.Endpoint{
+			Port: port,
+		},
+		RequestAggregationDelay: time.Second,
+	}
+	baseURL := fmt.Sprintf("http://localhost:%d", port)
+
+	srv = initHttpServer(context.TODO(), cfg)
+	defer srv.Stop(nil)
+	go func() { _ = srv.Start() }()
+
+	// let the server start
+	time.Sleep(time.Second)
+
+	testCases := []struct {
+		name     string
+		endpoint string
+		provider string
+		payload  string
+		expected string
+	}{
+		{
+			name:     "Case 1: test invalid endpoint",
+			endpoint: "invalid",
+			expected: "404 page not found\n",
+		},
+		{
+			name:     "Case 2: test healthz endpoint",
+			endpoint: "healthz",
+			expected: "OK\n",
+		},
+		{
+			name:     "Case 3: send test request for tree topology",
+			endpoint: "generate",
+			provider: "test",
+			payload:  simpleSlurmPayload,
+			expected: simpleSlurmConfig,
+		},
+		{
+			name:     "Case 4: mock AWS request for tree topology",
+			endpoint: "generate",
+			provider: "aws-sim",
+			payload:  slurmTreePayload,
+			expected: slurmTreeConfig,
+		},
+		{
+			name:     "Case 5: mock AWS request for block topology",
+			endpoint: "generate",
+			provider: "aws-sim",
+			payload:  slurmBlockPayload,
+			expected: slurmBlockConfig,
 		},
 		{
 			name:     "Case 4: mock GCP request for tree topology",
 			endpoint: "generate",
-			payload: `
-{
-  "provider": {
-    "name": "gcp-sim",
-    "params": {
-      "model_path": "../../tests/models/medium.yaml"
-    }
-  },
-  "engine": {
-    "name": "slurm"
-  },
-  "nodes": [
-    {
-      "region": "R1",
-      "instances": {
-        "1101": "n-1101",
-        "1102": "n-1102",
-        "1201": "n-1201",
-        "1202": "n-1202",
-        "1301": "n-1301",
-        "1302": "n-1302",
-        "1401": "n-1401",
-        "1402": "n-1402",
-		"1500": "n-CPU"
-      }
-    }
-  ]
-}
-`,
+			provider: "gcp-sim",
+			payload:  slurmTreePayload,
 			expected: `SwitchName=sw21 Switches=sw[11-12]
 SwitchName=sw22 Switches=sw[13-14]
 SwitchName=sw11 Nodes=n-[1101-1102]
@@ -226,52 +210,166 @@ SwitchName=sw14 Nodes=n-[1401-1402]
 	}
 
 	for _, tc := range testCases {
-		var resp *http.Response
-		var body []byte
-		switch tc.endpoint {
-		case "invalid":
-			resp, err = http.Get(baseURL + "/invalid")
-		case "healthz":
-			resp, err = http.Get(baseURL + "/healthz")
-		case "generate":
+		t.Run(tc.name, func(t *testing.T) {
+			var resp *http.Response
+			var body []byte
+			switch tc.endpoint {
+			case "invalid":
+				resp, err = http.Get(baseURL + "/invalid")
+			case "healthz":
+				resp, err = http.Get(baseURL + "/healthz")
+			case "generate":
+				// send topology request
+				payload := fmt.Sprintf(tc.payload, tc.provider)
+				resp, err = http.Post(baseURL+"/v1/generate", "application/json", bytes.NewBuffer([]byte(payload)))
+				require.NoError(t, err)
+				require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+				body, err = io.ReadAll(resp.Body)
+				require.NoError(t, err)
+				out := string(body)
+				resp.Body.Close()
+
+				// retrieve topology config
+				params := url.Values{}
+				params.Add("uid", out)
+				fullURL := fmt.Sprintf("%s?%s", baseURL+"/v1/topology", params.Encode())
+
+				for i := range 5 {
+					time.Sleep(time.Second)
+					resp, err = http.Get(fullURL)
+					require.NoError(t, err)
+
+					if resp.StatusCode == http.StatusOK {
+						break
+					}
+
+					resp.Body.Close()
+					if i == 4 {
+						t.Errorf("timeout")
+					}
+				}
+
+			default:
+				t.Errorf("unsupported endpoint %s", tc.endpoint)
+			}
+
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			require.Equal(t, stringToLineMap(tc.expected), stringToLineMap(string(body)))
+		})
+	}
+}
+
+func TestServerRemote(t *testing.T) {
+	testCases := []struct {
+		name     string
+		model    string
+		payload  string
+		expected string
+	}{
+		{
+			name:     "Case 1: send request for tree topology",
+			model:    "../../tests/models/medium.yaml",
+			payload:  slurmTreePayload,
+			expected: slurmTreeConfig,
+		},
+		{
+			name:     "Case 2: send request for block topology",
+			model:    "../../tests/models/large.yaml",
+			payload:  slurmBlockPayload,
+			expected: slurmBlockConfig,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// read model
+			model, err := models.NewModelFromFile(tc.model)
+			require.NoError(t, err)
+
+			// init gRPC server
+			grpcPort, err := getAvailablePort()
+			require.NoError(t, err)
+
+			topo := toposim.NewServer(model, grpcPort)
+
+			defer topo.Stop(nil)
+			go func() { _ = topo.Start() }()
+
+			// init http server
+			httpPort, err := getAvailablePort()
+			require.NoError(t, err)
+
+			cfg := &config.Config{
+				RequestAggregationDelay: time.Second,
+				HTTP: config.Endpoint{
+					Port: httpPort,
+				},
+				FwdSvcURL: ptr.String(fmt.Sprintf("localhost:%d", grpcPort)),
+			}
+
+			srv = initHttpServer(context.TODO(), cfg)
+			defer srv.Stop(nil)
+			go func() { _ = srv.Start() }()
+
+			// let the servers start
+			time.Sleep(time.Second)
+
 			// send topology request
-			resp, err = http.Post(baseURL+"/v1/generate", "application/json", bytes.NewBuffer([]byte(tc.payload)))
+			baseURL := fmt.Sprintf("http://localhost:%d", httpPort)
+			payload := fmt.Sprintf(tc.payload, "test")
+			resp, err := http.Post(baseURL+"/v1/generate", "application/json", bytes.NewBuffer([]byte(payload)))
 			require.NoError(t, err)
 			require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-			body, err = io.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
 			out := string(body)
-			fmt.Println("response", out)
 			resp.Body.Close()
-
-			// wait for topology config generation
-			time.Sleep(3 * time.Second)
 
 			// retrieve topology config
 			params := url.Values{}
 			params.Add("uid", out)
-
 			fullURL := fmt.Sprintf("%s?%s", baseURL+"/v1/topology", params.Encode())
-			resp, err = http.Get(fullURL)
 
-		default:
-			t.Errorf("unsupported endpoint %s", tc.endpoint)
-		}
+			for range 5 {
+				time.Sleep(2 * time.Second)
+				resp, err := http.Get(fullURL)
+				require.NoError(t, err)
+				defer resp.Body.Close()
 
-		require.NoError(t, err)
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
-		require.Equal(t, stringToLineMap(tc.expected), stringToLineMap(string(body)))
+				if resp.StatusCode == http.StatusOK {
+					body, err = io.ReadAll(resp.Body)
+					require.NoError(t, err)
+					require.Equal(t, stringToLineMap(tc.expected), stringToLineMap(string(body)))
+					return
+				}
+			}
+			t.Errorf("timeout")
+		})
 	}
+}
+
+func getAvailablePort() (int, error) {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
+
+	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 func stringToLineMap(str string) map[string]struct{} {
 	m := make(map[string]struct{})
 	for _, line := range strings.Split(str, "\n") {
-		m[line] = struct{}{}
+		if len(line) != 0 {
+			m[line] = struct{}{}
+		}
 	}
 
 	return m
