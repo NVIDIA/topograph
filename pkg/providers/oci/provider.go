@@ -43,27 +43,33 @@ const (
 	authCompartmentID = "compartment_id"
 )
 
-type Provider struct {
+type baseProvider struct {
 	clientFactory ClientFactory
 }
 
-type ClientFactory func(region string) (Client, error)
+type ClientFactory func(region string, pageSize *int) (Client, error)
 
 type Client interface {
-	CompartmentID() string
-	ListAvailabilityDomains(ctx context.Context, request identity.ListAvailabilityDomainsRequest) (response identity.ListAvailabilityDomainsResponse, err error)
-	ListComputeCapacityTopologies(ctx context.Context, request core.ListComputeCapacityTopologiesRequest) (response core.ListComputeCapacityTopologiesResponse, err error)
-	ListComputeCapacityTopologyComputeBareMetalHosts(ctx context.Context, request core.ListComputeCapacityTopologyComputeBareMetalHostsRequest) (response core.ListComputeCapacityTopologyComputeBareMetalHostsResponse, err error)
+	CompartmentID() *string
+	Limit() *int
+	ListAvailabilityDomains(context.Context, identity.ListAvailabilityDomainsRequest) (identity.ListAvailabilityDomainsResponse, error)
+	ListComputeHosts(context.Context, core.ListComputeHostsRequest) (core.ListComputeHostsResponse, error)
+	ListComputeGpuMemoryFabrics(context.Context, core.ListComputeGpuMemoryFabricsRequest) (core.ListComputeGpuMemoryFabricsResponse, error)
 }
 
 type ociClient struct {
 	identity.IdentityClient
 	core.ComputeClient
 	compartmentID string
+	limit         *int
 }
 
-func (c *ociClient) CompartmentID() string {
-	return c.compartmentID
+func (c *ociClient) CompartmentID() *string {
+	return &c.compartmentID
+}
+
+func (c *ociClient) Limit() *int {
+	return c.limit
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -88,15 +94,15 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		}
 	}
 
-	clientFactory := func(region string) (Client, error) {
+	clientFactory := func(region string, pageSize *int) (Client, error) {
 		identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create identity client. Bailing out : %v", err)
+			return nil, fmt.Errorf("unable to create identity client: %v", err)
 		}
 
 		computeClient, err := core.NewComputeClientWithConfigurationProvider(provider)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get compute client: %s", err.Error())
+			return nil, fmt.Errorf("unable to get compute client: %v", err)
 		}
 
 		if len(region) != 0 {
@@ -109,6 +115,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 			IdentityClient: identityClient,
 			ComputeClient:  computeClient,
 			compartmentID:  compartmentID,
+			limit:          pageSize,
 		}, nil
 	}
 
@@ -156,19 +163,23 @@ func getConfigurationProvider(creds map[string]string) (OCICommon.ConfigurationP
 	return configProvider, nil
 }
 
-func New(ociClientFactory ClientFactory) *Provider {
-	return &Provider{
-		clientFactory: ociClientFactory,
-	}
-}
-
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	topo, err := GenerateInstanceTopology(ctx, p.clientFactory, instances)
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
 	return topo.ToThreeTierGraph(NAME, instances, true)
+}
+
+type Provider struct {
+	baseProvider
+}
+
+func New(ociClientFactory ClientFactory) *Provider {
+	return &Provider{
+		baseProvider: baseProvider{clientFactory: ociClientFactory},
+	}
 }
 
 // Engine support
