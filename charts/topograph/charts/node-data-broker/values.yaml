@@ -1,18 +1,30 @@
-# Default values for topology-state-observer.
+# Default values for node-data-broker.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-replicaCount: 1
-
 image:
-  repository: ghcr.io/nvidia/topograph
+  repository: curlimages/curl
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: main
+  tag: 8.13.0
+
+command:
+  - tail
+  - -f
+  - /dev/null
+
+initc:
+  enabled: false
+  image:
+    repository: ghcr.io/nvidia/topograph
+    pullPolicy: IfNotPresent
+    tag: main
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+
+provider: test
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -26,12 +38,6 @@ serviceAccount:
   name: ""
 
 verbosity: 3
-
-topograph:
-  url: "http://topograph.default.svc.cluster.local:49021/v1/generate"
-  node_labels: {}
-  provider: test
-  engine: k8s
 
 podAnnotations: {}
 podLabels: {}
@@ -55,14 +61,18 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-livenessProbe:
-  httpGet:
-    path: /
-    port: http
-readinessProbe:
-  httpGet:
-    path: /
-    port: http
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
 
 nodeSelector: {}
 

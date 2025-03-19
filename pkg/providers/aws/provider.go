@@ -30,7 +30,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/exec"
@@ -40,24 +39,16 @@ import (
 
 const NAME = "aws"
 
-const (
-	IMDS           = "http://169.254.169.254"
-	IMDS_TOKEN_URL = IMDS + "/latest/api/token"
-	IMDS_URL       = IMDS + "/latest/meta-data"
-
-	tokenTimeDelay = 15 * time.Second
-)
-
 type baseProvider struct {
 	clientFactory ClientFactory
-	imdsClient    IDMSClient
+	imdsClient    IMDSClient
 }
 
 type EC2Client interface {
 	DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error)
 }
 
-type IDMSClient interface {
+type IMDSClient interface {
 	GetRegion(ctx context.Context, params *imds.GetRegionInput, optFns ...func(*imds.Options)) (*imds.GetRegionOutput, error)
 }
 
@@ -191,7 +182,7 @@ type Provider struct {
 	baseProvider
 }
 
-func New(clientFactory ClientFactory, imdsClient IDMSClient) *Provider {
+func New(clientFactory ClientFactory, imdsClient IMDSClient) *Provider {
 	return &Provider{
 		baseProvider: baseProvider{
 			clientFactory: clientFactory,
@@ -204,10 +195,7 @@ func New(clientFactory ClientFactory, imdsClient IDMSClient) *Provider {
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	args := []string{"-w", strings.Join(nodes, ","),
-		fmt.Sprintf("TOKEN=$(curl -s -X PUT -H \"X-aws-ec2-metadata-token-ttl-seconds: 21600\" %s); echo $(curl -s -H \"X-aws-ec2-metadata-token: $TOKEN\" %s/instance-id)", IMDS_TOKEN_URL, IMDS_URL)}
-
-	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
+	stdout, err := exec.Exec(ctx, "pdsh", pdshParams(nodes, IMDSInstanceURL), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -237,16 +225,4 @@ func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error
 		return "", err
 	}
 	return output.Region, nil
-}
-
-// GetNodeRegion implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
-	return node.Labels["topology.kubernetes.io/region"], nil
-}
-
-// GetNodeInstance implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
-	// ProviderID format: "aws:///us-east-1f/i-0acd9257c6569d371"
-	parts := strings.Split(node.Spec.ProviderID, "/")
-	return parts[len(parts)-1], nil
 }

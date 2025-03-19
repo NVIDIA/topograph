@@ -22,19 +22,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/exec"
+	"github.com/NVIDIA/topograph/pkg/providers"
 )
 
 const (
 	IMDSURL         = "http://169.254.169.254/opc/v2"
-	IMDSInstanceURL = IMDSURL + "/instance"
+	IMDSInstanceURL = IMDSURL + "/instance/id"
+	IMDSRegionURL   = IMDSURL + "/instance/region"
 	IMDSTopologyURL = IMDSURL + "/host/rdmaTopologyData"
-	IMDSHeader      = `-H "Authorization: Bearer Oracle" -L`
+	IMDSHeaderKey   = "Authorization"
+	IMDSHeaderVal   = "Bearer Oracle"
+	IMDSHeader      = IMDSHeaderKey + ": " + IMDSHeaderVal
 )
 
 type topologyData struct {
@@ -45,9 +50,7 @@ type topologyData struct {
 }
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	args := []string{"-w", strings.Join(cluset.Compact(nodes), ","), fmt.Sprintf("echo $(curl -s  %s %s/id)", IMDSHeader, IMDSInstanceURL)}
-
-	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
+	stdout, err := exec.Exec(ctx, "pdsh", pdshParams(nodes, IMDSInstanceURL), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -75,9 +78,7 @@ func parseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
 }
 
 func getHostTopology(ctx context.Context, nodes []string) (map[string]*topologyData, error) {
-	args := []string{"-w", strings.Join(cluset.Compact(nodes), ","), fmt.Sprintf("echo $(curl -s  %s %s)", IMDSHeader, IMDSTopologyURL)}
-
-	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
+	stdout, err := exec.Exec(ctx, "pdsh", pdshParams(nodes, IMDSTopologyURL), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -112,13 +113,33 @@ func parseTopologyOutput(buff *bytes.Buffer) (map[string]*topologyData, error) {
 }
 
 func getRegion(ctx context.Context) (string, error) {
-	url := fmt.Sprintf("%s/region", IMDSInstanceURL)
-	args := []string{"-s", "-H", "Authorization: Bearer Oracle", "-L", url}
-
-	stdout, err := exec.Exec(ctx, "curl", args, nil)
+	stdout, err := exec.Exec(ctx, "curl", imdsCurlParams(IMDSRegionURL), nil)
 	if err != nil {
 		return "", err
 	}
 
 	return stdout.String(), nil
+}
+
+func imdsCurlParams(url string) []string {
+	return []string{"-s", "-H", IMDSHeader, "-L", url}
+}
+
+func pdshParams(nodes []string, url string) []string {
+	return []string{"-w", strings.Join(cluset.Compact(nodes), ","), fmt.Sprintf("echo $(curl -s -H %q -L %s)", IMDSHeader, url)}
+}
+
+func GetInstanceAndRegion() (string, string, error) {
+	header := map[string]string{IMDSHeaderKey: IMDSHeaderVal}
+	instance, err := providers.HttpReq(http.MethodGet, IMDSInstanceURL, header)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to execute instance-id IMDS request: %v", err)
+	}
+
+	region, err := providers.HttpReq(http.MethodGet, IMDSRegionURL, header)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to execute region IMDS request: %v", err)
+	}
+
+	return instance, region, nil
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package oci
+package test
 
-import (
-	"context"
-)
+import "net"
 
-type baseProvider struct {
-}
+func GetAvailablePort() (int, error) {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
 
-// Engine support
-
-// GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *baseProvider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
-	return getRegion(ctx)
+	return listener.Addr().(*net.TCPAddr).Port, nil
 }

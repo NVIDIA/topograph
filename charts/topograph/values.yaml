@@ -27,6 +27,8 @@ serviceAccount:
 
 verbosity: 3
 
+env: {}
+
 podAnnotations: {}
 podLabels: {}
 
@@ -93,3 +95,21 @@ node-observer:
     repository: ghcr.io/nvidia/topograph
     pullPolicy: IfNotPresent
     tag: main
+  verbosity: 3
+  topograph:
+    node_labels: {}
+    provider: test
+
+node-data-broker:
+  image:
+    repository: curlimages/curl
+    pullPolicy: IfNotPresent
+    tag: 8.13.0
+  initc:
+    enabled: false
+    image:
+      repository: ghcr.io/nvidia/topograph
+      pullPolicy: IfNotPresent
+      tag: main
+  provider: test
+  verbosity: 3
