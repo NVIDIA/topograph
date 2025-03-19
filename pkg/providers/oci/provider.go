@@ -19,6 +19,7 @@ package oci
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/common/auth"
@@ -41,6 +42,41 @@ const (
 	authPrivateKey  = "private_key"
 	authPassphrase  = "passphrase"
 )
+
+// SYD-START
+// A custom signer implementation that handles the "Host:" header adjustments for Hydrogen
+type hydrogenSigner struct {
+	signer common.HTTPRequestSigner
+}
+
+// Signs a request bound for the Hydrogen stack.
+//
+// There are two "Host"-related fields in the request:
+// - `r.Host`
+// - `r.URL.Host`
+//
+// `r.Host` is used for setting the `Host:` header when the request is shipped out. `r.URL.Host`
+// is used to construct the actual URL that will be called.
+//
+// The default signer uses the `r.URL.Host` field for signature calculations. Since that is
+// responsible for determining the URL, too, we temporarily set it to the Hydrogen stack, sign the
+// request, and then set `r.Host` and `r.URL.Host` appropriately so that the Host header still
+// points to the Hydrogen stack but the URL points to the "normal" URL for ap-sydney-1.
+func (c hydrogenSigner) Sign(r *http.Request) error {
+	// Save off the original `r.URL.Host` and temporarily override it to point to Hydrogen
+	originalHost := r.URL.Host
+	r.URL.Host = "hydrogen-compute-api.splat.svc.ad1.ap-sydney-1"
+	// Sign the request
+	err := c.signer.Sign(r)
+	// Put things in the desired configuration. We want the URL to point to the production
+	// ap-sydney-1 URL (saved off in `originalHost` above), but we want a Hydrogen-based "Host:"
+	// header, which we can set with `r.Host`.
+	r.URL.Host = originalHost
+	r.Host = "hydrogen-compute-api.splat.svc.ad1.ap-sydney-1"
+	return err
+}
+
+// SYD-END
 
 type baseProvider struct {
 	clientFactory ClientFactory
@@ -95,6 +131,13 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		if err != nil {
 			return nil, fmt.Errorf("unable to get compute client: %v", err)
 		}
+
+		// SYD-START
+		// Override the default signer with our Hydrogen signer
+		computeClient.Signer = hydrogenSigner{
+			signer: common.DefaultRequestSigner(provider),
+		}
+		// SYD-END
 
 		if len(region) != 0 {
 			klog.Infof("Use provided region %s", region)
