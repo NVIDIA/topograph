@@ -109,5 +109,4 @@ replace (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.45 => github.com/pkedy/aws-sdk-go-v2/credentials v0.0.0-20241115203348-0198b6c98cd9
 	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.48.0 => github.com/pkedy/aws-sdk-go-v2/service/autoscaling v0.0.0-20241115203348-0198b6c98cd9
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.187.0 => github.com/pkedy/aws-sdk-go-v2/service/ec2 v0.0.0-20241115203348-0198b6c98cd9
-	github.com/oracle/oci-go-sdk/v65 v65.78.0 => ../../oracle/oci-go-sdk/v65
 )
