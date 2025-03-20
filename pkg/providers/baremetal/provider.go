@@ -3,14 +3,22 @@ package baremetal
 import (
 	"context"
 	"errors"
+	"fmt"
 
+	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const NAME = "baremetal"
 
-type Provider struct{}
+type ProviderParams struct {
+	NetworkType string `mapstructure:"network_type"`
+}
+
+type Provider struct {
+	pp ProviderParams
+}
 
 var ErrMultiRegionNotSupported = errors.New("on-prem does not support multi-region topology requests")
 
@@ -19,11 +27,29 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
-	return New()
+	p, err := GetParams(config.Params)
+	if err != nil {
+		return nil, err
+	}
+	return New(p)
 }
 
-func New() (*Provider, error) {
-	return &Provider{}, nil
+func New(params *ProviderParams) (*Provider, error) {
+	return &Provider{
+		pp: *params,
+	}, nil
+}
+
+func GetParams(params map[string]any) (*ProviderParams, error) {
+	var p ProviderParams
+	if err := config.Decode(params, &p); err != nil {
+		return nil, fmt.Errorf("error decoding params: %w", err)
+	}
+	if len(p.NetworkType) == 0 {
+		return nil, fmt.Errorf("no network type provided for baremetal")
+	}
+
+	return &p, nil
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
@@ -31,11 +57,12 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		return nil, ErrMultiRegionNotSupported
 	}
 
+	if p.pp.NetworkType == "eth" {
+		return parseNetq()
+	}
 	//call mnnvl code from here
 	return generateTopologyConfig(ctx, instances)
 }
-
-// Engine support
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
