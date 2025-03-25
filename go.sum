@@ -131,8 +131,8 @@ github.com/onsi/ginkgo/v2 v2.19.0 h1:9Cnnf7UHo57Hy3k6/m5k3dRfGTMXGvxhHFvkDTCTpvA
 github.com/onsi/ginkgo/v2 v2.19.0/go.mod h1:rlwLi9PilAFJ8jCg9UE1QP6VBpd6/xj3SRC0d6TU0To=
 github.com/onsi/gomega v1.33.1 h1:dsYjIxxSR755MDmKVsaFQTE22ChNBcuuTWgkUDSubOk=
 github.com/onsi/gomega v1.33.1/go.mod h1:U4R44UsT+9eLIaYRB2a5qajjtQYn0hauxvRm16AVYg0=
-github.com/oracle/oci-go-sdk/v65 v65.78.0 h1:iM7lFFA7cJkUD4tmrlsAHWgL3HuTuF9mdvTAliMkcFA=
-github.com/oracle/oci-go-sdk/v65 v65.78.0/go.mod h1:IBEV9l1qBzUpo7zgGaRUhbB05BVfcDGYRFBCPlTcPp0=
+github.com/oracle/oci-go-sdk/v65 v65.88.0 h1:SbsGKsoRRxJxVTbwUyIPCPwPsHWb8aPgEEpo6qfRJnI=
+github.com/oracle/oci-go-sdk/v65 v65.88.0/go.mod h1:IBEV9l1qBzUpo7zgGaRUhbB05BVfcDGYRFBCPlTcPp0=
 github.com/pkedy/aws-sdk-go-v2 v0.0.0-20241115203348-0198b6c98cd9 h1:QhMFD0yJ9nEj4BCX9lREQ7twLM5oEL8y9UwKsRNJamo=
 github.com/pkedy/aws-sdk-go-v2 v0.0.0-20241115203348-0198b6c98cd9/go.mod h1:2SK5n0a2karNTv5tbP1SjsX0uhttou00v/HpXKM1ZUo=
 github.com/pkedy/aws-sdk-go-v2/service/ec2 v0.0.0-20241115203348-0198b6c98cd9 h1:wA7yd0OxRH3EWuKaJ7ijRowlWgH2b99nrP+d10+0Sc4=

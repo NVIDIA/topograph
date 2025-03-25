@@ -30,16 +30,16 @@ var requestLatency = prometheus.NewSummaryVec(
 	[]string{"method", "status"},
 )
 
-var missingAncestor = prometheus.NewCounterVec(
+var missingHostData = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
-		Name:      "topogen_missing_ancestor_oci",
-		Help:      "Missing ancestor nodes",
+		Name:      "missing_host_data",
+		Help:      "Missing host data",
 		Subsystem: "topograph_oci",
 	},
-	[]string{"ancestor_level", "node_name"},
+	[]string{"data", "node_name"},
 )
 
 func init() {
 	prometheus.MustRegister(requestLatency)
-	prometheus.MustRegister(missingAncestor)
+	prometheus.MustRegister(missingHostData)
 }
