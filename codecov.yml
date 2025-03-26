@@ -1,0 +1,16 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 60%
+        threshold: 5%  # Allow a 5% drop before failing
+        only_pulls: true
+        if_no_uploads: success  # Prevent failures if no uploads occur
+        if_not_found: success  # Avoid errors if coverage report is missing
+    patch:
+      default:
+        target: 50% # auto
+        threshold: 5%
+        only_pulls: true
+        if_no_uploads: success
+        if_not_found: success
