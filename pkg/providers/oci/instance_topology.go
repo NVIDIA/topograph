@@ -31,10 +31,9 @@ import (
 
 func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
 	topo := topology.NewClusterTopology()
-	blockMap := make(map[string]string)
 
 	for _, ci := range cis {
-		if err := p.getComputeHostInfo(ctx, pageSize, ci, topo, blockMap); err != nil {
+		if err := p.getComputeHostInfo(ctx, pageSize, ci, topo); err != nil {
 			return nil, err
 		}
 	}
@@ -42,7 +41,7 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	return topo, nil
 }
 
-func (p *baseProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci topology.ComputeInstances, topo *topology.ClusterTopology, blockMap map[string]string) error {
+func (p *baseProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci topology.ComputeInstances, topo *topology.ClusterTopology) error {
 	if len(ci.Region) == 0 {
 		return fmt.Errorf("must specify region")
 	}
@@ -65,18 +64,18 @@ func (p *baseProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci
 	}
 
 	for _, ad := range resp.Items {
-		err := getComputeHostSummary(ctx, client, ad.Name, topo, blockMap, ci.Instances)
+		err := getComputeHostSummary(ctx, client, ad.Name, topo, ci.Instances)
 		if err != nil {
 			return fmt.Errorf("failed to get hosts info: %v", err)
 		}
 	}
 
-	klog.V(4).Infof("Returning host info for %d nodes and %d blocks", topo.Len(), len(blockMap))
+	klog.V(4).Infof("Returning host info for %d nodes", topo.Len())
 
 	return nil
 }
 
-func getComputeHostSummary(ctx context.Context, client Client, availabilityDomain *string, topo *topology.ClusterTopology, blockMap, instMap map[string]string) error {
+func getComputeHostSummary(ctx context.Context, client Client, availabilityDomain *string, topo *topology.ClusterTopology, instMap map[string]string) error {
 	req := core.ListComputeHostsRequest{
 		CompartmentId:      client.TenantID(),
 		AvailabilityDomain: availabilityDomain,
@@ -101,10 +100,6 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 
 			if _, ok := instMap[inst.InstanceID]; ok {
 				klog.V(4).Infof("Adding host %s", host.String())
-				if len(inst.AcceleratorID) != 0 {
-					blockMap[inst.BlockID] = inst.AcceleratorID
-					klog.V(4).InfoS("Adding GpuMemoryFabric", "id", inst.AcceleratorID, "localBlockId", inst.BlockID)
-				}
 				topo.Append(inst)
 			} else {
 				klog.V(4).Infof("Skipping host %s", host.String())
