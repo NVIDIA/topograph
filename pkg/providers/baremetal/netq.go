@@ -31,8 +31,8 @@ type Links struct {
 }
 
 // parseNetq parses Netq topology output
-func parseNetq() (*topology.Vertex, error) {
-	filePath, _ := filepath.Abs("pkg/providers/baremetal/air-topology.json")
+func parseNetq(inputFilePath string) (*topology.Vertex, error) {
+	filePath, _ := filepath.Abs(inputFilePath)
 	plan, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("netq output file failed: %v", err)

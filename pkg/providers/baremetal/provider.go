@@ -13,7 +13,8 @@ import (
 const NAME = "baremetal"
 
 type ProviderParams struct {
-	NetworkType string `mapstructure:"network_type"`
+	NetworkType   string `mapstructure:"network_type"`
+	InputFilePath string `mapstructure:"input_file_path"`
 }
 
 type Provider struct {
@@ -49,6 +50,10 @@ func GetParams(params map[string]any) (*ProviderParams, error) {
 		return nil, fmt.Errorf("no network type provided for baremetal")
 	}
 
+	if len(p.InputFilePath) == 0 {
+		return nil, fmt.Errorf("no Netq InputFilePath provided for baremetal")
+	}
+
 	return &p, nil
 }
 
@@ -58,7 +63,7 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 	}
 
 	if p.pp.NetworkType == "eth" {
-		return parseNetq()
+		return parseNetq(p.pp.InputFilePath)
 	}
 	//call mnnvl code from here
 	return generateTopologyConfig(ctx, instances)
