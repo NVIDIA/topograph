@@ -78,11 +78,10 @@ func generateTopologyConfigForEth(ctx context.Context, cred Credentials) (*topol
 
 // parseNetq parses Netq topology output
 func parseNetq(netqResponse []NetqResponse) (*topology.Vertex, error) {
-
-	nodeMap := make(map[string]*topology.Vertex)
-	tierMap := make(map[string]int)
-	inverseTierMap := make(map[int]map[string]bool)
-	nameMap := make(map[string]string)
+	nodeMap := make(map[string]*topology.Vertex)    // nodeId : Vertex
+	tierMap := make(map[string]int)                 // nodeId : tier
+	inverseTierMap := make(map[int]map[string]bool) // tier : nodename
+	nameMap := make(map[string]string)              // nodeId : nodeName
 	for _, nodelist := range netqResponse[0].Nodes {
 		for _, cnode := range nodelist.Cnode {
 			nodeMap[cnode.Id] = &topology.Vertex{
@@ -127,7 +126,7 @@ func parseNetq(netqResponse []NetqResponse) (*topology.Vertex, error) {
 		Metadata: make(map[string]string),
 	}
 
-	for nodeId, _ := range inverseTierMap[highestTier] {
+	for nodeId := range inverseTierMap[highestTier] {
 		treeRoot.Vertices[nodeId] = nodeMap[nodeId]
 	}
 
