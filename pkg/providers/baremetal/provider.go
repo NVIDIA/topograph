@@ -18,7 +18,13 @@ type ProviderParams struct {
 }
 
 type Provider struct {
-	pp ProviderParams
+	pp   ProviderParams
+	cred Credentials
+}
+
+type Credentials struct {
+	Uname string
+	Pwd   string
 }
 
 var ErrMultiRegionNotSupported = errors.New("on-prem does not support multi-region topology requests")
@@ -32,13 +38,30 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 	if err != nil {
 		return nil, err
 	}
-	return New(p)
+	cred, err := GetCred(config.Creds)
+	if err != nil {
+		return nil, err
+	}
+	return New(p, cred)
 }
 
-func New(params *ProviderParams) (*Provider, error) {
+func New(params *ProviderParams, cred *Credentials) (*Provider, error) {
 	return &Provider{
-		pp: *params,
+		pp:   *params,
+		cred: *cred,
 	}, nil
+}
+
+func GetCred(cred map[string]string) (*Credentials, error) {
+	if _, ok := cred["uname"]; !ok {
+		return nil, fmt.Errorf("error username not provided")
+	}
+
+	if _, ok := cred["pwd"]; !ok {
+		return nil, fmt.Errorf("error username not provided")
+	}
+
+	return &Credentials{Uname: cred["uname"], Pwd: cred["pwd"]}, nil
 }
 
 func GetParams(params map[string]any) (*ProviderParams, error) {
@@ -49,11 +72,6 @@ func GetParams(params map[string]any) (*ProviderParams, error) {
 	if len(p.NetworkType) == 0 {
 		return nil, fmt.Errorf("no network type provided for baremetal")
 	}
-
-	if len(p.InputFilePath) == 0 {
-		return nil, fmt.Errorf("no Netq InputFilePath provided for baremetal")
-	}
-
 	return &p, nil
 }
 
@@ -63,7 +81,7 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 	}
 
 	if p.pp.NetworkType == "eth" {
-		return parseNetq(p.pp.InputFilePath)
+		return generateTopologyConfigForEth(ctx, p.cred)
 	}
 	//call mnnvl code from here
 	return generateTopologyConfig(ctx, instances)

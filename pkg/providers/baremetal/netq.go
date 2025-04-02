@@ -1,13 +1,18 @@
 package baremetal
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/topology"
+)
+
+const (
+	NETQLOGINURL = "https://api.air.netq.nvidia.com/netq/auth/v1/login"
+	NETQAPIURL   = "https://air.netq.nvidia.com/api/netq/telemetry/v1/object/topologygraph/fetch-topology?timestamp=0"
 )
 
 type NetqResponse struct {
@@ -30,18 +35,49 @@ type Links struct {
 	Id string `json:"id"`
 }
 
-// parseNetq parses Netq topology output
-func parseNetq(inputFilePath string) (*topology.Vertex, error) {
-	filePath, _ := filepath.Abs(inputFilePath)
-	plan, err := os.ReadFile(filePath)
+type AuthOutput struct {
+	AccessToken string `json:"access_token"`
+}
+
+func generateTopologyConfigForEth(ctx context.Context, cred Credentials) (*topology.Vertex, error) {
+	contentType := "Content-Type: application/json"
+	accept := "accept: application/json"
+
+	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", cred.Uname, cred.Pwd)
+	args := []string{NETQLOGINURL, "-H", accept, "-H", contentType, "-d", creds}
+	stdout, err := exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
-		return nil, fmt.Errorf("netq output file failed: %v", err)
+		return nil, err
 	}
+
+	//get access code from stdout and call API URL
+	var authOutput AuthOutput
+	outputBytes := stdout.Bytes()
+	if len(outputBytes) == 0 {
+		return nil, fmt.Errorf("failed to login to Netq server\n")
+	}
+
+	if err := json.Unmarshal(outputBytes, &authOutput); err != nil {
+		return nil, fmt.Errorf("failed to parse access token: %v\n", err)
+	}
+
+	addArgs := fmt.Sprintf("{\"filters\": [], \"subgroupNestingDepth\":2}")
+	args = []string{NETQAPIURL, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
+	stdout, err = exec.Exec(ctx, "curl", args, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	var netqResponse []NetqResponse
-	err = json.Unmarshal(plan, &netqResponse)
+	err = json.Unmarshal(stdout.Bytes(), &netqResponse)
 	if err != nil {
 		return nil, fmt.Errorf("netq output read failed: %v", err)
 	}
+	return parseNetq(netqResponse)
+}
+
+// parseNetq parses Netq topology output
+func parseNetq(netqResponse []NetqResponse) (*topology.Vertex, error) {
 
 	nodeMap := make(map[string]*topology.Vertex)
 	tierMap := make(map[string]int)
