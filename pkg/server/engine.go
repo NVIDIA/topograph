@@ -98,7 +98,7 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *HTTPError) {
 
 	// if the instance/node mapping is not provided in the payload, get the mapping from the provider
 	computeInstances := tr.Nodes
-	if len(computeInstances) == 0 {
+	/*if len(computeInstances) == 0 {
 		var err error
 		switch t := prv.(type) {
 		case simpleGetComputeInstances:
@@ -110,7 +110,7 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *HTTPError) {
 		if err != nil {
 			return nil, NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
-	}
+	}*/
 
 	var root *topology.Vertex
 	if srv.cfg.FwdSvcURL != nil {
