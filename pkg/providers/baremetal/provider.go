@@ -13,8 +13,7 @@ import (
 const NAME = "baremetal"
 
 type ProviderParams struct {
-	NetworkType   string `mapstructure:"network_type"`
-	InputFilePath string `mapstructure:"input_file_path"`
+	NetworkType string `mapstructure:"network_type"`
 }
 
 type Provider struct {
