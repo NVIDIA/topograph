@@ -304,6 +304,28 @@ func TestGetBlockSize(t *testing.T) {
 			adminBlockSize: "3,a",
 			expectedOutput: "3,6",
 		},
+		{
+			name: "Case 12: #nodes/block same, #blocks power of 2, admin provided larger base blocksize",
+			domainVisited: map[string]int{
+				"nvl1": 4,
+				"nvl2": 4,
+				"nvl3": 4,
+				"nvl4": 4,
+			},
+			adminBlockSize: "10",
+			expectedOutput: "4,8,16",
+		},
+		{
+			name: "Case 13: #nodes/block different, #blocks power of 2, admin provided smaller base blocksize",
+			domainVisited: map[string]int{
+				"nvl1": 3,
+				"nvl2": 4,
+				"nvl3": 3,
+				"nvl4": 4,
+			},
+			adminBlockSize: "2",
+			expectedOutput: "2",
+		},
 	}
 
 	for _, tc := range testCases {
