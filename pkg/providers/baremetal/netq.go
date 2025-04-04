@@ -61,7 +61,7 @@ func generateTopologyConfigForEth(ctx context.Context, cred Credentials) (*topol
 		return nil, fmt.Errorf("failed to parse access token: %v\n", err)
 	}
 
-	addArgs := fmt.Sprintf("{\"filters\": [], \"subgroupNestingDepth\":2}")
+	addArgs := "{\"filters\": [], \"subgroupNestingDepth\":2}"
 	args = []string{NETQAPIURL, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
 	stdout, err = exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
