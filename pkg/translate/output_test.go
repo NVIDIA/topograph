@@ -38,7 +38,7 @@ BlockSizes=3
 
 	testBlockConfigDiffNumNodes = `BlockName=B1 Nodes=Node[104-106]
 BlockName=B2 Nodes=Node[201-202,205-206]
-BlockSizes=2,4
+BlockSizes=3,6
 `
 
 	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
@@ -272,7 +272,7 @@ func TestGetBlockSize(t *testing.T) {
 				"nvl4": 4,
 			},
 			adminBlockSize: "4",
-			expectedOutput: "2,4,8",
+			expectedOutput: "3,6,12",
 		},
 		{
 			name: "Case 9: #nodes/block different, #blocks !power of 2, admin provided wrong blocksizes",
@@ -282,7 +282,7 @@ func TestGetBlockSize(t *testing.T) {
 				"nvl3": 3,
 			},
 			adminBlockSize: "3,4",
-			expectedOutput: "2,4",
+			expectedOutput: "3,6",
 		},
 		{
 			name: "Case 10: #nodes/block different, #blocks !power of 2, admin blocksizes parse error",
@@ -292,7 +292,7 @@ func TestGetBlockSize(t *testing.T) {
 				"nvl3": 3,
 			},
 			adminBlockSize: "a,4",
-			expectedOutput: "2,4",
+			expectedOutput: "3,6",
 		},
 		{
 			name: "Case 11: #nodes/block different, #blocks !power of 2, admin blocksizes parse error",
@@ -302,7 +302,29 @@ func TestGetBlockSize(t *testing.T) {
 				"nvl3": 3,
 			},
 			adminBlockSize: "3,a",
-			expectedOutput: "2,4",
+			expectedOutput: "3,6",
+		},
+		{
+			name: "Case 12: #nodes/block same, #blocks power of 2, admin provided larger base blocksize",
+			domainVisited: map[string]int{
+				"nvl1": 4,
+				"nvl2": 4,
+				"nvl3": 4,
+				"nvl4": 4,
+			},
+			adminBlockSize: "10",
+			expectedOutput: "4,8,16",
+		},
+		{
+			name: "Case 13: #nodes/block different, #blocks power of 2, admin provided smaller base blocksize",
+			domainVisited: map[string]int{
+				"nvl1": 3,
+				"nvl2": 4,
+				"nvl3": 3,
+				"nvl4": 4,
+			},
+			adminBlockSize: "2",
+			expectedOutput: "2",
 		},
 	}
 

@@ -110,6 +110,8 @@ func getBlockSize(domainSize map[string]int, adminBlockSize string) string {
 
 	maxnumbs := int(math.Log2(float64(len(domainSize))))
 	var outputbs []string
+
+	// If admin provided blocksize, validate it
 	if len(strings.TrimSpace(adminBlockSize)) != 0 {
 		blockSizes := strings.Split(adminBlockSize, ",")
 		// parse blocksizes
@@ -149,8 +151,12 @@ func getBlockSize(domainSize map[string]int, adminBlockSize string) string {
 	}
 
 	outputbs = nil
-	logDsize := math.Log2(float64(minDomainSize))
-	bs := int(math.Pow(2, float64(int(logDsize))))
+	/*
+		Commented lines choose base blocksize as the largest power of 2, which is less than minDomainSize
+		logDsize := math.Log2(float64(minDomainSize))
+		bs := int(math.Pow(2, float64(int(logDsize))))
+	*/
+	bs := minDomainSize
 	outputbs = append(outputbs, fmt.Sprintf("%d", bs))
 
 	for i := 1; i <= maxnumbs; i++ {
