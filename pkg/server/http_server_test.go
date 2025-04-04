@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -161,16 +162,23 @@ func TestServerLocal(t *testing.T) {
 		provider string
 		payload  string
 		expected string
+		metrics  []string
 	}{
 		{
 			name:     "Case 1: test invalid endpoint",
 			endpoint: "invalid",
 			expected: "404 page not found\n",
+			metrics: []string{
+				`topograph_http_request_duration_seconds_count\{from=".+",method="GET",path="/invalid",proto="HTTP/1\.1",status="404"\} 1`,
+			},
 		},
 		{
 			name:     "Case 2: test healthz endpoint",
 			endpoint: "healthz",
 			expected: "OK\n",
+			metrics: []string{
+				`topograph_http_request_duration_seconds_count\{from=".+",method="GET",path="/healthz",proto="HTTP/1\.1",status="200"\} 1`,
+			},
 		},
 		{
 			name:     "Case 3: send test request for tree topology",
@@ -178,6 +186,11 @@ func TestServerLocal(t *testing.T) {
 			provider: "test",
 			payload:  simpleSlurmPayload,
 			expected: simpleSlurmConfig,
+			metrics: []string{
+				`topograph_request_duration_seconds_count\{engine="slurm",provider="test",status="200"\} 1`,
+				`topograph_http_request_duration_seconds_count\{from=".+",method="POST",path="/v1/generate",proto="HTTP/1\.1",status="202"\} 1`,
+				`topograph_http_request_duration_seconds_count\{from=".+",method="GET",path="/v1/topology",proto="HTTP/1\.1",status="200"\} 1`,
+			},
 		},
 		{
 			name:     "Case 4: mock AWS request for tree topology",
@@ -185,6 +198,11 @@ func TestServerLocal(t *testing.T) {
 			provider: "aws-sim",
 			payload:  slurmTreePayload,
 			expected: slurmTreeConfig,
+			metrics: []string{
+				`topograph_request_duration_seconds_count\{engine="slurm",provider="aws-sim",status="200"\} 1`,
+				`topograph_http_request_duration_seconds_count\{from=".+",method="POST",path="/v1/generate",proto="HTTP/1\.1",status="202"\} 2`,
+				`topograph_http_request_duration_seconds_count\{from=".+",method="GET",path="/v1/topology",proto="HTTP/1\.1",status="200"\} 2`,
+			},
 		},
 		{
 			name:     "Case 5: mock AWS request for block topology",
@@ -194,7 +212,7 @@ func TestServerLocal(t *testing.T) {
 			expected: slurmBlockConfig,
 		},
 		{
-			name:     "Case 4: mock GCP request for tree topology",
+			name:     "Case 6: mock GCP request for tree topology",
 			endpoint: "generate",
 			provider: "gcp-sim",
 			payload:  slurmTreePayload,
@@ -211,56 +229,103 @@ SwitchName=sw14 Nodes=n-[1401-1402]
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var resp *http.Response
-			var body []byte
 			switch tc.endpoint {
 			case "invalid":
-				resp, err = http.Get(baseURL + "/invalid")
+				testInvalid(t, baseURL, tc.expected, tc.metrics)
 			case "healthz":
-				resp, err = http.Get(baseURL + "/healthz")
+				testHealthz(t, baseURL, tc.expected, tc.metrics)
 			case "generate":
-				// send topology request
-				payload := fmt.Sprintf(tc.payload, tc.provider)
-				resp, err = http.Post(baseURL+"/v1/generate", "application/json", bytes.NewBuffer([]byte(payload)))
-				require.NoError(t, err)
-				require.Equal(t, http.StatusAccepted, resp.StatusCode)
-
-				body, err = io.ReadAll(resp.Body)
-				require.NoError(t, err)
-				out := string(body)
-				resp.Body.Close()
-
-				// retrieve topology config
-				params := url.Values{}
-				params.Add("uid", out)
-				fullURL := fmt.Sprintf("%s?%s", baseURL+"/v1/topology", params.Encode())
-
-				for i := range 5 {
-					time.Sleep(time.Second)
-					resp, err = http.Get(fullURL)
-					require.NoError(t, err)
-
-					if resp.StatusCode == http.StatusOK {
-						break
-					}
-
-					resp.Body.Close()
-					if i == 4 {
-						t.Errorf("timeout")
-					}
-				}
-
+				testGenerate(t, baseURL, fmt.Sprintf(tc.payload, tc.provider), tc.expected, tc.metrics)
 			default:
 				t.Errorf("unsupported endpoint %s", tc.endpoint)
 			}
-
-			require.NoError(t, err)
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
-			require.Equal(t, stringToLineMap(tc.expected), stringToLineMap(string(body)))
 		})
+	}
+}
+
+func testInvalid(t *testing.T, baseURL, expected string, metrics []string) {
+	resp, err := http.Get(baseURL + "/invalid")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, expected, string(body))
+
+	checkMetrics(t, baseURL, metrics)
+}
+
+func testHealthz(t *testing.T, baseURL, expected string, metrics []string) {
+	resp, err := http.Get(baseURL + "/healthz")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, expected, string(body))
+
+	checkMetrics(t, baseURL, metrics)
+}
+
+func testGenerate(t *testing.T, baseURL, payload, expected string, metrics []string) {
+	// send topology request
+	resp, err := http.Post(baseURL+"/v1/generate", "application/json", bytes.NewBuffer([]byte(payload)))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	out := string(body)
+	resp.Body.Close()
+
+	// retrieve topology config
+	params := url.Values{}
+	params.Add("uid", out)
+	fullURL := fmt.Sprintf("%s?%s", baseURL+"/v1/topology", params.Encode())
+
+	for i := range 5 {
+		time.Sleep(time.Second)
+		resp, err = http.Get(fullURL)
+		require.NoError(t, err)
+
+		if resp.StatusCode == http.StatusOK {
+			break
+		}
+
+		resp.Body.Close()
+		if i == 4 {
+			t.Errorf("timeout")
+		}
+	}
+
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
+
+	checkMetrics(t, baseURL, metrics)
+}
+
+func checkMetrics(t *testing.T, baseURL string, metrics []string) {
+	resp, err := http.Get(baseURL + "/metrics")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	text := string(body)
+
+	for _, metric := range metrics {
+		matched, err := regexp.MatchString(metric, text)
+		require.NoError(t, err)
+		if !matched {
+			t.Errorf("missing metrics %q", metric)
+		}
 	}
 }
 

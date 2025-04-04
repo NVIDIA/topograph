@@ -24,7 +24,7 @@ var (
 	physicalHostIDChunks = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name:      "physical_host_id_chunks",
-			Subsystem: "topogen_gcp",
+			Subsystem: "topograph_gcp",
 			Help:      "Number of chunks in physical host ID as in /AA/BB/CCC",
 		}, []string{"instance_name"},
 	)
@@ -32,7 +32,7 @@ var (
 	resourceStatusNotFound = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name:      "resource_status_not_found",
-			Subsystem: "topogen_gcp",
+			Subsystem: "topograph_gcp",
 			Help:      "Number of times resource status not found",
 		}, []string{"instance_name"},
 	)
@@ -40,7 +40,7 @@ var (
 	physicalHostNotFound = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name:      "physical_host_not_found",
-			Subsystem: "topogen_gcp",
+			Subsystem: "topograph_gcp",
 			Help:      "Number of times physical host not found",
 		}, []string{"instance_name"},
 	)
@@ -48,7 +48,7 @@ var (
 	requestLatency = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name:       "request_latency",
-			Subsystem:  "topogen_gcp",
+			Subsystem:  "topograph_gcp",
 			Help:       "Latency of requests",
 			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 		},
