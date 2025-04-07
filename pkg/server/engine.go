@@ -89,28 +89,28 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *HTTPError) {
 		// TODO: Logic to determine between StatusBadRequest and StatusInternalServerError
 		return nil, NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	/*
-		// Optional provider interface if it directly supports getting compute instances.
-		// (e.g., Test provider)
-		type simpleGetComputeInstances interface {
-			GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error)
+
+	// Optional provider interface if it directly supports getting compute instances.
+	// (e.g., Test provider)
+	type simpleGetComputeInstances interface {
+		GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error)
+	}
+
+	// if the instance/node mapping is not provided in the payload, get the mapping from the provider
+	computeInstances := tr.Nodes
+	if len(computeInstances) == 0 {
+		var err error
+		switch t := prv.(type) {
+		case simpleGetComputeInstances:
+			computeInstances, err = t.GetComputeInstances(ctx)
+		default:
+			computeInstances, err = eng.GetComputeInstances(ctx, prv)
 		}
 
-		// if the instance/node mapping is not provided in the payload, get the mapping from the provider
-		computeInstances := tr.Nodes
-		if len(computeInstances) == 0 {
-			var err error
-			switch t := prv.(type) {
-			case simpleGetComputeInstances:
-				computeInstances, err = t.GetComputeInstances(ctx)
-			default:
-				computeInstances, err = eng.GetComputeInstances(ctx, prv)
-			}
-
-			if err != nil {
-				return nil, NewHTTPError(http.StatusInternalServerError, err.Error())
-			}
-		}*/
+		if err != nil {
+			return nil, NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
 
 	var root *topology.Vertex
 	if srv.cfg.FwdSvcURL != nil {
