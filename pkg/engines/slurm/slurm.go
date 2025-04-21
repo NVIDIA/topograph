@@ -47,10 +47,12 @@ const NAME = "slurm"
 type SlurmEngine struct{}
 
 type Params struct {
-	Plugin         string `mapstructure:"plugin"`
-	TopoConfigPath string `mapstructure:"topology_config_path"`
-	BlockSizes     string `mapstructure:"block_sizes"`
-	Reconfigure    bool   `mapstructure:"reconfigure"`
+	Plugin           string `mapstructure:"plugin"`
+	TopoConfigPath   string `mapstructure:"topology_config_path"`
+	BlockSizes       string `mapstructure:"block_sizes"`
+	Reconfigure      bool   `mapstructure:"reconfigure"`
+	FakeNodesEnabled bool   `mapstructure:"fakeNodesEnabled"`
+	SlurmFile        string `mapstructure:"slurmFile"`
 }
 
 type instanceMapper interface {
@@ -179,6 +181,11 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 	tree.Metadata[topology.KeyPlugin] = plugin
 	if len(params.BlockSizes) != 0 {
 		tree.Metadata[topology.KeyBlockSizes] = params.BlockSizes
+	}
+
+	if params.FakeNodesEnabled {
+		tree.Metadata[topology.KeyFakeNodesEnabled] = "true"
+		tree.Metadata[topology.KeySlurmFile] = params.SlurmFile
 	}
 
 	err := translate.Write(buf, tree)

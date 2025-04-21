@@ -30,10 +30,12 @@ const (
 	KeyTopoConfigmapNamespace = "topology_configmap_namespace"
 	KeyBlockSizes             = "block_sizes"
 
-	KeyPlugin     = "plugin"
-	TopologyTree  = "topology/tree"
-	TopologyBlock = "topology/block"
-	NoTopology    = "no-topology"
+	KeyPlugin        = "plugin"
+	TopologyTree     = "topology/tree"
+	TopologyBlock    = "topology/block"
+	NoTopology       = "no-topology"
+	KeyFakeNodesEnabled = "fakeNodesEnabled"
+	KeySlurmFile        = "slurmFile"
 )
 
 // Vertex is a tree node, representing a compute node or a network switch, where

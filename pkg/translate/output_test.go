@@ -18,6 +18,8 @@ package translate
 
 import (
 	"bytes"
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -330,7 +332,7 @@ func TestGetBlockSize(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := getBlockSize(tc.domainVisited, tc.adminBlockSize)
+			got := getBlockSize(getBlockRoot(tc.domainVisited), tc.adminBlockSize, nil)
 			require.Equal(t, tc.expectedOutput, got)
 		})
 	}
@@ -596,4 +598,90 @@ func getBlockWithDiffNumNodeTestSet() (*topology.Vertex, map[string]string) {
 		},
 	}
 	return root, instance2node
+}
+
+func getBlockRoot(domainVisited map[string]int) *topology.Vertex {
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{},
+	}
+	for id, numNodes := range domainVisited {
+		vertex := &topology.Vertex{
+			ID:       fmt.Sprintf("block-%s", id),
+			Name:     id,
+			Vertices: make(map[string]*topology.Vertex),
+		}
+
+		for node := range numNodes {
+			nodeid := strconv.Itoa(node)
+			vertex.Vertices[nodeid] = &topology.Vertex{
+				Name: nodeid,
+				ID:   nodeid,
+			}
+		}
+
+		blockRoot.Vertices[id] = vertex
+	}
+	return blockRoot
+}
+func TestGetBlockSizeWithFakeNodes(t *testing.T) {
+	testCases := []struct {
+		name           string
+		domainVisited  map[string]int
+		adminBlockSize string
+		expectedOutput string
+	}{
+		{
+			name: "Case 1: #nodes/block same, #nodes/block = 18, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 18,
+				"nvl2": 18,
+			},
+			adminBlockSize: "",
+			expectedOutput: "18,36",
+		},
+		{
+			name: "Case 2: #nodes/block different, #nodes/block <= 18, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 12,
+				"nvl2": 18,
+			},
+			adminBlockSize: "",
+			expectedOutput: "18,36",
+		},
+		{
+			name: "Case 3: #nodes/block same, #nodes/block < 18, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 12,
+				"nvl2": 12,
+			},
+			adminBlockSize: "",
+			expectedOutput: "18,36",
+		},
+		{
+			name: "Case 4: #nodes/block same, #nodes/block < 18, admin provided base block size=18",
+			domainVisited: map[string]int{
+				"nvl1": 12,
+				"nvl2": 12,
+			},
+			adminBlockSize: "18",
+			expectedOutput: "18",
+		},
+		{
+			name: "Case 5: #nodes/block same, #nodes/block = 18, admin provided base block size<18",
+			domainVisited: map[string]int{
+				"nvl1": 18,
+				"nvl2": 18,
+			},
+			adminBlockSize: "15",
+			expectedOutput: "15",
+		},
+	}
+
+	fnc := &fakeNodeConfig{baseBlockSize: 0}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getBlockSize(getBlockRoot(tc.domainVisited), tc.adminBlockSize, fnc)
+			require.Equal(t, tc.expectedOutput, got)
+		})
+	}
 }
