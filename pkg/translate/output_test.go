@@ -704,7 +704,7 @@ func TestBlockFakeNodes(t *testing.T) {
 	defer func() { _ = os.Remove(file.Name()) }()
 	defer func() { _ = file.Close() }()
 
-	_, err = file.WriteString(fmt.Sprintf(slurmFileData))
+	_, err = file.WriteString(slurmFileData)
 	require.NoError(t, err)
 
 	fnc, err := getFakeNodeConfig(file.Name())
