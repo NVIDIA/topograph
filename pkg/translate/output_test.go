@@ -19,6 +19,7 @@ package translate
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 	"testing"
 
@@ -66,6 +67,16 @@ SwitchName=switch.2.2 Switches=switch.1.2
 SwitchName=switch.1.1 Nodes=node-1
 # switch.1.2=local-block-2
 SwitchName=switch.1.2 Nodes=node-2
+`
+
+	slurmFileData = `NodeName=fake[100-998] RealMemory=65238 Boards=1 SocketsPerBoard=1 CoresPerSocket=16 ThreadsPerCore=1 Features=location=us-central1-b,CPU State=FUTURE
+PartitionName="cpu-small" MinNodes=1 DefaultTime=8:00:00 MaxTime=8:00:00 AllowGroups=ALL PriorityJobFactor=1 PriorityTier=1 OverSubscribe=NO PreemptMode=OFF QOS=20_cpus_per_user AllowAccounts=ALL AllowQos=ALL TRESBillingWeights=CPU=0.0000001,Mem=0.000000015G Nodes=cpu-small-[001,002],fake[001-998]
+`
+
+	testBlockConfigFakeNodes = `BlockName=B1 Nodes=Node202, fake[100-101]
+BlockName=B2 Nodes=Node[104-105], fake102
+BlockName=B3 Nodes=Node205, fake[103-104]
+BlockSizes=3
 `
 )
 
@@ -684,4 +695,123 @@ func TestGetBlockSizeWithFakeNodes(t *testing.T) {
 			require.Equal(t, tc.expectedOutput, got)
 		})
 	}
+}
+
+func TestBlockFakeNodes(t *testing.T) {
+	// Test Fake node config
+	file, err := os.CreateTemp("", "test-fakecfg")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(file.Name()) }()
+	defer func() { _ = file.Close() }()
+
+	_, err = file.WriteString(fmt.Sprintf(slurmFileData))
+	require.NoError(t, err)
+
+	fnc, err := getFakeNodeConfig(file.Name())
+	require.NoError(t, err)
+
+	expectedFnc := &fakeNodeConfig{
+		startRange: 100,
+		endRange:   998,
+		lastUsed:   99,
+	}
+	require.Equal(t, expectedFnc, fnc)
+
+	// Test Fake node output
+	v, _ := getBlockWithFakeNodes(file.Name())
+	buf := &bytes.Buffer{}
+	err = Write(buf, v)
+	require.NoError(t, err)
+	switch buf.String() {
+	case testBlockConfigFakeNodes:
+		// nop
+	default:
+		t.Errorf("unexpected result %s", buf.String())
+	}
+}
+
+func getBlockWithFakeNodes(fileName string) (*topology.Vertex, map[string]string) {
+	//
+	//     		 ibRoot1
+	//       /      |        \
+	//   S1         S2         S3
+	//   |          |          |
+	//   S4        ---         S5
+	//   |         I14\        |
+	//  ---			  B2      ---
+	//  I22-B1     I15/       I25-B3
+	//  ---        ---        ---
+	//
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105",
+		"I22": "Node202", "I25": "Node205",
+	}
+
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
+
+	sw2 := &topology.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
+	}
+
+	sw4 := &topology.Vertex{
+		ID:       "S4",
+		Vertices: map[string]*topology.Vertex{"I22": n22},
+	}
+
+	sw5 := &topology.Vertex{
+		ID:       "S5",
+		Vertices: map[string]*topology.Vertex{"I25": n25},
+	}
+
+	sw3 := &topology.Vertex{
+		ID:       "S3",
+		Vertices: map[string]*topology.Vertex{"S5": sw5},
+	}
+	sw1 := &topology.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*topology.Vertex{"S4": sw4},
+	}
+
+	sw0 := &topology.Vertex{
+		ID:       "S0",
+		Vertices: map[string]*topology.Vertex{"S1": sw1, "S2": sw2, "S3": sw3},
+	}
+
+	treeRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S0": sw0},
+	}
+
+	block2 := &topology.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
+	}
+	block1 := &topology.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*topology.Vertex{"I22": n22},
+	}
+
+	block3 := &topology.Vertex{
+		ID:       "B3",
+		Vertices: map[string]*topology.Vertex{"I25": n25},
+	}
+
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2, "B3": block3},
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
+		Metadata: map[string]string{
+			topology.KeyPlugin:           topology.TopologyBlock,
+			topology.KeyBlockSizes:       "3",
+			topology.KeyFakeNodesEnabled: "true",
+			topology.KeySlurmFile:        fileName,
+		},
+	}
+	return root, instance2node
 }

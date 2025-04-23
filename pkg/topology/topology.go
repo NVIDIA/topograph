@@ -30,10 +30,10 @@ const (
 	KeyTopoConfigmapNamespace = "topology_configmap_namespace"
 	KeyBlockSizes             = "block_sizes"
 
-	KeyPlugin        = "plugin"
-	TopologyTree     = "topology/tree"
-	TopologyBlock    = "topology/block"
-	NoTopology       = "no-topology"
+	KeyPlugin           = "plugin"
+	TopologyTree        = "topology/tree"
+	TopologyBlock       = "topology/block"
+	NoTopology          = "no-topology"
 	KeyFakeNodesEnabled = "fakeNodesEnabled"
 	KeySlurmFile        = "slurmFile"
 )
