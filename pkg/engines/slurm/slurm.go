@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -52,7 +53,6 @@ type Params struct {
 	BlockSizes       string `mapstructure:"block_sizes"`
 	Reconfigure      bool   `mapstructure:"reconfigure"`
 	FakeNodesEnabled bool   `mapstructure:"fakeNodesEnabled"`
-	SlurmFile        string `mapstructure:"slurmFile"`
 }
 
 type instanceMapper interface {
@@ -130,6 +130,33 @@ func GetNodeList(ctx context.Context) ([]string, error) {
 	return nodes, nil
 }
 
+func GetFakeNodes(ctx context.Context) (string, error) {
+	var fakeRange []string
+	reFake := regexp.MustCompile(`^Nodes=(.*)\[(\d+)-(\d+)\]`)
+	args := []string{"show", "partition", "fake"}
+	stdout, err := exec.Exec(ctx, "scontrol", args, nil)
+	if err != nil {
+		return "", err
+	}
+
+	klog.V(4).Infof("stdout: %s", stdout.String())
+
+	scanner := bufio.NewScanner(strings.NewReader(stdout.String()))
+	for scanner.Scan() {
+		line := scanner.Text()
+		fakeRange = reFake.FindStringSubmatch(line)
+		if len(fakeRange) == 4 {
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to scan fake nodes partition: %v", err)
+	}
+	output := fmt.Sprintf("%s,%s,%s", fakeRange[1], fakeRange[2], fakeRange[3]) // fakeNodePrefix, start, end
+	return output, nil
+}
+
 func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
 	return GenerateOutput(ctx, tree, params)
 }
@@ -184,8 +211,11 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 	}
 
 	if params.FakeNodesEnabled {
-		tree.Metadata[topology.KeyFakeNodesEnabled] = "true"
-		tree.Metadata[topology.KeySlurmFile] = params.SlurmFile
+		fakeData, err := GetFakeNodes(ctx)
+		if err != nil {
+			return nil, err
+		}
+		tree.Metadata[topology.KeyFakeConfig] = fakeData
 	}
 
 	err := translate.Write(buf, tree)

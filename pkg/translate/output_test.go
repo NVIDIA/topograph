@@ -19,7 +19,6 @@ package translate
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -67,10 +66,6 @@ SwitchName=switch.2.2 Switches=switch.1.2
 SwitchName=switch.1.1 Nodes=node-1
 # switch.1.2=local-block-2
 SwitchName=switch.1.2 Nodes=node-2
-`
-
-	slurmFileData = `NodeName=fake[100-998] RealMemory=65238 Boards=1 SocketsPerBoard=1 CoresPerSocket=16 ThreadsPerCore=1 Features=location=us-central1-b,CPU State=FUTURE
-PartitionName="cpu-small" MinNodes=1 DefaultTime=8:00:00 MaxTime=8:00:00 AllowGroups=ALL PriorityJobFactor=1 PriorityTier=1 OverSubscribe=NO PreemptMode=OFF QOS=20_cpus_per_user AllowAccounts=ALL AllowQos=ALL TRESBillingWeights=CPU=0.0000001,Mem=0.000000015G Nodes=cpu-small-[001,002],fake[001-998]
 `
 
 	testBlockConfigFakeNodes = `BlockName=B1 Nodes=Node202, fake[100-101]
@@ -343,7 +338,7 @@ func TestGetBlockSize(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := getBlockSize(getBlockRoot(tc.domainVisited), tc.adminBlockSize, nil)
+			got, _ := getBlockSize(getBlockRoot(tc.domainVisited), tc.adminBlockSize, nil)
 			require.Equal(t, tc.expectedOutput, got)
 		})
 	}
@@ -688,10 +683,14 @@ func TestGetBlockSizeWithFakeNodes(t *testing.T) {
 		},
 	}
 
-	fnc := &fakeNodeConfig{baseBlockSize: 0}
+	fnc := &fakeNodeConfig{
+		startRange:    0,
+		endRange:      36,
+		baseBlockSize: 0,
+	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := getBlockSize(getBlockRoot(tc.domainVisited), tc.adminBlockSize, fnc)
+			got, _ := getBlockSize(getBlockRoot(tc.domainVisited), tc.adminBlockSize, fnc)
 			require.Equal(t, tc.expectedOutput, got)
 		})
 	}
@@ -699,26 +698,20 @@ func TestGetBlockSizeWithFakeNodes(t *testing.T) {
 
 func TestBlockFakeNodes(t *testing.T) {
 	// Test Fake node config
-	file, err := os.CreateTemp("", "test-fakecfg")
-	require.NoError(t, err)
-	defer func() { _ = os.Remove(file.Name()) }()
-	defer func() { _ = file.Close() }()
-
-	_, err = file.WriteString(slurmFileData)
-	require.NoError(t, err)
-
-	fnc, err := getFakeNodeConfig(file.Name())
+	fakeNodeData := "fake,100,998"
+	fnc, err := getFakeNodeConfig(fakeNodeData)
 	require.NoError(t, err)
 
 	expectedFnc := &fakeNodeConfig{
-		startRange: 100,
-		endRange:   998,
-		lastUsed:   99,
+		fakeNodePrefix: "fake",
+		startRange:     100,
+		endRange:       998,
+		lastUsed:       99,
 	}
 	require.Equal(t, expectedFnc, fnc)
 
 	// Test Fake node output
-	v, _ := getBlockWithFakeNodes(file.Name())
+	v, _ := getBlockWithFakeNodes(fakeNodeData)
 	buf := &bytes.Buffer{}
 	err = Write(buf, v)
 	require.NoError(t, err)
@@ -730,7 +723,7 @@ func TestBlockFakeNodes(t *testing.T) {
 	}
 }
 
-func getBlockWithFakeNodes(fileName string) (*topology.Vertex, map[string]string) {
+func getBlockWithFakeNodes(fakeNodeData string) (*topology.Vertex, map[string]string) {
 	//
 	//     		 ibRoot1
 	//       /      |        \
@@ -807,10 +800,9 @@ func getBlockWithFakeNodes(fileName string) (*topology.Vertex, map[string]string
 	root := &topology.Vertex{
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
-			topology.KeyPlugin:           topology.TopologyBlock,
-			topology.KeyBlockSizes:       "3",
-			topology.KeyFakeNodesEnabled: "true",
-			topology.KeySlurmFile:        fileName,
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "3",
+			topology.KeyFakeConfig: fakeNodeData,
 		},
 	}
 	return root, instance2node

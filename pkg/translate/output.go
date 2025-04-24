@@ -17,13 +17,9 @@
 package translate
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"math"
-	"os"
-	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,10 +36,11 @@ const (
 )
 
 type fakeNodeConfig struct {
-	baseBlockSize int
-	startRange    int
-	endRange      int
-	lastUsed      int
+	fakeNodePrefix string
+	baseBlockSize  int
+	startRange     int
+	endRange       int
+	lastUsed       int
 }
 
 func Write(wr io.Writer, root *topology.Vertex) error {
@@ -60,36 +57,25 @@ func Write(wr io.Writer, root *topology.Vertex) error {
 	return toTreeTopology(wr, root.Vertices[topology.TopologyTree])
 }
 
-func getFakeNodeConfig(inputFilePath string) (*fakeNodeConfig, error) {
-	var fakeRange []string
-	reFake := regexp.MustCompile(`^NodeName=fake\[(\d+)-(\d+)\]`)
-	filePath, _ := filepath.Abs(inputFilePath)
-	slurmConfig, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read Slurm file: %v", err)
-	}
-	scanner := bufio.NewScanner(strings.NewReader(string(slurmConfig)))
-	for scanner.Scan() {
-		line := scanner.Text()
-		fakeRange = reFake.FindStringSubmatch(line)
-		if len(fakeRange) == 3 {
-			break
-		}
-	}
+func getFakeNodeConfig(fakeNodeData string) (*fakeNodeConfig, error) {
+	fakeData := strings.Split(fakeNodeData, ",")
 
-	start, err := strconv.Atoi(fakeRange[1])
+	fakeNodePrefix := fakeData[0]
+
+	start, err := strconv.Atoi(fakeData[1])
 	if err != nil {
 		return nil, err
 	}
-	end, err := strconv.Atoi(fakeRange[2])
+	end, err := strconv.Atoi(fakeData[2])
 	if err != nil {
 		return nil, err
 	}
 
 	fnc := fakeNodeConfig{
-		startRange: start,
-		endRange:   end,
-		lastUsed:   start - 1,
+		fakeNodePrefix: fakeNodePrefix,
+		startRange:     start,
+		endRange:       end,
+		lastUsed:       start - 1,
 	}
 
 	return &fnc, nil
@@ -102,7 +88,7 @@ func getFreeFakeNodes(numFakeNodes int, fnc *fakeNodeConfig) []string {
 	end := fnc.lastUsed + numFakeNodes
 	for n := start; n <= end; n++ {
 		padWidth := 1 + int(math.Log10(float64(end)))
-		fakeNodeName := fmt.Sprintf("fake%0*d", padWidth, n)
+		fakeNodeName := fmt.Sprintf("%s%0*d", fnc.fakeNodePrefix, padWidth, n)
 		fakeNodes = append(fakeNodes, fakeNodeName)
 	}
 	fnc.lastUsed = end
@@ -180,9 +166,16 @@ func findMinDomainSize(blockRoot *topology.Vertex) (int, int) {
 	return minDomainSize, len(blockRoot.Vertices)
 }
 
+func isEnoughFakeNodesAvailable(blockSize int, numDomains int, fnc *fakeNodeConfig) bool {
+	if (fnc.endRange - fnc.startRange + 1) >= (blockSize * numDomains) {
+		return true
+	}
+	return false
+}
+
 // getBlockSize returns blocksize for each possible level.
 // Admin provided blocksize is validated and is overriden with default blocksizes if validation fails.
-func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNodeConfig) string {
+func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNodeConfig) (string, error) {
 	// smallest domain size
 	minDomainSize, numDomains := findMinDomainSize(blockRoot)
 
@@ -230,8 +223,11 @@ func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNo
 		if len(outputbs) == len(blockSizes) {
 			if fnc != nil {
 				fnc.baseBlockSize = planningBS
+				if !isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains, fnc) {
+					return "", fmt.Errorf("Not enough fake nodes available")
+				}
 			}
-			return strings.Join(outputbs, ",")
+			return strings.Join(outputbs, ","), nil
 		}
 	}
 
@@ -251,9 +247,12 @@ func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNo
 
 	if fnc != nil {
 		fnc.baseBlockSize = bs
+		if !isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains, fnc) {
+			return "", fmt.Errorf("Not enough fake nodes available")
+		}
 	}
 
-	return strings.Join(outputbs, ",")
+	return strings.Join(outputbs, ","), nil
 }
 
 func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
@@ -266,8 +265,8 @@ func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
 
 	var fnc *fakeNodeConfig
 	var err error
-	if root.Metadata[topology.KeyFakeNodesEnabled] == "true" {
-		fnc, err = getFakeNodeConfig(root.Metadata[topology.KeySlurmFile])
+	if len(root.Metadata[topology.KeyFakeConfig]) > 0 {
+		fnc, err = getFakeNodeConfig(root.Metadata[topology.KeyFakeConfig])
 		if err != nil {
 			return err
 		}
@@ -278,7 +277,10 @@ func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
 	if _, exists := root.Metadata[topology.KeyBlockSizes]; exists {
 		blockSize = root.Metadata[topology.KeyBlockSizes]
 	}
-	blockSize = getBlockSize(blockRoot, blockSize, fnc)
+	blockSize, err = getBlockSize(blockRoot, blockSize, fnc)
+	if err != nil {
+		return err
+	}
 
 	// print blocks
 	if treeRoot != nil {
