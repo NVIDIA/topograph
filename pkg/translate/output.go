@@ -167,10 +167,7 @@ func findMinDomainSize(blockRoot *topology.Vertex) (int, int) {
 }
 
 func isEnoughFakeNodesAvailable(blockSize int, numDomains int, fnc *fakeNodeConfig) bool {
-	if (fnc.endRange - fnc.startRange + 1) >= (blockSize * numDomains) {
-		return true
-	}
-	return false
+	return (fnc.endRange - fnc.startRange + 1) >= (blockSize * numDomains)
 }
 
 // getBlockSize returns blocksize for each possible level.
