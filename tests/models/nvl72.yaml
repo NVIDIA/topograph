@@ -1,0 +1,58 @@
+#      _________
+#      |       | 
+#   spine-1 spine-2 
+#      |       | 
+#      |      ... 
+#      |
+#      ____________
+#      |          |
+#   leaf-1-1   leaf-1-2
+#      |          |
+#   -------    -------
+#    1101       1201
+#     ...        ...
+#    1108       1208
+#   -------    ------- 
+#   cb-1-1     cb-1-2
+#
+# Supported block sizes: 18, 36, 72
+#
+switches:
+- name: core
+  metadata:
+    region: us-east
+    group: none
+  switches: [spine-1,spine-2]
+- name: spine-1
+  metadata:
+    availability_zone: zone1
+  switches: [leaf-1-1,leaf-1-2]
+- name: spine-2
+  metadata:
+    availability_zone: zone1
+  switches: [leaf-2-1,leaf-2-2]
+- name: leaf-1-1
+  capacity_blocks: [cb-1-1]
+- name: leaf-1-2
+  capacity_blocks: [cb-1-2]
+- name: leaf-2-1
+  capacity_blocks: [cb-2-1]
+- name: leaf-2-2
+  capacity_blocks: [cb-2-2]
+capacity_blocks:
+- name: cb-1-1
+  type: GB200
+  nvlink: nvl-1-1
+  nodes: ["[1101-1115]"]
+- name: cb-1-2
+  type: GB200
+  nvlink: nvl-1-2
+  nodes: ["[1201-1215]"]
+- name: cb-2-1
+  type: GB200
+  nvlink: nvl-2-1
+  nodes: ["[2101-2115]"]
+- name: cb-2-2
+  type: GB200
+  nvlink: nvl-2-2
+  nodes: ["[2201-2218]"]

@@ -1,0 +1,18 @@
+{
+  "provider": {
+    "name": "aws-sim",
+    "params": {
+      "model_path": "tests/models/nvl72.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "topology_config_path": "topology_block_fake.conf",
+      "fakeNodesEnabled": true,
+      "block_sizes": "16,32",
+      "fake_node_pool": "fake[100-200]"
+    }
+  }
+}

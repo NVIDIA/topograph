@@ -1,0 +1,18 @@
+{
+    "provider": {
+      "name": "test",
+      "params": {
+        "model_path": "tests/models/nvl72.yaml"
+      }
+    },
+    "engine": {
+      "name": "slurm",
+      "params": {
+        "plugin": "topology/block",
+        "fakeNodesEnabled" : "true",
+        "fake_node_pool": "fake[1-80]",
+        "topology_config_path": "topology_block_fake.conf"
+      }
+    }
+  }
+  

@@ -1,0 +1,18 @@
+{
+    "provider": {
+      "name": "oci-sim",
+      "params": {
+        "model_path": "tests/models/large.yaml"
+      }
+    },
+    "engine": {
+      "name": "slurm",
+      "params": {
+        "plugin": "topology/block",
+        "topology_config_path": "topology_block_fake.conf",
+        "fakeNodesEnabled": true,
+        "fake_node_pool": "fake[100-1000]"
+      }
+    }
+  }
+  
