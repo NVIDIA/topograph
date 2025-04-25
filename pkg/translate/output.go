@@ -61,7 +61,7 @@ func Write(wr io.Writer, root *topology.Vertex) error {
 func getFakeNodeConfig(fakeNodeData string) (*fakeNodeConfig, error) {
 	reFake := regexp.MustCompile(`(.*)\[(\d+)-(\d+)\]`)
 	fakeRange := reFake.FindStringSubmatch(fakeNodeData)
-	if len(fakeRange) == 4 {
+	if len(fakeRange) != 4 {
 		return nil, fmt.Errorf("insupported format of fake nodes: %s", fakeNodeData)
 	}
 

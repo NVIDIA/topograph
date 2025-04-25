@@ -698,7 +698,7 @@ func TestGetBlockSizeWithFakeNodes(t *testing.T) {
 
 func TestBlockFakeNodes(t *testing.T) {
 	// Test Fake node config
-	fakeNodeData := "fake,100,998"
+	fakeNodeData := "fake[100-998]"
 	fnc, err := getFakeNodeConfig(fakeNodeData)
 	require.NoError(t, err)
 
