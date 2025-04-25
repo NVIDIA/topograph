@@ -115,7 +115,7 @@ func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]i
 		if fnc != nil && len(nodes) < fnc.baseBlockSize {
 			fakeNodes := getFreeFakeNodes(fnc.baseBlockSize-len(nodes), fnc)
 			fakeNodeNames := strings.Join(cluset.Compact(fakeNodes), ",")
-			outputNodeNames = fmt.Sprintf("%s, %s", outputNodeNames, fakeNodeNames)
+			outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
 		}
 
 		domainVisited[block.ID] = len(nodes)

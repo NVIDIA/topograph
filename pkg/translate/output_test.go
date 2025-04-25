@@ -68,9 +68,9 @@ SwitchName=switch.1.1 Nodes=node-1
 SwitchName=switch.1.2 Nodes=node-2
 `
 
-	testBlockConfigFakeNodes = `BlockName=B1 Nodes=Node202, fake[100-101]
-BlockName=B2 Nodes=Node[104-105], fake102
-BlockName=B3 Nodes=Node205, fake[103-104]
+	testBlockConfigFakeNodes = `BlockName=B1 Nodes=Node202,fake[100-101]
+BlockName=B2 Nodes=Node[104-105],fake102
+BlockName=B3 Nodes=Node205,fake[103-104]
 BlockSizes=3
 `
 )
