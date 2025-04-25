@@ -684,9 +684,12 @@ func TestGetBlockSizeWithFakeNodes(t *testing.T) {
 	}
 
 	fnc := &fakeNodeConfig{
-		startRange:    0,
-		endRange:      36,
+		nodes:         []string{},
 		baseBlockSize: 0,
+	}
+
+	for i := 0; i <= 36; i++ {
+		fnc.nodes = append(fnc.nodes, fmt.Sprintf("fake%02d", i))
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -703,10 +706,11 @@ func TestBlockFakeNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedFnc := &fakeNodeConfig{
-		fakeNodePrefix: "fake",
-		startRange:     100,
-		endRange:       998,
-		lastUsed:       99,
+		nodes: []string{},
+		index: 0,
+	}
+	for i := 100; i <= 998; i++ {
+		expectedFnc.nodes = append(expectedFnc.nodes, fmt.Sprintf("fake%d", i))
 	}
 	require.Equal(t, expectedFnc, fnc)
 

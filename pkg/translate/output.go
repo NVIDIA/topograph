@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,11 +36,9 @@ const (
 )
 
 type fakeNodeConfig struct {
-	fakeNodePrefix string
-	baseBlockSize  int
-	startRange     int
-	endRange       int
-	lastUsed       int
+	baseBlockSize int
+	index         int
+	nodes         []string
 }
 
 func Write(wr io.Writer, root *topology.Vertex) error {
@@ -59,45 +56,23 @@ func Write(wr io.Writer, root *topology.Vertex) error {
 }
 
 func getFakeNodeConfig(fakeNodeData string) (*fakeNodeConfig, error) {
-	reFake := regexp.MustCompile(`(.*)\[(\d+)-(\d+)\]`)
-	fakeRange := reFake.FindStringSubmatch(fakeNodeData)
-	if len(fakeRange) != 4 {
-		return nil, fmt.Errorf("insupported format of fake nodes: %s", fakeNodeData)
-	}
-
-	fakeNodePrefix := fakeRange[1]
-
-	start, err := strconv.Atoi(fakeRange[2])
-	if err != nil {
-		return nil, err
-	}
-	end, err := strconv.Atoi(fakeRange[3])
-	if err != nil {
-		return nil, err
-	}
-
 	fnc := fakeNodeConfig{
-		fakeNodePrefix: fakeNodePrefix,
-		startRange:     start,
-		endRange:       end,
-		lastUsed:       start - 1,
+		nodes: cluset.Expand([]string{fakeNodeData}),
+		index: 0,
 	}
-
 	return &fnc, nil
 }
 
 // getFreeFakeNodes generates fake nodes names.
-func getFreeFakeNodes(numFakeNodes int, fnc *fakeNodeConfig) []string {
-	var fakeNodes []string
-	start := fnc.lastUsed + 1
-	end := fnc.lastUsed + numFakeNodes
-	for n := start; n <= end; n++ {
-		padWidth := 1 + int(math.Log10(float64(end)))
-		fakeNodeName := fmt.Sprintf("%s%0*d", fnc.fakeNodePrefix, padWidth, n)
-		fakeNodes = append(fakeNodes, fakeNodeName)
-	}
-	fnc.lastUsed = end
-	return fakeNodes
+func (fnc *fakeNodeConfig) getFreeFakeNodes(numFakeNodes int) []string {
+	start := fnc.index
+	end := fnc.index + numFakeNodes
+	fnc.index = end
+	return fnc.nodes[start:end]
+}
+
+func (fnc *fakeNodeConfig) isEnoughFakeNodesAvailable(blockSize int, numDomains int) bool {
+	return len(fnc.nodes) >= (blockSize * numDomains)
 }
 
 func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int, fnc *fakeNodeConfig) error {
@@ -113,7 +88,7 @@ func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]i
 
 		outputNodeNames := strings.Join(cluset.Compact(nodes), ",")
 		if fnc != nil && len(nodes) < fnc.baseBlockSize {
-			fakeNodes := getFreeFakeNodes(fnc.baseBlockSize-len(nodes), fnc)
+			fakeNodes := fnc.getFreeFakeNodes(fnc.baseBlockSize - len(nodes))
 			fakeNodeNames := strings.Join(cluset.Compact(fakeNodes), ",")
 			outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
 		}
@@ -171,11 +146,7 @@ func findMinDomainSize(blockRoot *topology.Vertex) (int, int) {
 	return minDomainSize, len(blockRoot.Vertices)
 }
 
-func isEnoughFakeNodesAvailable(blockSize int, numDomains int, fnc *fakeNodeConfig) bool {
-	return (fnc.endRange - fnc.startRange + 1) >= (blockSize * numDomains)
-}
-
-// getBlockSize returns blocksize for each possible level.
+// getBlockSize returns blocksize for qeach possible level.
 // Admin provided blocksize is validated and is overriden with default blocksizes if validation fails.
 func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNodeConfig) (string, error) {
 	// smallest domain size
@@ -225,7 +196,7 @@ func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNo
 		if len(outputbs) == len(blockSizes) {
 			if fnc != nil {
 				fnc.baseBlockSize = planningBS
-				if !isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains, fnc) {
+				if !fnc.isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains) {
 					return "", fmt.Errorf("Not enough fake nodes available")
 				}
 			}
@@ -249,7 +220,7 @@ func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNo
 
 	if fnc != nil {
 		fnc.baseBlockSize = bs
-		if !isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains, fnc) {
+		if !fnc.isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains) {
 			return "", fmt.Errorf("Not enough fake nodes available")
 		}
 	}
