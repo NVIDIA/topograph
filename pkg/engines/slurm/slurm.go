@@ -146,7 +146,7 @@ func getFakeNodes(data string) (string, error) {
 	prefix := "Nodes="
 	scanner := bufio.NewScanner(strings.NewReader(data))
 	for scanner.Scan() {
-		if line := scanner.Text(); strings.HasPrefix(line, prefix) {
+		if line := strings.TrimSpace(scanner.Text()); strings.HasPrefix(line, prefix) {
 			return line[len(prefix):], nil
 		}
 	}

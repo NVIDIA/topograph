@@ -36,13 +36,13 @@ func TestGetFakeNodes(t *testing.T) {
 		{
 			name: "Case 2: valid input",
 			in: `PartitionName=fake
-AllowQos=ALL
-DefaultTime=NONE DisableRootJobs=NO ExclusiveUser=NO GraceTime=0 Hidden=NO
-MaxNodes=UNLIMITED MaxTime=08:00:00 MinNodes=1 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED
-Nodes=fake-[01-16]
-OverTimeLimit=NONE PreemptMode=OFF
-JobDefaults=(null)
-DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED
+   AllowQos=ALL
+   DefaultTime=NONE DisableRootJobs=NO ExclusiveUser=NO GraceTime=0 Hidden=NO
+   MaxNodes=UNLIMITED MaxTime=08:00:00 MinNodes=1 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED
+   Nodes=fake-[01-16]
+   OverTimeLimit=NONE PreemptMode=OFF
+   JobDefaults=(null)
+   DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED
 `,
 			out: "fake-[01-16]",
 		},
