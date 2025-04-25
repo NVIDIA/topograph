@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -132,8 +131,6 @@ func GetNodeList(ctx context.Context) ([]string, error) {
 }
 
 func GetFakeNodes(ctx context.Context) (string, error) {
-	var fakeRange []string
-	reFake := regexp.MustCompile(`^Nodes=(.*)\[(\d+)-(\d+)\]`)
 	args := []string{"show", "partition", "fake"}
 	stdout, err := exec.Exec(ctx, "scontrol", args, nil)
 	if err != nil {
@@ -142,20 +139,19 @@ func GetFakeNodes(ctx context.Context) (string, error) {
 
 	klog.V(4).Infof("stdout: %s", stdout.String())
 
+	prefix := "Nodes="
 	scanner := bufio.NewScanner(strings.NewReader(stdout.String()))
 	for scanner.Scan() {
-		line := scanner.Text()
-		fakeRange = reFake.FindStringSubmatch(line)
-		if len(fakeRange) == 4 {
-			break
+		if line := scanner.Text(); strings.HasPrefix(line, prefix) {
+			return line[len(prefix):], nil
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		return "", fmt.Errorf("failed to scan fake nodes partition: %v", err)
 	}
-	output := fmt.Sprintf("%s,%s,%s", fakeRange[1], fakeRange[2], fakeRange[3]) // fakeNodePrefix, start, end
-	return output, nil
+
+	return "", fmt.Errorf("fake partition has no nodes")
 }
 
 func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -58,15 +59,19 @@ func Write(wr io.Writer, root *topology.Vertex) error {
 }
 
 func getFakeNodeConfig(fakeNodeData string) (*fakeNodeConfig, error) {
-	fakeData := strings.Split(fakeNodeData, ",")
+	reFake := regexp.MustCompile(`(.*)\[(\d+)-(\d+)\]`)
+	fakeRange := reFake.FindStringSubmatch(fakeNodeData)
+	if len(fakeRange) == 4 {
+		return nil, fmt.Errorf("insupported format of fake nodes: %s", fakeNodeData)
+	}
 
-	fakeNodePrefix := fakeData[0]
+	fakeNodePrefix := fakeRange[1]
 
-	start, err := strconv.Atoi(fakeData[1])
+	start, err := strconv.Atoi(fakeRange[2])
 	if err != nil {
 		return nil, err
 	}
-	end, err := strconv.Atoi(fakeData[2])
+	end, err := strconv.Atoi(fakeRange[3])
 	if err != nil {
 		return nil, err
 	}
