@@ -136,11 +136,15 @@ func GetFakeNodes(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	out := stdout.String()
+	klog.V(4).Infof("stdout: %s", out)
 
-	klog.V(4).Infof("stdout: %s", stdout.String())
+	return getFakeNodes(out)
+}
 
+func getFakeNodes(data string) (string, error) {
 	prefix := "Nodes="
-	scanner := bufio.NewScanner(strings.NewReader(stdout.String()))
+	scanner := bufio.NewScanner(strings.NewReader(data))
 	for scanner.Scan() {
 		if line := scanner.Text(); strings.HasPrefix(line, prefix) {
 			return line[len(prefix):], nil
