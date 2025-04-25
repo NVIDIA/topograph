@@ -38,6 +38,5 @@ func GetSimulationParams(params map[string]any) (*SimulationParams, error) {
 	if len(p.ModelPath) == 0 {
 		return nil, fmt.Errorf("no model path for simulation")
 	}
-
 	return &p, nil
 }

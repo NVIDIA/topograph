@@ -47,10 +47,12 @@ const NAME = "slurm"
 type SlurmEngine struct{}
 
 type Params struct {
-	Plugin         string `mapstructure:"plugin"`
-	TopoConfigPath string `mapstructure:"topology_config_path"`
-	BlockSizes     string `mapstructure:"block_sizes"`
-	Reconfigure    bool   `mapstructure:"reconfigure"`
+	Plugin           string `mapstructure:"plugin"`
+	TopoConfigPath   string `mapstructure:"topology_config_path"`
+	BlockSizes       string `mapstructure:"block_sizes"`
+	Reconfigure      bool   `mapstructure:"reconfigure"`
+	FakeNodesEnabled bool   `mapstructure:"fakeNodesEnabled"`
+	FakeNodePool     string `mapstructure:"fake_node_pool"`
 }
 
 type instanceMapper interface {
@@ -128,6 +130,34 @@ func GetNodeList(ctx context.Context) ([]string, error) {
 	return nodes, nil
 }
 
+func GetFakeNodes(ctx context.Context) (string, error) {
+	args := []string{"show", "partition", "fake"}
+	stdout, err := exec.Exec(ctx, "scontrol", args, nil)
+	if err != nil {
+		return "", err
+	}
+	out := stdout.String()
+	klog.V(4).Infof("stdout: %s", out)
+
+	return getFakeNodes(out)
+}
+
+func getFakeNodes(data string) (string, error) {
+	prefix := "Nodes="
+	scanner := bufio.NewScanner(strings.NewReader(data))
+	for scanner.Scan() {
+		if line := strings.TrimSpace(scanner.Text()); strings.HasPrefix(line, prefix) {
+			return line[len(prefix):], nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to scan fake nodes partition: %v", err)
+	}
+
+	return "", fmt.Errorf("fake partition has no nodes")
+}
+
 func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
 	return GenerateOutput(ctx, tree, params)
 }
@@ -179,6 +209,20 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 	tree.Metadata[topology.KeyPlugin] = plugin
 	if len(params.BlockSizes) != 0 {
 		tree.Metadata[topology.KeyBlockSizes] = params.BlockSizes
+	}
+
+	if plugin == topology.TopologyBlock && params.FakeNodesEnabled {
+		var fakeData string
+		var err error
+		if len(params.FakeNodePool) > 0 {
+			fakeData = params.FakeNodePool
+		} else {
+			fakeData, err = GetFakeNodes(ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+		tree.Metadata[topology.KeyFakeConfig] = fakeData
 	}
 
 	err := translate.Write(buf, tree)

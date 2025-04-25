@@ -18,6 +18,8 @@ package translate
 
 import (
 	"bytes"
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -64,6 +66,12 @@ SwitchName=switch.2.2 Switches=switch.1.2
 SwitchName=switch.1.1 Nodes=node-1
 # switch.1.2=local-block-2
 SwitchName=switch.1.2 Nodes=node-2
+`
+
+	testBlockConfigFakeNodes = `BlockName=B1 Nodes=Node202, fake[100-101]
+BlockName=B2 Nodes=Node[104-105], fake102
+BlockName=B3 Nodes=Node205, fake[103-104]
+BlockSizes=3
 `
 )
 
@@ -330,7 +338,7 @@ func TestGetBlockSize(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := getBlockSize(tc.domainVisited, tc.adminBlockSize)
+			got, _ := getBlockSize(getBlockRoot(tc.domainVisited), tc.adminBlockSize, nil)
 			require.Equal(t, tc.expectedOutput, got)
 		})
 	}
@@ -593,6 +601,208 @@ func getBlockWithDiffNumNodeTestSet() (*topology.Vertex, map[string]string) {
 		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
 		Metadata: map[string]string{
 			topology.KeyPlugin: topology.TopologyBlock,
+		},
+	}
+	return root, instance2node
+}
+
+func getBlockRoot(domainVisited map[string]int) *topology.Vertex {
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{},
+	}
+	for id, numNodes := range domainVisited {
+		vertex := &topology.Vertex{
+			ID:       fmt.Sprintf("block-%s", id),
+			Name:     id,
+			Vertices: make(map[string]*topology.Vertex),
+		}
+
+		for node := range numNodes {
+			nodeid := strconv.Itoa(node)
+			vertex.Vertices[nodeid] = &topology.Vertex{
+				Name: nodeid,
+				ID:   nodeid,
+			}
+		}
+
+		blockRoot.Vertices[id] = vertex
+	}
+	return blockRoot
+}
+func TestGetBlockSizeWithFakeNodes(t *testing.T) {
+	testCases := []struct {
+		name           string
+		domainVisited  map[string]int
+		adminBlockSize string
+		expectedOutput string
+	}{
+		{
+			name: "Case 1: #nodes/block same, #nodes/block = 18, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 18,
+				"nvl2": 18,
+			},
+			adminBlockSize: "",
+			expectedOutput: "18,36",
+		},
+		{
+			name: "Case 2: #nodes/block different, #nodes/block <= 18, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 12,
+				"nvl2": 18,
+			},
+			adminBlockSize: "",
+			expectedOutput: "18,36",
+		},
+		{
+			name: "Case 3: #nodes/block same, #nodes/block < 18, admin !provided base block size",
+			domainVisited: map[string]int{
+				"nvl1": 12,
+				"nvl2": 12,
+			},
+			adminBlockSize: "",
+			expectedOutput: "18,36",
+		},
+		{
+			name: "Case 4: #nodes/block same, #nodes/block < 18, admin provided base block size=18",
+			domainVisited: map[string]int{
+				"nvl1": 12,
+				"nvl2": 12,
+			},
+			adminBlockSize: "18",
+			expectedOutput: "18",
+		},
+		{
+			name: "Case 5: #nodes/block same, #nodes/block = 18, admin provided base block size<18",
+			domainVisited: map[string]int{
+				"nvl1": 18,
+				"nvl2": 18,
+			},
+			adminBlockSize: "15",
+			expectedOutput: "15",
+		},
+	}
+
+	fnc := &fakeNodeConfig{
+		startRange:    0,
+		endRange:      36,
+		baseBlockSize: 0,
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, _ := getBlockSize(getBlockRoot(tc.domainVisited), tc.adminBlockSize, fnc)
+			require.Equal(t, tc.expectedOutput, got)
+		})
+	}
+}
+
+func TestBlockFakeNodes(t *testing.T) {
+	// Test Fake node config
+	fakeNodeData := "fake[100-998]"
+	fnc, err := getFakeNodeConfig(fakeNodeData)
+	require.NoError(t, err)
+
+	expectedFnc := &fakeNodeConfig{
+		fakeNodePrefix: "fake",
+		startRange:     100,
+		endRange:       998,
+		lastUsed:       99,
+	}
+	require.Equal(t, expectedFnc, fnc)
+
+	// Test Fake node output
+	v, _ := getBlockWithFakeNodes(fakeNodeData)
+	buf := &bytes.Buffer{}
+	err = Write(buf, v)
+	require.NoError(t, err)
+	switch buf.String() {
+	case testBlockConfigFakeNodes:
+		// nop
+	default:
+		t.Errorf("unexpected result %s", buf.String())
+	}
+}
+
+func getBlockWithFakeNodes(fakeNodeData string) (*topology.Vertex, map[string]string) {
+	//
+	//     		 ibRoot1
+	//       /      |        \
+	//   S1         S2         S3
+	//   |          |          |
+	//   S4        ---         S5
+	//   |         I14\        |
+	//  ---			  B2      ---
+	//  I22-B1     I15/       I25-B3
+	//  ---        ---        ---
+	//
+	instance2node := map[string]string{
+		"I14": "Node104", "I15": "Node105",
+		"I22": "Node202", "I25": "Node205",
+	}
+
+	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
+	n15 := &topology.Vertex{ID: "I15", Name: "Node105"}
+
+	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
+	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
+
+	sw2 := &topology.Vertex{
+		ID:       "S2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
+	}
+
+	sw4 := &topology.Vertex{
+		ID:       "S4",
+		Vertices: map[string]*topology.Vertex{"I22": n22},
+	}
+
+	sw5 := &topology.Vertex{
+		ID:       "S5",
+		Vertices: map[string]*topology.Vertex{"I25": n25},
+	}
+
+	sw3 := &topology.Vertex{
+		ID:       "S3",
+		Vertices: map[string]*topology.Vertex{"S5": sw5},
+	}
+	sw1 := &topology.Vertex{
+		ID:       "S1",
+		Vertices: map[string]*topology.Vertex{"S4": sw4},
+	}
+
+	sw0 := &topology.Vertex{
+		ID:       "S0",
+		Vertices: map[string]*topology.Vertex{"S1": sw1, "S2": sw2, "S3": sw3},
+	}
+
+	treeRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"S0": sw0},
+	}
+
+	block2 := &topology.Vertex{
+		ID:       "B2",
+		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
+	}
+	block1 := &topology.Vertex{
+		ID:       "B1",
+		Vertices: map[string]*topology.Vertex{"I22": n22},
+	}
+
+	block3 := &topology.Vertex{
+		ID:       "B3",
+		Vertices: map[string]*topology.Vertex{"I25": n25},
+	}
+
+	blockRoot := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2, "B3": block3},
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot, topology.TopologyTree: treeRoot},
+		Metadata: map[string]string{
+			topology.KeyPlugin:     topology.TopologyBlock,
+			topology.KeyBlockSizes: "3",
+			topology.KeyFakeConfig: fakeNodeData,
 		},
 	}
 	return root, instance2node

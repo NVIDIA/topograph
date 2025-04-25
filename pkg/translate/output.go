@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,18 @@ import (
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+const (
+	NVL72_DOMAIN_SIZE = 18
+)
+
+type fakeNodeConfig struct {
+	fakeNodePrefix string
+	baseBlockSize  int
+	startRange     int
+	endRange       int
+	lastUsed       int
+}
 
 func Write(wr io.Writer, root *topology.Vertex) error {
 	var plugin string
@@ -45,7 +58,49 @@ func Write(wr io.Writer, root *topology.Vertex) error {
 	return toTreeTopology(wr, root.Vertices[topology.TopologyTree])
 }
 
-func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int) error {
+func getFakeNodeConfig(fakeNodeData string) (*fakeNodeConfig, error) {
+	reFake := regexp.MustCompile(`(.*)\[(\d+)-(\d+)\]`)
+	fakeRange := reFake.FindStringSubmatch(fakeNodeData)
+	if len(fakeRange) != 4 {
+		return nil, fmt.Errorf("insupported format of fake nodes: %s", fakeNodeData)
+	}
+
+	fakeNodePrefix := fakeRange[1]
+
+	start, err := strconv.Atoi(fakeRange[2])
+	if err != nil {
+		return nil, err
+	}
+	end, err := strconv.Atoi(fakeRange[3])
+	if err != nil {
+		return nil, err
+	}
+
+	fnc := fakeNodeConfig{
+		fakeNodePrefix: fakeNodePrefix,
+		startRange:     start,
+		endRange:       end,
+		lastUsed:       start - 1,
+	}
+
+	return &fnc, nil
+}
+
+// getFreeFakeNodes generates fake nodes names.
+func getFreeFakeNodes(numFakeNodes int, fnc *fakeNodeConfig) []string {
+	var fakeNodes []string
+	start := fnc.lastUsed + 1
+	end := fnc.lastUsed + numFakeNodes
+	for n := start; n <= end; n++ {
+		padWidth := 1 + int(math.Log10(float64(end)))
+		fakeNodeName := fmt.Sprintf("%s%0*d", fnc.fakeNodePrefix, padWidth, n)
+		fakeNodes = append(fakeNodes, fakeNodeName)
+	}
+	fnc.lastUsed = end
+	return fakeNodes
+}
+
+func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int, fnc *fakeNodeConfig) error {
 	if _, exists := domainVisited[block.ID]; !exists {
 		nodes := make([]string, 0, len(block.Vertices))
 		for _, node := range block.Vertices { //nodes within each domain
@@ -55,19 +110,27 @@ func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]i
 		if len(block.Name) != 0 {
 			comment = fmt.Sprintf("# %s=%s\n", block.ID, block.Name)
 		}
-		_, err := wr.Write([]byte(fmt.Sprintf("%sBlockName=%s Nodes=%s\n", comment, block.ID, strings.Join(cluset.Compact(nodes), ","))))
+
+		outputNodeNames := strings.Join(cluset.Compact(nodes), ",")
+		if fnc != nil && len(nodes) < fnc.baseBlockSize {
+			fakeNodes := getFreeFakeNodes(fnc.baseBlockSize-len(nodes), fnc)
+			fakeNodeNames := strings.Join(cluset.Compact(fakeNodes), ",")
+			outputNodeNames = fmt.Sprintf("%s, %s", outputNodeNames, fakeNodeNames)
+		}
+
+		domainVisited[block.ID] = len(nodes)
+		_, err := wr.Write([]byte(fmt.Sprintf("%sBlockName=%s Nodes=%s\n", comment, block.ID, outputNodeNames)))
 		if err != nil {
 			return err
 		}
-		domainVisited[block.ID] = len(nodes)
 	}
 	return nil
 }
 
-func findBlock(wr io.Writer, nodename string, root *topology.Vertex, domainVisited map[string]int) error { // blockRoot
+func findBlock(wr io.Writer, nodename string, root *topology.Vertex, domainVisited map[string]int, fnc *fakeNodeConfig) error {
 	for _, block := range root.Vertices {
 		if _, exists := block.Vertices[nodename]; exists {
-			return printBlock(wr, block, domainVisited)
+			return printBlock(wr, block, domainVisited, fnc)
 		}
 	}
 	return nil
@@ -83,12 +146,12 @@ func sortVertices(root *topology.Vertex) []string {
 	return keys
 }
 
-func printDisconnectedBlocks(wr io.Writer, root *topology.Vertex, domainVisited map[string]int) error {
+func printDisconnectedBlocks(wr io.Writer, root *topology.Vertex, domainVisited map[string]int, fnc *fakeNodeConfig) error {
 	if root != nil {
 		keys := sortVertices(root)
 		for _, key := range keys {
 			block := root.Vertices[key]
-			err := printBlock(wr, block, domainVisited)
+			err := printBlock(wr, block, domainVisited, fnc)
 			if err != nil {
 				return err
 			}
@@ -97,18 +160,32 @@ func printDisconnectedBlocks(wr io.Writer, root *topology.Vertex, domainVisited 
 	return nil
 }
 
-// getBlockSize returns blocksize for each possible level.
-// Admin provided blocksize is validated and is overriden with default blocksizes if validation fails.
-func getBlockSize(domainSize map[string]int, adminBlockSize string) string {
-	// smallest domain size
+func findMinDomainSize(blockRoot *topology.Vertex) (int, int) {
 	minDomainSize := -1
-	for _, dSize := range domainSize {
-		if minDomainSize == -1 || minDomainSize > dSize {
-			minDomainSize = dSize
+	for _, block := range blockRoot.Vertices {
+		blocklen := len(block.Vertices)
+		if minDomainSize == -1 || minDomainSize > blocklen {
+			minDomainSize = blocklen
 		}
 	}
+	return minDomainSize, len(blockRoot.Vertices)
+}
 
-	maxnumbs := int(math.Log2(float64(len(domainSize))))
+func isEnoughFakeNodesAvailable(blockSize int, numDomains int, fnc *fakeNodeConfig) bool {
+	return (fnc.endRange - fnc.startRange + 1) >= (blockSize * numDomains)
+}
+
+// getBlockSize returns blocksize for each possible level.
+// Admin provided blocksize is validated and is overriden with default blocksizes if validation fails.
+func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNodeConfig) (string, error) {
+	// smallest domain size
+	minDomainSize, numDomains := findMinDomainSize(blockRoot)
+
+	if fnc != nil {
+		minDomainSize = NVL72_DOMAIN_SIZE
+	}
+
+	maxnumbs := int(math.Log2(float64(numDomains)))
 	var outputbs []string
 
 	// If admin provided blocksize, validate it
@@ -146,7 +223,13 @@ func getBlockSize(domainSize map[string]int, adminBlockSize string) string {
 			outputbs = append(outputbs, blockSizes[i])
 		}
 		if len(outputbs) == len(blockSizes) {
-			return strings.Join(outputbs, ",")
+			if fnc != nil {
+				fnc.baseBlockSize = planningBS
+				if !isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains, fnc) {
+					return "", fmt.Errorf("Not enough fake nodes available")
+				}
+			}
+			return strings.Join(outputbs, ","), nil
 		}
 	}
 
@@ -164,7 +247,14 @@ func getBlockSize(domainSize map[string]int, adminBlockSize string) string {
 		outputbs = append(outputbs, fmt.Sprintf("%d", levelblocksize))
 	}
 
-	return strings.Join(outputbs, ",")
+	if fnc != nil {
+		fnc.baseBlockSize = bs
+		if !isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains, fnc) {
+			return "", fmt.Errorf("Not enough fake nodes available")
+		}
+	}
+
+	return strings.Join(outputbs, ","), nil
 }
 
 func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
@@ -175,38 +265,54 @@ func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
 	visited := make(map[string]bool)
 	domainVisited := make(map[string]int)
 
-	if treeRoot != nil {
-		err := dfsTraversal(wr, treeRoot, blockRoot, visited, domainVisited)
+	var fnc *fakeNodeConfig
+	var err error
+	if len(root.Metadata[topology.KeyFakeConfig]) > 0 {
+		fnc, err = getFakeNodeConfig(root.Metadata[topology.KeyFakeConfig])
 		if err != nil {
 			return err
 		}
 	}
-	err := printDisconnectedBlocks(wr, blockRoot, domainVisited)
-	if err != nil {
-		return err
-	}
+
+	// calculate blocksize
 	blockSize := ""
 	if _, exists := root.Metadata[topology.KeyBlockSizes]; exists {
 		blockSize = root.Metadata[topology.KeyBlockSizes]
 	}
-	blockSize = getBlockSize(domainVisited, blockSize)
+	blockSize, err = getBlockSize(blockRoot, blockSize, fnc)
+	if err != nil {
+		return err
+	}
+
+	// print blocks
+	if treeRoot != nil {
+		err = dfsTraversal(wr, treeRoot, blockRoot, visited, domainVisited, fnc)
+		if err != nil {
+			return err
+		}
+	}
+	err = printDisconnectedBlocks(wr, blockRoot, domainVisited, fnc)
+	if err != nil {
+		return err
+	}
+
 	_, err = wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blockSize)))
 	return err
 }
 
-func dfsTraversal(wr io.Writer, curVertex *topology.Vertex, blockRoot *topology.Vertex, visited map[string]bool, domainVisited map[string]int) error {
+func dfsTraversal(wr io.Writer, curVertex *topology.Vertex, blockRoot *topology.Vertex, visited map[string]bool, domainVisited map[string]int, fnc *fakeNodeConfig) error {
 	visited[curVertex.ID] = true
 	keys := sortVertices(curVertex)
 	for _, key := range keys {
 		w := curVertex.Vertices[key]
 		if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
-			err := findBlock(wr, w.ID, blockRoot, domainVisited)
+			err := findBlock(wr, w.ID, blockRoot, domainVisited, fnc)
 			if err != nil {
 				return err
 			}
 		} else {
 			if !visited[w.ID] {
-				err := dfsTraversal(wr, w, blockRoot, visited, domainVisited)
+				err := dfsTraversal(wr, w, blockRoot, visited, domainVisited, fnc)
 				if err != nil {
 					return err
 				}
