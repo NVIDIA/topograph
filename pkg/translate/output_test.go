@@ -702,8 +702,7 @@ func TestGetBlockSizeWithFakeNodes(t *testing.T) {
 func TestBlockFakeNodes(t *testing.T) {
 	// Test Fake node config
 	fakeNodeData := "fake[100-998]"
-	fnc, err := getFakeNodeConfig(fakeNodeData)
-	require.NoError(t, err)
+	fnc := getFakeNodeConfig(fakeNodeData)
 
 	expectedFnc := &fakeNodeConfig{
 		nodes: []string{},
@@ -717,7 +716,7 @@ func TestBlockFakeNodes(t *testing.T) {
 	// Test Fake node output
 	v, _ := getBlockWithFakeNodes(fakeNodeData)
 	buf := &bytes.Buffer{}
-	err = Write(buf, v)
+	err := Write(buf, v)
 	require.NoError(t, err)
 	switch buf.String() {
 	case testBlockConfigFakeNodes:
@@ -810,4 +809,26 @@ func getBlockWithFakeNodes(fakeNodeData string) (*topology.Vertex, map[string]st
 		},
 	}
 	return root, instance2node
+}
+
+func TestFakeNodeConfig(t *testing.T) {
+	fnc := getFakeNodeConfig("fake[001-010]")
+
+	fnc.baseBlockSize = 16
+	ok := fnc.isEnoughFakeNodesAvailable(16, 1)
+	require.False(t, ok)
+
+	fnc.baseBlockSize = 10
+	ok = fnc.isEnoughFakeNodesAvailable(10, 1)
+	require.True(t, ok)
+
+	// get 5 nodes
+	count := 5
+	nodes := []string{"fake001", "fake002", "fake003", "fake004", "fake005"}
+	require.Equal(t, nodes, fnc.getFreeFakeNodes(count))
+
+	count = 4
+	nodes = []string{"fake006", "fake007", "fake008", "fake009"}
+	require.Equal(t, nodes, fnc.getFreeFakeNodes(count))
+
 }

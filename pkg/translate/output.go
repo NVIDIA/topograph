@@ -55,12 +55,11 @@ func Write(wr io.Writer, root *topology.Vertex) error {
 	return toTreeTopology(wr, root.Vertices[topology.TopologyTree])
 }
 
-func getFakeNodeConfig(fakeNodeData string) (*fakeNodeConfig, error) {
-	fnc := fakeNodeConfig{
+func getFakeNodeConfig(fakeNodeData string) *fakeNodeConfig {
+	return &fakeNodeConfig{
 		nodes: cluset.Expand([]string{fakeNodeData}),
 		index: 0,
 	}
-	return &fnc, nil
 }
 
 // getFreeFakeNodes generates fake nodes names.
@@ -239,10 +238,7 @@ func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
 	var fnc *fakeNodeConfig
 	var err error
 	if len(root.Metadata[topology.KeyFakeConfig]) > 0 {
-		fnc, err = getFakeNodeConfig(root.Metadata[topology.KeyFakeConfig])
-		if err != nil {
-			return err
-		}
+		fnc = getFakeNodeConfig(root.Metadata[topology.KeyFakeConfig])
 	}
 
 	// calculate blocksize
