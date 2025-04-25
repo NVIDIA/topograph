@@ -53,6 +53,7 @@ type Params struct {
 	BlockSizes       string `mapstructure:"block_sizes"`
 	Reconfigure      bool   `mapstructure:"reconfigure"`
 	FakeNodesEnabled bool   `mapstructure:"fakeNodesEnabled"`
+	FakeNodePool     string `mapstructure:"fake_node_pool"`
 }
 
 type instanceMapper interface {
@@ -210,10 +211,16 @@ func GenerateOutputParams(ctx context.Context, tree *topology.Vertex, params *Pa
 		tree.Metadata[topology.KeyBlockSizes] = params.BlockSizes
 	}
 
-	if params.FakeNodesEnabled {
-		fakeData, err := GetFakeNodes(ctx)
-		if err != nil {
-			return nil, err
+	if plugin == topology.TopologyBlock && params.FakeNodesEnabled {
+		var fakeData string
+		var err error
+		if len(params.FakeNodePool) > 0 {
+			fakeData = params.FakeNodePool
+		} else {
+			fakeData, err = GetFakeNodes(ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
 		tree.Metadata[topology.KeyFakeConfig] = fakeData
 	}

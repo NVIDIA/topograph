@@ -26,9 +26,8 @@ import (
 var APIError = errors.New("API error")
 
 type SimulationParams struct {
-	ModelPath    string `mapstructure:"model_path"`
-	APIError     int    `mapstructure:"api_error"`
-	FakeNodePool string `mapstructure:"fake_node_pool"`
+	ModelPath string `mapstructure:"model_path"`
+	APIError  int    `mapstructure:"api_error"`
 }
 
 func GetSimulationParams(params map[string]any) (*SimulationParams, error) {
