@@ -23,57 +23,10 @@ import (
 	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/core"
-	"github.com/oracle/oci-go-sdk/v65/identity"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
-
-func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
-	topo := topology.NewClusterTopology()
-
-	for _, ci := range cis {
-		if err := p.getComputeHostInfo(ctx, pageSize, ci, topo); err != nil {
-			return nil, err
-		}
-	}
-
-	return topo, nil
-}
-
-func (p *baseProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci topology.ComputeInstances, topo *topology.ClusterTopology) error {
-	if len(ci.Region) == 0 {
-		return fmt.Errorf("must specify region")
-	}
-	klog.Infof("Getting instance topology for %s region", ci.Region)
-
-	client, err := p.clientFactory(ci.Region, pageSize)
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %v", err)
-	}
-
-	req := identity.ListAvailabilityDomainsRequest{
-		CompartmentId: client.TenantID(),
-	}
-
-	start := time.Now()
-	resp, err := client.ListAvailabilityDomains(ctx, req)
-	reportLatency(resp.HTTPResponse(), start, "ListAvailabilityDomains")
-	if err != nil {
-		return fmt.Errorf("failed to get availability domains: %v", err)
-	}
-
-	for _, ad := range resp.Items {
-		err := getComputeHostSummary(ctx, client, ad.Name, topo, ci.Instances)
-		if err != nil {
-			return fmt.Errorf("failed to get hosts info: %v", err)
-		}
-	}
-
-	klog.V(4).Infof("Returning host info for %d nodes", topo.Len())
-
-	return nil
-}
 
 func getComputeHostSummary(ctx context.Context, client Client, availabilityDomain *string, topo *topology.ClusterTopology, instMap map[string]string) error {
 	req := core.ListComputeHostsRequest{
