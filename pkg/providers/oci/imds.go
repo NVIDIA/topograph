@@ -18,34 +18,51 @@ package oci
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/exec"
 )
 
 const (
-	IMDSURL = "http://169.254.169.254/opc/v2/instance"
+	IMDSURL         = "http://169.254.169.254/opc/v2"
+	IMDSInstanceURL = IMDSURL + "/instance"
+	IMDSTopologyURL = IMDSURL + "/host/rdmaTopologyData"
+	IMDSHeader      = `-H "Authorization: Bearer Oracle" -L`
 )
 
+type topologyData struct {
+	GpuMemoryFabric string `json:"customerGpuMemoryFabric"`
+	HPCIslandId     string `json:"customerHPCIslandId"`
+	LocalBlock      string `json:"customerLocalBlock"`
+	NetworkBlock    string `json:"customerNetworkBlock"`
+}
+
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	args := []string{"-w", strings.Join(nodes, ","), fmt.Sprintf("echo $(curl -s  -H \"Authorization: Bearer Oracle\" -L %s/id)", IMDSURL)}
+	args := []string{"-w", strings.Join(cluset.Compact(nodes), ","), fmt.Sprintf("echo $(curl -s  %s %s/id)", IMDSHeader, IMDSInstanceURL)}
 
 	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	return parseInstanceOutput(stdout)
+}
+
+func parseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
 	i2n := map[string]string{}
-	scanner := bufio.NewScanner(stdout)
+	scanner := bufio.NewScanner(buff)
 	for scanner.Scan() {
 		arr := strings.Split(scanner.Text(), ": ")
 		if len(arr) == 2 {
 			node, instance := arr[0], arr[1]
-			klog.V(4).Infoln("Node name: ", node, "Instance ID: ", instance)
+			klog.V(4).Info("Node name: ", node, "Instance ID: ", instance)
 			i2n[instance] = node
 		}
 	}
@@ -57,8 +74,45 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 	return i2n, nil
 }
 
+func getHostTopology(ctx context.Context, nodes []string) (map[string]*topologyData, error) {
+	args := []string{"-w", strings.Join(cluset.Compact(nodes), ","), fmt.Sprintf("echo $(curl -s  %s %s)", IMDSHeader, IMDSTopologyURL)}
+
+	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseTopologyOutput(stdout)
+}
+
+func parseTopologyOutput(buff *bytes.Buffer) (map[string]*topologyData, error) {
+	topoMap := map[string]*topologyData{}
+	scanner := bufio.NewScanner(buff)
+	for scanner.Scan() {
+		str := scanner.Text()
+		indx := strings.Index(str, ": ")
+		if indx != -1 {
+			node, data := str[:indx], str[indx+2:]
+			klog.V(4).Info("Node name: ", node, " Topology: ", data)
+			nodeTopology := &topologyData{}
+			err := json.Unmarshal([]byte(data), nodeTopology)
+			if err != nil {
+				klog.Warningf("Failed to parse topology data for node %s: %v", node, err)
+			} else {
+				topoMap[node] = nodeTopology
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return topoMap, nil
+}
+
 func getRegion(ctx context.Context) (string, error) {
-	url := fmt.Sprintf("%s/region", IMDSURL)
+	url := fmt.Sprintf("%s/region", IMDSInstanceURL)
 	args := []string{"-s", "-H", "Authorization: Bearer Oracle", "-L", url}
 
 	stdout, err := exec.Exec(ctx, "curl", args, nil)

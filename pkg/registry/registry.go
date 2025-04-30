@@ -37,7 +37,8 @@ var Providers = providers.NewRegistry(
 	cw.NamedLoader,
 	gcp.NamedLoader,
 	gcp.NamedLoaderSim,
-	oci.NamedLoader,
+	oci.NamedLoaderAPI,
+	oci.NamedLoaderIMDS,
 	oci.NamedLoaderSim,
 	provider_test.NamedLoader,
 )
