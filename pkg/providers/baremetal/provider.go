@@ -13,7 +13,9 @@ import (
 const NAME = "baremetal"
 
 type ProviderParams struct {
-	NetworkType string `mapstructure:"network_type"`
+	//NetworkType string `mapstructure:"network_type"`
+	NetqLoginUrl string `mapstructure:"netqLoginUrl"`
+	NetqApiUrl   string `mapstructure:"netqApiUrl"`
 }
 
 type Provider struct {
@@ -68,9 +70,11 @@ func GetParams(params map[string]any) (*ProviderParams, error) {
 	if err := config.Decode(params, &p); err != nil {
 		return nil, fmt.Errorf("error decoding params: %w", err)
 	}
-	if len(p.NetworkType) == 0 {
-		return nil, fmt.Errorf("no network type provided for baremetal")
-	}
+	/*
+		if len(p.NetqLoginUrl) == 0 {
+			return nil, fmt.Errorf("no network type provided for baremetal")
+		}
+	*/
 	return &p, nil
 }
 
@@ -79,8 +83,8 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		return nil, ErrMultiRegionNotSupported
 	}
 
-	if p.pp.NetworkType == "eth" {
-		return generateTopologyConfigForEth(ctx, p.cred)
+	if len(p.pp.NetqLoginUrl) > 0 {
+		return generateTopologyConfigForEth(ctx, p.cred, p.pp)
 	}
 	//call mnnvl code from here
 	return generateTopologyConfig(ctx, instances)

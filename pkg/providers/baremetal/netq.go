@@ -10,11 +10,14 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+/*
 const (
+
 	NETQLOGINURL = "https://api.air.netq.nvidia.com/netq/auth/v1/login"
 	NETQAPIURL   = "https://air.netq.nvidia.com/api/netq/telemetry/v1/object/topologygraph/fetch-topology?timestamp=0"
-)
 
+)
+*/
 type NetqResponse struct {
 	Links []Links `json:"links"`
 	Nodes []Nodes `json:"nodes"`
@@ -39,12 +42,12 @@ type AuthOutput struct {
 	AccessToken string `json:"access_token"`
 }
 
-func generateTopologyConfigForEth(ctx context.Context, cred Credentials) (*topology.Vertex, error) {
+func generateTopologyConfigForEth(ctx context.Context, cred Credentials, p ProviderParams) (*topology.Vertex, error) {
 	contentType := "Content-Type: application/json"
 	accept := "accept: application/json"
 
 	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", cred.Uname, cred.Pwd)
-	args := []string{NETQLOGINURL, "-H", accept, "-H", contentType, "-d", creds}
+	args := []string{p.NetqLoginUrl, "-H", accept, "-H", contentType, "-d", creds}
 	stdout, err := exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
 		return nil, err
@@ -62,7 +65,7 @@ func generateTopologyConfigForEth(ctx context.Context, cred Credentials) (*topol
 	}
 
 	addArgs := "{\"filters\": [], \"subgroupNestingDepth\":2}"
-	args = []string{NETQAPIURL, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
+	args = []string{p.NetqApiUrl, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
 	stdout, err = exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
 		return nil, err
