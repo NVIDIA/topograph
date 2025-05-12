@@ -90,17 +90,6 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 }
 
 func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	/* TODO: remove this work-around
-	for i, ci := range instances {
-		for inst, host := range ci.Instances {
-			if indx := strings.LastIndex(inst, "/"); indx != -1 {
-				delete(instances[i].Instances, inst)
-				id := inst[indx+1:]
-				instances[i].Instances[id] = host
-			}
-		}
-	}*/
-
 	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err

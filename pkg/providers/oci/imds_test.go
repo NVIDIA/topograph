@@ -48,7 +48,7 @@ func TestParseTopologyOutput(t *testing.T) {
 			input: `node1: { "customerGpuMemoryFabric": "fab1", "customerHPCIslandId": "hpc1", "customerNetworkBlock": "net1", "customerLocalBlock": "loc1" }
 node2: { "customerGpuMemoryFabric": "fab2", "customerHPCIslandId": "hpc2", "customerNetworkBlock": "net2", "customerLocalBlock": "loc2" }
 node3: { "customerGpuMemoryFabric": "fab3", "customerHPCIslandId": "hpc3", "customerNetworkBlock": "net3", "customerLocalBlock": "loc3" }
-node4: { "customerGpuMemoryFabric": "fab4", "customerHPCIslandId": "hpc4", "customerNetworkBlock": "net4", "customerLocalBlock": "loc4" }			
+node4: { "customerGpuMemoryFabric": "fab4", "customerHPCIslandId": "hpc4", "customerNetworkBlock": "net4", "customerLocalBlock": "loc4" }
 `,
 			output: map[string]*topologyData{
 				"node1": {GpuMemoryFabric: "fab1", HPCIslandId: "hpc1", NetworkBlock: "net1", LocalBlock: "loc1"},
@@ -62,7 +62,7 @@ node4: { "customerGpuMemoryFabric": "fab4", "customerHPCIslandId": "hpc4", "cust
 			input: `node1: { "customerHPCIslandId": "hpc1", "customerNetworkBlock": "net1", "customerLocalBlock": "loc1" }
 node2: { "customerHPCIslandId": "hpc2", "customerNetworkBlock": "net2", "customerLocalBlock": "loc2" }
 node3: { "customerHPCIslandId": "hpc3", "customerNetworkBlock": "net3", "customerLocalBlock": "loc3" }
-node4: { "customerHPCIslandId": "hpc4", "customerNetworkBlock": "net4", "customerLocalBlock": "loc4" }			
+node4: { "customerHPCIslandId": "hpc4", "customerNetworkBlock": "net4", "customerLocalBlock": "loc4" }
 `,
 			output: map[string]*topologyData{
 				"node1": {GpuMemoryFabric: "", HPCIslandId: "hpc1", NetworkBlock: "net1", LocalBlock: "loc1"},
@@ -73,7 +73,7 @@ node4: { "customerHPCIslandId": "hpc4", "customerNetworkBlock": "net4", "custome
 		},
 		{
 			name: "Case 3: parsing error",
-			input: `node1: { "customerHPCIslandId": 123, "customerNetworkBlock": "net1", "customerLocalBlock": "loc1" }		
+			input: `node1: { "customerHPCIslandId": 123, "customerNetworkBlock": "net1", "customerLocalBlock": "loc1" }
 `,
 			output: map[string]*topologyData{},
 		},
