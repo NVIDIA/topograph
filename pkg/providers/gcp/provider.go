@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	compute_v1 "cloud.google.com/go/compute/apiv1"
+	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
@@ -50,7 +50,7 @@ type Client interface {
 }
 
 type gcpClient struct {
-	instanceClient *compute_v1.InstancesClient
+	instanceClient *compute.InstancesClient
 	pageSize       *uint32
 }
 
@@ -75,7 +75,7 @@ func NamedLoader() (string, providers.Loader) {
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
 	clientFactory := func(pageSize *int) (Client, error) {
-		instanceClient, err := compute_v1.NewInstancesRESTClient(ctx)
+		instanceClient, err := compute.NewInstancesRESTClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get instances client: %s", err.Error())
 		}
@@ -90,6 +90,17 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 }
 
 func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	/* TODO: remove this work-around
+	for i, ci := range instances {
+		for inst, host := range ci.Instances {
+			if indx := strings.LastIndex(inst, "/"); indx != -1 {
+				delete(instances[i].Instances, inst)
+				id := inst[indx+1:]
+				instances[i].Instances[id] = host
+			}
+		}
+	}*/
+
 	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
