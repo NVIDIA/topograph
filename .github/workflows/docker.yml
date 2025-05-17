@@ -20,27 +20,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.23.2'
-
-      - name: Install Protoc
-        run: |
-          PROTOC_ZIP=protoc-28.2-linux-x86_64.zip
-          curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v28.2/$PROTOC_ZIP
-          sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
-          sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
-          rm -f $PROTOC_ZIP
-
-      - name: Verify Protoc Version
-        run: protoc --version
-
-      - name: Build
-        run: |
-          make init-proto
-          make build
-
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
@@ -71,6 +50,10 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
+          build-args: |
+            TARGETOS=linux
+            TARGETARCH=amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
