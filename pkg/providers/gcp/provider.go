@@ -19,13 +19,13 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -120,12 +120,26 @@ func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error
 	return getRegion(ctx)
 }
 
-// GetNodeRegion implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
-	return node.Labels["topology.kubernetes.io/region"], nil
+var imdsCmdPrefix []string = []string{"curl", "-s", "-H", IMDSHeader}
+
+// NodeRegionCommand implements k8s.k8sNodeInfo
+func (p *Provider) NodeRegionCommand() []string {
+	return append(imdsCmdPrefix, IMDSRegionURL)
 }
 
-// GetNodeInstance implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
-	return node.Annotations["container.googleapis.com/instance_id"], nil
+// ProcessNodeRegionOutput implements k8s.k8sNodeInfo
+// and converts "projects/<project id>/zones/<region>" to "<region>"
+func (p *Provider) ProcessNodeRegionOutput(data string) string {
+	indx := strings.LastIndex(data, "/")
+	return strings.TrimSpace(data[indx+1:])
+}
+
+// NodeInstanceCommand implements k8s.k8sNodeInfo
+func (p *Provider) NodeInstanceCommand() []string {
+	return append(imdsCmdPrefix, IMDSInstanceURL)
+}
+
+// ProcessNodeInstanceOutput implements k8s.k8sNodeInfo
+func (p *Provider) ProcessNodeInstanceOutput(data string) string {
+	return strings.TrimSpace(data)
 }

@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 
-	k8s_core_v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -33,7 +32,8 @@ import (
 const NAME = "k8s"
 
 type K8sEngine struct {
-	kubeClient *kubernetes.Clientset
+	config *rest.Config
+	client *kubernetes.Clientset
 }
 
 type Params struct {
@@ -43,8 +43,10 @@ type Params struct {
 }
 
 type k8sNodeInfo interface {
-	GetNodeRegion(node *k8s_core_v1.Node) (string, error)
-	GetNodeInstance(node *k8s_core_v1.Node) (string, error)
+	NodeRegionCommand() []string
+	ProcessNodeRegionOutput(string) string
+	NodeInstanceCommand() []string
+	ProcessNodeInstanceOutput(string) string
 }
 
 func NamedLoader() (string, engines.Loader) {
@@ -61,12 +63,15 @@ func New() (*K8sEngine, error) {
 		return nil, err
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(config)
+	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
 
-	return &K8sEngine{kubeClient: kubeClient}, nil
+	return &K8sEngine{
+		config: config,
+		client: client,
+	}, nil
 }
 
 func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {

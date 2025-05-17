@@ -28,12 +28,14 @@ import (
 )
 
 const (
-	IMDSURL = "http://metadata.google.internal/computeMetadata/v1"
+	IMDSURL         = "http://metadata.google.internal/computeMetadata/v1"
+	IMDSInstanceURL = IMDSURL + "/instance/id"
+	IMDSRegionURL   = IMDSURL + "/instance/zone"
+	IMDSHeader      = "Metadata-Flavor: Google"
 )
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	url := fmt.Sprintf("%s/instance/id", IMDSURL)
-	args := []string{"-w", strings.Join(nodes, ","), fmt.Sprintf("echo $(curl -s  -H \"Metadata-Flavor: Google\" %s)", url)}
+	args := []string{"-w", strings.Join(nodes, ","), fmt.Sprintf("echo $(curl -s  -H %q %s)", IMDSHeader, IMDSInstanceURL)}
 	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
 	if err != nil {
 		return nil, err
@@ -58,8 +60,7 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 }
 
 func getRegion(ctx context.Context) (string, error) {
-	url := fmt.Sprintf("%s/instance/zone", IMDSURL)
-	args := []string{"-s", "-H", "Metadata-Flavor: Google", url}
+	args := []string{"-s", "-H", IMDSHeader, IMDSRegionURL}
 	stdout, err := exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
 		return "", err
