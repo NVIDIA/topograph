@@ -14,6 +14,8 @@
 
 LINTER_BIN ?= golangci-lint
 DOCKER_BIN ?= docker
+GOOS ?= $(shell uname | tr '[:upper:]' '[:lower:]')
+GOARCH ?= $(shell arch | sed 's/x86_64/amd64/')
 TARGETS := topograph node-observer toposim
 CMD_DIR := ./cmd
 OUTPUT_DIR := ./bin
@@ -24,12 +26,19 @@ IMAGE_TAG ?=$(GIT_REF)
 
 .PHONY: build
 build:
-	@for target in $(TARGETS); do        \
-	  echo "Building $${target}";        \
-	  CGO_ENABLED=0 go build -a -o $(OUTPUT_DIR)/$${target}        \
+	@for target in $(TARGETS); do \
+	  echo "Building $${target} for $(GOOS)/$(GOARCH)"; \
+	  CGO_ENABLED=0 go build -a -o $(OUTPUT_DIR)/$${target} \
 	    -ldflags '-extldflags "-static" -X main.GitTag=$(GIT_REF)' \
-	    $(CMD_DIR)/$${target};           \
+	    $(CMD_DIR)/$${target}; \
 	done
+
+# Builds binaries for the specified platform.
+# Usage: make build-<os>-<arch>
+# Example: make build-linux-amd64, make build-darwin-amd64, make build-darwin-arm64, make build-linux-arm64
+.PHONY: build-%
+build-%:
+	@GOOS=$$(echo $* | cut -d- -f 1) GOARCH=$$(echo $* | cut -d- -f 2) $(MAKE) build
 
 .PHONY: build-arm64
 build-arm64:
@@ -84,8 +93,8 @@ proto:
 		protos/*.proto
 
 .PHONY: image-build
-image-build: build
-	$(DOCKER_BIN) build -t $(IMAGE_REPO):$(IMAGE_TAG) -f ./Dockerfile .
+image-build:
+	$(DOCKER_BIN) build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -t $(IMAGE_REPO):$(IMAGE_TAG) -f ./Dockerfile .
 
 .PHONY: image-push
 image-push: image-build
