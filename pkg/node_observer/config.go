@@ -25,16 +25,9 @@ import (
 
 type Config struct {
 	TopologyGeneratorURL string            `yaml:"topology_generator_url"`
-	TopologyConfigmap    TopologyConfigmap `yaml:"topology_configmap"`
 	NodeLabels           map[string]string `yaml:"node_labels"`
 	Provider             string            `yaml:"provider"`
 	Engine               string            `yaml:"engine"`
-}
-
-type TopologyConfigmap struct {
-	Name      string `yaml:"name"`
-	Namespace string `yaml:"namespace"`
-	Filename  string `yaml:"filename"`
 }
 
 func NewConfigFromFile(fname string) (*Config, error) {
@@ -47,10 +40,6 @@ func NewConfigFromFile(fname string) (*Config, error) {
 	err = yaml.Unmarshal(data, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %v", fname, err)
-	}
-
-	if len(cfg.TopologyConfigmap.Name) == 0 || len(cfg.TopologyConfigmap.Namespace) == 0 {
-		return nil, fmt.Errorf("must contain name and namespace for topology_configmap")
 	}
 
 	return cfg, nil

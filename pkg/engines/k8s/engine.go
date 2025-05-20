@@ -17,29 +17,20 @@
 package k8s
 
 import (
-	"bytes"
 	"context"
 
 	k8s_core_v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
-	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 const NAME = "k8s"
 
 type K8sEngine struct {
 	kubeClient *kubernetes.Clientset
-}
-
-type Params struct {
-	TopoConfigPath         string `mapstructure:"topology_config_path"`
-	TopoConfigmapName      string `mapstructure:"topology_configmap_name"`
-	TopoConfigmapNamespace string `mapstructure:"topology_configmap_namespace"`
 }
 
 type k8sNodeInfo interface {
@@ -71,26 +62,6 @@ func New() (*K8sEngine, error) {
 
 func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
 	if err := NewTopologyLabeler().ApplyNodeLabels(ctx, tree, eng); err != nil {
-		return nil, err
-	}
-	buf := &bytes.Buffer{}
-	err := translate.Write(buf, tree)
-	if err != nil {
-		return nil, err
-	}
-
-	var p Params
-	if err := config.Decode(params, &p); err != nil {
-		return nil, err
-	}
-
-	cfg := buf.Bytes()
-
-	filename := p.TopoConfigPath
-	cmName := p.TopoConfigmapName
-	cmNamespace := p.TopoConfigmapNamespace
-	err = eng.UpdateTopologyConfigmap(ctx, cmName, cmNamespace, map[string]string{filename: string(cfg)})
-	if err != nil {
 		return nil, err
 	}
 

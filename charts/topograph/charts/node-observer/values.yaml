@@ -29,10 +29,6 @@ verbosity: 3
 
 topograph:
   url: "http://topograph.default.svc.cluster.local:49021/v1/generate"
-  configmap:
-    name: topology-config
-    namespace: default
-    filename: topology.conf
   node_labels:
     kubernetes.io/role: agent
   provider: test

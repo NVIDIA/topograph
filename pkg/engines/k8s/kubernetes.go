@@ -21,8 +21,6 @@ import (
 	std_errors "errors"
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
@@ -67,37 +65,6 @@ func (eng *K8sEngine) GetComputeInstances(ctx context.Context, environment engin
 	}
 
 	return cis, nil
-}
-
-func (eng *K8sEngine) UpdateTopologyConfigmap(ctx context.Context, name, namespace string, data map[string]string) error {
-	klog.Infof("Updating topology config %s/%s", namespace, name)
-
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Data: data,
-	}
-
-	verb := "get"
-	res, err := eng.kubeClient.CoreV1().ConfigMaps(cm.Namespace).Get(ctx, cm.Name, metav1.GetOptions{})
-	if err == nil {
-		verb = "update"
-		res, err = eng.kubeClient.CoreV1().ConfigMaps(cm.Namespace).Update(ctx, cm, metav1.UpdateOptions{})
-	} else if errors.IsNotFound(err) {
-		verb = "create"
-		res, err = eng.kubeClient.CoreV1().ConfigMaps(cm.Namespace).Create(ctx, cm, metav1.CreateOptions{})
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to %s configmap %s/%s: %v",
-			verb, cm.Namespace, cm.Name, err)
-	}
-
-	klog.V(4).Infof("Successfully %sd configmap %s/%s", verb, res.Namespace, res.Name)
-
-	return nil
 }
 
 func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels map[string]string) error {
