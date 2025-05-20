@@ -131,10 +131,6 @@ Topograph offers three endpoints for interacting with the service. Below are the
       - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
       - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
       - **reconfigure**: (optional) If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`
-    - **k8s parameters**:
-      - **topology_config_path**: (mandatory) A string specifying the key for the topology config in the ConfigMap.
-      - **topology_configmap_name**: (mandatory) A string specifying the name of the ConfigMap containing the topology config.
-      - **topology_configmap_namespace**: (mandatory) A string specifying the namespace of the ConfigMap containing the topology config.
   - **nodes**: (optional) An array of regions mapping instance IDs to node names.
 
   Example:

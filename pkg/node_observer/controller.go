@@ -37,14 +37,9 @@ type Controller struct {
 	nodeInformer *NodeInformer
 }
 
-func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
+func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) *Controller {
 	var f httpreq.RequestFunc = func() (*http.Request, error) {
-		params := map[string]any{
-			topology.KeyTopoConfigPath:         cfg.TopologyConfigmap.Filename,
-			topology.KeyTopoConfigmapName:      cfg.TopologyConfigmap.Name,
-			topology.KeyTopoConfigmapNamespace: cfg.TopologyConfigmap.Namespace,
-		}
-		payload := topology.NewRequest(cfg.Provider, nil, cfg.Engine, params)
+		payload := topology.NewRequest(cfg.Provider, nil, cfg.Engine, nil)
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse payload: %v", err)
@@ -61,12 +56,11 @@ func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config
 		client:       client,
 		cfg:          cfg,
 		nodeInformer: NewNodeInformer(ctx, client, cfg.NodeLabels, f),
-	}, nil
+	}
 }
 
 func (c *Controller) Start() error {
 	klog.Infof("Starting state observer")
-
 	return c.nodeInformer.Start()
 }
 
