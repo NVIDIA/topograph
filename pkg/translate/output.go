@@ -272,7 +272,7 @@ func dfsTraversal(wr io.Writer, curVertex *topology.Vertex, blockRoot *topology.
 	keys := sortVertices(curVertex)
 	for _, key := range keys {
 		w := curVertex.Vertices[key]
-		if len(w.Vertices) == 0 { // it's a leaf; don't add to queue
+		if len(w.Vertices) == 0 { // it's a leaf; don't recurse
 			err := findBlock(wr, w.ID, blockRoot, domainVisited, fnc)
 			if err != nil {
 				return err
