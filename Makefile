@@ -16,7 +16,7 @@ LINTER_BIN ?= golangci-lint
 DOCKER_BIN ?= docker
 GOOS ?= $(shell uname | tr '[:upper:]' '[:lower:]')
 GOARCH ?= $(shell arch | sed 's/x86_64/amd64/')
-TARGETS := topograph node-observer toposim
+TARGETS := topograph node-observer node-data-broker-initc toposim
 CMD_DIR := ./cmd
 OUTPUT_DIR := ./bin
 
@@ -39,17 +39,6 @@ build:
 .PHONY: build-%
 build-%:
 	@GOOS=$$(echo $* | cut -d- -f 1) GOARCH=$$(echo $* | cut -d- -f 2) $(MAKE) build
-
-.PHONY: build-arm64
-build-arm64:
-	@echo "Building for arm64"
-	@for target in $(TARGETS); do        \
-	  echo "Building $${target}";        \
-	  GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 go build -a -o $(OUTPUT_DIR)/$${target}        \
-	    -ldflags '-extldflags "-static" -X main.GitTag=$(GIT_REF)' \
-	    $(CMD_DIR)/$${target};           \
-	done
-
 
 .PHONY: clean
 clean:
@@ -107,8 +96,3 @@ ssl:
 .PHONY: deb rpm
 deb rpm: build
 	scripts/build-$@.sh $(GIT_REF)
-
-.PHONY: deb-arm64
-deb-arm64: build-arm64
-	ARCH=arm64 scripts/build-deb.sh $(GIT_REF)
-

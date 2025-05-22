@@ -20,21 +20,27 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/exec"
+	"github.com/NVIDIA/topograph/pkg/providers"
 )
 
 const (
-	IMDSURL = "http://metadata.google.internal/computeMetadata/v1"
+	IMDSURL         = "http://metadata.google.internal/computeMetadata/v1"
+	IMDSInstanceURL = IMDSURL + "/instance/id"
+	IMDSRegionURL   = IMDSURL + "/instance/zone"
+	IMDSHeaderKey   = "Metadata-Flavor"
+	IMDSHeaderVal   = "Google"
+	IMDSHeader      = IMDSHeaderKey + ": " + IMDSHeaderVal
 )
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	url := fmt.Sprintf("%s/instance/id", IMDSURL)
-	args := []string{"-w", strings.Join(nodes, ","), fmt.Sprintf("echo $(curl -s  -H \"Metadata-Flavor: Google\" %s)", url)}
-	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
+	stdout, err := exec.Exec(ctx, "pdsh", pdshParams(nodes, IMDSInstanceURL), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -58,9 +64,7 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 }
 
 func getRegion(ctx context.Context) (string, error) {
-	url := fmt.Sprintf("%s/instance/zone", IMDSURL)
-	args := []string{"-s", "-H", "Metadata-Flavor: Google", url}
-	stdout, err := exec.Exec(ctx, "curl", args, nil)
+	stdout, err := exec.Exec(ctx, "curl", imdsCurlParams(IMDSRegionURL), nil)
 	if err != nil {
 		return "", err
 	}
@@ -71,4 +75,33 @@ func getRegion(ctx context.Context) (string, error) {
 	indx := strings.LastIndex(zone, "/")
 
 	return zone[indx+1:], nil
+}
+
+func imdsCurlParams(url string) []string {
+	return []string{"-s", "-H", IMDSHeader, url}
+}
+
+func pdshParams(nodes []string, url string) []string {
+	return []string{"-w", strings.Join(cluset.Compact(nodes), ","), fmt.Sprintf("echo $(curl -s -H %q %s)", IMDSHeader, url)}
+}
+
+func convertRegion(region string) string {
+	// convert "projects/<project id>/zones/<region>" to "<region>"
+	indx := strings.LastIndex(region, "/")
+	return region[indx+1:]
+}
+
+func GetInstanceAndRegion() (string, string, error) {
+	header := map[string]string{IMDSHeaderKey: IMDSHeaderVal}
+	instance, err := providers.HttpReq(http.MethodGet, IMDSInstanceURL, header)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to execute instance-id IMDS request: %v", err)
+	}
+
+	region, err := providers.HttpReq(http.MethodGet, IMDSRegionURL, header)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to execute region IMDS request: %v", err)
+	}
+
+	return instance, convertRegion(region), nil
 }

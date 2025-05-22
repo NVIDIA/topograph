@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -34,6 +33,7 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/models"
+	"github.com/NVIDIA/topograph/pkg/test"
 	"github.com/NVIDIA/topograph/pkg/toposim"
 )
 
@@ -138,7 +138,7 @@ BlockSizes=8,16,32
 )
 
 func TestServerLocal(t *testing.T) {
-	port, err := getAvailablePort()
+	port, err := test.GetAvailablePort()
 	require.NoError(t, err)
 
 	cfg := &config.Config{
@@ -350,7 +350,7 @@ func TestServerRemote(t *testing.T) {
 			require.NoError(t, err)
 
 			// init gRPC server
-			grpcPort, err := getAvailablePort()
+			grpcPort, err := test.GetAvailablePort()
 			require.NoError(t, err)
 
 			topo := toposim.NewServer(model, grpcPort)
@@ -359,7 +359,7 @@ func TestServerRemote(t *testing.T) {
 			go func() { _ = topo.Start() }()
 
 			// init http server
-			httpPort, err := getAvailablePort()
+			httpPort, err := test.GetAvailablePort()
 			require.NoError(t, err)
 
 			cfg := &config.Config{
@@ -410,16 +410,6 @@ func TestServerRemote(t *testing.T) {
 			t.Errorf("timeout")
 		})
 	}
-}
-
-func getAvailablePort() (int, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-
-	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 func stringToLineMap(str string) map[string]struct{} {

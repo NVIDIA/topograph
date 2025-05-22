@@ -20,6 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 
 	"github.com/NVIDIA/topograph/internal/component"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -50,4 +53,26 @@ func (r Registry) Get(name string) (Loader, error) {
 	}
 
 	return loader, nil
+}
+
+func HttpReq(method, url string, headers map[string]string) (string, error) {
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return "", err
+	}
+	for key, val := range headers {
+		req.Header.Add(key, val)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(data)), nil
 }

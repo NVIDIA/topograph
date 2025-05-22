@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-package oci
+package aws
 
 import (
-	"context"
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-type baseProvider struct {
-}
+func TestPdshParams(t *testing.T) {
+	nodes := []string{"node1", "node2", "node3", "extra"}
+	expected := []string{
+		"-w",
+		"extra,node[1-3]",
+		fmt.Sprintf(`TOKEN=$(curl -s -X PUT -H "X-aws-ec2-metadata-token-ttl-seconds: 60" %s); echo $(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" %s)`, IMDSTokenURL, IMDSInstanceURL)}
 
-// Engine support
-
-// GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *baseProvider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
-	return getRegion(ctx)
+	require.Equal(t, expected, pdshParams(nodes, IMDSInstanceURL))
 }

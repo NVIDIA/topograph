@@ -1,0 +1,22 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "node-data-broker.serviceAccountName" . }}
+rules:
+- apiGroups: [""]
+  resources: [nodes]
+  verbs: [get,list,update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "node-data-broker.serviceAccountName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "node-data-broker.serviceAccountName" . }}
+  namespace: {{.Release.Namespace}}
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: {{ include "node-data-broker.serviceAccountName" . }}
+  apiGroup: ""

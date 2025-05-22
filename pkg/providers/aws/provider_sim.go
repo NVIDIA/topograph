@@ -197,7 +197,7 @@ type simProvider struct {
 	baseProvider
 }
 
-func NewSim(clientFactory ClientFactory, imdsClient IDMSClient) *simProvider {
+func NewSim(clientFactory ClientFactory, imdsClient IMDSClient) *simProvider {
 	return &simProvider{
 		baseProvider: baseProvider{
 			clientFactory: clientFactory,

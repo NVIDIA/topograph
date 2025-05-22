@@ -33,6 +33,9 @@ const (
 	TopologyBlock = "topology/block"
 	NoTopology    = "no-topology"
 	KeyFakeConfig = "fakeConfig"
+
+	KeyNodeInstance = "topograph.nvidia.com/instance"
+	KeyNodeRegion   = "topograph.nvidia.com/region"
 )
 
 // Vertex is a tree node, representing a compute node or a network switch, where

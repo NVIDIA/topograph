@@ -25,7 +25,6 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -118,14 +117,4 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 // GetComputeInstancesRegion implements slurm.instanceMapper
 func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
 	return getRegion(ctx)
-}
-
-// GetNodeRegion implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
-	return node.Labels["topology.kubernetes.io/region"], nil
-}
-
-// GetNodeInstance implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
-	return node.Annotations["container.googleapis.com/instance_id"], nil
 }

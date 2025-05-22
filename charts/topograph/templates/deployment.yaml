@@ -38,6 +38,15 @@ spec:
             - /usr/local/bin/topograph
           args:
             - -v={{ .Values.verbosity }}
+          env:
+            - name: NODE_DATA_BROKER_NAME
+              value: {{ printf "%s-%s" .Release.Name "node-data-broker" | trunc 63 | trimSuffix "-" }}
+            - name: NODE_DATA_BROKER_NAMESPACE
+              value: {{ .Release.Namespace }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
