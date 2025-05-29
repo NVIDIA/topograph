@@ -3,7 +3,7 @@ module github.com/NVIDIA/topograph
 go 1.23.3
 
 require (
-	cloud.google.com/go/compute v1.37.0
+	cloud.google.com/go/compute v1.38.0
 	cloud.google.com/go/compute/metadata v0.6.0
 	github.com/agrea/ptr v0.2.0
 	github.com/aws/aws-sdk-go-v2 v1.32.4
@@ -104,7 +104,6 @@ require (
 )
 
 replace (
-	cloud.google.com/go/compute v1.37.0 => github.com/dmitsh/gapi-cloud-compute-v1-go/cloud.google.com/go/compute v0.0.0-20250512211814-1d9ebd56f81e
 	github.com/aws/aws-sdk-go-v2 v1.32.4 => github.com/pkedy/aws-sdk-go-v2 v0.0.0-20241115203348-0198b6c98cd9
 	github.com/aws/aws-sdk-go-v2/config v1.28.4 => github.com/pkedy/aws-sdk-go-v2/config v0.0.0-20241115203348-0198b6c98cd9
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.45 => github.com/pkedy/aws-sdk-go-v2/credentials v0.0.0-20241115203348-0198b6c98cd9
