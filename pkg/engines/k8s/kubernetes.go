@@ -42,6 +42,7 @@ func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ engines.Environ
 
 func getComputeInstances(nodes *corev1.NodeList) ([]topology.ComputeInstances, error) {
 	regions := make(map[string]map[string]string)
+	regionNames := []string{}
 	for _, node := range nodes.Items {
 		instance, ok := node.Annotations[topology.KeyNodeInstance]
 		if !ok {
@@ -53,13 +54,14 @@ func getComputeInstances(nodes *corev1.NodeList) ([]topology.ComputeInstances, e
 		}
 		if _, ok = regions[region]; !ok {
 			regions[region] = make(map[string]string)
+			regionNames = append(regionNames, region)
 		}
 		regions[region][instance] = node.Name
 	}
 
 	cis := make([]topology.ComputeInstances, 0, len(regions))
-	for region, nodes := range regions {
-		cis = append(cis, topology.ComputeInstances{Region: region, Instances: nodes})
+	for _, region := range regionNames {
+		cis = append(cis, topology.ComputeInstances{Region: region, Instances: regions[region]})
 	}
 
 	return cis, nil
