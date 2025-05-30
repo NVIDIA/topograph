@@ -1,0 +1,118 @@
+/*
+ * Copyright 2025 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package topology
+
+import (
+	"slices"
+	"sort"
+)
+
+// Merger finds and merges similar vertices in a graph representing N-tier hierarchy
+type Merger struct {
+	// array of tiers, starting from the leaf level
+	tiers [][]*Vertex
+	// resulting nodes after graph node merging
+	nodes map[string]*Vertex
+	// mapping of original node IDs to the resulting nodes after graph node merging
+	refs map[string]*Vertex
+}
+
+func NewMerger(top []*Vertex) *Merger {
+	m := &Merger{
+		tiers: [][]*Vertex{},
+		nodes: make(map[string]*Vertex),
+		refs:  make(map[string]*Vertex),
+	}
+	m.traverse(top)
+	return m
+}
+
+func (m *Merger) traverse(layer []*Vertex) {
+	visited := make(map[string]bool)
+
+	var isLeaf bool
+	for _, v := range layer {
+		visited[v.ID] = true
+		if len(v.Vertices) == 0 {
+			isLeaf = true
+			m.nodes[v.ID] = v
+		}
+	}
+
+	if !isLeaf {
+		next := []*Vertex{}
+		for _, v := range layer {
+			for id, w := range v.Vertices {
+				if !visited[id] {
+					visited[id] = true
+					next = append(next, w)
+				}
+			}
+		}
+		m.traverse(next)
+	}
+	m.tiers = append(m.tiers, layer)
+}
+
+func (m *Merger) TopTier() []*Vertex {
+	return m.tiers[len(m.tiers)-1]
+}
+
+func (m *Merger) Merge() {
+	for i := 1; i < len(m.tiers); i++ {
+		m.tiers[i] = m.mergeLayer(m.tiers[i])
+	}
+}
+
+func (m *Merger) mergeLayer(layer []*Vertex) []*Vertex {
+	type filter struct {
+		signature []string
+		id        string
+	}
+	filters := []filter{}
+
+	result := []*Vertex{}
+	for _, v := range layer {
+		vertices := make(map[string]bool)
+		for id := range v.Vertices {
+			if ref, ok := m.refs[id]; ok {
+				vertices[ref.ID] = true
+			} else {
+				vertices[id] = true
+			}
+		}
+
+		signature := make([]string, 0, len(vertices))
+		for id := range vertices {
+			signature = append(signature, id)
+		}
+		sort.Strings(signature)
+
+		var seen bool
+		for _, f := range filters {
+			if slices.Equal(f.signature, signature) {
+				seen = true
+				m.refs[v.ID] = m.nodes[f.id]
+				break
+			}
+		}
+		if !seen {
+			filters = append(filters, filter{signature: signature, id: v.ID})
+			merged := &Vertex{
+				Name:     v.Name,
+				ID:       v.ID,
+				Vertices: make(map[string]*Vertex),
+			}
+			for _, id := range signature {
+				merged.Vertices[id] = m.nodes[id]
+			}
+			m.nodes[v.ID] = merged
+			result = append(result, merged)
+		}
+	}
+
+	return result
+}
