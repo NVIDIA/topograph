@@ -34,7 +34,7 @@ import (
 const (
 	NAME_SIM = "gcp-sim"
 
-	errNoce = iota
+	errNone = iota
 	errClientFactory
 	errProjectID
 	errInstances
