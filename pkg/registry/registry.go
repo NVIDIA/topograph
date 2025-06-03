@@ -26,6 +26,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/baremetal"
 	"github.com/NVIDIA/topograph/pkg/providers/cw"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
+	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 	provider_test "github.com/NVIDIA/topograph/pkg/providers/test"
 )
@@ -40,6 +41,7 @@ var Providers = providers.NewRegistry(
 	oci.NamedLoaderAPI,
 	oci.NamedLoaderIMDS,
 	oci.NamedLoaderSim,
+	nebius.NamedLoader,
 	provider_test.NamedLoader,
 )
 
