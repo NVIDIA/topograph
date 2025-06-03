@@ -18,6 +18,7 @@ package gcp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -25,7 +26,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
 )
@@ -40,18 +40,22 @@ const (
 )
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	stdout, err := exec.Exec(ctx, "pdsh", pdshParams(nodes, IMDSInstanceURL), nil)
+	stdout, err := exec.Pdsh(ctx, pdshCmd(IMDSInstanceURL), nodes)
 	if err != nil {
 		return nil, err
 	}
 
+	return parseInstanceOutput(stdout)
+}
+
+func parseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
 	i2n := map[string]string{}
-	scanner := bufio.NewScanner(stdout)
+	scanner := bufio.NewScanner(buff)
 	for scanner.Scan() {
 		arr := strings.Split(scanner.Text(), ": ")
 		if len(arr) == 2 {
 			node, instance := arr[0], arr[1]
-			klog.V(4).Infoln("Node name: ", node, "Instance ID: ", instance)
+			klog.V(4).Info("Node name: ", node, "Instance ID: ", instance)
 			i2n[instance] = node
 		}
 	}
@@ -81,8 +85,8 @@ func imdsCurlParams(url string) []string {
 	return []string{"-s", "-H", IMDSHeader, url}
 }
 
-func pdshParams(nodes []string, url string) []string {
-	return []string{"-w", strings.Join(cluset.Compact(nodes), ","), fmt.Sprintf("echo $(curl -s -H %q %s)", IMDSHeader, url)}
+func pdshCmd(url string) string {
+	return fmt.Sprintf("echo $(curl -s -H %q %s)", IMDSHeader, url)
 }
 
 func convertRegion(region string) string {

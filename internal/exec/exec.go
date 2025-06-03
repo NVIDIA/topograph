@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/NVIDIA/topograph/internal/cluset"
 	"k8s.io/klog/v2"
 )
 
@@ -51,4 +52,8 @@ func Exec(ctx context.Context, exe string, args []string, env map[string]string)
 		return nil, fmt.Errorf("%s failed: %s : %v", exe, msg, err)
 	}
 	return &stdout, nil
+}
+
+func Pdsh(ctx context.Context, cmd string, nodes []string) (*bytes.Buffer, error) {
+	return Exec(ctx, "pdsh", []string{"-w", strings.Join(cluset.Compact(nodes), ","), cmd}, nil)
 }

@@ -17,26 +17,34 @@
 package gcp
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
+func TestParseInstanceOutput(t *testing.T) {
+	input := `node1: instance1
+node2: instance2
+node3: instance3
+node4: instance4
+`
+	expected := map[string]string{"instance1": "node1", "instance2": "node2", "instance3": "node3", "instance4": "node4"}
+
+	output, err := parseInstanceOutput(bytes.NewBufferString(input))
+	require.NoError(t, err)
+	require.Equal(t, expected, output)
+}
+
 func TestImdsCurlParams(t *testing.T) {
 	expected := []string{"-s", "-H", IMDSHeader, IMDSInstanceURL}
 	require.Equal(t, expected, imdsCurlParams(IMDSInstanceURL))
 }
 
-func TestPdshParams(t *testing.T) {
-	nodes := []string{"node1", "node2", "node3", "extra"}
-
-	expected := []string{
-		"-w",
-		"extra,node[1-3]",
-		fmt.Sprintf(`echo $(curl -s -H "Metadata-Flavor: Google" %s)`, IMDSInstanceURL),
-	}
-	require.Equal(t, expected, pdshParams(nodes, IMDSInstanceURL))
+func TestPdshCmd(t *testing.T) {
+	expected := fmt.Sprintf(`echo $(curl -s -H "Metadata-Flavor: Google" %s)`, IMDSInstanceURL)
+	require.Equal(t, expected, pdshCmd(IMDSInstanceURL))
 }
 
 func TestConvertRegion(t *testing.T) {

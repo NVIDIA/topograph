@@ -17,11 +17,9 @@
 package aws
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -32,7 +30,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -195,27 +192,7 @@ func New(clientFactory ClientFactory, imdsClient IMDSClient) *Provider {
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	stdout, err := exec.Exec(ctx, "pdsh", pdshParams(nodes, IMDSInstanceURL), nil)
-	if err != nil {
-		return nil, err
-	}
-	klog.V(4).Infof("data: %s", stdout.String())
-
-	i2n := map[string]string{}
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		arr := strings.Split(scanner.Text(), ": ")
-		if len(arr) == 2 {
-			node, instance := arr[0], arr[1]
-			i2n[instance] = node
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return i2n, nil
+	return instanceToNodeMap(ctx, nodes)
 }
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
