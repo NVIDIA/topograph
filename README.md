@@ -100,6 +100,7 @@ Currently supported providers:
 - OCI
 - GCP
 - CoreWeave
+- Nebius
 - Bare metal
 
 For detailed information on supported engines, see:
