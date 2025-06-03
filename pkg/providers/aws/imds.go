@@ -17,12 +17,15 @@
 package aws
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/NVIDIA/topograph/internal/cluset"
+	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
 )
 
@@ -39,14 +42,40 @@ const (
 	tokenTimeDelay = 15 * time.Second
 )
 
+func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
+	stdout, err := exec.Pdsh(ctx, pdshCmd(IMDSInstanceURL), nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseInstanceOutput(stdout)
+}
+
+func parseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
+	i2n := map[string]string{}
+	scanner := bufio.NewScanner(buff)
+	for scanner.Scan() {
+		arr := strings.Split(scanner.Text(), ": ")
+		if len(arr) == 2 {
+			node, instance := arr[0], arr[1]
+			i2n[instance] = node
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return i2n, nil
+}
+
 func makeHeader(name, val string) string {
 	return fmt.Sprintf("%s: %s", name, val)
 }
 
-func pdshParams(nodes []string, url string) []string {
-	return []string{"-w", strings.Join(cluset.Compact(nodes), ","),
-		fmt.Sprintf("TOKEN=$(curl -s -X PUT -H %q %s); echo $(curl -s -H %q %s)",
-			IMDSTokenHeader, IMDSTokenURL, makeHeader(IMDSHeaderKey, "$TOKEN"), url)}
+func pdshCmd(url string) string {
+	return fmt.Sprintf("TOKEN=$(curl -s -X PUT -H %q %s); echo $(curl -s -H %q %s)",
+		IMDSTokenHeader, IMDSTokenURL, makeHeader(IMDSHeaderKey, "$TOKEN"), url)
 }
 
 func GetInstanceAndRegion() (string, string, error) {

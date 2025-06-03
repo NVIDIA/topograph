@@ -94,12 +94,7 @@ func TestImdsCurlParams(t *testing.T) {
 	require.Equal(t, expected, imdsCurlParams(IMDSRegionURL))
 }
 
-func TestPdshParams(t *testing.T) {
-	nodes := []string{"node1", "node2", "node3", "extra"}
-	expected := []string{
-		"-w",
-		"extra,node[1-3]",
-		fmt.Sprintf(`echo $(curl -s -H "Authorization: Bearer Oracle" -L %s)`, IMDSInstanceURL),
-	}
-	require.Equal(t, expected, pdshParams(nodes, IMDSInstanceURL))
+func TestPdshCmd(t *testing.T) {
+	expected := fmt.Sprintf(`echo $(curl -s -H "Authorization: Bearer Oracle" -L %s)`, IMDSInstanceURL)
+	require.Equal(t, expected, pdshCmd(IMDSInstanceURL))
 }

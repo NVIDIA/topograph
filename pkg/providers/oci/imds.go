@@ -27,7 +27,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
 )
@@ -50,7 +49,7 @@ type topologyData struct {
 }
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	stdout, err := exec.Exec(ctx, "pdsh", pdshParams(nodes, IMDSInstanceURL), nil)
+	stdout, err := exec.Pdsh(ctx, pdshCmd(IMDSInstanceURL), nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +77,7 @@ func parseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
 }
 
 func getHostTopology(ctx context.Context, nodes []string) (map[string]*topologyData, error) {
-	stdout, err := exec.Exec(ctx, "pdsh", pdshParams(nodes, IMDSTopologyURL), nil)
+	stdout, err := exec.Pdsh(ctx, pdshCmd(IMDSTopologyURL), nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +124,8 @@ func imdsCurlParams(url string) []string {
 	return []string{"-s", "-H", IMDSHeader, "-L", url}
 }
 
-func pdshParams(nodes []string, url string) []string {
-	return []string{"-w", strings.Join(cluset.Compact(nodes), ","), fmt.Sprintf("echo $(curl -s -H %q -L %s)", IMDSHeader, url)}
+func pdshCmd(url string) string {
+	return fmt.Sprintf("echo $(curl -s -H %q -L %s)", IMDSHeader, url)
 }
 
 func GetInstanceAndRegion() (string, string, error) {
