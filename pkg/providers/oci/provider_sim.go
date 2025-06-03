@@ -34,7 +34,7 @@ import (
 const (
 	NAME_SIM = "oci-sim"
 
-	errNoce = iota
+	errNone = iota
 	errClientFactory
 	errListAvailabilityDomains
 	errListComputeHosts

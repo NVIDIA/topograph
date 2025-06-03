@@ -42,7 +42,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 		req := &compute.GetInstanceRequest{Id: id}
 		instance, err := client.GetComputeInstance(ctx, req)
 		if err != nil {
-			return err
+			return fmt.Errorf("error in getting compute instance: id:%s hostname:%s err:%v", id, hostname, err)
 		}
 
 		ibTopology := instance.GetStatus().GetInfinibandTopologyPath()
@@ -52,11 +52,20 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 		}
 
 		inst := &topology.InstanceTopology{
-			InstanceID:   id,
-			DatacenterID: "", // TODO: set proper value from ibTopology.GetPath()
-			SpineID:      "", // TODO: set proper value from ibTopology.GetPath()
-			BlockID:      "", // TODO: set proper value from ibTopology.GetPath()
+			InstanceID: id,
 		}
+
+		path := ibTopology.GetPath()
+		switch len(path) {
+		case 3:
+			inst.DatacenterID = path[0]
+			inst.SpineID = path[1]
+			inst.BlockID = path[2]
+		default:
+			klog.Warningf("unsupported size %d of topology path for node %q id %q", len(path), hostname, id)
+			continue
+		}
+
 		klog.Infof("Adding topology: %s", inst.String())
 		topo.Append(inst)
 	}

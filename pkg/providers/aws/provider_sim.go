@@ -39,7 +39,7 @@ const (
 
 	DEFAULT_MAX_RESULTS = 20
 
-	errNoce = iota
+	errNone = iota
 	errClientFactory
 	errDescribeInstanceTopology
 )
