@@ -17,14 +17,10 @@
 package gcp
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"strings"
-
-	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -45,26 +41,7 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 		return nil, err
 	}
 
-	return parseInstanceOutput(stdout)
-}
-
-func parseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
-	i2n := map[string]string{}
-	scanner := bufio.NewScanner(buff)
-	for scanner.Scan() {
-		arr := strings.Split(scanner.Text(), ": ")
-		if len(arr) == 2 {
-			node, instance := arr[0], arr[1]
-			klog.V(4).Info("Node name: ", node, "Instance ID: ", instance)
-			i2n[instance] = node
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return i2n, nil
+	return providers.ParseInstanceOutput(stdout)
 }
 
 func getRegion(ctx context.Context) (string, error) {
