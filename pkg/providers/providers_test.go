@@ -14,16 +14,24 @@
  * limitations under the License.
  */
 
-package aws
+package providers
 
 import (
-	"fmt"
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestPdshCmd(t *testing.T) {
-	expected := fmt.Sprintf(`TOKEN=$(curl -s -X PUT -H "X-aws-ec2-metadata-token-ttl-seconds: 60" %s); echo $(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" %s)`, IMDSTokenURL, IMDSInstanceURL)
-	require.Equal(t, expected, pdshCmd(IMDSInstanceURL))
+func TestParseInstanceOutput(t *testing.T) {
+	input := `node1: instance1
+node2: instance2
+node3: instance3
+node4: instance4
+`
+	expected := map[string]string{"instance1": "node1", "instance2": "node2", "instance3": "node3", "instance4": "node4"}
+
+	output, err := ParseInstanceOutput(bytes.NewBufferString(input))
+	require.NoError(t, err)
+	require.Equal(t, expected, output)
 }

@@ -24,19 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseInstanceOutput(t *testing.T) {
-	input := `node1: instance1
-node2: instance2
-node3: instance3
-node4: instance4
-`
-	expected := map[string]string{"instance1": "node1", "instance2": "node2", "instance3": "node3", "instance4": "node4"}
-
-	output, err := parseInstanceOutput(bytes.NewBufferString(input))
-	require.NoError(t, err)
-	require.Equal(t, expected, output)
-}
-
 func TestParseTopologyOutput(t *testing.T) {
 	testCases := []struct {
 		name   string

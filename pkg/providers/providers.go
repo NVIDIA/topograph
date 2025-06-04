@@ -17,12 +17,16 @@
 package providers
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/component"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -75,4 +79,23 @@ func HttpReq(method, url string, headers map[string]string) (string, error) {
 	}
 
 	return strings.TrimSpace(string(data)), nil
+}
+
+func ParseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
+	i2n := map[string]string{}
+	scanner := bufio.NewScanner(buff)
+	for scanner.Scan() {
+		arr := strings.Split(scanner.Text(), ": ")
+		if len(arr) == 2 {
+			node, instance := arr[0], arr[1]
+			klog.V(4).Info("Node name: ", node, "Instance ID: ", instance)
+			i2n[instance] = node
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return i2n, nil
 }
