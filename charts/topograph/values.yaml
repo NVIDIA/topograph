@@ -29,6 +29,12 @@ verbosity: 3
 
 env: {}
 
+topologyNodeLabels:
+  accelerator: "network.topology.nvidia.com/accelerator"
+  block: "network.topology.nvidia.com/block"
+  spine: "network.topology.nvidia.com/spine"
+  datacenter: "network.topology.nvidia.com/datacenter"
+
 podAnnotations: {}
 podLabels: {}
 

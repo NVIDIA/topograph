@@ -39,6 +39,7 @@ func (l *testLabeler) AddNodeLabels(_ context.Context, nodeName string, labels m
 }
 
 func TestApplyNodeLabelsWithTree(t *testing.T) {
+	InitLabels(DefaultLabelAccelerator, DefaultLabelBlock, DefaultLabelSpine, DefaultLabelDatacenter)
 	root, _ := translate.GetTreeTestSet(true)
 	labeler := &testLabeler{data: make(map[string]map[string]string)}
 	data := map[string]map[string]string{
@@ -56,6 +57,7 @@ func TestApplyNodeLabelsWithTree(t *testing.T) {
 }
 
 func TestApplyNodeLabelsWithBlock(t *testing.T) {
+	InitLabels(DefaultLabelAccelerator, DefaultLabelBlock, DefaultLabelSpine, DefaultLabelDatacenter)
 	root, _ := translate.GetBlockWithMultiIBTestSet()
 	labeler := &testLabeler{data: make(map[string]map[string]string)}
 	data := map[string]map[string]string{
@@ -136,4 +138,10 @@ func TestApplyNodeLabelsWithBlock(t *testing.T) {
 	err := NewTopologyLabeler().ApplyNodeLabels(context.TODO(), root, labeler)
 	require.NoError(t, err)
 	require.Equal(t, data, labeler.data)
+}
+
+func TestInitLabels(t *testing.T) {
+	InitLabels("a", "b", "c", "d")
+	require.Equal(t, []string{"b", "c", "d"}, switchNetworkHierarchy)
+	require.Equal(t, "a", labelAccelerator)
 }

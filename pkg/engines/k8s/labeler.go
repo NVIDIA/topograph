@@ -25,13 +25,25 @@ import (
 )
 
 const (
-	hierarchyLayerAccelerator = "network.topology.nvidia.com/accelerator"
-	hierarchyLayerBlock       = "network.topology.nvidia.com/block"
-	hierarchyLayerSpine       = "network.topology.nvidia.com/spine"
-	hierarchyLayerDatacenter  = "network.topology.nvidia.com/datacenter"
+	DefaultLabelAccelerator = "network.topology.nvidia.com/accelerator"
+	DefaultLabelBlock       = "network.topology.nvidia.com/block"
+	DefaultLabelSpine       = "network.topology.nvidia.com/spine"
+	DefaultLabelDatacenter  = "network.topology.nvidia.com/datacenter"
 )
 
-var switchNetworkHierarchy = []string{hierarchyLayerBlock, hierarchyLayerSpine, hierarchyLayerDatacenter}
+var (
+	labelAccelerator, labelBlock, labelSpine, labelDatacenter string
+
+	switchNetworkHierarchy []string
+)
+
+func InitLabels(accelerator, block, spine, datacenter string) {
+	labelAccelerator = accelerator
+	labelBlock = block
+	labelSpine = spine
+	labelDatacenter = datacenter
+	switchNetworkHierarchy = []string{labelBlock, labelSpine, labelDatacenter}
+}
 
 // map nodename:[label name: label value]
 type nodeLabelMap map[string]map[string]string
@@ -123,10 +135,10 @@ func (l *topologyLabeler) getBlockNodeLabels(v *topology.Vertex, nodeMap nodeLab
 				labels = make(map[string]string)
 				nodeMap[nodeName] = labels
 			}
-			if val, ok := labels[hierarchyLayerAccelerator]; ok {
+			if val, ok := labels[labelAccelerator]; ok {
 				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, block.ID, nodeName)
 			}
-			labels[hierarchyLayerAccelerator] = l.checkLabel(block.ID)
+			labels[labelAccelerator] = l.checkLabel(block.ID)
 		}
 	}
 	return nil
