@@ -11,14 +11,24 @@ import (
 	"os"
 
 	"github.com/nebius/gosdk"
+	"github.com/nebius/gosdk/auth"
 	compute "github.com/nebius/gosdk/proto/nebius/compute/v1"
 	services "github.com/nebius/gosdk/services/nebius/compute/v1"
+	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const NAME = "nebius"
+const (
+	NAME = "nebius"
+
+	authServiceAccountID = "service-account-id"
+	authPublicKeyID      = "public-key-id"
+	authPrivateKey       = "private-key"
+	authTokenPath        = "/mnt/cloud-metadata/token"
+	authTokenEnvVar      = "IAM_TOKEN"
+)
 
 type Client interface {
 	GetComputeInstance(context.Context, *compute.GetInstanceRequest) (*compute.Instance, error)
@@ -59,14 +69,50 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 	return New(clientFactory), nil
 }
 
+func getAuthOption(creds map[string]string) (gosdk.Option, error) {
+	if len(creds) != 0 {
+		klog.Info("Authentication with provided credentials")
+
+		var serviceAccountID, publicKeyID, privateKey string
+		if serviceAccountID = creds[authServiceAccountID]; len(serviceAccountID) == 0 {
+			return nil, fmt.Errorf("credentials error: missing %s", authServiceAccountID)
+		}
+		if publicKeyID = creds[authPublicKeyID]; len(publicKeyID) == 0 {
+			return nil, fmt.Errorf("credentials error: missing %s", authPublicKeyID)
+		}
+		if privateKey = creds[authPrivateKey]; len(privateKey) == 0 {
+			return nil, fmt.Errorf("credentials error: missing %s", authPrivateKey)
+		}
+
+		return gosdk.WithCredentials(
+			gosdk.ServiceAccountReader(
+				auth.NewPrivateKeyParser([]byte(privateKey), publicKeyID, serviceAccountID))), nil
+	}
+
+	if token := os.Getenv(authTokenEnvVar); len(token) != 0 {
+		klog.Info("Authentication with provided IAM token")
+		return gosdk.WithCredentials(gosdk.IAMToken(token)), nil
+	}
+
+	if _, err := os.Stat(authTokenPath); err == nil || !os.IsNotExist(err) {
+		klog.Infof("Authentication with %s", authTokenPath)
+		token, err := os.ReadFile(authTokenPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %v", authTokenPath, err)
+		}
+		return gosdk.WithCredentials(gosdk.IAMToken(string(token))), nil
+	}
+
+	return nil, fmt.Errorf("missing authentication credentials")
+}
+
 func getSDK(ctx context.Context, creds map[string]string) (*gosdk.SDK, error) {
-	// TODO: use credentials from payload or config to properly authenticate SDK.
-	sdk, err := gosdk.New(
-		ctx,
-		gosdk.WithCredentials(
-			gosdk.IAMToken(os.Getenv("IAM_TOKEN")),
-		),
-	)
+	opt, err := getAuthOption(creds)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gosdk: %v", err)
+	}
+
+	sdk, err := gosdk.New(ctx, opt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gosdk: %v", err)
 	}
@@ -97,12 +143,10 @@ func New(clientFactory ClientFactory) *Provider {
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	// TODO: implement function that returns map[instance id : hostname] for SLURM cluster given array of hostnames
-	return nil, fmt.Errorf("not implemented")
+	return instanceToNodeMap(ctx, nodes)
 }
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
 func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
-	// TODO: implement function that returns region name for the current host in SLURM cluster
-	return "", fmt.Errorf("not implemented")
+	return getRegion(ctx)
 }
