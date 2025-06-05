@@ -95,4 +95,4 @@ ssl:
 
 .PHONY: deb rpm
 deb rpm: build
-	scripts/build-$@.sh $(GIT_REF)
+	ARCH=$(GOARCH) scripts/build-$@.sh $(GIT_REF)
