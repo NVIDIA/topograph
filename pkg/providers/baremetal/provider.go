@@ -13,7 +13,6 @@ import (
 const NAME = "baremetal"
 
 type ProviderParams struct {
-	//NetworkType string `mapstructure:"network_type"`
 	NetqLoginUrl string `mapstructure:"netqLoginUrl"`
 	NetqApiUrl   string `mapstructure:"netqApiUrl"`
 }
