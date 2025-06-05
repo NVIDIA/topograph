@@ -70,11 +70,6 @@ func GetParams(params map[string]any) (*ProviderParams, error) {
 	if err := config.Decode(params, &p); err != nil {
 		return nil, fmt.Errorf("error decoding params: %w", err)
 	}
-	/*
-		if len(p.NetqLoginUrl) == 0 {
-			return nil, fmt.Errorf("no network type provided for baremetal")
-		}
-	*/
 	return &p, nil
 }
 

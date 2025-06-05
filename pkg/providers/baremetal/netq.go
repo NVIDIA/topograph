@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package baremetal
 
 import (
@@ -11,14 +27,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-/*
-const (
-
-	NETQLOGINURL = "https://api.air.netq.nvidia.com/netq/auth/v1/login"
-	NETQAPIURL   = "https://air.netq.nvidia.com/api/netq/telemetry/v1/object/topologygraph/fetch-topology?timestamp=0"
-
-)
-*/
 type NetqResponse struct {
 	Links []Links `json:"links"`
 	Nodes []Nodes `json:"nodes"`
@@ -29,10 +37,9 @@ type Nodes struct {
 }
 
 type CNode struct {
-	Id       string `json:"id"`
-	Name     string `json:"name"`
-	NodeType string `json:"node_type"`
-	Tier     int    `json:"tier"`
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Tier int    `json:"tier"`
 }
 
 type Links struct {
@@ -191,6 +198,26 @@ func parseNetq(netqResponse []NetqResponse, inputNodes []string) (*topology.Vert
 	if len(inputNodes) > 0 {
 		reqNodeMap := getReqNodeMap(inputNodes)
 		invalidateExtraNodes(treeRoot, reqNodeMap, nameMap)
+	}
+
+	var graphVertices []*topology.Vertex
+	for _, node := range treeRoot.Vertices {
+		graphVertices = append(graphVertices, node)
+	}
+
+	// Ethernet Spectrum-X may have CLOS network and may require merging of switches to a tree format
+	merger := topology.NewMerger(graphVertices)
+	merger.Merge()
+	top := merger.TopTier()
+
+	treeRoot = &topology.Vertex{
+		ID:       "root",
+		Vertices: make(map[string]*topology.Vertex),
+		Metadata: make(map[string]string),
+	}
+
+	for _, node := range top {
+		treeRoot.Vertices[node.ID] = node
 	}
 
 	root := &topology.Vertex{
