@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -98,4 +99,13 @@ func ParseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
 	}
 
 	return i2n, nil
+}
+
+func ReadFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read %s: %v", path, err)
+	}
+
+	return string(data), nil
 }

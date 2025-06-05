@@ -30,6 +30,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines/k8s"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
+	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -66,6 +67,8 @@ func mainInternal(provider string) (err error) {
 		instance, region, err = gcp.GetInstanceAndRegion()
 	case oci.NAME, oci.NAME_IMDS:
 		instance, region, err = oci.GetInstanceAndRegion()
+	case nebius.NAME:
+		instance, region, err = nebius.GetInstanceAndRegion()
 	case "":
 		err = fmt.Errorf("must set provider")
 	default:

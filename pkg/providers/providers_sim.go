@@ -23,7 +23,7 @@ import (
 	"github.com/NVIDIA/topograph/internal/config"
 )
 
-var APIError = errors.New("API error")
+var ErrAPIError = errors.New("API error")
 
 type SimulationParams struct {
 	ModelPath string `mapstructure:"model_path"`

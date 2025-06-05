@@ -64,21 +64,27 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /etc/topograph
-            {{- if .Values.service.credentials_secret }}
+          {{- if .Values.service.credentials_secret }}
             - name: secret-volume
               mountPath: /etc/topograph/credentials
               readOnly: true
-            {{- end }}
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       volumes:
         - name: config-volume
           configMap:
             defaultMode: 420
             name: {{ include "topograph.fullname" . }}
-        {{- if .Values.service.credentials_secret }}
+      {{- if .Values.service.credentials_secret }}
         - name: secret-volume
           secret:
             secretName: {{ .Values.service.credentials_secret }}
-        {{- end }}
+      {{- end }}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

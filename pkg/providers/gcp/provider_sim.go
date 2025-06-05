@@ -73,7 +73,7 @@ func (c *simClient) PageSize() *uint32 {
 
 func (c *simClient) ProjectID(ctx context.Context) (string, error) {
 	if c.apiErr == errProjectID {
-		return "", providers.APIError
+		return "", providers.ErrAPIError
 	}
 
 	return "", nil
@@ -81,7 +81,7 @@ func (c *simClient) ProjectID(ctx context.Context) (string, error) {
 
 func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string) {
 	if c.apiErr == errInstances {
-		return &simInstanceIter{err: providers.APIError}, ""
+		return &simInstanceIter{err: providers.ErrAPIError}, ""
 	}
 
 	var indx int
@@ -147,7 +147,7 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 
 	clientFactory := func(pageSize *int) (Client, error) {
 		if p.APIError == errClientFactory {
-			return nil, providers.APIError
+			return nil, providers.ErrAPIError
 		}
 
 		limit := castPageSize(pageSize)

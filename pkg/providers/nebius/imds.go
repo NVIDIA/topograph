@@ -28,11 +28,20 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 	return providers.ParseInstanceOutput(stdout)
 }
 
-func getRegion(ctx context.Context) (string, error) {
-	stdout, err := exec.Exec(ctx, "cat", []string{IMDSRegionPath}, nil)
+func getRegion(_ context.Context) (string, error) {
+	return providers.ReadFile(IMDSRegionPath)
+}
+
+func GetInstanceAndRegion() (string, string, error) {
+	instance, err := providers.ReadFile(IMDSInstancePath)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return stdout.String(), nil
+	region, err := providers.ReadFile(IMDSRegionPath)
+	if err != nil {
+		return "", "", err
+	}
+
+	return instance, region, nil
 }

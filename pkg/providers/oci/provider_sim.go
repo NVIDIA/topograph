@@ -60,7 +60,7 @@ func (c *simClient) Limit() *int { return c.pageSize }
 
 func (c *simClient) ListAvailabilityDomains(ctx context.Context, req identity.ListAvailabilityDomainsRequest) (identity.ListAvailabilityDomainsResponse, error) {
 	if c.apiErr == errListAvailabilityDomains {
-		return identity.ListAvailabilityDomainsResponse{}, providers.APIError
+		return identity.ListAvailabilityDomainsResponse{}, providers.ErrAPIError
 	}
 
 	return identity.ListAvailabilityDomainsResponse{
@@ -73,7 +73,7 @@ func (c *simClient) ListAvailabilityDomains(ctx context.Context, req identity.Li
 
 func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHostsRequest) (core.ListComputeHostsResponse, error) {
 	if c.apiErr == errListComputeHosts {
-		return core.ListComputeHostsResponse{}, providers.APIError
+		return core.ListComputeHostsResponse{}, providers.ErrAPIError
 	}
 
 	resp := core.ListComputeHostsResponse{
@@ -142,7 +142,7 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 
 	clientFactory := func(region string, pageSize *int) (Client, error) {
 		if p.APIError == errClientFactory {
-			return nil, providers.APIError
+			return nil, providers.ErrAPIError
 		}
 		if pageSize == nil {
 			pageSize = ptr.Int(len(instanceIDs))
