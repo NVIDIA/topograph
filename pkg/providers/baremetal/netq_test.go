@@ -79,7 +79,6 @@ func TestParseNetq(t *testing.T) {
 	}
 	nodes := []Nodes{{
 		Cnode: []CNode{
-			//Cnode: []CNode{
 			{Id: "A", Name: "A", Tier: -1},
 			{Id: "B", Name: "B", Tier: -1},
 			{Id: "C", Name: "C", Tier: -1},
@@ -116,10 +115,10 @@ func TestParseNetq(t *testing.T) {
 
 	root, _ := parseNetq(netqResponse, []string{"A"})
 
-	expected := []*topology.Vertex{}
+	got := []*topology.Vertex{}
 	for _, v := range root.Vertices[topology.TopologyTree].Vertices {
 		normalizeNames(v)
-		expected = append(expected, v)
+		got = append(got, v)
 	}
 
 	a := &topology.Vertex{ID: "A", Name: "A", Vertices: map[string]*topology.Vertex{}}
@@ -127,7 +126,7 @@ func TestParseNetq(t *testing.T) {
 	s1 := &topology.Vertex{ID: "S1", Name: "S1", Vertices: map[string]*topology.Vertex{"L1": l1}}
 	c1 := &topology.Vertex{ID: "C1", Name: "C1", Vertices: map[string]*topology.Vertex{"S1": s1}}
 
-	require.Equal(t, []*topology.Vertex{c1}, expected)
+	require.Equal(t, []*topology.Vertex{c1}, got)
 }
 
 func replaceName(v *topology.Vertex, newID string, oldIDs ...string) bool {

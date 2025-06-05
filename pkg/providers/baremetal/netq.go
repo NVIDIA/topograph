@@ -186,7 +186,6 @@ func parseNetq(netqResponse []NetqResponse, inputNodes []string) (*topology.Vert
 	}
 
 	treeRoot := &topology.Vertex{
-		ID:       "root",
 		Vertices: make(map[string]*topology.Vertex),
 		Metadata: make(map[string]string),
 	}
@@ -211,7 +210,6 @@ func parseNetq(netqResponse []NetqResponse, inputNodes []string) (*topology.Vert
 	top := merger.TopTier()
 
 	treeRoot = &topology.Vertex{
-		ID:       "root",
 		Vertices: make(map[string]*topology.Vertex),
 		Metadata: make(map[string]string),
 	}
