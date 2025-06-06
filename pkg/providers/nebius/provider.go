@@ -96,11 +96,11 @@ func getAuthOption(creds map[string]string) (gosdk.Option, error) {
 
 	if _, err := os.Stat(authTokenPath); err == nil || !os.IsNotExist(err) {
 		klog.Infof("Authentication with %s", authTokenPath)
-		token, err := os.ReadFile(authTokenPath)
+		token, err := providers.ReadFile(authTokenPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %v", authTokenPath, err)
+			return nil, err
 		}
-		return gosdk.WithCredentials(gosdk.IAMToken(string(token))), nil
+		return gosdk.WithCredentials(gosdk.IAMToken(token)), nil
 	}
 
 	return nil, fmt.Errorf("missing authentication credentials")

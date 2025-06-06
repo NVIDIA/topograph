@@ -54,7 +54,7 @@ type simClient struct {
 
 func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
 	if client.apiErr == errDescribeInstanceTopology {
-		return nil, providers.APIError
+		return nil, providers.ErrAPIError
 	}
 	// If we need to calculate new results (a previous token was not given)
 	var instanceIds []string
@@ -181,7 +181,7 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 
 	clientFactory := func(region string, pageSize *int) (*Client, error) {
 		if p.APIError == errClientFactory {
-			return nil, providers.APIError
+			return nil, providers.ErrAPIError
 		}
 
 		return &Client{

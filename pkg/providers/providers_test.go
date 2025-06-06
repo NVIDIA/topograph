@@ -18,6 +18,7 @@ package providers
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,4 +35,57 @@ node4: instance4
 	output, err := ParseInstanceOutput(bytes.NewBufferString(input))
 	require.NoError(t, err)
 	require.Equal(t, expected, output)
+}
+
+func TestReadFile(t *testing.T) {
+	testCases := []struct {
+		name   string
+		exists bool
+		data   string
+		err    bool
+	}{
+		{
+			name: "Case 1: file does not exist",
+			err:  true,
+		},
+		{
+			name:   "Case 2: empty file",
+			exists: true,
+		},
+		{
+			name:   "Case 3: text file",
+			exists: true,
+			data: `line1
+line2`,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var path string
+			if tc.exists {
+				f, err := os.CreateTemp("", "test-*")
+				require.NoError(t, err)
+				path = f.Name()
+				defer func() { _ = os.Remove(path) }()
+				defer func() { _ = f.Close() }()
+				if len(tc.data) != 0 {
+					n, err := f.WriteString(tc.data)
+					require.NoError(t, err)
+					require.Equal(t, len(tc.data), n)
+					err = f.Sync()
+					require.NoError(t, err)
+				}
+			} else {
+				path = "/does/not/exist"
+			}
+
+			data, err := ReadFile(path)
+			if tc.err {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.data, data)
+			}
+		})
+	}
 }
