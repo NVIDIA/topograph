@@ -51,7 +51,7 @@ http:
   ssl: false
 
 # provider: the provider that topograph will use (optional)
-# Valid options include "aws", "oci", "gcp", "cw", "baremetal" or "test".
+# Valid options include "aws", "oci", "gcp", "nebius", "baremetal" or "test".
 # Can be overridden if the provider is specified in a topology request to topograph
 provider: test
 
@@ -93,13 +93,12 @@ ssl:
 
 ## Supported Environments
 
-Topograph operates with two primary concepts: `provider` and `engine`. A `provider` represents a CSP or a similar environment, while an engine refers to a scheduling system like SLURM or Kubernetes.
+Topograph operates with two primary concepts: `provider` and `engine`. A `provider` represents a CSP or a similar environment, while an `engine` refers to a scheduling system like SLURM or Kubernetes.
 
 Currently supported providers:
 - AWS
 - OCI
 - GCP
-- CoreWeave
 - Nebius
 - Bare metal
 
@@ -121,7 +120,7 @@ Topograph offers three endpoints for interacting with the service. Below are the
 - **URL:** `http://<server>:<port>/v1/generate`
 - **Description:** This endpoint is used to request a new cluster topology.
 - **Payload:** The payload is a JSON object that includes the following fields:
-  - **provider name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `cw`, `baremetal` or `test`. This parameter will be override the provider set in the topograph config.
+  - **provider name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `baremetal` or `test`. This parameter will be override the provider set in the topograph config.
   - **provider credentials**: (optional) A key-value map with provider-specific parameters for authentication.
   - **provider parameters**: (optional) A key-value map with parameters that are used for provider simulation with toposim.
     - **model_path**: (optional) A string parameter that points to the model file to use for simulating topology.

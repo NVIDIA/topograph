@@ -30,8 +30,6 @@ verbosity: 3
 topograph:
   url: "http://topograph.default.svc.cluster.local:49021/v1/generate"
   node_labels: {}
-  provider: test
-  engine: k8s
 
 podAnnotations: {}
 podLabels: {}

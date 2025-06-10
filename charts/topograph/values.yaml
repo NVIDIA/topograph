@@ -2,6 +2,13 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+
+global:
+  #service provider: "aws", "oci", "gcp", "nebius", "baremetal" or "test".
+  provider: "test"
+  #engine: "k8s"
+  engine: "k8s"
+
 replicaCount: 1
 
 image:
@@ -29,6 +36,11 @@ verbosity: 3
 
 env: {}
 
+config:
+  request_aggregation_delay: 15s
+  # Optional secret with CSP credentials
+  # credentials_secret:
+
 topologyNodeLabels:
   accelerator: "network.topology.nvidia.com/accelerator"
   block: "network.topology.nvidia.com/block"
@@ -52,9 +64,6 @@ securityContext: {}
 service:
   type: ClusterIP
   port: 49021
-  request_aggregation_delay: 15s
-  # Optional secret with CSP credentials
-  # credentials_secret:
 
 ingress:
   enabled: false
@@ -117,7 +126,6 @@ node-observer:
   verbosity: 3
   topograph:
     node_labels: {}
-    provider: test
 
 node-data-broker:
   image:
@@ -125,10 +133,9 @@ node-data-broker:
     pullPolicy: IfNotPresent
     tag: 8.13.0
   initc:
-    enabled: false
+    enabled: true
     image:
       repository: ghcr.io/nvidia/topograph
       pullPolicy: IfNotPresent
       tag: main
-  provider: test
   verbosity: 3
