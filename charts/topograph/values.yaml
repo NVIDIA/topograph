@@ -2,12 +2,16 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-
 global:
-  #service provider: "aws", "oci", "gcp", "nebius", "baremetal" or "test".
+  # provider: "aws", "oci", "gcp", "nebius", "baremetal" or "test".
   provider: "test"
-  #engine: "k8s"
+  #  engine: "k8s" or "slinky"
   engine: "k8s"
+  # engineParams:
+
+  service:
+    type: ClusterIP
+    port: 49021
 
 replicaCount: 1
 
@@ -60,10 +64,6 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
-
-service:
-  type: ClusterIP
-  port: 49021
 
 ingress:
   enabled: false

@@ -6,6 +6,8 @@ metadata:
     {{- include "node-observer.labels" . | nindent 4 }}
 data:
   node-observer-config.yaml: |-
-    topology_generator_url: "{{ .Values.topograph.url }}"
+    topology_generator_url: "{{ printf "http://topograph.%s.svc.cluster.local:%.0f/v1/generate" .Release.Namespace .Values.global.service.port }}"
+    params:
+      {{- toYaml .Values.global.engineParams | nindent 6 }}
     node_labels:
       {{- toYaml .Values.topograph.node_labels | nindent 6 }}

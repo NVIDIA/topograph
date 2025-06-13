@@ -24,9 +24,12 @@ import (
 const (
 	KeyEngine = "engine"
 
-	KeyUID            = "uid"
-	KeyTopoConfigPath = "topology_config_path"
-	KeyBlockSizes     = "block_sizes"
+	KeyUID               = "uid"
+	KeyNamespace         = "namespace"
+	KeyPodLabel          = "pod_label"
+	KeyTopoConfigPath    = "topology_config_path"
+	KeyTopoConfigmapName = "topology_configmap_name"
+	KeyBlockSizes        = "block_sizes"
 
 	KeyPlugin     = "plugin"
 	TopologyTree  = "topology/tree"
