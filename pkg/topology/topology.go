@@ -24,15 +24,21 @@ import (
 const (
 	KeyEngine = "engine"
 
-	KeyUID            = "uid"
-	KeyTopoConfigPath = "topology_config_path"
-	KeyBlockSizes     = "block_sizes"
+	KeyUID                    = "uid"
+	KeyTopoConfigPath         = "topology_config_path"
+	KeyTopoConfigmapName      = "topology_configmap_name"
+	KeyTopoConfigmapNamespace = "topology_configmap_namespace"
+	KeyBlockSizes             = "block_sizes"
 
 	KeyPlugin     = "plugin"
 	TopologyTree  = "topology/tree"
 	TopologyBlock = "topology/block"
 	NoTopology    = "no-topology"
 	KeyFakeConfig = "fakeConfig"
+
+	KeyMethod    = "method"
+	MethodLabels = "labels"
+	MethodSlurm  = "slurm"
 
 	KeyNodeInstance = "topograph.nvidia.com/instance"
 	KeyNodeRegion   = "topograph.nvidia.com/region"

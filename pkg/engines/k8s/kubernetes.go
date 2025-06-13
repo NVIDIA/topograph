@@ -18,19 +18,17 @@ package k8s
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
-
-var ErrEnvironmentUnsupported = errors.New("environment must implement k8sNodeInfo")
 
 func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, error) {
 	nodes, err := eng.client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
@@ -143,4 +141,35 @@ func MergeNodeAnnotations(node *corev1.Node, annotations map[string]string) {
 		node.Annotations = make(map[string]string)
 	}
 	maps.Copy(node.Annotations, annotations)
+}
+
+func (eng *K8sEngine) UpdateTopologyConfigmap(ctx context.Context, name, namespace string, data map[string]string) error {
+	klog.Infof("Updating topology config %s/%s", namespace, name)
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: data,
+	}
+
+	verb := "get"
+	res, err := eng.client.CoreV1().ConfigMaps(cm.Namespace).Get(ctx, cm.Name, metav1.GetOptions{})
+	if err == nil {
+		verb = "update"
+		res, err = eng.client.CoreV1().ConfigMaps(cm.Namespace).Update(ctx, cm, metav1.UpdateOptions{})
+	} else if errors.IsNotFound(err) {
+		verb = "create"
+		res, err = eng.client.CoreV1().ConfigMaps(cm.Namespace).Create(ctx, cm, metav1.CreateOptions{})
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to %s configmap %s/%s: %v",
+			verb, cm.Namespace, cm.Name, err)
+	}
+
+	klog.V(4).Infof("Successfully %sd configmap %s/%s", verb, res.Namespace, res.Name)
+
+	return nil
 }
