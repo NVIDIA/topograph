@@ -28,18 +28,23 @@ type Config struct {
 	NodeLabels           map[string]string `yaml:"node_labels"`
 	Provider             string            `yaml:"provider"`
 	Engine               string            `yaml:"engine"`
+	Params               map[string]any    `yaml:"params"`
 }
 
 func NewConfigFromFile(fname string) (*Config, error) {
 	data, err := os.ReadFile(fname)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %v", fname, err)
+		return nil, err
 	}
 
 	cfg := &Config{}
 	err = yaml.Unmarshal(data, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %v", fname, err)
+	}
+
+	if len(cfg.TopologyGeneratorURL) == 0 {
+		return nil, fmt.Errorf("must specify topology_generator_url")
 	}
 
 	return cfg, nil

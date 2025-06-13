@@ -17,13 +17,17 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 const NAME = "k8s"
@@ -31,6 +35,13 @@ const NAME = "k8s"
 type K8sEngine struct {
 	config *rest.Config
 	client *kubernetes.Clientset
+}
+
+type Params struct {
+	Method             string `mapstructure:"method"`
+	ConfigPath         string `mapstructure:"topology_config_path"`
+	ConfigMapName      string `mapstructure:"topology_configmap_name"`
+	ConfigMapNamespace string `mapstructure:"topology_configmap_namespace"`
 }
 
 func NamedLoader() (string, engines.Loader) {
@@ -58,8 +69,52 @@ func New() (*K8sEngine, error) {
 	}, nil
 }
 
+func getParameters(params map[string]any) (*Params, error) {
+	p := &Params{}
+	if err := config.Decode(params, p); err != nil {
+		return nil, err
+	}
+
+	if len(p.Method) == 0 {
+		p.Method = topology.MethodLabels
+	}
+
+	switch p.Method {
+	case topology.MethodLabels:
+		// nop
+	case topology.MethodSlurm:
+		for key, val := range map[string]string{
+			topology.KeyTopoConfigPath:         p.ConfigPath,
+			topology.KeyTopoConfigmapName:      p.ConfigMapName,
+			topology.KeyTopoConfigmapNamespace: p.ConfigMapNamespace,
+		} {
+			if len(val) == 0 {
+				return nil, fmt.Errorf("must specify engine parameter %q with %s method", key, p.Method)
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported method %q", p.Method)
+	}
+
+	return p, nil
+}
+
 func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
-	if err := NewTopologyLabeler().ApplyNodeLabels(ctx, tree, eng); err != nil {
+	p, err := getParameters(params)
+	if err != nil {
+		return nil, err
+	}
+
+	if p.Method == topology.MethodSlurm {
+		buf := &bytes.Buffer{}
+		if err = translate.Write(buf, tree); err != nil {
+			return nil, err
+		}
+		err = eng.UpdateTopologyConfigmap(ctx, p.ConfigMapName, p.ConfigMapNamespace, map[string]string{p.ConfigPath: buf.String()})
+		if err != nil {
+			return nil, err
+		}
+	} else if err := NewTopologyLabeler().ApplyNodeLabels(ctx, tree, eng); err != nil {
 		return nil, err
 	}
 

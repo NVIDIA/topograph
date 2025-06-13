@@ -28,7 +28,7 @@ serviceAccount:
 verbosity: 3
 
 topograph:
-  url: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+  # Initiate topology request based on changes in nodes with these node labels
   node_labels: {}
 
 podAnnotations: {}
