@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
@@ -153,13 +151,6 @@ func NamedLoaderSim() (string, providers.Loader) {
 }
 
 func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, error) {
-	defaultCfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	imdsClient := imds.NewFromConfig(defaultCfg)
-
 	p, err := providers.GetSimulationParams(cfg.Params)
 	if err != nil {
 		return nil, err
@@ -190,19 +181,16 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 		}, nil
 	}
 
-	return NewSim(clientFactory, imdsClient), nil
+	return NewSim(clientFactory), nil
 }
 
 type simProvider struct {
 	baseProvider
 }
 
-func NewSim(clientFactory ClientFactory, imdsClient IMDSClient) *simProvider {
+func NewSim(clientFactory ClientFactory) *simProvider {
 	return &simProvider{
-		baseProvider: baseProvider{
-			clientFactory: clientFactory,
-			imdsClient:    imdsClient,
-		},
+		baseProvider: baseProvider{clientFactory: clientFactory},
 	}
 }
 
