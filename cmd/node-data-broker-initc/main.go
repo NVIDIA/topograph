@@ -20,14 +20,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/pkg/engines/k8s"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
@@ -100,7 +101,7 @@ func mainInternal(provider string) (err error) {
 		return fmt.Errorf("failed to get node %q: %v", nodeName, err)
 	}
 
-	k8s.MergeNodeAnnotations(node, annotations)
+	mergeNodeAnnotations(node, annotations)
 
 	_, err = clientset.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 	if err != nil {
@@ -108,4 +109,11 @@ func mainInternal(provider string) (err error) {
 	}
 
 	return nil
+}
+
+func mergeNodeAnnotations(node *corev1.Node, annotations map[string]string) {
+	if node.Annotations == nil {
+		node.Annotations = make(map[string]string)
+	}
+	maps.Copy(node.Annotations, annotations)
 }

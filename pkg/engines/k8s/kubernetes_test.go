@@ -66,7 +66,7 @@ func TestGetComputeInstances(t *testing.T) {
 	}
 }
 
-func TestMergeNodeLabelsAndAnnotation(t *testing.T) {
+func TestMergeNodeLabels(t *testing.T) {
 	testCases := []struct {
 		name string
 		node *corev1.Node
@@ -101,8 +101,6 @@ func TestMergeNodeLabelsAndAnnotation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			MergeNodeLabels(tc.node, tc.in)
 			require.Equal(t, tc.out, tc.node.Labels)
-			MergeNodeAnnotations(tc.node, tc.in)
-			require.Equal(t, tc.out, tc.node.Annotations)
 		})
 	}
 }
