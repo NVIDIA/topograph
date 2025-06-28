@@ -18,7 +18,6 @@ package k8s
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 
@@ -29,8 +28,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
-
-var ErrEnvironmentUnsupported = errors.New("environment must implement k8sNodeInfo")
 
 func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, error) {
 	nodes, err := eng.client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
@@ -136,11 +133,4 @@ func MergeNodeLabels(node *corev1.Node, labels map[string]string) {
 		node.Labels = make(map[string]string)
 	}
 	maps.Copy(node.Labels, labels)
-}
-
-func MergeNodeAnnotations(node *corev1.Node, annotations map[string]string) {
-	if node.Annotations == nil {
-		node.Annotations = make(map[string]string)
-	}
-	maps.Copy(node.Annotations, annotations)
 }
