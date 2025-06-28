@@ -84,7 +84,7 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, erro
 
 	creds, err := getCredentials(ctx, cfg.Creds)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get credentials: %v", err)
 	}
 
 	clientFactory := func(region string, pageSize *int) (*Client, error) {
@@ -96,7 +96,7 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, erro
 
 		awsCfg, err := config.LoadDefaultConfig(ctx, opts...)
 		if err != nil {
-			return nil, fmt.Errorf("unable to load SDK config, %v", err)
+			return nil, fmt.Errorf("failed to load SDK config: %v", err)
 		}
 
 		ec2Client := ec2.NewFromConfig(awsCfg)
