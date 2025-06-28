@@ -196,7 +196,7 @@ func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNo
 			if fnc != nil {
 				fnc.baseBlockSize = planningBS
 				if !fnc.isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains) {
-					return "", fmt.Errorf("Not enough fake nodes available")
+					return "", fmt.Errorf("not enough fake nodes available")
 				}
 			}
 			return strings.Join(outputbs, ","), nil
@@ -220,7 +220,7 @@ func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNo
 	if fnc != nil {
 		fnc.baseBlockSize = bs
 		if !fnc.isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains) {
-			return "", fmt.Errorf("Not enough fake nodes available")
+			return "", fmt.Errorf("not enough fake nodes available")
 		}
 	}
 
@@ -262,8 +262,7 @@ func toBlockTopology(wr io.Writer, root *topology.Vertex) error {
 	if err != nil {
 		return err
 	}
-
-	_, err = wr.Write([]byte(fmt.Sprintf("BlockSizes=%s\n", blockSize)))
+	_, err = fmt.Fprintf(wr, "BlockSizes=%s\n", blockSize)
 	return err
 }
 
