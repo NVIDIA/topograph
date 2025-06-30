@@ -18,6 +18,7 @@ package topology
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -92,9 +93,7 @@ func (c *ClusterTopology) Len() int {
 func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstances, normalize bool) (*Vertex, error) {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
-		for instance, node := range ci.Instances {
-			i2n[instance] = node
-		}
+		maps.Copy(i2n, ci.Instances)
 	}
 
 	forest := make(map[string]*Vertex)
@@ -164,9 +163,7 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 	treeRoot := &Vertex{
 		Vertices: make(map[string]*Vertex),
 	}
-	for name, node := range forest {
-		treeRoot.Vertices[name] = node
-	}
+	maps.Copy(treeRoot.Vertices, forest)
 
 	root := &Vertex{
 		Vertices: make(map[string]*Vertex),

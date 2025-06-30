@@ -66,7 +66,14 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 		duration := time.Since(start)
 		from, _, _ := net.SplitHostPort(r.RemoteAddr)
-		klog.InfoS("HTTP", "method", r.Method, "path", r.URL.Path, "proto", r.Proto, "from", from, "status", rec.statusCode, "duration", duration.Seconds())
+		var logf func(string, ...interface{})
+		switch r.URL.Path {
+		case "/healthz", "/metrics":
+			logf = klog.V(5).InfoS
+		default:
+			logf = klog.InfoS
+		}
+		logf("HTTP", "method", r.Method, "path", r.URL.Path, "proto", r.Proto, "from", from, "status", rec.statusCode, "duration", duration.Seconds())
 		metrics.AddHttpRequest(r.Method, r.URL.Path, r.Proto, from, rec.statusCode, duration)
 	})
 }

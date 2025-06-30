@@ -100,13 +100,14 @@ func TestGetComputeInstances(t *testing.T) {
 	node1 := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "host1", Annotations: map[string]string{topology.KeyNodeInstance: "i1", topology.KeyNodeRegion: "r1"}}}
 	node2 := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "host2", Annotations: map[string]string{topology.KeyNodeInstance: "i2", topology.KeyNodeRegion: "r1"}}}
 	node3 := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "host3", Annotations: map[string]string{topology.KeyNodeInstance: "i3", topology.KeyNodeRegion: "r2"}}}
+	nodeNone := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "none"}}
+	nodeMap := map[string]string{"host1": "node1", "host2": "node2", "host3": "node3", "err1": "node1", "err2": "node2"}
 
 	testCases := []struct {
-		name    string
-		nodes   *corev1.NodeList
-		nodeMap map[string]string
-		cis     []topology.ComputeInstances
-		err     string
+		name  string
+		nodes *corev1.NodeList
+		cis   []topology.ComputeInstances
+		err   string
 	}{
 		{
 			name:  "Case 1: instance error",
@@ -119,9 +120,8 @@ func TestGetComputeInstances(t *testing.T) {
 			err:   `missing "topograph.nvidia.com/region" annotation in node err2`,
 		},
 		{
-			name:    "Case 3: valid input",
-			nodes:   &corev1.NodeList{Items: []corev1.Node{node1, node2, node3}},
-			nodeMap: map[string]string{"host1": "node1", "host2": "node2", "host3": "node3"},
+			name:  "Case 3: valid input",
+			nodes: &corev1.NodeList{Items: []corev1.Node{node1, node2, node3, nodeNone}},
 			cis: []topology.ComputeInstances{
 				{
 					Region:    "r1",
@@ -137,7 +137,7 @@ func TestGetComputeInstances(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cis, err := getComputeInstances(tc.nodes, tc.nodeMap)
+			cis, err := getComputeInstances(tc.nodes, nodeMap)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {

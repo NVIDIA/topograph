@@ -120,7 +120,7 @@ func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Envi
 	// map k8s host name to SLURM host name
 	nodeMap := make(map[string]string)
 	for _, pod := range pods.Items {
-		klog.V(4).Infof("Mapping %s to %s", pod.Spec.NodeName, pod.Spec.Hostname)
+		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, pod.Spec.Hostname)
 		nodeMap[pod.Spec.NodeName] = pod.Spec.Hostname
 	}
 
@@ -131,6 +131,12 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 	regions := make(map[string]map[string]string)
 	regionNames := []string{}
 	for _, node := range nodes.Items {
+		hostName, ok := nodeMap[node.Name]
+		if !ok {
+			klog.V(4).Infof("Cannot resolve k8s node %q", node.Name)
+			continue
+		}
+		klog.V(4).InfoS("Adding compute instance", "host", hostName, "node", node.Name)
 		instance, ok := node.Annotations[topology.KeyNodeInstance]
 		if !ok {
 			return nil, fmt.Errorf("missing %q annotation in node %s", topology.KeyNodeInstance, node.Name)
@@ -143,7 +149,7 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 			regions[region] = make(map[string]string)
 			regionNames = append(regionNames, region)
 		}
-		regions[region][instance] = nodeMap[node.Name]
+		regions[region][instance] = hostName
 	}
 
 	cis := make([]topology.ComputeInstances, 0, len(regions))
