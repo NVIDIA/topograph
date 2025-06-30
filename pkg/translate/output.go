@@ -75,30 +75,29 @@ func (fnc *fakeNodeConfig) isEnoughFakeNodesAvailable(blockSize int, numDomains 
 }
 
 func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int, fnc *fakeNodeConfig) error {
-	if _, exists := domainVisited[block.ID]; !exists {
-		nodes := make([]string, 0, len(block.Vertices))
-		for _, node := range block.Vertices { //nodes within each domain
-			nodes = append(nodes, node.Name)
-		}
-		var comment string
-		if len(block.Name) != 0 {
-			comment = fmt.Sprintf("# %s=%s\n", block.ID, block.Name)
-		}
-
-		outputNodeNames := strings.Join(cluset.Compact(nodes), ",")
-		if fnc != nil && len(nodes) < fnc.baseBlockSize {
-			fakeNodes := fnc.getFreeFakeNodes(fnc.baseBlockSize - len(nodes))
-			fakeNodeNames := strings.Join(cluset.Compact(fakeNodes), ",")
-			outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
-		}
-
-		domainVisited[block.ID] = len(nodes)
-		_, err := wr.Write([]byte(fmt.Sprintf("%sBlockName=%s Nodes=%s\n", comment, block.ID, outputNodeNames)))
-		if err != nil {
-			return err
-		}
+	if _, ok := domainVisited[block.ID]; ok {
+		return nil
 	}
-	return nil
+
+	nodes := make([]string, 0, len(block.Vertices))
+	for _, node := range block.Vertices { //nodes within each domain
+		nodes = append(nodes, node.Name)
+	}
+	var comment string
+	if len(block.Name) != 0 {
+		comment = fmt.Sprintf("# %s=%s\n", block.ID, block.Name)
+	}
+
+	outputNodeNames := strings.Join(cluset.Compact(nodes), ",")
+	if fnc != nil && len(nodes) < fnc.baseBlockSize {
+		fakeNodes := fnc.getFreeFakeNodes(fnc.baseBlockSize - len(nodes))
+		fakeNodeNames := strings.Join(cluset.Compact(fakeNodes), ",")
+		outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
+	}
+
+	domainVisited[block.ID] = len(nodes)
+	_, err := fmt.Fprintf(wr, "%sBlockName=%s Nodes=%s\n", comment, block.ID, outputNodeNames)
+	return err
 }
 
 func findBlock(wr io.Writer, nodename string, root *topology.Vertex, domainVisited map[string]int, fnc *fakeNodeConfig) error {
@@ -345,7 +344,7 @@ func toTreeTopology(wr io.Writer, root *topology.Vertex) error {
 			comment = ""
 			switchName = sw
 		}
-		_, err := wr.Write([]byte(fmt.Sprintf("%sSwitchName=%s Nodes=%s\n", comment, switchName, strings.Join(cluset.Compact(nodes), ","))))
+		_, err := fmt.Fprintf(wr, "%sSwitchName=%s Nodes=%s\n", comment, switchName, strings.Join(cluset.Compact(nodes), ","))
 		if err != nil {
 			return err
 		}
