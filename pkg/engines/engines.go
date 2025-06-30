@@ -32,7 +32,7 @@ type Engine interface {
 
 type Environment interface{}
 
-type Config = struct{}
+type Config = map[string]any
 type NamedLoader = component.NamedLoader[Engine, Config]
 type Loader = component.Loader[Engine, Config]
 type Registry component.Registry[Engine, Config]

@@ -75,7 +75,7 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *HTTPError) {
 
 	ctx := context.Background()
 
-	eng, err := engLoader(ctx, engines.Config{})
+	eng, err := engLoader(ctx, tr.Engine.Params)
 	if err != nil {
 		// TODO: Logic to determine between StatusBadRequest and StatusInternalServerError
 		return nil, NewHTTPError(http.StatusBadRequest, err.Error())
