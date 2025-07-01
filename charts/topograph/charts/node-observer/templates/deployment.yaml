@@ -28,6 +28,19 @@ spec:
       serviceAccountName: {{ include "node-observer.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: wait
+          image: curlimages/curl:8.13.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+          args:
+            - -c
+            - |
+              until curl -sf "{{ printf "http://topograph.%s.svc.cluster.local:%.0f/healthz" .Release.Namespace .Values.global.service.port }}" ; do
+                echo "Waiting for topograph to start ..."
+                sleep 2
+              done
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
