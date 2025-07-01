@@ -30,6 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
+	"github.com/NVIDIA/topograph/pkg/providers/baremetal"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
@@ -59,27 +60,8 @@ func main() {
 }
 
 func mainInternal(provider string) (err error) {
-	var annotations map[string]string
-	switch provider {
-	case aws.NAME:
-		annotations, err = aws.GetNodeAnnotations()
-	case gcp.NAME:
-		annotations, err = gcp.GetNodeAnnotations()
-	case oci.NAME, oci.NAME_IMDS:
-		annotations, err = oci.GetNodeAnnotations()
-	case nebius.NAME:
-		annotations, err = nebius.GetNodeAnnotations()
-	case "":
-		err = fmt.Errorf("must set provider")
-	default:
-		err = fmt.Errorf("unsupported provider %q", provider)
-	}
-	if err != nil {
-		return err
-	}
-
-	nodeName := os.Getenv("NODE_NAME")
-	klog.Infof("adding annotations %v in node %s for provider %s", annotations, nodeName, provider)
+	ctx := context.TODO()
+	hostname := os.Getenv("NODE_NAME")
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -91,19 +73,47 @@ func mainInternal(provider string) (err error) {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	node, err := clientset.CoreV1().Nodes().Get(ctx, hostname, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get node %q: %v", nodeName, err)
+		return fmt.Errorf("failed to get node %q: %v", hostname, err)
 	}
 
+	annotations, err := getAnnotations(ctx, clientset, config, provider, hostname)
+	if err != nil {
+		return err
+	}
 	mergeNodeAnnotations(node, annotations)
 
-	_, err = clientset.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+	_, err = clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update node: %v", err)
 	}
 
 	return nil
+}
+
+func getAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, provider, hostname string) (annotations map[string]string, err error) {
+	switch provider {
+	case aws.NAME:
+		annotations, err = aws.GetNodeAnnotations()
+	case gcp.NAME:
+		annotations, err = gcp.GetNodeAnnotations()
+	case oci.NAME, oci.NAME_IMDS:
+		annotations, err = oci.GetNodeAnnotations()
+	case nebius.NAME:
+		annotations, err = nebius.GetNodeAnnotations()
+	case baremetal.NAME_IB:
+		annotations, err = baremetal.GetNodeAnnotations(ctx, client, config, hostname)
+	case "":
+		err = fmt.Errorf("must set provider")
+	default:
+		err = fmt.Errorf("unsupported provider %q", provider)
+	}
+	if err == nil {
+		klog.Infof("adding annotations %v in node %s for provider %s", annotations, hostname, provider)
+	}
+
+	return
 }
 
 func mergeNodeAnnotations(node *corev1.Node, annotations map[string]string) {
