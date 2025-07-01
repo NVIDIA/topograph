@@ -51,7 +51,7 @@ func GenerateTopologyConfig(data []byte, instances []topology.ComputeInstances) 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse ibnetdiscover output: %v", err)
 	}
-	nodes := getNodes(instances)
+	nodes := topology.GetNodeNameMap(instances)
 	roots := buildTree(switches, hca, nodes)
 
 	top := make([]*topology.Vertex, 0, len(roots))
@@ -199,14 +199,4 @@ func extractNodeName(name string) string {
 		return m[1]
 	}
 	return ""
-}
-
-func getNodes(instances []topology.ComputeInstances) map[string]bool {
-	nodes := make(map[string]bool)
-	for _, instance := range instances {
-		for _, node := range instance.Instances {
-			nodes[node] = true
-		}
-	}
-	return nodes
 }

@@ -37,8 +37,9 @@ const (
 	TopologyFlat  = "topology/flat"
 	NoTopology    = "no-topology"
 
-	KeyNodeInstance = "topograph.nvidia.com/instance"
-	KeyNodeRegion   = "topograph.nvidia.com/region"
+	KeyNodeInstance  = "topograph.nvidia.com/instance"
+	KeyNodeRegion    = "topograph.nvidia.com/region"
+	KeyNodeClusterID = "topograph.nvidia.com/cluster-id"
 
 	// ConfigMap annotation keys for metadata tracking
 	KeyConfigMapEngine            = "topograph.nvidia.com/engine"

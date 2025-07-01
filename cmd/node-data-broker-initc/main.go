@@ -32,6 +32,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/dra"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
+	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 )
@@ -73,7 +74,7 @@ func mainInternal(provider string) error {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	annotations, err := getAnnotations(ctx, provider, nodeName)
+	annotations, err := getAnnotations(ctx, clientset, config, provider, nodeName)
 	if err != nil {
 		return err
 	}
@@ -94,7 +95,7 @@ func mainInternal(provider string) error {
 	return nil
 }
 
-func getAnnotations(ctx context.Context, provider, nodeName string) (map[string]string, error) {
+func getAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, provider, nodeName string) (map[string]string, error) {
 	switch provider {
 	case aws.NAME:
 		return aws.GetNodeAnnotations(ctx)
@@ -106,6 +107,8 @@ func getAnnotations(ctx context.Context, provider, nodeName string) (map[string]
 		return nebius.GetNodeAnnotations(ctx)
 	case dra.NAME:
 		return dra.GetNodeAnnotations(ctx, nodeName)
+	case infiniband.NAME_K8S:
+		return infiniband.GetNodeAnnotations(ctx, client, config, nodeName)
 	case "":
 		return nil, fmt.Errorf("must set provider")
 	default:

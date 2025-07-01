@@ -49,7 +49,7 @@ func GetDaemonSetPods(ctx context.Context, client *kubernetes.Clientset, name, n
 	return client.CoreV1().Pods(namespace).List(ctx, opt)
 }
 
-func ExecInPod(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, name, namespace string, cmd []string) (string, error) {
+func ExecInPod(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, name, namespace string, cmd []string) (*bytes.Buffer, error) {
 	execOpts := &corev1.PodExecOptions{
 		Command: cmd,
 		Stdin:   false,
@@ -67,7 +67,7 @@ func ExecInPod(ctx context.Context, client *kubernetes.Clientset, config *rest.C
 
 	executor, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
-		return "", fmt.Errorf("failed to execute command %v in pod %s/%s: %v", cmd, namespace, name, err)
+		return nil, fmt.Errorf("failed to execute command %v in pod %s/%s: %v", cmd, namespace, name, err)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -77,8 +77,8 @@ func ExecInPod(ctx context.Context, client *kubernetes.Clientset, config *rest.C
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("failed to execute command %v in pod %s/%s: %s: %v", cmd, namespace, name, stderr.String(), err)
+		return nil, fmt.Errorf("failed to execute command %v in pod %s/%s: %s: %v", cmd, namespace, name, stderr.String(), err)
 	}
 
-	return stdout.String(), nil
+	return &stdout, nil
 }

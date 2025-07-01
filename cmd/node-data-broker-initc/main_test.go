@@ -44,7 +44,7 @@ func TestGetAnnotations(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := getAnnotations(context.TODO(), tc.provider, "")
+			_, err := getAnnotations(context.TODO(), nil, nil, tc.provider, "")
 			require.EqualError(t, err, tc.err)
 		})
 	}
