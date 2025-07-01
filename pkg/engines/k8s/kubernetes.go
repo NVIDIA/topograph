@@ -25,14 +25,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, error) {
-	nodes, err := eng.client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	nodes, err := k8s.GetNodes(ctx, eng.client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list node in the cluster: %v", err)
+		return nil, err
 	}
 	return getComputeInstances(nodes)
 }

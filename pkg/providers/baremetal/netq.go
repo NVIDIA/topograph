@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2025 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package baremetal
@@ -55,12 +44,12 @@ type AuthOutput struct {
 	AccessToken string `json:"access_token"`
 }
 
-func generateTopologyConfigForEth(ctx context.Context, cred Credentials, p ProviderParams, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func generateTopologyConfigForEth(ctx context.Context, cred *Credentials, params *ProviderParams, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	contentType := "Content-Type: application/json"
 	accept := "accept: application/json"
 
-	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", cred.Uname, cred.Pwd)
-	args := []string{p.NetqLoginUrl, "-H", accept, "-H", contentType, "-d", creds}
+	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", cred.User, cred.Passwd)
+	args := []string{params.NetqLoginUrl, "-H", accept, "-H", contentType, "-d", creds}
 	stdout, err := exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
 		return nil, err
@@ -70,15 +59,15 @@ func generateTopologyConfigForEth(ctx context.Context, cred Credentials, p Provi
 	var authOutput AuthOutput
 	outputBytes := stdout.Bytes()
 	if len(outputBytes) == 0 {
-		return nil, fmt.Errorf("failed to login to Netq server\n")
+		return nil, fmt.Errorf("failed to login to Netq server")
 	}
 
 	if err := json.Unmarshal(outputBytes, &authOutput); err != nil {
-		return nil, fmt.Errorf("failed to parse access token: %v\n", err)
+		return nil, fmt.Errorf("failed to parse access token: %v", err)
 	}
 
 	addArgs := "{\"filters\": [], \"subgroupNestingDepth\":2}"
-	args = []string{p.NetqApiUrl, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
+	args = []string{params.NetqApiUrl, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
 	stdout, err = exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
 		return nil, err

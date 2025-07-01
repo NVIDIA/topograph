@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package baremetal
@@ -20,6 +9,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,29 +31,20 @@ func TestClique(t *testing.T) {
 	node-09:         CliqueId                          : 4000000005
 	node-09:         ClusterUUID                       : 50000000-0000-0000-0000-000000000005`
 
-	domainObj45 := domain{
-		nodeMap: map[string]bool{
-			"node-07": true,
-			"node-08": true,
-		},
-	}
+	cluster1 := "50000000-0000-0000-0000-0000000000044000000005"
+	cluster2 := "50000000-0000-0000-0000-0000000000054000000004"
+	cluster3 := "50000000-0000-0000-0000-0000000000054000000005"
 
-	domainObj54 := domain{
-		nodeMap: map[string]bool{
-			"node-10": true,
-		},
-	}
+	domainMap := topology.NewDomainMap()
+	domainMap.AddHost(cluster1, "node-07", "node-07")
+	domainMap.AddHost(cluster1, "node-08", "node-08")
+	domainMap.AddHost(cluster2, "node-10", "node-10")
+	domainMap.AddHost(cluster3, "node-09", "node-09")
 
-	domainObj55 := domain{
-		nodeMap: map[string]bool{
-			"node-09": true,
-		},
-	}
-
-	expectedDomainMap := map[string]domain{
-		"50000000-0000-0000-0000-0000000000044000000005": domainObj45,
-		"50000000-0000-0000-0000-0000000000054000000004": domainObj54,
-		"50000000-0000-0000-0000-0000000000054000000005": domainObj55,
+	expectedDomainMap := topology.DomainMap{
+		"50000000-0000-0000-0000-0000000000044000000005": map[string]string{"node-07": "node-07", "node-08": "node-08"},
+		"50000000-0000-0000-0000-0000000000054000000004": map[string]string{"node-10": "node-10"},
+		"50000000-0000-0000-0000-0000000000054000000005": map[string]string{"node-09": "node-09"},
 	}
 
 	domainMap, err := populateDomains(bytes.NewBufferString(cliqueOutput))
