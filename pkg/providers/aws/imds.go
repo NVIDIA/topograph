@@ -24,6 +24,7 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const (
@@ -57,23 +58,26 @@ func pdshCmd(url string) string {
 		IMDSTokenHeader, IMDSTokenURL, makeHeader(IMDSHeaderKey, "$TOKEN"), url)
 }
 
-func GetInstanceAndRegion() (string, string, error) {
+func GetNodeAnnotations() (map[string]string, error) {
 	header := map[string]string{IMDSTokenHeaderKey: IMDSTokenHeaderVal}
 	token, err := providers.HttpReq(http.MethodPut, IMDSTokenURL, header)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to execute token request: %v", err)
+		return nil, fmt.Errorf("failed to execute token request: %v", err)
 	}
 
 	header = map[string]string{IMDSHeaderKey: token}
 	instance, err := providers.HttpReq(http.MethodGet, IMDSInstanceURL, header)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to execute instance-id IMDS request: %v", err)
+		return nil, fmt.Errorf("failed to execute instance-id IMDS request: %v", err)
 	}
 
 	region, err := providers.HttpReq(http.MethodGet, IMDSRegionURL, header)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to execute region IMDS request: %v", err)
+		return nil, fmt.Errorf("failed to execute region IMDS request: %v", err)
 	}
 
-	return instance, region, nil
+	return map[string]string{
+		topology.KeyNodeInstance: instance,
+		topology.KeyNodeRegion:   region,
+	}, nil
 }

@@ -33,7 +33,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
-	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 var GitTag string
@@ -60,16 +59,16 @@ func main() {
 }
 
 func mainInternal(provider string) (err error) {
-	var instance, region string
+	var annotations map[string]string
 	switch provider {
 	case aws.NAME:
-		instance, region, err = aws.GetInstanceAndRegion()
+		annotations, err = aws.GetNodeAnnotations()
 	case gcp.NAME:
-		instance, region, err = gcp.GetInstanceAndRegion()
+		annotations, err = gcp.GetNodeAnnotations()
 	case oci.NAME, oci.NAME_IMDS:
-		instance, region, err = oci.GetInstanceAndRegion()
+		annotations, err = oci.GetNodeAnnotations()
 	case nebius.NAME:
-		instance, region, err = nebius.GetInstanceAndRegion()
+		annotations, err = nebius.GetNodeAnnotations()
 	case "":
 		err = fmt.Errorf("must set provider")
 	default:
@@ -80,10 +79,6 @@ func mainInternal(provider string) (err error) {
 	}
 
 	nodeName := os.Getenv("NODE_NAME")
-	annotations := map[string]string{
-		topology.KeyNodeInstance: instance,
-		topology.KeyNodeRegion:   region,
-	}
 	klog.Infof("adding annotations %v in node %s for provider %s", annotations, nodeName, provider)
 
 	config, err := rest.InClusterConfig()
