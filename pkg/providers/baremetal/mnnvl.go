@@ -1,3 +1,8 @@
+/*
+ * Copyright 2024 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package baremetal
 
 import (
@@ -8,17 +13,12 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/klog/v2"
+
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/ib"
 	"github.com/NVIDIA/topograph/pkg/topology"
-	"k8s.io/klog/v2"
 )
-
-// domain contains map of each domainID(clusterUUID) -> map of nodeNames in that domain
-// Each domain will be a separate NVL Domain
-type domain struct {
-	nodeMap map[string]bool // nodeName: true
-}
 
 // getNodeList retrieves all the nodenames on the cluster
 func getNodeList(cis []topology.ComputeInstances) []string {
@@ -68,8 +68,8 @@ func getIbTree(ctx context.Context, nodeList []string, cis []topology.ComputeIns
 	return treeRoot, nil
 }
 
-func populateDomains(stdout *bytes.Buffer) (map[string]domain, error) {
-	domainMap := make(map[string]domain) // domainID: domain
+func populateDomains(stdout *bytes.Buffer) (topology.DomainMap, error) {
+	domainMap := topology.NewDomainMap()
 	scanner := bufio.NewScanner(stdout)
 	cliqueId := ""
 	clusterUUID := ""
@@ -85,13 +85,7 @@ func populateDomains(stdout *bytes.Buffer) (map[string]domain, error) {
 		}
 		clusterUUID = strings.TrimSpace(arr[2])
 		domainName = clusterUUID + cliqueId
-		if _, exists := domainMap[domainName]; !exists {
-			domainMap[domainName] = domain{
-				nodeMap: make(map[string]bool),
-			}
-		}
-		nodeMap := domainMap[domainName].nodeMap
-		nodeMap[nodeName] = true
+		domainMap.AddHost(domainName, nodeName, nodeName)
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("scanner error while reading pdsh output: %v", err)
@@ -100,7 +94,7 @@ func populateDomains(stdout *bytes.Buffer) (map[string]domain, error) {
 }
 
 // getClusterOutput reads output from nodeInfo and populates the structs
-func getClusterOutput(ctx context.Context, nodes []string, cmd string) (map[string]domain, error) {
+func getClusterOutput(ctx context.Context, nodes []string, cmd string) (topology.DomainMap, error) {
 	args := []string{"-R", "ssh", "-w", strings.Join(nodes, ","), cmd}
 	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
 	if err != nil {
@@ -109,26 +103,14 @@ func getClusterOutput(ctx context.Context, nodes []string, cmd string) (map[stri
 	return populateDomains(stdout)
 }
 
-func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.Vertex {
+func toGraph(domainMap topology.DomainMap, treeRoot *topology.Vertex) *topology.Vertex {
 	root := &topology.Vertex{
 		Vertices: make(map[string]*topology.Vertex),
 		Metadata: make(map[string]string),
 	}
-	blockRoot := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-	}
 	root.Vertices[topology.TopologyTree] = treeRoot
-	for domainName, domain := range domainMap {
-		tree := &topology.Vertex{
-			ID:       domainName,
-			Vertices: make(map[string]*topology.Vertex),
-		}
-		for node := range domain.nodeMap {
-			tree.Vertices[node] = &topology.Vertex{Name: node, ID: node}
-		}
-		blockRoot.Vertices[domainName] = tree
-	}
-	root.Vertices[topology.TopologyBlock] = blockRoot
+	root.Vertices[topology.TopologyBlock] = domainMap.ToBlocks()
+
 	return root
 }
 
