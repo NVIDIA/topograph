@@ -11,6 +11,7 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const (
@@ -32,16 +33,19 @@ func getRegion(_ context.Context) (string, error) {
 	return providers.ReadFile(IMDSRegionPath)
 }
 
-func GetInstanceAndRegion() (string, string, error) {
+func GetNodeAnnotations() (map[string]string, error) {
 	instance, err := providers.ReadFile(IMDSInstancePath)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	region, err := providers.ReadFile(IMDSRegionPath)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return instance, region, nil
+	return map[string]string{
+		topology.KeyNodeInstance: instance,
+		topology.KeyNodeRegion:   region,
+	}, nil
 }
