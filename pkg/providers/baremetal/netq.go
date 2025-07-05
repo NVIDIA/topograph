@@ -55,11 +55,11 @@ type AuthOutput struct {
 	AccessToken string `json:"access_token"`
 }
 
-func generateTopologyConfigForEth(ctx context.Context, cred Credentials, p ProviderParams, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func generateTopologyConfigForEth(ctx context.Context, cred *Credentials, p *ProviderParams, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	contentType := "Content-Type: application/json"
 	accept := "accept: application/json"
 
-	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", cred.Uname, cred.Pwd)
+	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", cred.user, cred.passwd)
 	args := []string{p.NetqLoginUrl, "-H", accept, "-H", contentType, "-d", creds}
 	stdout, err := exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
@@ -70,11 +70,11 @@ func generateTopologyConfigForEth(ctx context.Context, cred Credentials, p Provi
 	var authOutput AuthOutput
 	outputBytes := stdout.Bytes()
 	if len(outputBytes) == 0 {
-		return nil, fmt.Errorf("failed to login to Netq server\n")
+		return nil, fmt.Errorf("failed to login to Netq server")
 	}
 
 	if err := json.Unmarshal(outputBytes, &authOutput); err != nil {
-		return nil, fmt.Errorf("failed to parse access token: %v\n", err)
+		return nil, fmt.Errorf("failed to parse access token: %v", err)
 	}
 
 	addArgs := "{\"filters\": [], \"subgroupNestingDepth\":2}"
