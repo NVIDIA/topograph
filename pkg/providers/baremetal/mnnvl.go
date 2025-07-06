@@ -1,3 +1,8 @@
+/*
+ * Copyright 2024 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package baremetal
 
 import (
@@ -8,16 +13,31 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/klog/v2"
+
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/ib"
 	"github.com/NVIDIA/topograph/pkg/topology"
-	"k8s.io/klog/v2"
 )
 
-// domain contains map of each domainID(clusterUUID) -> map of nodeNames in that domain
-// Each domain will be a separate NVL Domain
-type domain struct {
-	nodeMap map[string]bool // nodeName: true
+const (
+	cmdClusterID = `nvidia-smi -q | grep "ClusterUUID\|CliqueId" | sort -u`
+)
+
+type Cluster struct {
+	node     string
+	UUID     string
+	cliqueID string
+}
+
+func (c *Cluster) ID() (string, error) {
+	if len(c.UUID) == 0 {
+		return "", fmt.Errorf("missing ClusterUUID for node %q", c.node)
+	}
+	if len(c.cliqueID) == 0 {
+		return "", fmt.Errorf("missing CliqueId for node %q", c.node)
+	}
+	return c.UUID + "." + c.cliqueID, nil
 }
 
 // getNodeList retrieves all the nodenames on the cluster
@@ -68,76 +88,65 @@ func getIbTree(ctx context.Context, nodeList []string, cis []topology.ComputeIns
 	return treeRoot, nil
 }
 
-func populateDomains(stdout *bytes.Buffer) (map[string]domain, error) {
-	domainMap := make(map[string]domain) // domainID: domain
+func populateDomainsFromPdshOutput(stdout *bytes.Buffer) (topology.DomainMap, error) {
+	clusters := make(map[string]*Cluster)
 	scanner := bufio.NewScanner(stdout)
-	cliqueId := ""
-	clusterUUID := ""
-	domainName := ""
+
 	for scanner.Scan() {
 		nodeLine := scanner.Text()
 		arr := strings.Split(nodeLine, ":")
 		nodeName := strings.TrimSpace(arr[0])
-		itemName := strings.TrimSpace(arr[1])
-		if itemName == "CliqueId" {
-			cliqueId = strings.TrimSpace(arr[2])
-			continue
+		val := strings.TrimSpace(arr[2])
+		cluster, ok := clusters[nodeName]
+		if !ok {
+			cluster = &Cluster{node: nodeName}
+			clusters[nodeName] = cluster
 		}
-		clusterUUID = strings.TrimSpace(arr[2])
-		domainName = clusterUUID + cliqueId
-		if _, exists := domainMap[domainName]; !exists {
-			domainMap[domainName] = domain{
-				nodeMap: make(map[string]bool),
-			}
+		switch strings.TrimSpace(arr[1]) {
+		case "CliqueId":
+			cluster.cliqueID = val
+		case "ClusterUUID":
+			cluster.UUID = val
 		}
-		nodeMap := domainMap[domainName].nodeMap
-		nodeMap[nodeName] = true
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scanner error while reading pdsh output: %v", err)
+		return nil, err
 	}
+
+	domainMap := topology.NewDomainMap()
+	for nodeName, cluster := range clusters {
+		clusterID, err := cluster.ID()
+		if err != nil {
+			return nil, err
+		}
+		domainMap.AddHost(clusterID, nodeName, nodeName)
+	}
+
 	return domainMap, nil
 }
 
-// getClusterOutput reads output from nodeInfo and populates the structs
-func getClusterOutput(ctx context.Context, nodes []string, cmd string) (map[string]domain, error) {
-	args := []string{"-R", "ssh", "-w", strings.Join(nodes, ","), cmd}
-	stdout, err := exec.Exec(ctx, "pdsh", args, nil)
-	if err != nil {
-		return nil, fmt.Errorf("exec error while pdsh: %v", err)
-	}
-	return populateDomains(stdout)
-}
-
-func toGraph(domainMap map[string]domain, treeRoot *topology.Vertex) *topology.Vertex {
+func toGraph(domainMap topology.DomainMap, treeRoot *topology.Vertex) *topology.Vertex {
 	root := &topology.Vertex{
 		Vertices: make(map[string]*topology.Vertex),
 		Metadata: make(map[string]string),
 	}
-	blockRoot := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-	}
 	root.Vertices[topology.TopologyTree] = treeRoot
-	for domainName, domain := range domainMap {
-		tree := &topology.Vertex{
-			ID:       domainName,
-			Vertices: make(map[string]*topology.Vertex),
-		}
-		for node := range domain.nodeMap {
-			tree.Vertices[node] = &topology.Vertex{Name: node, ID: node}
-		}
-		blockRoot.Vertices[domainName] = tree
-	}
-	root.Vertices[topology.TopologyBlock] = blockRoot
+	root.Vertices[topology.TopologyBlock] = domainMap.ToBlocks()
+
 	return root
 }
 
 func generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
-
 	nodes := getNodeList(cis)
-	domainMap, err := getClusterOutput(ctx, nodes, `nvidia-smi -q | grep "ClusterUUID\|CliqueId"`)
+
+	output, err := exec.Pdsh(ctx, cmdClusterID, nodes)
 	if err != nil {
-		return nil, fmt.Errorf("getClusterOutput failed: %v", err)
+		return nil, err
+	}
+
+	domainMap, err := populateDomainsFromPdshOutput(output)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate NVL domains: %v", err)
 	}
 	// get ibnetdiscover output from all unvisited nodes
 	treeRoot, err := getIbTree(ctx, nodes, cis)

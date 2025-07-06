@@ -55,5 +55,5 @@ func Exec(ctx context.Context, exe string, args []string, env map[string]string)
 }
 
 func Pdsh(ctx context.Context, cmd string, nodes []string) (*bytes.Buffer, error) {
-	return Exec(ctx, "pdsh", []string{"-w", strings.Join(cluset.Compact(nodes), ","), cmd}, nil)
+	return Exec(ctx, "pdsh", []string{"-R", "ssh", "-w", strings.Join(cluset.Compact(nodes), ","), cmd}, nil)
 }
