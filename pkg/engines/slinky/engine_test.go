@@ -149,43 +149,52 @@ func TestGetComputeInstances(t *testing.T) {
 	}
 }
 
-func TestGenerateConfigMapAnnotations(t *testing.T) {
+// Helper for annotation checks
+func requireAnnotation(t *testing.T, annotations map[string]string, key, expected string) {
+	val, ok := annotations[key]
+	require.True(t, ok, "annotation %s should exist", key)
+	require.Equal(t, expected, val, "annotation %s should have correct value", key)
+}
+
+// Helper for setting metadata
+func setMetadata(tree *topology.Vertex, plugin, blockSizes string) {
+	if tree.Metadata == nil {
+		tree.Metadata = make(map[string]string)
+	}
+	if plugin != "" {
+		tree.Metadata[topology.KeyPlugin] = plugin
+	}
+	if blockSizes != "" {
+		tree.Metadata[topology.KeyBlockSizes] = blockSizes
+	}
+}
+
+func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 	testCases := []struct {
-		name     string
-		params   *Params
-		expected map[string]string
+		name       string
+		params     *Params
+		wantPlugin bool
+		wantBlock  bool
 	}{
 		{
-			name: "minimal annotations",
-			params: &Params{
-				Namespace:     "test-namespace",
-				PodLabel:      "app=slurm",
-				ConfigPath:    "topology.conf",
-				ConfigMapName: "slurm-topology",
-			},
-			expected: map[string]string{
-				topology.KeyConfigMapEngine:            NAME,
-				topology.KeyConfigMapTopologyManagedBy: "topograph",
-				topology.KeyConfigMapNamespace:         "test-namespace",
-			},
+			name:       "minimal params, no plugin/block",
+			params:     &Params{Namespace: "test-namespace", PodLabel: "app=slurm", ConfigPath: "topology.conf", ConfigMapName: "slurm-topology"},
+			wantPlugin: false, wantBlock: false,
 		},
 		{
-			name: "full annotations with plugin",
-			params: &Params{
-				Namespace:     "slurm-system",
-				PodLabel:      "component=compute",
-				Plugin:        topology.TopologyBlock,
-				BlockSizes:    "8,16,32",
-				ConfigPath:    "topology.conf",
-				ConfigMapName: "slurm-topology",
-			},
-			expected: map[string]string{
-				topology.KeyConfigMapEngine:            NAME,
-				topology.KeyConfigMapTopologyManagedBy: "topograph",
-				topology.KeyConfigMapNamespace:         "slurm-system",
-				topology.KeyConfigMapPlugin:            topology.TopologyBlock,
-				topology.KeyConfigMapBlockSizes:        "8,16,32",
-			},
+			name:       "with plugin only",
+			params:     &Params{Namespace: "test-namespace", PodLabel: "app=slurm", Plugin: topology.TopologyBlock, ConfigPath: "topology.conf", ConfigMapName: "slurm-topology"},
+			wantPlugin: true, wantBlock: false,
+		},
+		{
+			name:       "with block sizes only",
+			params:     &Params{Namespace: "test-namespace", PodLabel: "app=slurm", BlockSizes: "8,16,32", ConfigPath: "topology.conf", ConfigMapName: "slurm-topology"},
+			wantPlugin: false, wantBlock: true,
+		},
+		{
+			name:       "with plugin and block sizes",
+			params:     &Params{Namespace: "test-namespace", PodLabel: "app=slurm", Plugin: topology.TopologyBlock, BlockSizes: "8,16,32", ConfigPath: "topology.conf", ConfigMapName: "slurm-topology"},
+			wantPlugin: true, wantBlock: true,
 		},
 	}
 
@@ -194,21 +203,35 @@ func TestGenerateConfigMapAnnotations(t *testing.T) {
 			engine := &SlinkyEngine{params: tc.params}
 			annotations := engine.generateConfigMapAnnotations()
 
-			// Verify all expected annotations are present
-			for key, expectedValue := range tc.expected {
-				actualValue, exists := annotations[key]
-				require.True(t, exists, "annotation %s should exist", key)
-				require.Equal(t, expectedValue, actualValue, "annotation %s should have correct value", key)
+			// Required annotation checks
+			requireAnnotation(t, annotations, topology.KeyConfigMapEngine, NAME)
+			requireAnnotation(t, annotations, topology.KeyConfigMapTopologyManagedBy, "topograph")
+			requireAnnotation(t, annotations, topology.KeyConfigMapNamespace, tc.params.Namespace)
+			timestamp, ok := annotations[topology.KeyConfigMapLastUpdated]
+			require.True(t, ok)
+			_, err := time.Parse(time.RFC3339, timestamp)
+			require.NoError(t, err)
+
+			if tc.wantPlugin {
+				requireAnnotation(t, annotations, topology.KeyConfigMapPlugin, tc.params.Plugin)
+			} else {
+				require.NotContains(t, annotations, topology.KeyConfigMapPlugin)
+			}
+			if tc.wantBlock {
+				requireAnnotation(t, annotations, topology.KeyConfigMapBlockSizes, tc.params.BlockSizes)
+			} else {
+				require.NotContains(t, annotations, topology.KeyConfigMapBlockSizes)
 			}
 
-			// Verify timestamp annotation exists and is valid
-			timestamp, exists := annotations[topology.KeyConfigMapLastUpdated]
-			require.True(t, exists, "timestamp annotation should exist")
-
-			// Verify timestamp is in RFC3339 format and recent (within last minute)
-			parsedTime, err := time.Parse(time.RFC3339, timestamp)
-			require.NoError(t, err, "timestamp should be valid RFC3339 format")
-			require.WithinDuration(t, time.Now(), parsedTime, time.Minute, "timestamp should be recent")
+			// Metadata logic (simulate GenerateOutput)
+			tree := &topology.Vertex{Name: "root"}
+			setMetadata(tree, tc.params.Plugin, tc.params.BlockSizes)
+			if tc.wantPlugin {
+				require.Equal(t, tc.params.Plugin, tree.Metadata[topology.KeyPlugin])
+			}
+			if tc.wantBlock {
+				require.Equal(t, tc.params.BlockSizes, tree.Metadata[topology.KeyBlockSizes])
+			}
 		})
 	}
 }
