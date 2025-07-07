@@ -8,12 +8,13 @@
 
 Topograph is a component designed to expose the underlying physical network topology of a cluster to enable a workload manager make network-topology aware scheduling decisions.
 
-Topograph consists of four major components:
+Topograph consists of five major components:
 
 1. **API Server**
 2. **Node Observer**
-3. **Provider**
-4. **Engine**
+3. **Node Data Broker**
+4. **Provider**
+5. **Engine**
 
 <p align="center"><img src="docs/assets/design.png" width="600" alt="Design"></p>
 
@@ -21,20 +22,23 @@ Topograph consists of four major components:
 
 ### 1. API Server
 
-API Server listens for network topology configuration requests on a specific port. When a request is received, the server triggers the Provider to populate the configuration.
+The API Server handles and validates topology requests. It listens for network topology configuration requests on a specific port. When a request is received, the server triggers the Provider to initiate topology discovery.
 
 ### 2. Node Observer
 
-Node Observer is used when Topograph is deployed in a Kubernetes cluster. It monitors changes in the cluster nodes.
-If a node's status changes (e.g., a node goes down or comes up), the Node Observer sends a request to the API Server to generate a new topology configuration.
+The Node Observer is used in Kubernetes deployments. It monitors changes to cluster nodes. If a node goes down or comes online, the Node Observer sends a request to the API Server to generate a new topology configuration.
 
-### 3. Provider
+### 3. Node Data Broker
 
-Provider interfaces with CSPs to retrieve topology-related information from the cluster and converts topology data into an internal representation.
+The Node Data Broker is also used when Topograph is deployed in a Kubernetes cluster. It collects relevant node attributes and stores them as node annotations.
 
-### 4. Engine
+### 4. Provider
 
-Engine translates network topology from the internal format into a format expected by the workload manager.
+The Provider interfaces with CSPs or on-premises tools to retrieve topology-related data from the cluster and converts it into an internal representation.
+
+### 5. Engine
+
+The Engine translates this internal representation into the format expected by the workload manager.
 
 ## Workflow
 
@@ -62,7 +66,7 @@ http:
 provider: test
 
 # engine: the engine that topograph will use (optional)
-# Valid options include "slurm" or "k8s".
+# Valid options include "slurm", "k8s", or "slinky".
 # Can be overridden if the engine is specified in a topology request to topograph
 engine: slurm
 
