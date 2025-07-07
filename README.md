@@ -20,16 +20,20 @@ Topograph consists of four major components:
 ## Components
 
 ### 1. API Server
+
 API Server listens for network topology configuration requests on a specific port. When a request is received, the server triggers the Provider to populate the configuration.
 
 ### 2. Node Observer
+
 Node Observer is used when Topograph is deployed in a Kubernetes cluster. It monitors changes in the cluster nodes.
 If a node's status changes (e.g., a node goes down or comes up), the Node Observer sends a request to the API Server to generate a new topology configuration.
 
 ### 3. Provider
+
 Provider interfaces with CSPs to retrieve topology-related information from the cluster and converts topology data into an internal representation.
 
 ### 4. Engine
+
 Engine translates network topology from the internal format into a format expected by the workload manager.
 
 ## Workflow
@@ -39,9 +43,11 @@ Engine translates network topology from the internal format into a format expect
 - The Engine converts the topology information into the format expected by the user cluster (e.g., SLURM or Kubernetes).
 
 ## Configuration
+
 Topograph accepts its configuration file path using the `-c` command-line parameter. The configuration file is a YAML document. A sample configuration file is located at [config/topograph-config.yaml](config/topograph-config.yaml).
 
 The configuration file supports the following parameters:
+
 ```yaml
 # serving topograph endpoint
 http:
@@ -80,7 +86,6 @@ ssl:
   cert: /etc/topograph/ssl/server-cert.pem
   key: /etc/topograph/ssl/server-key.pem
   ca_cert: /etc/topograph/ssl/ca-cert.pem
-
 # credentials_path: specifies the path to a file containing CSP credentials (optional).
 # credentials_path:
 
@@ -88,7 +93,7 @@ ssl:
 # The `PATH` variable, if provided, will append the specified value to the existing `PATH`.
 # env:
 #  SLURM_CONF: /etc/slurm/slurm.conf
-#  PATH: 
+#  PATH:
 ```
 
 ## Supported Environments
@@ -96,6 +101,7 @@ ssl:
 Topograph operates with two primary concepts: `provider` and `engine`. A `provider` represents a CSP or a similar environment, while an `engine` refers to a scheduling system like SLURM or Kubernetes.
 
 Currently supported providers:
+
 - AWS
 - OCI
 - GCP
@@ -103,9 +109,10 @@ Currently supported providers:
 - Bare metal
 
 Currently supported engines:
+
 - [SLURM](./docs/slurm.md)
 - [Kubernetes](./docs/k8s.md)
-- SLURM-on-Kubernetes (Slinky)
+- [SLURM-on-Kubernetes (Slinky)](./docs/slinky.md)
 
 ## Using Topograph
 
@@ -121,6 +128,7 @@ Topograph offers three endpoints for interacting with the service. Below are the
 - **URL:** `http://<server>:<port>/v1/generate`
 - **Description:** This endpoint is used to request a new cluster topology.
 - **Payload:** The payload is a JSON object that includes the following fields:
+
   - **provider name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `baremetal` or `test`. This parameter will be override the provider set in the topograph config.
   - **provider credentials**: (optional) A key-value map with provider-specific parameters for authentication.
   - **provider parameters**: (optional) A key-value map with parameters that are used for provider simulation with toposim.
@@ -144,7 +152,7 @@ Topograph offers three endpoints for interacting with the service. Below are the
   Example:
 
 ```json
-  {
+{
   "provider": {
     "name": "aws",
     "creds": {
