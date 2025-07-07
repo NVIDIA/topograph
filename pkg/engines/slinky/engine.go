@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -160,6 +161,26 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 	return cis, nil
 }
 
+// generateConfigMapAnnotations creates metadata annotations for ConfigMaps
+func (eng *SlinkyEngine) generateConfigMapAnnotations() map[string]string {
+	annotations := map[string]string{
+		topology.KeyConfigMapEngine:            NAME,
+		topology.KeyConfigMapTopologyManagedBy: "topograph",
+		topology.KeyConfigMapLastUpdated:       time.Now().Format(time.RFC3339),
+		topology.KeyConfigMapNamespace:         eng.params.Namespace,
+	}
+
+	// Add plugin-specific annotations if available
+	if len(eng.params.Plugin) != 0 {
+		annotations[topology.KeyConfigMapPlugin] = eng.params.Plugin
+	}
+	if len(eng.params.BlockSizes) != 0 {
+		annotations[topology.KeyConfigMapBlockSizes] = eng.params.BlockSizes
+	}
+
+	return annotations
+}
+
 func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
 	p := eng.params
 
@@ -189,6 +210,7 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, tree *topology.Vert
 func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, namespace string, data map[string]string) error {
 	klog.Infof("Updating topology config %s/%s", namespace, name)
 
+	annotations := eng.generateConfigMapAnnotations()
 	verb := "get"
 	cmClient := eng.client.CoreV1().ConfigMaps(namespace)
 	cm, err := cmClient.Get(ctx, name, metav1.GetOptions{})
@@ -198,13 +220,21 @@ func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, name
 			cm.Data = map[string]string{}
 		}
 		maps.Copy(cm.Data, data)
+
+		// Apply annotations to existing ConfigMap
+		if cm.ObjectMeta.Annotations == nil {
+			cm.ObjectMeta.Annotations = make(map[string]string)
+		}
+		maps.Copy(cm.ObjectMeta.Annotations, annotations)
+
 		_, err = cmClient.Update(ctx, cm, metav1.UpdateOptions{})
 	} else if errors.IsNotFound(err) {
 		verb = "create"
 		cm = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
+				Name:        name,
+				Namespace:   namespace,
+				Annotations: annotations,
 			},
 			Data: data,
 		}
