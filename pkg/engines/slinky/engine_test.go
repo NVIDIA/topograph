@@ -18,6 +18,7 @@ package slinky
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -144,6 +145,70 @@ func TestGetComputeInstances(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tc.cis, cis)
 			}
+		})
+	}
+}
+
+func TestGenerateConfigMapAnnotations(t *testing.T) {
+	testCases := []struct {
+		name     string
+		params   *Params
+		expected map[string]string
+	}{
+		{
+			name: "minimal annotations",
+			params: &Params{
+				Namespace:     "test-namespace",
+				PodLabel:      "app=slurm",
+				ConfigPath:    "topology.conf",
+				ConfigMapName: "slurm-topology",
+			},
+			expected: map[string]string{
+				topology.KeyConfigMapEngine:            NAME,
+				topology.KeyConfigMapTopologyManagedBy: "topograph",
+				topology.KeyConfigMapNamespace:         "test-namespace",
+			},
+		},
+		{
+			name: "full annotations with plugin",
+			params: &Params{
+				Namespace:     "slurm-system",
+				PodLabel:      "component=compute",
+				Plugin:        topology.TopologyBlock,
+				BlockSizes:    "8,16,32",
+				ConfigPath:    "topology.conf",
+				ConfigMapName: "slurm-topology",
+			},
+			expected: map[string]string{
+				topology.KeyConfigMapEngine:            NAME,
+				topology.KeyConfigMapTopologyManagedBy: "topograph",
+				topology.KeyConfigMapNamespace:         "slurm-system",
+				topology.KeyConfigMapPlugin:            topology.TopologyBlock,
+				topology.KeyConfigMapBlockSizes:        "8,16,32",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := &SlinkyEngine{params: tc.params}
+			annotations := engine.generateConfigMapAnnotations()
+
+			// Verify all expected annotations are present
+			for key, expectedValue := range tc.expected {
+				actualValue, exists := annotations[key]
+				require.True(t, exists, "annotation %s should exist", key)
+				require.Equal(t, expectedValue, actualValue, "annotation %s should have correct value", key)
+			}
+
+			// Verify timestamp annotation exists and is valid
+			timestamp, exists := annotations[topology.KeyConfigMapLastUpdated]
+			require.True(t, exists, "timestamp annotation should exist")
+
+			// Verify timestamp is in RFC3339 format and recent (within last minute)
+			parsedTime, err := time.Parse(time.RFC3339, timestamp)
+			require.NoError(t, err, "timestamp should be valid RFC3339 format")
+			require.WithinDuration(t, time.Now(), parsedTime, time.Minute, "timestamp should be recent")
 		})
 	}
 }

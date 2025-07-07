@@ -39,6 +39,14 @@ const (
 
 	KeyNodeInstance = "topograph.nvidia.com/instance"
 	KeyNodeRegion   = "topograph.nvidia.com/region"
+
+	// ConfigMap annotation keys for metadata tracking
+	KeyConfigMapEngine            = "topograph.nvidia.com/engine"
+	KeyConfigMapTopologyManagedBy = "topograph.nvidia.com/topology-managed-by"
+	KeyConfigMapLastUpdated       = "topograph.nvidia.com/last-updated"
+	KeyConfigMapPlugin            = "topograph.nvidia.com/plugin"
+	KeyConfigMapBlockSizes        = "topograph.nvidia.com/block-sizes"
+	KeyConfigMapNamespace         = "topograph.nvidia.com/slurm-namespace"
 )
 
 // Vertex is a tree node, representing a compute node or a network switch, where
