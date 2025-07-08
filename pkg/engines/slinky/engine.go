@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/config"
+	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
@@ -105,9 +106,9 @@ func getParameters(params engines.Config) (*Params, error) {
 }
 
 func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, error) {
-	nodes, err := eng.client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	nodes, err := k8s.GetNodes(ctx, eng.client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list node in the cluster: %v", err)
+		return nil, err
 	}
 
 	opt := metav1.ListOptions{
