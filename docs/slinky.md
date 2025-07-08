@@ -6,7 +6,7 @@ The **slinky engine** is Topograph's engine for SLURM clusters running on Kubern
 
 While the [Slinky project](https://slinky.ai) provides comprehensive SLURM-on-Kubernetes orchestration (operators, schedulers, exporters, etc.), Topograph's slinky engine complements this ecosystem by providing **topology discovery and configuration management** for SLURM clusters running in Kubernetes.
 
-The slinky engine bridges the gap between Kubernetes infrastructure and SLURM workload management by updating SLURM topology configurations stored in Kubernetes ConfigMaps.
+The Slinky engine bridges the gap between Kubernetes infrastructure and SLURM workload management by updating SLURM topology configurations stored in Kubernetes ConfigMaps.
 
 ## How It Works
 
@@ -14,40 +14,27 @@ The slinky engine bridges the gap between Kubernetes infrastructure and SLURM wo
 2. **Topology Generation**: Creates SLURM topology configuration (tree or block format)
 3. **ConfigMap Management**: Updates the specified ConfigMap with new topology data including metadata annotations for tracking and debugging
 
+<p align="center"><img src="assets/topograph-slinky.png" width="600" alt="Design"></p>
+
 ## Configuration
+Topograph is deployed as a standard Kubernetes application using a [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
+Topograph is configured using a configuration file stored in a ConfigMap and mounted to the Topograph container at `/etc/topograph/topograph-config.yaml`.
+In addition, when sending a topology request, the request payload includes additional parameters.
+The parameters for the configuration file and topology request are defined in the `global` section of the Helm values file, as shown below:
 
-### Required Parameters
-
-```json
-{
-  "engine": {
-    "name": "slinky",
-    "params": {
-      "namespace": "ds-slurm",
-      "pod_label": "app.kubernetes.io/component=compute",
-      "topology_config_path": "topology.conf",
-      "topology_configmap_name": "slurm-config"
-    }
-  }
-}
-```
-
-### Optional Parameters
-
-```json
-{
-  "engine": {
-    "name": "slinky",
-    "params": {
-      "namespace": "ds-slurm",
-      "pod_label": "app.kubernetes.io/component=compute",
-      "topology_config_path": "topology.conf",
-      "topology_configmap_name": "slurm-config",
-      "plugin": "topology/block",
-      "block_sizes": "8,16,32"
-    }
-  }
-}
+```yaml
+global:
+  # provider – name of the cloud provider or on-prem environment.
+  # Supported values: "aws", "gcp", "oci", "nebius", "baremetal.ib".
+  provider: "aws"
+  engine: "slinky"
+  engineParams:
+    namespace: ns-slinky                               # Namespace where Slinky is running
+    pod_label: "app.kubernetes.io/component=compute"   # Label of the pods running SLURM nodes
+    plugin: "topology/block"                           # Name of the topology plugin
+    block_sizes: 4                                     # (Optional) Block size for the block topology plugin
+    topology_configmap_name: slurm-config              # Name of the ConfigMap containing the topology config
+    topology_config_path: topology.conf                # Key in the ConfigMap for the topology config
 ```
 
 ## ConfigMap Annotations
@@ -91,7 +78,9 @@ data:
 
 ## Usage Examples
 
-### Basic Tree Topology
+Topograph runs autonomously in Kubernetes environments, including Slinky. When the Node Observer detects that a node has been added or removed, it sends topology requests to the Topograph API server, which then triggers an update to the network topology information within the cluster. However, if you want to manually trigger network topology discovery, you can send HTTP requests to the API server, as shown below.
+
+### Topology Configuration in the Tree Format
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
@@ -100,7 +89,7 @@ curl -X POST -H "Content-Type: application/json" \
     "engine": {
       "name": "slinky",
       "params": {
-        "namespace": "ds-slurm",
+        "namespace": "ns-slinky",
         "pod_label": "app.kubernetes.io/component=compute",
         "topology_config_path": "topology.conf",
         "topology_configmap_name": "slurm-config"
@@ -110,7 +99,7 @@ curl -X POST -H "Content-Type: application/json" \
   http://localhost:49021/v1/generate
 ```
 
-### Block Topology with Custom Sizes
+### Topology Configuration in the Block Format
 
 ```bash
 curl -X POST -H "Content-Type: application/json" \
@@ -119,7 +108,7 @@ curl -X POST -H "Content-Type: application/json" \
     "engine": {
       "name": "slinky",
       "params": {
-        "namespace": "ds-slurm",
+        "namespace": "ns-slinky",
         "pod_label": "app.kubernetes.io/component=compute",
         "topology_config_path": "topology.conf",
         "topology_configmap_name": "slurm-config",
