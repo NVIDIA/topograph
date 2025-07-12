@@ -17,6 +17,7 @@
 package translate
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -34,6 +35,8 @@ import (
 const (
 	NVL72_DOMAIN_SIZE = 18
 )
+
+var errNotEnoughFakeNodes = errors.New("not enough fake nodes available")
 
 type fakeNodeConfig struct {
 	baseBlockSize int
@@ -63,15 +66,14 @@ func getFakeNodeConfig(fakeNodeData string) *fakeNodeConfig {
 }
 
 // getFreeFakeNodes generates fake nodes names.
-func (fnc *fakeNodeConfig) getFreeFakeNodes(numFakeNodes int) []string {
+func (fnc *fakeNodeConfig) getFreeFakeNodes(count int) (string, error) {
 	start := fnc.index
-	end := fnc.index + numFakeNodes
+	end := fnc.index + count
+	if end > len(fnc.nodes) {
+		return "", errNotEnoughFakeNodes
+	}
 	fnc.index = end
-	return fnc.nodes[start:end]
-}
-
-func (fnc *fakeNodeConfig) isEnoughFakeNodesAvailable(blockSize int, numDomains int) bool {
-	return len(fnc.nodes) >= (blockSize * numDomains)
+	return strings.Join(cluset.Compact(fnc.nodes[start:end]), ","), nil
 }
 
 func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]int, fnc *fakeNodeConfig) error {
@@ -90,8 +92,10 @@ func printBlock(wr io.Writer, block *topology.Vertex, domainVisited map[string]i
 
 	outputNodeNames := strings.Join(cluset.Compact(nodes), ",")
 	if fnc != nil && len(nodes) < fnc.baseBlockSize {
-		fakeNodes := fnc.getFreeFakeNodes(fnc.baseBlockSize - len(nodes))
-		fakeNodeNames := strings.Join(cluset.Compact(fakeNodes), ",")
+		fakeNodeNames, err := fnc.getFreeFakeNodes(fnc.baseBlockSize - len(nodes))
+		if err != nil {
+			return err
+		}
 		outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
 	}
 
@@ -194,9 +198,6 @@ func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNo
 		if len(outputbs) == len(blockSizes) {
 			if fnc != nil {
 				fnc.baseBlockSize = planningBS
-				if !fnc.isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains) {
-					return "", fmt.Errorf("not enough fake nodes available")
-				}
 			}
 			return strings.Join(outputbs, ","), nil
 		}
@@ -218,9 +219,6 @@ func getBlockSize(blockRoot *topology.Vertex, adminBlockSize string, fnc *fakeNo
 
 	if fnc != nil {
 		fnc.baseBlockSize = bs
-		if !fnc.isEnoughFakeNodesAvailable(fnc.baseBlockSize, numDomains) {
-			return "", fmt.Errorf("not enough fake nodes available")
-		}
 	}
 
 	return strings.Join(outputbs, ","), nil
