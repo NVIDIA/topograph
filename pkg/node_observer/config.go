@@ -24,11 +24,16 @@ import (
 )
 
 type Config struct {
-	TopologyGeneratorURL string            `yaml:"topology_generator_url"`
-	NodeLabels           map[string]string `yaml:"node_labels"`
-	Provider             string            `yaml:"provider"`
-	Engine               string            `yaml:"engine"`
-	Params               map[string]any    `yaml:"params"`
+	TopologyGeneratorURL string         `yaml:"topology_generator_url"`
+	Trigger              Trigger        `yaml:"trigger"`
+	Provider             string         `yaml:"provider"`
+	Engine               string         `yaml:"engine"`
+	Params               map[string]any `yaml:"params"`
+}
+
+type Trigger struct {
+	NodeLabels map[string]string `yaml:"node_labels"`
+	PodLabels  map[string]string `yaml:"pod_labels"`
 }
 
 func NewConfigFromFile(fname string) (*Config, error) {
@@ -45,6 +50,10 @@ func NewConfigFromFile(fname string) (*Config, error) {
 
 	if len(cfg.TopologyGeneratorURL) == 0 {
 		return nil, fmt.Errorf("must specify topology_generator_url")
+	}
+
+	if len(cfg.Trigger.NodeLabels) == 0 && len(cfg.Trigger.PodLabels) == 0 {
+		return nil, fmt.Errorf("must specify node_labels and/or pod_labels in trigger")
 	}
 
 	return cfg, nil

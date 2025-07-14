@@ -33,7 +33,6 @@ import (
 type Controller struct {
 	ctx          context.Context
 	client       kubernetes.Interface
-	cfg          *Config
 	nodeInformer *NodeInformer
 }
 
@@ -54,8 +53,7 @@ func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config
 	return &Controller{
 		ctx:          ctx,
 		client:       client,
-		cfg:          cfg,
-		nodeInformer: NewNodeInformer(ctx, client, cfg.NodeLabels, f),
+		nodeInformer: NewNodeInformer(ctx, client, &cfg.Trigger, f),
 	}
 }
 
