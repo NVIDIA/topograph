@@ -47,16 +47,28 @@ func TestNewConfigFromFile(t *testing.T) {
 			err:  "must specify topology_generator_url",
 		},
 		{
-			name: "Case 4: valid",
+			name: "Case 4: missing trigger",
 			data: `
 topology_generator_url: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 params:
   topology_config_path: topology.conf
   topology_configmap_name: topology-config
   topology_configmap_namespace: default
-node_labels:
-  a: b
-  c: d
+`,
+			err: "must specify node_labels and/or pod_labels in trigger",
+		},
+		{
+			name: "Case 5: valid",
+			data: `
+topology_generator_url: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+params:
+  topology_config_path: topology.conf
+  topology_configmap_name: topology-config
+  topology_configmap_namespace: default
+trigger:
+  node_labels:
+    a: b
+    c: d
 `,
 			cfg: &Config{
 				TopologyGeneratorURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
@@ -65,7 +77,9 @@ node_labels:
 					"topology_configmap_name":      "topology-config",
 					"topology_configmap_namespace": "default",
 				},
-				NodeLabels: map[string]string{"a": "b", "c": "d"},
+				Trigger: Trigger{
+					NodeLabels: map[string]string{"a": "b", "c": "d"},
+				},
 			},
 		},
 	}
@@ -90,7 +104,8 @@ node_labels:
 			}
 			cfg, err := NewConfigFromFile(fname)
 			if len(tc.err) != 0 {
-				require.True(t, strings.HasSuffix(err.Error(), tc.err))
+				require.Error(t, err, "expected error starts with %q", tc.err)
+				require.True(t, strings.HasSuffix(err.Error(), tc.err), "unexpected error %q", err.Error())
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tc.cfg, cfg)

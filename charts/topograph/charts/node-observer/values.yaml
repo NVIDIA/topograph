@@ -29,7 +29,9 @@ verbosity: 3
 
 topograph:
   # Initiate topology request based on changes in nodes with these node labels
-  node_labels: {}
+  trigger:
+    node_labels: {}
+    pod_labels: {}
 
 podAnnotations: {}
 podLabels: {}
