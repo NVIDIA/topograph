@@ -125,7 +125,8 @@ node-observer:
     tag: main
   verbosity: 3
   topograph:
-    node_labels: {}
+    trigger:
+      node_labels: {}
 
 node-data-broker:
   image:
