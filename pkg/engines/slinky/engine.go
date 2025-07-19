@@ -33,6 +33,7 @@ import (
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines"
+	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
@@ -46,12 +47,11 @@ type SlinkyEngine struct {
 }
 
 type Params struct {
-	Namespace     string `mapstructure:"namespace"`
-	PodLabel      string `mapstructure:"pod_label"`
-	Plugin        string `mapstructure:"plugin"`
-	BlockSizes    string `mapstructure:"block_sizes"`
-	ConfigPath    string `mapstructure:"topology_config_path"`
-	ConfigMapName string `mapstructure:"topology_configmap_name"`
+	slurm.BaseParams `mapstructure:",squash"`
+	Namespace        string `mapstructure:"namespace"`
+	PodLabel         string `mapstructure:"pod_label"`
+	ConfigPath       string `mapstructure:"topology_config_path"`
+	ConfigMapName    string `mapstructure:"topology_configmap_name"`
 }
 
 func NamedLoader() (string, engines.Loader) {
@@ -182,21 +182,21 @@ func (eng *SlinkyEngine) generateConfigMapAnnotations() map[string]string {
 	return annotations
 }
 
-func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
+func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vertex, _ map[string]any) ([]byte, error) {
 	p := eng.params
 
-	if tree.Metadata == nil {
-		tree.Metadata = make(map[string]string)
+	cfg, err := slurm.GetTranslateConfig(ctx, &p.BaseParams)
+	if err != nil {
+		return nil, err
 	}
-	if len(p.Plugin) != 0 {
-		tree.Metadata[topology.KeyPlugin] = p.Plugin
-	}
-	if len(p.BlockSizes) != 0 {
-		tree.Metadata[topology.KeyBlockSizes] = p.BlockSizes
+
+	nt, err := translate.NewNetworkTopology(root, cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	buf := &bytes.Buffer{}
-	err := translate.Write(buf, tree)
+	err = nt.Generate(buf)
 	if err != nil {
 		return nil, err
 	}

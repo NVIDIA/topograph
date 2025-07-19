@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -72,10 +73,12 @@ func TestGetParameters(t *testing.T) {
 				topology.KeyTopoConfigmapName: "name",
 			},
 			ret: &Params{
+				BaseParams: slurm.BaseParams{
+					Plugin:     topology.TopologyBlock,
+					BlockSizes: "16",
+				},
 				Namespace:     "namespace",
 				PodLabel:      "app.kubernetes.io/component=compute",
-				Plugin:        topology.TopologyBlock,
-				BlockSizes:    "16",
 				ConfigPath:    "path",
 				ConfigMapName: "name",
 			},
@@ -177,23 +180,53 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 		wantBlock  bool
 	}{
 		{
-			name:       "minimal params, no plugin/block",
-			params:     &Params{Namespace: "test-namespace", PodLabel: "app=slurm", ConfigPath: "topology.conf", ConfigMapName: "slurm-topology"},
+			name: "minimal params, no plugin/block",
+			params: &Params{
+				Namespace:     "test-namespace",
+				PodLabel:      "app=slurm",
+				ConfigPath:    "topology.conf",
+				ConfigMapName: "slurm-topology",
+			},
 			wantPlugin: false, wantBlock: false,
 		},
 		{
-			name:       "with plugin only",
-			params:     &Params{Namespace: "test-namespace", PodLabel: "app=slurm", Plugin: topology.TopologyBlock, ConfigPath: "topology.conf", ConfigMapName: "slurm-topology"},
+			name: "with plugin only",
+			params: &Params{Namespace: "test-namespace",
+				BaseParams: slurm.BaseParams{
+					Plugin: topology.TopologyBlock,
+				},
+				PodLabel:      "app=slurm",
+				ConfigPath:    "topology.conf",
+				ConfigMapName: "slurm-topology",
+			},
 			wantPlugin: true, wantBlock: false,
 		},
 		{
-			name:       "with block sizes only",
-			params:     &Params{Namespace: "test-namespace", PodLabel: "app=slurm", BlockSizes: "8,16,32", ConfigPath: "topology.conf", ConfigMapName: "slurm-topology"},
+			name: "with block sizes only",
+			params: &Params{
+				BaseParams: slurm.BaseParams{
+					BlockSizes: "8,16,32",
+				},
+				Namespace: "test-namespace",
+				PodLabel:  "app=slurm",
+
+				ConfigPath:    "topology.conf",
+				ConfigMapName: "slurm-topology",
+			},
 			wantPlugin: false, wantBlock: true,
 		},
 		{
-			name:       "with plugin and block sizes",
-			params:     &Params{Namespace: "test-namespace", PodLabel: "app=slurm", Plugin: topology.TopologyBlock, BlockSizes: "8,16,32", ConfigPath: "topology.conf", ConfigMapName: "slurm-topology"},
+			name: "with plugin and block sizes",
+			params: &Params{
+				BaseParams: slurm.BaseParams{
+					Plugin:     topology.TopologyBlock,
+					BlockSizes: "8,16,32",
+				},
+				Namespace:     "test-namespace",
+				PodLabel:      "app=slurm",
+				ConfigPath:    "topology.conf",
+				ConfigMapName: "slurm-topology",
+			},
 			wantPlugin: true, wantBlock: true,
 		},
 	}

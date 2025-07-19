@@ -34,8 +34,8 @@ const (
 	KeyPlugin     = "plugin"
 	TopologyTree  = "topology/tree"
 	TopologyBlock = "topology/block"
+	TopologyFlat  = "topology/flat"
 	NoTopology    = "no-topology"
-	KeyFakeConfig = "fakeConfig"
 
 	KeyNodeInstance = "topograph.nvidia.com/instance"
 	KeyNodeRegion   = "topograph.nvidia.com/region"

@@ -171,8 +171,8 @@ capacity_blocks:
 				},
 			},
 			topology: `SwitchName=core Switches=spine
-SwitchName=spine Switches=tor
 SwitchName=no-topology Nodes=nodeCPU
+SwitchName=spine Switches=tor
 SwitchName=tor Nodes=node11
 `,
 		},
@@ -202,8 +202,8 @@ SwitchName=tor2 Nodes=node[21-22]
 				},
 			},
 			topology: `SwitchName=core Switches=spine
-SwitchName=spine Switches=tor[1-2]
 SwitchName=no-topology Nodes=node31
+SwitchName=spine Switches=tor[1-2]
 SwitchName=tor1 Nodes=node[11-12]
 SwitchName=tor2 Nodes=node[21-22]
 `,
@@ -218,10 +218,10 @@ SwitchName=tor2 Nodes=node[21-22]
 					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22", "31": "node31"},
 				},
 			},
-			topology: `# block001=tor1
-BlockName=block001 Nodes=node[11-12]
-# block002=tor2
+			topology: `# block002=tor2
 BlockName=block002 Nodes=node[21-22]
+# block001=tor1
+BlockName=block001 Nodes=node[11-12]
 BlockSizes=2,4
 `,
 		},
