@@ -34,6 +34,7 @@ const (
 	KeyPlugin     = "plugin"
 	TopologyTree  = "topology/tree"
 	TopologyBlock = "topology/block"
+	TopologyFlat  = "topology/flat"
 	NoTopology    = "no-topology"
 	KeyFakeConfig = "fakeConfig"
 
