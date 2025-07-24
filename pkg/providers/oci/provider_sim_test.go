@@ -135,9 +135,9 @@ func TestProviderSim(t *testing.T) {
 			},
 			topology: `# switch.3.1=core
 SwitchName=switch.3.1 Switches=switch.2.1
+SwitchName=no-topology Nodes=node31
 # switch.2.1=spine
 SwitchName=switch.2.1 Switches=switch.1.[1-2]
-SwitchName=no-topology Nodes=node31
 # switch.1.1=tor1
 SwitchName=switch.1.1 Nodes=node[11-12]
 # switch.1.2=tor2
@@ -156,10 +156,10 @@ SwitchName=switch.1.2 Nodes=node[21-22]
 			},
 			pageSize: ptr.Int(2),
 			params:   map[string]any{"plugin": "topology/block"},
-			topology: `# block001=nvl1
-BlockName=block001 Nodes=node[11-12]
-# block002=nvl2
+			topology: `# block002=nvl2
 BlockName=block002 Nodes=node[21-22]
+# block001=nvl1
+BlockName=block001 Nodes=node[11-12]
 BlockSizes=2,4
 `,
 		},

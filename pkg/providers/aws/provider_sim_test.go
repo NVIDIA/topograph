@@ -196,8 +196,8 @@ capacity_blocks:
 			region:    "region",
 			intervals: []interval{{11, 13}, {21, 23}},
 			topology: `SwitchName=core Switches=spine
-SwitchName=spine Switches=tor[1-2]
 SwitchName=no-topology Nodes=node[13,23]
+SwitchName=spine Switches=tor[1-2]
 SwitchName=tor1 Nodes=node[11-12]
 SwitchName=tor2 Nodes=node[21-22]
 `,
@@ -208,10 +208,10 @@ SwitchName=tor2 Nodes=node[21-22]
 			region:    "region",
 			intervals: []interval{{11, 12}, {21, 22}, {31, 32}},
 			params:    map[string]any{"plugin": "topology/block"},
-			topology: `# block001=nvl1
-BlockName=block001 Nodes=node[11-12]
-# block002=nvl2
+			topology: `# block002=nvl2
 BlockName=block002 Nodes=node[21-22]
+# block001=nvl1
+BlockName=block001 Nodes=node[11-12]
 BlockSizes=2,4
 `,
 		},
@@ -222,10 +222,10 @@ BlockSizes=2,4
 			intervals: []interval{{101, 164}, {201, 264}},
 			pageSize:  ptr.Int(25),
 			params:    map[string]any{"plugin": "topology/block"},
-			topology: `# block001=nvl1
-BlockName=block001 Nodes=node[101-164]
-# block002=nvl2
+			topology: `# block002=nvl2
 BlockName=block002 Nodes=node[201-264]
+# block001=nvl1
+BlockName=block001 Nodes=node[101-164]
 BlockSizes=64,128
 `,
 		},

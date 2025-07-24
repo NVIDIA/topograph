@@ -111,8 +111,8 @@ func TestProviderSim(t *testing.T) {
 				},
 			},
 			topology: `SwitchName=core Switches=spine
-SwitchName=spine Switches=tor[1-2]
 SwitchName=no-topology Nodes=node31
+SwitchName=spine Switches=tor[1-2]
 SwitchName=tor1 Nodes=node[11-12]
 SwitchName=tor2 Nodes=node[21-22]
 `,

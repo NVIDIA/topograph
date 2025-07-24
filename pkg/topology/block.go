@@ -69,8 +69,8 @@ func (m DomainMap) ToBlocks() *Vertex {
 func (m DomainMap) AddHost(domain, instance, host string) {
 	d, ok := m[domain]
 	if !ok {
-		m[domain] = make(map[string]string)
-		d = m[domain]
+		d = make(map[string]string)
+		m[domain] = d
 	}
 	d[host] = instance
 }
