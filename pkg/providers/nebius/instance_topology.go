@@ -15,16 +15,21 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func (p *baseProvider) generateInstanceTopology(ctx context.Context, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
-	client, err := p.clientFactory()
+func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
+	client, err := p.clientFactory(pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get client: %v", err)
+		return nil, fmt.Errorf("failed to create API client: %v", err)
+	}
+
+	projectID, err := client.ProjectID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project ID: %v", err)
 	}
 
 	topo := topology.NewClusterTopology()
 
 	for _, ci := range cis {
-		if err := p.generateRegionInstanceTopology(ctx, client, topo, &ci); err != nil {
+		if err := p.generateRegionInstanceTopology(ctx, client, projectID, topo, &ci); err != nil {
 			return nil, fmt.Errorf("failed to get instance topology: %v", err)
 		}
 	}
@@ -32,42 +37,68 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, cis []topol
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
 	if len(ci.Region) == 0 {
 		return fmt.Errorf("must specify region")
 	}
 	klog.InfoS("Getting instance topology", "region", ci.Region)
 
-	for id, hostname := range ci.Instances {
-		req := &compute.GetInstanceRequest{Id: id}
-		instance, err := client.GetComputeInstance(ctx, req)
-		if err != nil {
-			return fmt.Errorf("error in getting compute instance: id:%s hostname:%s err:%v", id, hostname, err)
-		}
-
-		ibTopology := instance.GetStatus().GetInfinibandTopologyPath()
-		if ibTopology == nil {
-			klog.Warningf("missing topology for node %q id %q", hostname, id)
-			continue
-		}
-
-		inst := &topology.InstanceTopology{
-			InstanceID: id,
-		}
-
-		path := ibTopology.GetPath()
-		switch len(path) {
-		case 3:
-			inst.DatacenterID = path[0]
-			inst.SpineID = path[1]
-			inst.BlockID = path[2]
-		default:
-			klog.Warningf("unsupported size %d of topology path for node %q id %q", len(path), hostname, id)
-			continue
-		}
-
-		klog.Infof("Adding topology: %s", inst.String())
-		topo.Append(inst)
+	req := &compute.ListInstancesRequest{
+		ParentId: projectID,
+		PageSize: client.PageSize(),
 	}
-	return nil
+
+	for {
+		resp, err := client.GetComputeInstanceList(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to get instance list: %v", err)
+		}
+
+		for _, instance := range resp.Items {
+			hostname, intf, ok := hasNetIntf(ci, instance.GetStatus().GetNetworkInterfaces())
+			if !ok {
+				klog.V(4).Infof("Skipping instance %s", instance.String())
+				continue
+			}
+			ibTopology := instance.GetStatus().GetInfinibandTopologyPath()
+			if ibTopology == nil {
+				klog.Warningf("missing topology path for node %q", hostname)
+				continue
+			}
+
+			inst := &topology.InstanceTopology{
+				InstanceID: intf,
+			}
+
+			path := ibTopology.GetPath()
+			switch len(path) {
+			case 3:
+				inst.DatacenterID = path[0]
+				inst.SpineID = path[1]
+				inst.BlockID = path[2]
+			default:
+				klog.Warningf("unsupported size %d of topology path for node %q", len(path), hostname)
+				continue
+			}
+
+			klog.Infof("Adding topology: %s", inst.String())
+			topo.Append(inst)
+		}
+
+		if len(resp.NextPageToken) == 0 {
+			klog.V(4).Infof("Total processed nodes: %d", topo.Len())
+			return nil
+		}
+		req.PageToken = resp.NextPageToken
+	}
+}
+
+func hasNetIntf(ci *topology.ComputeInstances, nw []*compute.NetworkInterfaceStatus) (string, string, bool) {
+	for _, status := range nw {
+		if hostname, ok := ci.Instances[status.MacAddress]; ok {
+			return hostname, status.MacAddress, true
+		}
+	}
+
+	return "", "", false
 }
