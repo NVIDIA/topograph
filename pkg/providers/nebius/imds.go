@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	IMDSPath         = "/mnt/cloud-metadata"
-	IMDSInstancePath = IMDSPath + "/instance-id"
-	IMDSRegionPath   = IMDSPath + "/region-name"
+	IMDSPath         = "/mnt/cloud-metadata/"
+	IMDSParentID     = IMDSPath + "parent-id"
+	IMDSInstancePath = IMDSPath + "instance-id"
+	IMDSRegionPath   = IMDSPath + "region-name"
 )
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
@@ -29,7 +30,11 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 	return providers.ParseInstanceOutput(stdout)
 }
 
-func getRegion(_ context.Context) (string, error) {
+func getParentID() (string, error) {
+	return providers.ReadFile(IMDSParentID)
+}
+
+func getRegion() (string, error) {
 	return providers.ReadFile(IMDSRegionPath)
 }
 

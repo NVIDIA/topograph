@@ -8,6 +8,7 @@ package nebius
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	compute "github.com/nebius/gosdk/proto/nebius/compute/v1"
 
@@ -20,23 +21,42 @@ const (
 	NAME_SIM = "nebius-sim"
 
 	errNone = iota
+	errClientFactory
 	errInstances
 	errTopologyPath
+	errNetworkIntf
 )
 
 type simClient struct {
-	model  *models.Model
-	apiErr int
+	model       *models.Model
+	pageSize    int
+	instanceIDs []string
+	apiErr      int
 }
 
-func (c *simClient) GetComputeInstance(ctx context.Context, req *compute.GetInstanceRequest) (*compute.Instance, error) {
+func (c *simClient) ProjectID() (string, error) {
+	return "", nil
+}
+
+func (c *simClient) PageSize() int64 {
+	return int64(c.pageSize)
+}
+
+func (c *simClient) GetComputeInstanceList(ctx context.Context, req *compute.ListInstancesRequest) (*compute.ListInstancesResponse, error) {
 	if c.apiErr == errInstances {
-		return nil, fmt.Errorf("error")
+		return nil, providers.ErrAPIError
 	}
 
-	instance := &compute.Instance{Status: &compute.InstanceStatus{}}
+	resp := &compute.ListInstancesResponse{
+		Items: []*compute.Instance{},
+	}
 
-	if node, ok := c.model.Nodes[req.Id]; ok {
+	var indx int
+	from := getStartIndex(req.PageToken)
+	for indx = from; indx < len(c.instanceIDs) && indx < from+c.pageSize; indx++ {
+		node := c.model.Nodes[c.instanceIDs[indx]]
+		instance := &compute.Instance{Status: &compute.InstanceStatus{}}
+
 		var path []string
 		if c.apiErr == errTopologyPath {
 			path = []string{}
@@ -48,9 +68,32 @@ func (c *simClient) GetComputeInstance(ctx context.Context, req *compute.GetInst
 				Path: path,
 			},
 		}
+
+		if c.apiErr != errNetworkIntf {
+			instance.Status.NetworkInterfaces = []*compute.NetworkInterfaceStatus{
+				{
+					Name:       "eth0",
+					MacAddress: node.Name,
+				},
+			}
+		}
+
+		resp.Items = append(resp.Items, instance)
 	}
 
-	return instance, nil
+	if indx < len(c.instanceIDs) {
+		resp.NextPageToken = fmt.Sprintf("%d", indx)
+	}
+
+	return resp, nil
+}
+
+func getStartIndex(token string) int {
+	if len(token) == 0 {
+		return 0
+	}
+	val, _ := strconv.ParseInt(token, 10, 32)
+	return int(val)
 }
 
 func NamedLoaderSim() (string, providers.Loader) {
@@ -68,11 +111,21 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, e
 		return nil, fmt.Errorf("failed to load model file: %v", err)
 	}
 
-	clientFactory := func() (Client, error) {
+	instanceIDs := make([]string, 0, len(model.Nodes))
+	for _, node := range model.Nodes {
+		instanceIDs = append(instanceIDs, node.Name)
+	}
+
+	clientFactory := func(pageSize *int) (Client, error) {
+		if p.APIError == errClientFactory {
+			return nil, providers.ErrAPIError
+		}
 
 		return &simClient{
-			model:  model,
-			apiErr: p.APIError,
+			model:       model,
+			pageSize:    getPageSize(pageSize),
+			instanceIDs: instanceIDs,
+			apiErr:      p.APIError,
 		}, nil
 	}
 
@@ -92,7 +145,7 @@ func NewSim(factory ClientFactory) *simProvider {
 // Engine support
 
 func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
-	client, _ := p.clientFactory()
+	client, _ := p.clientFactory(nil)
 
 	return client.(*simClient).model.Instances, nil
 }

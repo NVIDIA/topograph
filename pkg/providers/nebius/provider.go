@@ -28,13 +28,17 @@ const (
 	authPrivateKey       = "private-key"
 	authTokenPath        = "/mnt/cloud-metadata/token"
 	authTokenEnvVar      = "IAM_TOKEN"
+
+	defaultPageSize int = 200
 )
 
 type Client interface {
-	GetComputeInstance(context.Context, *compute.GetInstanceRequest) (*compute.Instance, error)
+	ProjectID() (string, error)
+	GetComputeInstanceList(context.Context, *compute.ListInstancesRequest) (*compute.ListInstancesResponse, error)
+	PageSize() int64
 }
 
-type ClientFactory func() (Client, error)
+type ClientFactory func(pageSize *int) (Client, error)
 
 type baseProvider struct {
 	clientFactory ClientFactory
@@ -42,10 +46,19 @@ type baseProvider struct {
 
 type nebiusClient struct {
 	instanceService services.InstanceService
+	pageSize        int
 }
 
-func (c *nebiusClient) GetComputeInstance(ctx context.Context, req *compute.GetInstanceRequest) (*compute.Instance, error) {
-	return c.instanceService.Get(ctx, req)
+func (c *nebiusClient) ProjectID() (string, error) {
+	return getParentID()
+}
+
+func (c *nebiusClient) GetComputeInstanceList(ctx context.Context, req *compute.ListInstancesRequest) (*compute.ListInstancesResponse, error) {
+	return c.instanceService.List(ctx, req)
+}
+
+func (c *nebiusClient) PageSize() int64 {
+	return int64(c.pageSize)
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -59,10 +72,10 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 	}
 
 	instanceService := sdk.Services().Compute().V1().Instance()
-
-	clientFactory := func() (Client, error) {
+	clientFactory := func(pageSize *int) (Client, error) {
 		return &nebiusClient{
 			instanceService: instanceService,
+			pageSize:        getPageSize(pageSize),
 		}, nil
 	}
 
@@ -120,8 +133,15 @@ func getSDK(ctx context.Context, creds map[string]string) (*gosdk.SDK, error) {
 	return sdk, nil
 }
 
-func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
-	topo, err := p.generateInstanceTopology(ctx, instances)
+func getPageSize(sz *int) int {
+	if sz == nil {
+		return defaultPageSize
+	}
+	return *sz
+}
+
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +167,6 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 }
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
-	return getRegion(ctx)
+func (p *Provider) GetComputeInstancesRegion(_ context.Context) (string, error) {
+	return getRegion()
 }

@@ -10,6 +10,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/agrea/ptr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
@@ -76,7 +77,19 @@ func TestProviderSim(t *testing.T) {
 			err:   ignoreErrMsg,
 		},
 		{
-			name:  "Case 2: GetComputeInstance error",
+			name:  "Case 2: ClientFactory API error",
+			model: clusterModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"n11": "node11"},
+				},
+			},
+			apiErr: errClientFactory,
+			err:    `failed to create API client: API error`,
+		},
+		{
+			name:  "Case 3: GetComputeInstance error",
 			model: clusterModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -85,10 +98,10 @@ func TestProviderSim(t *testing.T) {
 				},
 			},
 			apiErr: errInstances,
-			err:    "failed to get instance topology: error in getting compute instance: id:11 hostname:node11 err:error",
+			err:    "failed to get instance topology: failed to get instance list: API error",
 		},
 		{
-			name:  "Case 3: topology path error",
+			name:  "Case 4: topology path error",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -101,9 +114,40 @@ func TestProviderSim(t *testing.T) {
 `,
 		},
 		{
-			name:   "Case 4: valid cluster in tree format",
+			name:  "Case 5: missing network interface",
+			model: nodeModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"11": "node11"},
+				},
+			},
+			apiErr: errNetworkIntf,
+			topology: `SwitchName=no-topology Nodes=node11
+`,
+		},
+		{
+			name:   "Case 6: valid cluster in tree format without pagination",
 			model:  clusterModel,
 			params: map[string]any{"plugin": "topology/tree"},
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22", "31": "node31"},
+				},
+			},
+			topology: `SwitchName=core Switches=spine
+SwitchName=no-topology Nodes=node31
+SwitchName=spine Switches=tor[1-2]
+SwitchName=tor1 Nodes=node[11-12]
+SwitchName=tor2 Nodes=node[21-22]
+`,
+		},
+		{
+			name:     "Case 7: valid cluster in tree format with pagination",
+			model:    clusterModel,
+			pageSize: ptr.Int(2),
+			params:   map[string]any{"plugin": "topology/tree"},
 			instances: []topology.ComputeInstances{
 				{
 					Region:    "region",
