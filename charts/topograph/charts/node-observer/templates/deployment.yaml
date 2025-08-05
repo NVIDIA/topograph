@@ -37,7 +37,7 @@ spec:
           args:
             - -c
             - |
-              until curl -sf "{{ printf "http://topograph.%s.svc.cluster.local:%.0f/healthz" .Release.Namespace .Values.global.service.port }}" ; do
+              until curl -sf "http://{{ include "topograph.service.name" $ }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.global.service.port }}/healthz" ; do
                 echo "Waiting for topograph to start ..."
                 sleep 2
               done
