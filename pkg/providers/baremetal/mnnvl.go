@@ -62,10 +62,10 @@ func getIbTree(ctx context.Context, nodeList []string, cis []topology.ComputeIns
 
 	for _, node := range nodeList {
 		if _, exists := nodeVisited[node]; !exists {
-			args := []string{"-N", "-R", "ssh", "-w", node, "sudo ibnetdiscover"}
-			stdout, err := exec.Exec(ctx, "pdsh", args, nil)
+			stdout, err := exec.Pdsh(ctx, "sudo ibnetdiscover", []string{node}, "-N")
 			if err != nil {
-				return nil, fmt.Errorf("exec error while pdsh IB command: %v", err)
+				klog.Warning(err.Error())
+				continue
 			}
 			if strings.Contains(stdout.String(), "Topology file:") {
 				// mark the visited nodes
@@ -81,7 +81,7 @@ func getIbTree(ctx context.Context, nodeList []string, cis []topology.ComputeIns
 				ibKey := ibPrefix + strconv.Itoa(ibCount)
 				treeRoot.Vertices[ibKey] = ibRoot
 			} else {
-				klog.V(2).Infof("Missing ibnetdiscover output\n")
+				klog.Warningf("Missing ibnetdiscover output for node %q", node)
 			}
 		}
 	}
@@ -90,27 +90,33 @@ func getIbTree(ctx context.Context, nodeList []string, cis []topology.ComputeIns
 
 func populateDomainsFromPdshOutput(stdout *bytes.Buffer) (topology.DomainMap, error) {
 	clusters := make(map[string]*Cluster)
+	invalid := make(map[string]bool)
 	scanner := bufio.NewScanner(stdout)
-
 	for scanner.Scan() {
 		nodeLine := scanner.Text()
 		arr := strings.Split(nodeLine, ":")
 		nodeName := strings.TrimSpace(arr[0])
+		idName := strings.TrimSpace(arr[1])
 		val := strings.TrimSpace(arr[2])
 		cluster, ok := clusters[nodeName]
 		if !ok {
 			cluster = &Cluster{node: nodeName}
 			clusters[nodeName] = cluster
 		}
-		switch strings.TrimSpace(arr[1]) {
+		switch idName {
 		case "CliqueId":
-			cluster.cliqueID = val
+			setID(nodeName, idName, &cluster.cliqueID, val, invalid)
 		case "ClusterUUID":
-			cluster.UUID = val
+			setID(nodeName, idName, &cluster.UUID, val, invalid)
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+
+	// delete invalid nodes
+	for nodeName := range invalid {
+		delete(clusters, nodeName)
 	}
 
 	domainMap := topology.NewDomainMap()
@@ -121,6 +127,8 @@ func populateDomainsFromPdshOutput(stdout *bytes.Buffer) (topology.DomainMap, er
 		}
 		domainMap.AddHost(clusterID, nodeName, nodeName)
 	}
+
+	klog.V(4).Info(domainMap.String())
 
 	return domainMap, nil
 }
@@ -155,4 +163,13 @@ func generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances
 	}
 
 	return toGraph(domainMap, treeRoot), nil
+}
+
+func setID(nodename, idname string, id *string, val string, invalid map[string]bool) {
+	if len(*id) == 0 {
+		*id = val
+	} else {
+		klog.Warningf("Ambiguous %s %q, %q for node %q", idname, *id, val, nodename)
+		invalid[nodename] = true
+	}
 }
