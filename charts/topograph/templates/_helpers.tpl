@@ -62,8 +62,8 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Create the name of the topograph service
+Create topograph service URL
 */}}
-{{- define "topograph.service.name" -}}
-{{- .Release.Name }}
+{{- define "topograph.url" -}}
+{{ printf "http://%s.%s.svc.cluster.local:%.0f" .Release.Name .Release.Namespace .Values.global.service.port }}
 {{- end }}
