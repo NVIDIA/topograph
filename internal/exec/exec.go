@@ -54,6 +54,12 @@ func Exec(ctx context.Context, exe string, args []string, env map[string]string)
 	return &stdout, nil
 }
 
-func Pdsh(ctx context.Context, cmd string, nodes []string) (*bytes.Buffer, error) {
-	return Exec(ctx, "pdsh", []string{"-R", "ssh", "-w", strings.Join(cluset.Compact(nodes), ","), cmd}, nil)
+func Pdsh(ctx context.Context, cmd string, nodes []string, opts ...string) (*bytes.Buffer, error) {
+	args := []string{"-R", "ssh"}
+	if len(opts) != 0 {
+		args = append(args, opts...)
+	}
+	args = append(args, "-w", strings.Join(cluset.Compact(nodes), ","), cmd)
+
+	return Exec(ctx, "pdsh", args, nil)
 }

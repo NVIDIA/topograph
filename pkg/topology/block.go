@@ -19,6 +19,7 @@ package topology
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // DomainMap maps domain name to a map of hostname:instance
@@ -73,4 +74,14 @@ func (m DomainMap) AddHost(domain, instance, host string) {
 		m[domain] = d
 	}
 	d[host] = instance
+}
+
+func (m DomainMap) String() string {
+	var str strings.Builder
+	str.WriteString("DomainMap:\n")
+	for d, m := range m {
+		str.WriteString(" " + d + " : ")
+		str.WriteString(fmt.Sprintf("%v\n", m))
+	}
+	return str.String()
 }
