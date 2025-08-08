@@ -21,11 +21,20 @@ type Merger struct {
 }
 
 func NewMerger(top []*Vertex) *Merger {
+	if len(top) == 0 {
+		return &Merger{}
+	}
+
 	m := &Merger{
 		tiers: [][]*Vertex{},
 		nodes: make(map[string]*Vertex),
 		refs:  make(map[string]*Vertex),
 	}
+	// sort vertices for consistency
+	sort.Slice(top, func(i, j int) bool {
+		return top[i].ID < top[j].ID
+	})
+
 	m.traverse(top)
 	return m
 }
@@ -45,10 +54,15 @@ func (m *Merger) traverse(layer []*Vertex) {
 	if !isLeaf {
 		next := []*Vertex{}
 		for _, v := range layer {
-			for id, w := range v.Vertices {
+			keys := make([]string, 0, len(v.Vertices))
+			for id := range v.Vertices {
+				keys = append(keys, id)
+			}
+			sort.Strings(keys)
+			for _, id := range keys {
 				if !visited[id] {
 					visited[id] = true
-					next = append(next, w)
+					next = append(next, v.Vertices[id])
 				}
 			}
 		}
@@ -58,7 +72,11 @@ func (m *Merger) traverse(layer []*Vertex) {
 }
 
 func (m *Merger) TopTier() []*Vertex {
-	return m.tiers[len(m.tiers)-1]
+	n := len(m.tiers)
+	if n == 0 {
+		return nil
+	}
+	return m.tiers[n-1]
 }
 
 func (m *Merger) Merge() {

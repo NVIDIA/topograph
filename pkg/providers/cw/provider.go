@@ -54,7 +54,16 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		return nil, err
 	}
 
-	return ib.GenerateTopologyConfig(output.Bytes(), instances)
+	roots, _, err := ib.GenerateTopologyConfig(output.Bytes(), instances)
+	if err != nil {
+		return nil, err
+	}
+
+	treeRoot := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
+	for _, v := range roots {
+		treeRoot.Vertices[v.ID] = v
+	}
+	return treeRoot, nil
 }
 
 // Engine support

@@ -6,7 +6,6 @@
 package topology
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -59,60 +58,27 @@ func getTestGraph() []*Vertex {
 	return []*Vertex{c1, c2, c3, c4}
 }
 
-func replaceName(v *Vertex, newID string, oldIDs ...string) bool {
-	if slices.Contains(oldIDs, v.ID) {
-		v.ID = newID
-		v.Name = newID
-		return true
-	}
-	return false
-}
-
-func replaceNames(v *Vertex) string {
-	if replaceName(v, "L1", "L2", "L3", "L4") {
-		return "L1"
-	}
-	if replaceName(v, "L5", "L6", "L7", "L8") {
-		return "L5"
-	}
-	if replaceName(v, "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8") {
-		return "S1"
-	}
-	if replaceName(v, "C1", "C2", "C3", "C4") {
-		return "C1"
-	}
-	return v.ID
-}
-
-func normalizeNames(v *Vertex) {
-	replaceNames(v)
-	vertices := make(map[string]*Vertex)
-	for _, w := range v.Vertices {
-		key := replaceNames(w)
-		vertices[key] = w
-		normalizeNames(w)
-	}
-	v.Vertices = vertices
-}
-
 func TestMerger(t *testing.T) {
+	// test valid merge
 	g := getTestGraph()
 
 	m := NewMerger(g)
 	m.Merge()
 	top := m.TopTier()
-	for _, v := range top {
-		normalizeNames(v)
-	}
 
-	a := &Vertex{ID: "A", Name: "A", Vertices: map[string]*Vertex{}}
-	b := &Vertex{ID: "B", Name: "B", Vertices: map[string]*Vertex{}}
-	c := &Vertex{ID: "C", Name: "C", Vertices: map[string]*Vertex{}}
-	d := &Vertex{ID: "D", Name: "D", Vertices: map[string]*Vertex{}}
+	a := &Vertex{ID: "A", Name: "A"}
+	b := &Vertex{ID: "B", Name: "B"}
+	c := &Vertex{ID: "C", Name: "C"}
+	d := &Vertex{ID: "D", Name: "D"}
 	l1 := &Vertex{ID: "L1", Name: "L1", Vertices: map[string]*Vertex{"A": a, "B": b}}
 	l5 := &Vertex{ID: "L5", Name: "L5", Vertices: map[string]*Vertex{"C": c, "D": d}}
 	s1 := &Vertex{ID: "S1", Name: "S1", Vertices: map[string]*Vertex{"L1": l1, "L5": l5}}
 	c1 := &Vertex{ID: "C1", Name: "C1", Vertices: map[string]*Vertex{"S1": s1}}
 
 	require.Equal(t, []*Vertex{c1}, top)
+
+	// test empty merge
+	m = NewMerger(nil)
+	top = m.TopTier()
+	require.Nil(t, top)
 }

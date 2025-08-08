@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -54,11 +53,7 @@ func getNodeList(cis []topology.ComputeInstances) []string {
 
 func getIbTree(ctx context.Context, nodeList []string, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	nodeVisited := make(map[string]bool)
-	treeRoot := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-	}
-	ibPrefix := "IB"
-	ibCount := 0
+	rootMap := make(map[string]*topology.Vertex)
 
 	for _, node := range nodeList {
 		if _, exists := nodeVisited[node]; !exists {
@@ -68,23 +63,36 @@ func getIbTree(ctx context.Context, nodeList []string, cis []topology.ComputeIns
 				continue
 			}
 			if strings.Contains(stdout.String(), "Topology file:") {
-				// mark the visited nodes
-				_, hca, _ := ib.ParseIbnetdiscoverFile(stdout.Bytes())
-				for _, nodeName := range hca {
-					nodeVisited[nodeName] = true
-				}
-				ibRoot, err := ib.GenerateTopologyConfig(stdout.Bytes(), cis)
+				ibRoots, hca, err := ib.GenerateTopologyConfig(stdout.Bytes(), cis)
 				if err != nil {
 					return nil, fmt.Errorf("IB GenerateTopologyConfig failed: %v", err)
 				}
-				ibCount++
-				ibKey := ibPrefix + strconv.Itoa(ibCount)
-				treeRoot.Vertices[ibKey] = ibRoot
+				// mark the visited nodes
+				for _, nodeName := range hca {
+					nodeVisited[nodeName] = true
+				}
+				for _, v := range ibRoots {
+					rootMap[v.ID] = v
+				}
 			} else {
 				klog.Warningf("Missing ibnetdiscover output for node %q", node)
 			}
 		}
 	}
+
+	roots := make([]*topology.Vertex, 0, len(rootMap))
+	for _, v := range rootMap {
+		roots = append(roots, v)
+	}
+
+	merger := topology.NewMerger(roots)
+	treeRoot := &topology.Vertex{
+		Vertices: make(map[string]*topology.Vertex),
+	}
+	for _, v := range merger.TopTier() {
+		treeRoot.Vertices[v.ID] = v
+	}
+
 	return treeRoot, nil
 }
 
