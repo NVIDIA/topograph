@@ -17,199 +17,16 @@
 package ib
 
 import (
+	"context"
+	"os"
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/maps"
+	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/pkg/engines/slurm"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
-
-func TestSimplifyTreeDupAt3(t *testing.T) {
-	input := &Switch{
-		ID:   "1",
-		Name: "Switch1",
-		Conn: make(map[string]string),
-		Children: map[string]*Switch{
-			"2": {
-				ID:      "2",
-				Name:    "Switch2",
-				Parents: map[string]bool{"1": true},
-				Conn:    make(map[string]string),
-				Children: map[string]*Switch{
-					"4": {
-						ID:   "4",
-						Name: "Switch4",
-						Nodes: map[string]string{
-							"8": "HCA8",
-							"9": "HCA9",
-						},
-						Conn:    make(map[string]string),
-						Parents: map[string]bool{"2": true},
-					},
-					"5": {
-						ID:   "5",
-						Name: "Switch5",
-						Nodes: map[string]string{
-							"8": "HCA8",
-							"9": "HCA9",
-						},
-						Conn:    make(map[string]string),
-						Parents: map[string]bool{"2": true},
-					},
-				},
-			},
-			"3": {
-				ID:   "3",
-				Name: "Switch3",
-				Children: map[string]*Switch{
-					"4": {
-						ID:   "4",
-						Name: "Switch4",
-						Nodes: map[string]string{
-							"8": "HCA8",
-							"9": "HCA9",
-						},
-						Conn: make(map[string]string),
-						Parents: map[string]bool{
-							"3": true,
-						},
-					},
-					"5": {
-						ID:   "5",
-						Name: "Switch5",
-						Nodes: map[string]string{
-							"8": "HCA8",
-							"9": "HCA9",
-						},
-						Conn:    make(map[string]string),
-						Parents: map[string]bool{"3": true},
-					},
-				},
-			},
-		},
-	}
-
-	seen = make(map[int]map[string]*Switch)
-	input.simplify(input.getHeight())
-
-	assert.Equal(t, 1, len(input.Children), "Root should have only one child")
-
-	child := maps.Keys(input.Children)[0]
-	assert.Equal(t, 1, len(input.Children[child].Children), "Root's child should have only one child")
-
-	grandchild := maps.Keys(input.Children[child].Children)[0]
-	assert.Equal(t, 2, len(input.Children[child].Children[grandchild].Nodes), "there should be 2 leaf nodes")
-}
-
-func TestSimplifyTreeDupAt2(t *testing.T) {
-	input := &Switch{
-		ID:   "1",
-		Name: "Switch1",
-		Conn: make(map[string]string),
-		Children: map[string]*Switch{
-			"2": {
-				ID:      "2",
-				Name:    "Switch2",
-				Parents: map[string]bool{"1": true},
-				Conn:    make(map[string]string),
-				Nodes: map[string]string{
-					"8": "HCA8",
-					"9": "HCA9",
-					"4": "HCA4",
-					"5": "HCA5",
-				},
-				Children: make(map[string]*Switch),
-			},
-			"3": {
-				ID:   "3",
-				Name: "Switch3",
-				Nodes: map[string]string{
-					"8": "HCA8",
-					"9": "HCA9",
-					"4": "HCA4",
-					"5": "HCA5",
-				},
-				Conn:     make(map[string]string),
-				Parents:  map[string]bool{"1": true},
-				Children: make(map[string]*Switch),
-			},
-		},
-	}
-
-	seen = make(map[int]map[string]*Switch)
-	input.simplify(input.getHeight())
-
-	assert.Equal(t, 1, len(input.Children), "Root should have only one child")
-
-	child := maps.Keys(input.Children)[0]
-	assert.Equal(t, 4, len(input.Children[child].Nodes), "there should be 4 leaf nodes")
-}
-
-func TestSwitch_GetHeight(t *testing.T) {
-	testCases := []struct {
-		Name     string
-		Input    *Switch
-		Expected int
-	}{
-		{
-			Name: "Multiple levels of children",
-			Input: &Switch{
-				ID:   "1",
-				Name: "Switch1",
-				Children: map[string]*Switch{
-					"2": {
-						ID:   "2",
-						Name: "Switch2",
-						Children: map[string]*Switch{
-							"3": {
-								ID:   "3",
-								Name: "Switch3",
-								Children: map[string]*Switch{
-									"4": {
-										ID:   "4",
-										Name: "Switch4",
-										Children: map[string]*Switch{
-											"5": {
-												ID:   "5",
-												Name: "Switch5",
-												Children: map[string]*Switch{
-													"6": {
-														ID:   "6",
-														Name: "Switch6",
-														Children: map[string]*Switch{
-															"7": {
-																ID:   "7",
-																Name: "Switch7",
-															},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			Expected: 6,
-		},
-		{
-			Name: "No children",
-			Input: &Switch{
-				ID:   "1",
-				Name: "Switch1",
-			},
-			Expected: 0,
-		},
-	}
-
-	for _, tc := range testCases {
-		actualHeight := tc.Input.getHeight()
-		assert.Equal(t, tc.Expected, actualHeight, tc.Name)
-	}
-}
 
 func TestParseIbnetdiscoverFile(t *testing.T) {
 	tests := []struct {
@@ -242,12 +59,10 @@ Switch  1   "Switch-1"         # "switch1"
 					`),
 			expectedSw: map[string]*Switch{
 				"Switch-1": {
-					ID:       "Switch-1",
-					Name:     "switch1",
-					Conn:     make(map[string]string),
-					Parents:  make(map[string]bool),
-					Children: make(map[string]*Switch),
-					Nodes:    make(map[string]string),
+					ID:    "Switch-1",
+					Name:  "switch1",
+					Conn:  make(map[string]string),
+					Nodes: make(map[string]string),
 				},
 			},
 			expectedHCA: map[string]string{},
@@ -263,11 +78,9 @@ Switch	41 "S-08c0eb03008cc87c"		# "MF0;IB-ComputeSpine-03:MQM8700/U1" enhanced p
 `),
 			expectedSw: map[string]*Switch{
 				"S-08c0eb03008cc87c": {
-					ID:       "S-08c0eb03008cc87c",
-					Name:     "IB-ComputeSpine-03",
-					Parents:  make(map[string]bool),
-					Children: make(map[string]*Switch),
-					Nodes:    make(map[string]string),
+					ID:    "S-08c0eb03008cc87c",
+					Name:  "IB-ComputeSpine-03",
+					Nodes: make(map[string]string),
 					Conn: map[string]string{
 						"S-08c0eb0300539a5c": "MF0;IB-ComputeLeaf-101:MQM8700/U1",
 						"S-08c0eb0300539a9c": "MF0;IB-ComputeLeaf-102:MQM8700/U1",
@@ -293,11 +106,9 @@ Switch	41 "S-b8cef603008032b8"		# "MF0;SJC3-A04-IB-ComputeLeaf-007:MQM8700/U1" e
 			`),
 			expectedSw: map[string]*Switch{
 				"S-08c0eb03008cc87c": {
-					ID:       "S-08c0eb03008cc87c",
-					Name:     "IB-ComputeSpine-03",
-					Parents:  make(map[string]bool),
-					Children: make(map[string]*Switch),
-					Nodes:    make(map[string]string),
+					ID:    "S-08c0eb03008cc87c",
+					Name:  "IB-ComputeSpine-03",
+					Nodes: make(map[string]string),
 					Conn: map[string]string{
 						"S-08c0eb0300539a5c": "MF0;IB-ComputeLeaf-101:MQM8700/U1",
 						"S-08c0eb0300539a9c": "MF0;IB-ComputeLeaf-102:MQM8700/U1",
@@ -311,9 +122,7 @@ Switch	41 "S-b8cef603008032b8"		# "MF0;SJC3-A04-IB-ComputeLeaf-007:MQM8700/U1" e
 						"S-08c0eb03008ccb5c": "MF0;IB-ComputeSpine-02:MQM8700/U1",
 						"S-08c0eb03008cc87c": "MF0;IB-ComputeSpine-03:MQM8700/U1",
 					},
-					Parents:  make(map[string]bool),
-					Children: make(map[string]*Switch),
-					Nodes:    make(map[string]string),
+					Nodes: make(map[string]string),
 				},
 			},
 			expectedHCA: map[string]string{"H-043f720300f4bc9e": "ngcprd10-luna3086"},
@@ -358,36 +167,27 @@ func TestBuildTree(t *testing.T) {
 	// Simulate switches and HCAs
 	switches := map[string]*Switch{
 		"1": {
-			ID:   "1",
-			Name: "Switch1",
+			ID: "1",
 			Conn: map[string]string{
 				"2": "Switch2",
 				"3": "Switch3",
 			},
-			Nodes:    make(map[string]string),
-			Parents:  make(map[string]bool),
-			Children: make(map[string]*Switch),
+			Nodes: make(map[string]string),
 		},
 		"2": {
-			ID:   "2",
-			Name: "Switch2",
+			ID: "2",
 			Conn: map[string]string{
 				"hca1": "HCA1",
 				"hca2": "HCA2",
 			},
-			Nodes:    make(map[string]string),
-			Parents:  make(map[string]bool),
-			Children: make(map[string]*Switch),
+			Nodes: make(map[string]string),
 		},
 		"3": {
-			ID:   "3",
-			Name: "Switch3",
+			ID: "3",
 			Conn: map[string]string{
 				"hca3": "HCA3",
 			},
-			Nodes:    make(map[string]string),
-			Parents:  make(map[string]bool),
-			Children: make(map[string]*Switch),
+			Nodes: make(map[string]string),
 		},
 	}
 
@@ -397,46 +197,126 @@ func TestBuildTree(t *testing.T) {
 		"hca3": "HCA3",
 	}
 
-	expectedTree := &Switch{
-		ID:      "1",
-		Name:    "Switch1",
-		Parents: make(map[string]bool),
-		Nodes:   make(map[string]string),
-		Children: map[string]*Switch{
-			"2": {
-				ID:   "2",
-				Name: "Switch2",
-				Nodes: map[string]string{
-					"hca1": "HCA1",
-					"hca2": "HCA2",
-				},
-				Children: make(map[string]*Switch),
-				Parents:  map[string]bool{"1": true},
-			},
-			"3": {
-				ID:   "3",
-				Name: "Switch3",
-				Nodes: map[string]string{
-					"hca3": "HCA3",
-				},
-				Children: make(map[string]*Switch),
-				Parents:  map[string]bool{"1": true},
-			},
-		},
-	}
+	node1 := &topology.Vertex{ID: "HCA1", Name: "HCA1"}
+	node2 := &topology.Vertex{ID: "HCA2", Name: "HCA2"}
+	node3 := &topology.Vertex{ID: "HCA3", Name: "HCA3"}
+	sw2 := &topology.Vertex{ID: "2", Vertices: map[string]*topology.Vertex{"HCA1": node1, "HCA2": node2}}
+	sw3 := &topology.Vertex{ID: "3", Vertices: map[string]*topology.Vertex{"HCA3": node3}}
+	sw1 := &topology.Vertex{ID: "1", Vertices: map[string]*topology.Vertex{"2": sw2, "3": sw3}}
 
 	nodesInCluster := map[string]bool{
 		"HCA1": true,
 		"HCA2": true,
 		"HCA3": true,
 	}
-	tree, err := buildTree(switches, hca, nodesInCluster)
 
-	expectedRoot := &Switch{
-		Children: map[string]*Switch{
-			expectedTree.ID: expectedTree,
+	tree := buildTree(switches, hca, nodesInCluster)
+	expected := map[string]*topology.Vertex{"1": sw1}
+	require.Equal(t, expected, tree)
+}
+
+func TestGenerateTopologyConfigValid(t *testing.T) {
+	data, err := os.ReadFile("../../tests/output/ibnetdiscover/example.out")
+	require.NoError(t, err)
+
+	instances := []topology.ComputeInstances{
+		{
+			Region: "local",
+			Instances: map[string]string{
+				"a05-p1-dgx-01-c03": "a05-p1-dgx-01-c03",
+				"a05-p1-dgx-01-c04": "a05-p1-dgx-01-c04",
+				"a06-p1-dgx-02-c01": "a06-p1-dgx-02-c01",
+				"a06-p1-dgx-02-c02": "a06-p1-dgx-02-c02",
+				"a06-p1-dgx-02-c03": "a06-p1-dgx-02-c03",
+				"a06-p1-dgx-02-c04": "a06-p1-dgx-02-c04",
+				"a06-p1-dgx-02-c05": "a06-p1-dgx-02-c05",
+				"a06-p1-dgx-02-c06": "a06-p1-dgx-02-c06",
+				"a06-p1-dgx-02-c07": "a06-p1-dgx-02-c07",
+				"a06-p1-dgx-02-c08": "a06-p1-dgx-02-c08",
+				"a06-p1-dgx-02-c09": "a06-p1-dgx-02-c09",
+				"a06-p1-dgx-02-c10": "a06-p1-dgx-02-c10",
+				"a06-p1-dgx-02-c11": "a06-p1-dgx-02-c11",
+				"a06-p1-dgx-02-c12": "a06-p1-dgx-02-c12",
+				"a06-p1-dgx-02-c13": "a06-p1-dgx-02-c13",
+				"a06-p1-dgx-02-c14": "a06-p1-dgx-02-c14",
+				"a06-p1-dgx-02-c15": "a06-p1-dgx-02-c15",
+				"a06-p1-dgx-02-c16": "a06-p1-dgx-02-c16",
+				"a06-p1-dgx-02-c17": "a06-p1-dgx-02-c17",
+				"a06-p1-dgx-02-c18": "a06-p1-dgx-02-c18",
+				"b05-p1-dgx-05-c01": "b05-p1-dgx-05-c01",
+				"b05-p1-dgx-05-c02": "b05-p1-dgx-05-c02",
+				"b05-p1-dgx-05-c03": "b05-p1-dgx-05-c03",
+				"b05-p1-dgx-05-c04": "b05-p1-dgx-05-c04",
+				"b05-p1-dgx-05-c05": "b05-p1-dgx-05-c05",
+				"b05-p1-dgx-05-c06": "b05-p1-dgx-05-c06",
+				"b05-p1-dgx-05-c07": "b05-p1-dgx-05-c07",
+				"b05-p1-dgx-05-c08": "b05-p1-dgx-05-c08",
+				"b05-p1-dgx-05-c09": "b05-p1-dgx-05-c09",
+				"b05-p1-dgx-05-c10": "b05-p1-dgx-05-c10",
+				"b05-p1-dgx-05-c11": "b05-p1-dgx-05-c11",
+				"b05-p1-dgx-05-c12": "b05-p1-dgx-05-c12",
+				"b05-p1-dgx-05-c13": "b05-p1-dgx-05-c13",
+				"b05-p1-dgx-05-c14": "b05-p1-dgx-05-c14",
+				"b05-p1-dgx-05-c15": "b05-p1-dgx-05-c15",
+				"b05-p1-dgx-05-c16": "b05-p1-dgx-05-c16",
+				"b05-p1-dgx-05-c17": "b05-p1-dgx-05-c17",
+				"b05-p1-dgx-05-c18": "b05-p1-dgx-05-c18",
+			},
 		},
 	}
-	assert.NoError(t, err, "Building tree should not return an error")
-	assert.Equal(t, expectedRoot, tree, "Built tree should match the expected tree")
+
+	forest, _, err := GenerateTopologyConfig(data, instances)
+	require.NoError(t, err)
+
+	root := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
+	for _, v := range forest {
+		root.Vertices[v.ID] = v
+	}
+
+	tree := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyTree: root},
+	}
+
+	data, err = slurm.GenerateOutputParams(context.TODO(), tree, &slurm.Params{})
+	require.NoError(t, err)
+
+	expected := `SwitchName=S-2c5eab0300b87b40 Switches=S-2c5eab0300c25f00
+SwitchName=S-2c5eab0300c25f00 Switches=S-2c5eab0300b879c0,S-2c5eab0300b87a80,S-2c5eab0300c26040
+SwitchName=S-2c5eab0300b879c0 Nodes=a05-p1-dgx-01-c[03-04]
+SwitchName=S-2c5eab0300b87a80 Nodes=a06-p1-dgx-02-c[01-04,07,10-12,14,16,18]
+SwitchName=S-2c5eab0300c26040 Nodes=b05-p1-dgx-05-c[01-18]
+`
+	require.Equal(t, expected, string(data))
+}
+
+func TestGenerateTopologyConfigInvalid(t *testing.T) {
+	data, err := os.ReadFile("../../tests/output/ibnetdiscover/example-bad.out")
+	require.NoError(t, err)
+
+	instances := []topology.ComputeInstances{
+		{
+			Region: "local",
+			Instances: map[string]string{
+				"dgx-gb200-n01-c1": "dgx-gb200-n01-c1",
+			},
+		},
+	}
+
+	forest, _, err := GenerateTopologyConfig(data, instances)
+	require.NoError(t, err)
+
+	root := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
+	for _, v := range forest {
+		root.Vertices[v.ID] = v
+	}
+
+	tree := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{topology.TopologyTree: root},
+	}
+
+	data, err = slurm.GenerateOutputParams(context.TODO(), tree, &slurm.Params{})
+	require.NoError(t, err)
+
+	expected := ""
+	require.Equal(t, expected, string(data))
 }

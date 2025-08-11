@@ -21,16 +21,13 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
-	"golang.org/x/exp/maps"
 )
 
 var (
 	reEmptyLine, reHCA, reSwitch, reConn, reSwitchName, reNodeName *regexp.Regexp
-	seen                                                           map[int]map[string]*Switch
 )
 
 func init() {
@@ -43,74 +40,28 @@ func init() {
 }
 
 type Switch struct {
-	ID       string
-	Name     string
-	Height   int
-	Conn     map[string]string  // ID:name
-	Parents  map[string]bool    // ID:
-	Children map[string]*Switch // ID:switch
-	Nodes    map[string]string  // ID:node name
+	ID    string
+	Name  string
+	Conn  map[string]string // ID:name
+	Nodes map[string]string // ID:node name
 }
 
-func GenerateTopologyConfig(data []byte, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func GenerateTopologyConfig(data []byte, instances []topology.ComputeInstances) ([]*topology.Vertex, map[string]string, error) {
 	switches, hca, err := ParseIbnetdiscoverFile(data)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse ibnetdiscover file: %v", err)
+		return nil, nil, fmt.Errorf("failed to parse ibnetdiscover output: %v", err)
 	}
 	nodes := getNodes(instances)
-	root, err := buildTree(switches, hca, nodes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to build tree: %v", err)
-	}
-	seen = make(map[int]map[string]*Switch)
-	root.simplify(root.getHeight())
-	treeNode, err := root.toGraph()
-	if err != nil {
-		return nil, err
-	}
-	return treeNode, nil
-}
+	roots := buildTree(switches, hca, nodes)
 
-func (sw *Switch) toGraph() (*topology.Vertex, error) {
-	vertex := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
+	top := make([]*topology.Vertex, 0, len(roots))
+	for _, v := range roots {
+		top = append(top, v)
 	}
-	vertex.ID = sw.Name
-	if len(sw.Children) == 0 {
-		for id, name := range sw.Nodes {
-			vertex.Vertices[name] = &topology.Vertex{
-				Name: name,
-				ID:   id,
-			}
-		}
-	} else {
-		for id, child := range sw.Children {
-			v, err := child.toGraph()
-			if err != nil {
-				return nil, err
-			}
-			vertex.Vertices[id] = v
-		}
-	}
-	return vertex, nil
-}
+	merger := topology.NewMerger(top)
+	merger.Merge()
 
-// getHeight returns the height of the switch in the cluster topology.
-// The height of a switch is defined as the maximum number of hops required to reach a leaf node from the switch.
-func (sw *Switch) getHeight() int {
-	height := 0
-	if len(sw.Nodes) == 0 {
-		for _, child := range sw.Children {
-			if 1+child.getHeight() > height {
-				height = 1 + child.getHeight()
-			}
-		}
-	} else {
-		height = 1
-	}
-
-	sw.Height = height
-	return height
+	return merger.TopTier(), hca, nil
 }
 
 // process output of ibnetdiscover
@@ -136,18 +87,18 @@ func ParseIbnetdiscoverFile(data []byte) (map[string]*Switch, map[string]string,
 		}
 
 		if match := reHCA.FindStringSubmatch(line); len(match) != 0 {
-			hca[match[1]] = extractNodeName(match[2])
+			if nodeName := extractNodeName(match[2]); len(nodeName) != 0 {
+				hca[match[1]] = nodeName
+			}
 			continue
 		}
 
 		if match := reSwitch.FindStringSubmatch(line); len(match) != 0 {
 			entry = &Switch{
-				ID:       match[1],
-				Name:     extractSwitchName(match[2]),
-				Conn:     make(map[string]string),
-				Parents:  make(map[string]bool),
-				Children: make(map[string]*Switch),
-				Nodes:    make(map[string]string),
+				ID:    match[1],
+				Name:  extractSwitchName(match[2]),
+				Conn:  make(map[string]string),
+				Nodes: make(map[string]string),
 			}
 			continue
 		}
@@ -165,11 +116,11 @@ func ParseIbnetdiscoverFile(data []byte) (map[string]*Switch, map[string]string,
 	return switches, hca, nil
 }
 
-func buildTree(switches map[string]*Switch, hca map[string]string, nodesInCluster map[string]bool) (*Switch, error) {
+func buildTree(switches map[string]*Switch, hca map[string]string, nodesInCluster map[string]bool) map[string]*topology.Vertex {
 	// all visited nodes in tree
-	visited := make(map[string]bool)
+	vertices := make(map[string]*topology.Vertex)
 	// current level in the tree
-	level := make(map[string]*Switch)
+	level := make(map[string]*topology.Vertex)
 
 	// first pass: find all leaves
 	for swID, sw := range switches {
@@ -185,40 +136,40 @@ func buildTree(switches map[string]*Switch, hca map[string]string, nodesInCluste
 		}
 		if len(sw.Nodes) != 0 {
 			// this is the leaf switch.
-			// all conections are the parents.
 			// add the node to the first (lower) level in the tree
-			for conID := range sw.Conn {
-				sw.Parents[conID] = true
+			v := &topology.Vertex{
+				ID:       swID,
+				Vertices: make(map[string]*topology.Vertex),
 			}
-			level[swID] = sw
-			visited[swID] = true
+			for _, nodeName := range sw.Nodes {
+				v.Vertices[nodeName] = &topology.Vertex{ID: nodeName, Name: nodeName}
+			}
+			vertices[swID] = v
+			level[swID] = v
 			sw.Conn = nil
 		}
 	}
+
 	cnt := 1
 	// next pass: complete the tree level by level
 	for {
 		// create an upper level
-		upper := make(map[string]*Switch)
+		upper := make(map[string]*topology.Vertex)
 		for swID, sw := range switches {
-			if visited[swID] {
+			if _, ok := vertices[swID]; ok {
 				continue
 			}
+			children := make(map[string]*topology.Vertex)
 			for conID := range sw.Conn {
 				// find children if any
 				if child, ok := level[conID]; ok {
-					sw.Children[conID] = child
-					child.Parents[swID] = true
+					children[conID] = child
 				}
 			}
-			if len(sw.Children) != 0 {
-				for conID := range sw.Conn {
-					if _, ok := sw.Children[conID]; !ok {
-						sw.Parents[conID] = true
-					}
-				}
-				upper[swID] = sw
-				visited[swID] = true
+			if len(children) != 0 {
+				v := &topology.Vertex{ID: swID, Vertices: children}
+				vertices[swID] = v
+				upper[swID] = v
 				sw.Conn = nil
 			}
 		}
@@ -230,14 +181,7 @@ func buildTree(switches map[string]*Switch, hca map[string]string, nodesInCluste
 		cnt++
 	}
 
-	root := &Switch{
-		Children: make(map[string]*Switch),
-	}
-	for swID, sw := range level {
-		root.Children[swID] = sw
-	}
-
-	return root, nil
+	return level
 }
 
 func extractSwitchName(name string) string {
@@ -255,63 +199,6 @@ func extractNodeName(name string) string {
 		return m[1]
 	}
 	return ""
-}
-
-// simplify simplifies the switch hierarchy by removing duplicate children at the specified height.
-// It recursively traverses the switch hierarchy and checks for duplicate children.
-// If a duplicate child is found, it is removed from the switch's children map.
-// The `height` parameter specifies the current height in the hierarchy.
-// The `seen` map is used to keep track of already seen children at each height.
-// This method modifies the `sw` Switch object.
-func (sw *Switch) simplify(height int) {
-	if _, ok := seen[height]; !ok {
-		seen[height] = make(map[string]*Switch)
-	}
-
-	if sw.Height >= 3 {
-		for _, child := range sw.Children {
-			child.simplify(height - 1)
-		}
-	}
-	duplicates := make([]string, 0)
-	for cID, v := range sw.Children {
-		var childrenList string
-		if v.Height > 1 {
-			childrenList = getChildrenList(getChildrenName(maps.Values(v.Children)))
-		} else {
-			childrenList = getChildrenList(maps.Values(v.Nodes))
-		}
-		if len(childrenList) == 0 {
-			duplicates = append(duplicates, cID)
-			continue
-		}
-
-		if v_, ok := seen[height][childrenList]; ok {
-			if v.Name != v_.Name {
-				duplicates = append(duplicates, cID)
-			}
-			continue
-		}
-		seen[height][childrenList] = v
-		groupName := fmt.Sprintf("group_%d_%d", height, len(seen[height]))
-		v.Name = groupName
-	}
-	for _, cID := range duplicates {
-		delete(sw.Children, cID)
-	}
-}
-
-func getChildrenName(children []*Switch) []string {
-	names := make([]string, 0)
-	for _, sw := range children {
-		names = append(names, sw.Name)
-	}
-	return names
-}
-
-func getChildrenList(children []string) string {
-	sort.Strings(children)
-	return strings.Join(children, ",")
 }
 
 func getNodes(instances []topology.ComputeInstances) map[string]bool {
