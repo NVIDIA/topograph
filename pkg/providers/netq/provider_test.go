@@ -1,9 +1,9 @@
 /*
- * Copyright 2024 NVIDIA CORPORATION
+ * Copyright 2025 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package baremetal
+package netq
 
 import (
 	"context"
@@ -23,8 +23,9 @@ func TestLoader(t *testing.T) {
 		err    string
 	}{
 		{
-			name:   "Case 1: empty config",
+			name:   "Case 1: missing netqLoginUrl",
 			config: providers.Config{},
+			err:    "netqLoginUrl not provided",
 		},
 		{
 			name: "Case 2: missing netqApiUrl",
@@ -33,19 +34,10 @@ func TestLoader(t *testing.T) {
 					"netqLoginUrl": "url",
 				},
 			},
-			err: "netqApiUrl is required when netqLoginUrl is set",
+			err: "netqApiUrl not provided",
 		},
 		{
-			name: "Case 3: missing netqLoginUrl",
-			config: providers.Config{
-				Params: map[string]any{
-					"netqApiUrl": "url",
-				},
-			},
-			err: "netqLoginUrl is required when netqApiUrl is set",
-		},
-		{
-			name: "Case 4: no creds for netQ",
+			name: "Case 4: missing creds",
 			config: providers.Config{
 				Params: map[string]any{
 					"netqLoginUrl": "url",
