@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package topology_test
+package topology
 
 import (
 	"testing"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,13 +26,13 @@ func TestPayload(t *testing.T) {
 	testCases := []struct {
 		name    string
 		input   string
-		payload *topology.Request
+		payload *Request
 		print   string
 		err     string
 	}{
 		{
 			name:    "Case 1: no input",
-			payload: &topology.Request{},
+			payload: &Request{},
 			print: `TopologyRequest:
   Provider:
   Credentials: []
@@ -91,8 +90,8 @@ func TestPayload(t *testing.T) {
   ]
 }
 `,
-			payload: &topology.Request{
-				Provider: topology.Provider{
+			payload: &Request{
+				Provider: Provider{
 					Name: "aws",
 					Creds: map[string]string{
 						"access_key_id":     "id",
@@ -100,15 +99,15 @@ func TestPayload(t *testing.T) {
 					},
 					Params: map[string]any{},
 				},
-				Engine: topology.Engine{
+				Engine: Engine{
 					Name: "slurm",
 					Params: map[string]any{
-						topology.KeyPlugin:     topology.TopologyBlock,
-						topology.KeyBlockSizes: "30,120",
-						"reconfigure":          true,
+						KeyPlugin:     TopologyBlock,
+						KeyBlockSizes: "30,120",
+						"reconfigure": true,
 					},
 				},
-				Nodes: []topology.ComputeInstances{
+				Nodes: []ComputeInstances{
 					{
 						Region: "region1",
 						Instances: map[string]string{
@@ -140,7 +139,7 @@ func TestPayload(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			payload, err := topology.GetTopologyRequest([]byte(tc.input))
+			payload, err := GetTopologyRequest([]byte(tc.input))
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {
@@ -150,4 +149,20 @@ func TestPayload(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetNodeList(t *testing.T) {
+	cis := []ComputeInstances{
+		{
+			Region:    "loc1",
+			Instances: map[string]string{"i1": "n1", "i2": "n2"},
+		},
+		{
+			Region:    "loc2",
+			Instances: map[string]string{"i3": "n3", "i4": "n4"},
+		},
+	}
+
+	nodes := []string{"n1", "n2", "n3", "n4"}
+	require.ElementsMatch(t, nodes, GetNodeList(cis))
 }

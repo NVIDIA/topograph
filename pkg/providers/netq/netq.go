@@ -1,20 +1,9 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2025 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
-package baremetal
+package netq
 
 import (
 	"context"
@@ -55,12 +44,12 @@ type AuthOutput struct {
 	AccessToken string `json:"access_token"`
 }
 
-func generateTopologyConfigForEth(ctx context.Context, cred *Credentials, p *ProviderParams, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	contentType := "Content-Type: application/json"
 	accept := "accept: application/json"
 
-	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", cred.user, cred.passwd)
-	args := []string{p.NetqLoginUrl, "-H", accept, "-H", contentType, "-d", creds}
+	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", p.cred.user, p.cred.passwd)
+	args := []string{p.params.NetqLoginUrl, "-H", accept, "-H", contentType, "-d", creds}
 	stdout, err := exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
 		return nil, err
@@ -78,7 +67,7 @@ func generateTopologyConfigForEth(ctx context.Context, cred *Credentials, p *Pro
 	}
 
 	addArgs := "{\"filters\": [], \"subgroupNestingDepth\":2}"
-	args = []string{p.NetqApiUrl, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
+	args = []string{p.params.NetqApiUrl, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
 	stdout, err = exec.Exec(ctx, "curl", args, nil)
 	if err != nil {
 		return nil, err
@@ -90,7 +79,7 @@ func generateTopologyConfigForEth(ctx context.Context, cred *Credentials, p *Pro
 		return nil, fmt.Errorf("netq output read failed: %v", err)
 	}
 
-	nodes := getNodeList(cis)
+	nodes := topology.GetNodeList(cis)
 	return parseNetq(netqResponse, nodes)
 }
 

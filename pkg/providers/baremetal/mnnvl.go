@@ -39,18 +39,6 @@ func (c *Cluster) ID() (string, error) {
 	return c.UUID + "." + c.cliqueID, nil
 }
 
-// getNodeList retrieves all the nodenames on the cluster
-func getNodeList(cis []topology.ComputeInstances) []string {
-	nodes := []string{}
-	for _, ci := range cis {
-		for _, node := range ci.Instances {
-			nodes = append(nodes, node)
-		}
-	}
-
-	return nodes
-}
-
 func getIbTree(ctx context.Context, nodeList []string, cis []topology.ComputeInstances) (*topology.Vertex, error) {
 	nodeVisited := make(map[string]bool)
 	rootMap := make(map[string]*topology.Vertex)
@@ -153,7 +141,7 @@ func toGraph(domainMap topology.DomainMap, treeRoot *topology.Vertex) *topology.
 }
 
 func generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
-	nodes := getNodeList(cis)
+	nodes := topology.GetNodeList(cis)
 
 	output, err := exec.Pdsh(ctx, cmdClusterID, nodes)
 	if err != nil {
