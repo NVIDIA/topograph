@@ -9,11 +9,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"io"
+	"net/http"
+	"net/url"
+	"path"
 	"strings"
 
-	"github.com/NVIDIA/topograph/internal/exec"
+	"k8s.io/klog/v2"
+
+	"github.com/NVIDIA/topograph/internal/httpreq"
 	"github.com/NVIDIA/topograph/pkg/topology"
+)
+
+const (
+	LoginURL    = "auth/v1/login"
+	OpIdURL     = "auth/v1/select/opid"
+	TopologyURL = "telemetry/v1/object/topologygraph/fetch-topology"
 )
 
 type NetqResponse struct {
@@ -32,11 +43,6 @@ type CNode struct {
 }
 
 type Links struct {
-	CompoundedLinks []CompoundedLinks `json:"compounded_links"`
-	Id              string            `json:"id"`
-}
-
-type CompoundedLinks struct {
 	Id string `json:"id"`
 }
 
@@ -45,162 +51,212 @@ type AuthOutput struct {
 }
 
 func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
-	contentType := "Content-Type: application/json"
-	accept := "accept: application/json"
-
-	creds := fmt.Sprintf("{\"username\":\"%s\" , \"password\":\"%s\"}", p.cred.user, p.cred.passwd)
-	args := []string{p.params.NetqLoginUrl, "-H", accept, "-H", contentType, "-d", creds}
-	stdout, err := exec.Exec(ctx, "curl", args, nil)
+	// 1. login to NetQ server
+	payload := strings.NewReader(fmt.Sprintf(`{"username":%q, "password":%q}`, p.cred.user, p.cred.passwd))
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"Accept":       "application/json",
+	}
+	u, err := getURL(p.params.NetqURL, nil, LoginURL)
+	if err != nil {
+		return nil, err
+	}
+	klog.V(4).Infof("Fetching %s", u)
+	f := getRequestFunc(ctx, "POST", u, headers, payload)
+	_, data, err := httpreq.DoRequest(f)
 	if err != nil {
 		return nil, err
 	}
 
-	//get access code from stdout and call API URL
-	var authOutput AuthOutput
-	outputBytes := stdout.Bytes()
-	if len(outputBytes) == 0 {
-		return nil, fmt.Errorf("failed to login to Netq server")
+	if len(data) == 0 {
+		return nil, fmt.Errorf("failed to login to NetQ server")
 	}
 
-	if err := json.Unmarshal(outputBytes, &authOutput); err != nil {
+	//get access token
+	var authOutput AuthOutput
+	if err := json.Unmarshal(data, &authOutput); err != nil {
 		return nil, fmt.Errorf("failed to parse access token: %v", err)
 	}
 
-	addArgs := "{\"filters\": [], \"subgroupNestingDepth\":2}"
-	args = []string{p.params.NetqApiUrl, "-H", "authorization: Bearer " + authOutput.AccessToken, "-H", contentType, "-d", addArgs}
-	stdout, err = exec.Exec(ctx, "curl", args, nil)
+	// 2. set OpID
+	headers = map[string]string{
+		"Authorization": "Bearer " + authOutput.AccessToken,
+	}
+	u, err = getURL(p.params.NetqURL, nil, OpIdURL, p.params.OpID)
+	if err != nil {
+		return nil, err
+	}
+	klog.V(4).Infof("Fetching %s", u)
+	f = getRequestFunc(ctx, "GET", u, headers, nil)
+	_, data, err = httpreq.DoRequest(f)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(data) == 0 {
+		return nil, fmt.Errorf("failed to set NetQ OpID")
+	}
+
+	//get access token
+	if err := json.Unmarshal(data, &authOutput); err != nil {
+		return nil, fmt.Errorf("failed to parse access token: %v", err)
+	}
+
+	// 3. get Topology
+	payload = strings.NewReader(`{"filters": [], "subgroupNestingDepth":2}`)
+	headers = map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer " + authOutput.AccessToken,
+	}
+	query := map[string]string{"timestamp": "0"}
+	u, err = getURL(p.params.NetqURL, query, TopologyURL)
+	if err != nil {
+		return nil, err
+	}
+	klog.V(4).Infof("Fetching %s", u)
+	f = getRequestFunc(ctx, "POST", u, headers, payload)
+	_, data, err = httpreq.DoRequest(f)
 	if err != nil {
 		return nil, err
 	}
 
 	var netqResponse []NetqResponse
-	err = json.Unmarshal(stdout.Bytes(), &netqResponse)
+	err = json.Unmarshal(data, &netqResponse)
 	if err != nil {
 		return nil, fmt.Errorf("netq output read failed: %v", err)
 	}
 
-	nodes := topology.GetNodeList(cis)
-	return parseNetq(netqResponse, nodes)
+	return parseNetq(netqResponse, topology.GetNodeNameMap(cis))
 }
 
-func getReqNodeMap(nodes []string) map[string]bool {
-	reqNodeMap := make(map[string]bool)
-	for _, nodeName := range nodes {
-		reqNodeMap[nodeName] = true
-	}
-	return reqNodeMap
-}
-
-func sortVertices(root *topology.Vertex) []string {
-	// sort the IDs
-	keys := make([]string, 0, len(root.Vertices))
-	for key := range root.Vertices {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func invalidateExtraNodes(curVertex *topology.Vertex, reqNodeMap map[string]bool, nameMap map[string]string) bool {
-	linkExists := false
-
-	if len(curVertex.Vertices) == 0 {
-		_, linkExists = reqNodeMap[nameMap[curVertex.ID]]
-	} else {
-		keys := sortVertices(curVertex)
-		for _, key := range keys {
-			w := curVertex.Vertices[key]
-			childLink := invalidateExtraNodes(w, reqNodeMap, nameMap)
-			if !childLink {
-				delete(curVertex.Vertices, key)
-			}
-			linkExists = linkExists || childLink
+func getRequestFunc(ctx context.Context, method, url string, headers map[string]string, payload io.Reader) httpreq.RequestFunc {
+	return func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, method, url, payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 		}
+		for key, val := range headers {
+			req.Header.Add(key, val)
+		}
+		return req, nil
 	}
-	return linkExists
+}
+
+func getURL(baseURL string, query map[string]string, paths ...string) (string, error) {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	u.Path = path.Join(append([]string{u.Path}, paths...)...)
+
+	if len(query) != 0 {
+		q := u.Query()
+		for key, val := range query {
+			q.Set(key, val)
+		}
+		u.RawQuery = q.Encode()
+	}
+
+	return u.String(), nil
 }
 
 // parseNetq parses Netq topology output
-func parseNetq(netqResponse []NetqResponse, inputNodes []string) (*topology.Vertex, error) {
-	nodeMap := make(map[string]*topology.Vertex)    // nodeId : Vertex
-	tierMap := make(map[string]int)                 // nodeId : tier
-	inverseTierMap := make(map[int]map[string]bool) // tier : nodeId
-	nameMap := make(map[string]string)              // nodeId : nodeName
-	for _, nodelist := range netqResponse[0].Nodes {
+func parseNetq(resp []NetqResponse, inputNodes map[string]bool) (*topology.Vertex, error) {
+	if len(resp) != 1 {
+		return nil, fmt.Errorf("invalid NetQ response: multiple entries")
+	}
+
+	layer := make(map[string]*topology.Vertex)   // current layer starting from leaves (nodeId : Vertex)
+	nodeMap := make(map[string]*topology.Vertex) // nodeId : Vertex
+	tierMap := make(map[string]int)              // nodeId : tier
+	nameMap := make(map[string]string)           // nodeId : nodeName
+
+	// split nodes between leaves and switches
+	for _, nodelist := range resp[0].Nodes {
 		for _, cnode := range nodelist.Cnode {
-			nodeMap[cnode.Id] = &topology.Vertex{
-				ID:       cnode.Id,
-				Name:     cnode.Name,
-				Vertices: make(map[string]*topology.Vertex),
+			v := &topology.Vertex{
+				ID:   cnode.Id,
+				Name: cnode.Name,
+			}
+			if cnode.Tier == -1 { // leaf
+				if inputNodes[cnode.Name] {
+					layer[cnode.Id] = v
+				}
+			} else { // switch
+				nodeMap[cnode.Id] = v
 			}
 			tierMap[cnode.Id] = cnode.Tier
 			nameMap[cnode.Id] = cnode.Name
 		}
 	}
 
-	highestTier := -1
-	for _, link := range netqResponse[0].Links {
-		node_id := strings.Split(link.Id, "-*-")
+	// create map of link IDs [lower node : upper nodes]
+	linksUp := make(map[string]map[string]bool)
+	for _, link := range resp[0].Links {
+		nodeIDs := strings.Split(link.Id, "-*-")
+		if len(nodeIDs) != 2 {
+			klog.Warningf("invalid link ID %q", link.Id)
+			continue
+		}
+		nodeLow, nodeHigh := nodeIDs[0], nodeIDs[1]
 
-		// ignore mgmt connections on eth0
-		if len(link.CompoundedLinks) == 1 {
-			nodes := strings.Split(link.CompoundedLinks[0].Id, "-*-")
-			src := strings.Split(nodes[0], ":")
-			target := strings.Split(nodes[1], ":")
-			if src[1] == "eth0" || target[1] == "eth0" {
-				continue
+		if tierMap[nodeLow] == tierMap[nodeHigh] {
+			klog.Warningf("invalid link ID %q: nodes belong to the same tier %d", link.Id, tierMap[nodeLow])
+			continue
+		}
+
+		if tierMap[nodeLow] > tierMap[nodeHigh] {
+			nodeLow, nodeHigh = nodeHigh, nodeLow
+		}
+
+		up, ok := linksUp[nodeLow]
+		if !ok {
+			up = make(map[string]bool)
+			linksUp[nodeLow] = up
+		}
+		up[nodeHigh] = true
+	}
+
+	for {
+		count := len(nodeMap)
+		nextLayer := make(map[string]*topology.Vertex)
+		for id, w := range layer {
+			for up := range linksUp[id] {
+				v, ok := nextLayer[up]
+				if !ok {
+					v = nodeMap[up]
+					v.Vertices = make(map[string]*topology.Vertex)
+					nextLayer[up] = v
+					delete(nodeMap, up)
+				}
+
+				if v != nil {
+					v.Vertices[id] = w
+				} else {
+					klog.Warningf("node ID %q not found", up)
+				}
 			}
 		}
-		if tierMap[node_id[0]] > tierMap[node_id[1]] {
-			treenode := nodeMap[node_id[0]]
-			treenode.Vertices[node_id[1]] = nodeMap[node_id[1]]
-			if highestTier < tierMap[node_id[0]] {
-				highestTier = tierMap[node_id[0]]
-			}
-			if _, exists := inverseTierMap[tierMap[node_id[0]]]; !exists {
-				inverseTierMap[tierMap[node_id[0]]] = make(map[string]bool)
-			}
-			inverseTierMap[tierMap[node_id[0]]][node_id[0]] = true
-		} else {
-			treenode := nodeMap[node_id[1]]
-			treenode.Vertices[node_id[0]] = nodeMap[node_id[0]]
-			if highestTier < tierMap[node_id[1]] {
-				highestTier = tierMap[node_id[1]]
-			}
-			if _, exists := inverseTierMap[tierMap[node_id[1]]]; !exists {
-				inverseTierMap[tierMap[node_id[1]]] = make(map[string]bool)
-			}
-			inverseTierMap[tierMap[node_id[1]]][node_id[1]] = true
+
+		if count == len(nodeMap) {
+			break
 		}
+		layer = nextLayer
 	}
 
-	treeRoot := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-		Metadata: make(map[string]string),
-	}
-
-	for nodeId := range inverseTierMap[highestTier] {
-		treeRoot.Vertices[nodeId] = nodeMap[nodeId]
-	}
-
-	if len(inputNodes) > 0 {
-		reqNodeMap := getReqNodeMap(inputNodes)
-		invalidateExtraNodes(treeRoot, reqNodeMap, nameMap)
-	}
-
-	var graphVertices []*topology.Vertex
-	for _, node := range treeRoot.Vertices {
-		graphVertices = append(graphVertices, node)
+	var top []*topology.Vertex
+	for _, node := range layer {
+		top = append(top, node)
 	}
 
 	// Ethernet Spectrum-X may have CLOS network and may require merging of switches to a tree format
-	merger := topology.NewMerger(graphVertices)
+	merger := topology.NewMerger(top)
 	merger.Merge()
-	top := merger.TopTier()
+	top = merger.TopTier()
 
-	treeRoot = &topology.Vertex{
+	treeRoot := &topology.Vertex{
 		Vertices: make(map[string]*topology.Vertex),
-		Metadata: make(map[string]string),
 	}
 
 	for _, node := range top {
@@ -208,9 +264,8 @@ func parseNetq(netqResponse []NetqResponse, inputNodes []string) (*topology.Vert
 	}
 
 	root := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
+		Vertices: map[string]*topology.Vertex{topology.TopologyTree: treeRoot},
 	}
-	root.Vertices[topology.TopologyTree] = treeRoot
 
 	return root, nil
 }

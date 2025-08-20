@@ -16,14 +16,14 @@ import (
 
 const NAME = "netq"
 
-type ProviderParams struct {
-	NetqLoginUrl string `mapstructure:"netqLoginUrl"`
-	NetqApiUrl   string `mapstructure:"netqApiUrl"`
-}
-
 type Provider struct {
 	params *ProviderParams
 	cred   *Credentials
+}
+
+type ProviderParams struct {
+	NetqURL string `mapstructure:"netqUrl"`
+	OpID    string `mapstructure:"opid"`
 }
 
 type Credentials struct {
@@ -71,11 +71,12 @@ func GetParams(params map[string]any) (*ProviderParams, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, fmt.Errorf("failed to decode params: %w", err)
 	}
-	if len(p.NetqLoginUrl) == 0 {
-		return nil, fmt.Errorf("netqLoginUrl not provided")
+	if len(p.NetqURL) == 0 {
+		return nil, fmt.Errorf("netqUrl not provided")
 	}
-	if len(p.NetqApiUrl) == 0 {
-		return nil, fmt.Errorf("netqApiUrl not provided")
+
+	if len(p.OpID) == 0 {
+		return nil, fmt.Errorf("opid not provided")
 	}
 
 	return p, nil

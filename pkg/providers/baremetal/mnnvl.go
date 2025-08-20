@@ -141,7 +141,7 @@ func toGraph(domainMap topology.DomainMap, treeRoot *topology.Vertex) *topology.
 }
 
 func generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
-	nodes := topology.GetNodeList(cis)
+	nodes := topology.GetNodeNameList(cis)
 
 	output, err := exec.Pdsh(ctx, cmdClusterID, nodes)
 	if err != nil {

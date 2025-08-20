@@ -123,14 +123,24 @@ func map2string[T string | any](m map[string]T, prefix string, hide bool, suffix
 	return sb.String()
 }
 
-// GetNodeList retrieves all the nodenames
-func GetNodeList(cis []ComputeInstances) []string {
+// GetNodeNameList retrieves all the nodenames
+func GetNodeNameList(cis []ComputeInstances) []string {
 	nodes := []string{}
 	for _, ci := range cis {
 		for _, node := range ci.Instances {
 			nodes = append(nodes, node)
 		}
 	}
+	return nodes
+}
 
+// GetNodeNameMap retrieves all the nodenames
+func GetNodeNameMap(cis []ComputeInstances) map[string]bool {
+	nodes := make(map[string]bool)
+	for _, ci := range cis {
+		for _, node := range ci.Instances {
+			nodes[node] = true
+		}
+	}
 	return nodes
 }
