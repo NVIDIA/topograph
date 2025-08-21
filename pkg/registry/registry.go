@@ -37,6 +37,7 @@ var Providers = providers.NewRegistry(
 	aws.NamedLoader,
 	aws.NamedLoaderSim,
 	baremetal.NamedLoader,
+	baremetal.NamedLoaderIB,
 	cw.NamedLoader,
 	gcp.NamedLoader,
 	gcp.NamedLoaderSim,
