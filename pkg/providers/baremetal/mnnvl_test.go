@@ -9,8 +9,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestPopulateDomainsFromPdshOutput(t *testing.T) {

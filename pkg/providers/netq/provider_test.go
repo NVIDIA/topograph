@@ -23,35 +23,35 @@ func TestLoader(t *testing.T) {
 		err    string
 	}{
 		{
-			name:   "Case 1: missing netqLoginUrl",
+			name:   "Case 1: missing netqUrl",
 			config: providers.Config{},
-			err:    "netqLoginUrl not provided",
+			err:    "netqUrl not provided",
 		},
 		{
-			name: "Case 2: missing netqApiUrl",
+			name: "Case 2: missing opid",
 			config: providers.Config{
 				Params: map[string]any{
-					"netqLoginUrl": "url",
+					"netqUrl": "url",
 				},
 			},
-			err: "netqApiUrl not provided",
+			err: "opid not provided",
 		},
 		{
-			name: "Case 4: missing creds",
+			name: "Case 3: missing creds",
 			config: providers.Config{
 				Params: map[string]any{
-					"netqLoginUrl": "url",
-					"netqApiUrl":   "url",
+					"netqUrl": "url",
+					"opid":    "id",
 				},
 			},
 			err: "username not provided",
 		},
 		{
-			name: "Case 5: missing password",
+			name: "Case 4: missing password",
 			config: providers.Config{
 				Params: map[string]any{
-					"netqLoginUrl": "url",
-					"netqApiUrl":   "url",
+					"netqUrl": "url",
+					"opid":    "id",
 				},
 				Creds: map[string]string{
 					"username": "user",
@@ -60,11 +60,11 @@ func TestLoader(t *testing.T) {
 			err: "password not provided",
 		},
 		{
-			name: "Case 6: valid input",
+			name: "Case 5: valid input",
 			config: providers.Config{
 				Params: map[string]any{
-					"netqLoginUrl": "url",
-					"netqApiUrl":   "url",
+					"netqUrl": "url",
+					"opid":    "id",
 				},
 				Creds: map[string]string{
 					"username": "user",

@@ -151,7 +151,7 @@ func TestPayload(t *testing.T) {
 	}
 }
 
-func TestGetNodeList(t *testing.T) {
+func TestGetNodeNames(t *testing.T) {
 	cis := []ComputeInstances{
 		{
 			Region:    "loc1",
@@ -163,6 +163,8 @@ func TestGetNodeList(t *testing.T) {
 		},
 	}
 
-	nodes := []string{"n1", "n2", "n3", "n4"}
-	require.ElementsMatch(t, nodes, GetNodeList(cis))
+	nodeList := []string{"n1", "n2", "n3", "n4"}
+	nodeMap := map[string]bool{"n1": true, "n2": true, "n3": true, "n4": true}
+	require.ElementsMatch(t, nodeList, GetNodeNameList(cis))
+	require.Equal(t, nodeMap, GetNodeNameMap(cis))
 }
