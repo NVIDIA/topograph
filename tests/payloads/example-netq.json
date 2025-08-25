@@ -1,0 +1,17 @@
+{
+  "provider": {
+    "name": "netq",
+    "params": {
+      "apiUrl": "https://api.example.com/netq",
+      "opid": "0"
+    },
+    "creds": {
+      "username": "user",
+      "password": "passwd"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {}
+  }
+}

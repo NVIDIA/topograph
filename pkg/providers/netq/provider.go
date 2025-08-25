@@ -22,8 +22,8 @@ type Provider struct {
 }
 
 type ProviderParams struct {
-	NetqURL string `mapstructure:"netqUrl"`
-	OpID    string `mapstructure:"opid"`
+	ApiURL string `mapstructure:"apiUrl"`
+	OpID   string `mapstructure:"opid"`
 }
 
 type Credentials struct {
@@ -71,8 +71,8 @@ func GetParams(params map[string]any) (*ProviderParams, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, fmt.Errorf("failed to decode params: %w", err)
 	}
-	if len(p.NetqURL) == 0 {
-		return nil, fmt.Errorf("netqUrl not provided")
+	if len(p.ApiURL) == 0 {
+		return nil, fmt.Errorf("apiUrl not provided")
 	}
 
 	if len(p.OpID) == 0 {
