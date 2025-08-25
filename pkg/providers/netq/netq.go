@@ -57,7 +57,7 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
 	}
-	u, err := getURL(p.params.NetqURL, nil, LoginURL)
+	u, err := getURL(p.params.ApiURL, nil, LoginURL)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 	headers = map[string]string{
 		"Authorization": "Bearer " + authOutput.AccessToken,
 	}
-	u, err = getURL(p.params.NetqURL, nil, OpIdURL, p.params.OpID)
+	u, err = getURL(p.params.ApiURL, nil, OpIdURL, p.params.OpID)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 		"Authorization": "Bearer " + authOutput.AccessToken,
 	}
 	query := map[string]string{"timestamp": "0"}
-	u, err = getURL(p.params.NetqURL, query, TopologyURL)
+	u, err = getURL(p.params.ApiURL, query, TopologyURL)
 	if err != nil {
 		return nil, err
 	}

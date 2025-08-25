@@ -23,15 +23,15 @@ func TestLoader(t *testing.T) {
 		err    string
 	}{
 		{
-			name:   "Case 1: missing netqUrl",
+			name:   "Case 1: missing apiUrl",
 			config: providers.Config{},
-			err:    "netqUrl not provided",
+			err:    "apiUrl not provided",
 		},
 		{
 			name: "Case 2: missing opid",
 			config: providers.Config{
 				Params: map[string]any{
-					"netqUrl": "url",
+					"apiUrl": "url",
 				},
 			},
 			err: "opid not provided",
@@ -40,8 +40,8 @@ func TestLoader(t *testing.T) {
 			name: "Case 3: missing creds",
 			config: providers.Config{
 				Params: map[string]any{
-					"netqUrl": "url",
-					"opid":    "id",
+					"apiUrl": "url",
+					"opid":   "id",
 				},
 			},
 			err: "username not provided",
@@ -50,8 +50,8 @@ func TestLoader(t *testing.T) {
 			name: "Case 4: missing password",
 			config: providers.Config{
 				Params: map[string]any{
-					"netqUrl": "url",
-					"opid":    "id",
+					"apiUrl": "url",
+					"opid":   "id",
 				},
 				Creds: map[string]string{
 					"username": "user",
@@ -63,8 +63,8 @@ func TestLoader(t *testing.T) {
 			name: "Case 5: valid input",
 			config: providers.Config{
 				Params: map[string]any{
-					"netqUrl": "url",
-					"opid":    "id",
+					"apiUrl": "url",
+					"opid":   "id",
 				},
 				Creds: map[string]string{
 					"username": "user",
