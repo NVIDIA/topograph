@@ -48,10 +48,13 @@ type SlinkyEngine struct {
 
 type Params struct {
 	slurm.BaseParams `mapstructure:",squash"`
-	Namespace        string `mapstructure:"namespace"`
-	PodLabel         string `mapstructure:"pod_label"`
-	ConfigPath       string `mapstructure:"topology_config_path"`
-	ConfigMapName    string `mapstructure:"topology_configmap_name"`
+	Namespace        string               `mapstructure:"namespace"`
+	LabelSelector    metav1.LabelSelector `mapstructure:"podSelector"`
+	ConfigPath       string               `mapstructure:"topology_config_path"`
+	ConfigMapName    string               `mapstructure:"topology_configmap_name"`
+
+	// derived fields
+	podSelector string
 }
 
 func NamedLoader() (string, engines.Loader) {
@@ -91,9 +94,15 @@ func getParameters(params engines.Config) (*Params, error) {
 		return nil, err
 	}
 
+	selector, err := metav1.LabelSelectorAsSelector(&p.LabelSelector)
+	if err != nil {
+		return nil, err
+	}
+	p.podSelector = selector.String()
+
 	for key, val := range map[string]string{
 		topology.KeyNamespace:         p.Namespace,
-		topology.KeyPodLabel:          p.PodLabel,
+		topology.KeyPodSelector:       p.podSelector,
 		topology.KeyTopoConfigPath:    p.ConfigPath,
 		topology.KeyTopoConfigmapName: p.ConfigMapName,
 	} {
@@ -112,12 +121,14 @@ func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Envi
 	}
 
 	opt := metav1.ListOptions{
-		LabelSelector: eng.params.PodLabel,
+		LabelSelector: eng.params.podSelector,
 	}
 	pods, err := eng.client.CoreV1().Pods(eng.params.Namespace).List(ctx, opt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list SLURM pods in the cluster: %v", err)
 	}
+
+	klog.V(4).Infof("Found %d pods in %q namespace with selector %q", len(pods.Items), eng.params.Namespace, eng.params.podSelector)
 
 	// map k8s host name to SLURM host name
 	nodeMap := make(map[string]string)

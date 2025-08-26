@@ -20,20 +20,21 @@ import (
 	"fmt"
 	"os"
 
-	"gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 type Config struct {
-	TopologyGeneratorURL string         `yaml:"topology_generator_url"`
-	Trigger              Trigger        `yaml:"trigger"`
-	Provider             string         `yaml:"provider"`
-	Engine               string         `yaml:"engine"`
-	Params               map[string]any `yaml:"params"`
+	GenerateTopologyURL string         `yaml:"generateTopologyUrl"`
+	Trigger             Trigger        `yaml:"trigger"`
+	Provider            string         `yaml:"provider"`
+	Engine              string         `yaml:"engine"`
+	Params              map[string]any `yaml:"params"`
 }
 
 type Trigger struct {
-	NodeLabels map[string]string `yaml:"node_labels"`
-	PodLabels  map[string]string `yaml:"pod_labels"`
+	NodeSelector map[string]string     `yaml:"nodeSelector,omitempty"`
+	PodSelector  *metav1.LabelSelector `yaml:"podSelector,omitempty"`
 }
 
 func NewConfigFromFile(fname string) (*Config, error) {
@@ -48,12 +49,12 @@ func NewConfigFromFile(fname string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse %s: %v", fname, err)
 	}
 
-	if len(cfg.TopologyGeneratorURL) == 0 {
-		return nil, fmt.Errorf("must specify topology_generator_url")
+	if len(cfg.GenerateTopologyURL) == 0 {
+		return nil, fmt.Errorf("must specify generateTopologyUrl")
 	}
 
-	if len(cfg.Trigger.NodeLabels) == 0 && len(cfg.Trigger.PodLabels) == 0 {
-		return nil, fmt.Errorf("must specify node_labels and/or pod_labels in trigger")
+	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil {
+		return nil, fmt.Errorf("must specify nodeSelector and/or podSelector in trigger")
 	}
 
 	return cfg, nil

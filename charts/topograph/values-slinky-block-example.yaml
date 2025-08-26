@@ -3,23 +3,19 @@
 # Declare variables to be passed into your templates.
 
 global:
-  # provider: "aws", "oci", "gcp", "nebius", "baremetal" or "test".
-  provider: "aws"
+  # provider: "aws", "oci", "gcp", "nebius", "netq", "baremetal" or "test".
+  provider: aws
   #  engine: "k8s" or "slinky"
-  engine: "slinky"
+  engine: slinky
   engineParams:
     namespace: slurm
-    pod_label: "app.kubernetes.io/component=compute"
-    plugin: "topology/block"
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: compute
+    plugin: topology/block
     block_sizes: 4
     topology_config_path: topology.conf
     topology_configmap_name: slurm-config
-
-  service:
-    type: ClusterIP
-    port: 49021
-
-replicaCount: 1
 
 nodeSelector:
   dedicated: user-workload
@@ -32,5 +28,6 @@ node-observer:
     dedicated: user-workload
   topograph:
     trigger:
-      pod_labels:
-        app.kubernetes.io/component: compute
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: compute

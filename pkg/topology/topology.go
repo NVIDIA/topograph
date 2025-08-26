@@ -26,7 +26,7 @@ const (
 
 	KeyUID               = "uid"
 	KeyNamespace         = "namespace"
-	KeyPodLabel          = "pod_label"
+	KeyPodSelector       = "podSelector"
 	KeyTopoConfigPath    = "topology_config_path"
 	KeyTopoConfigmapName = "topology_configmap_name"
 	KeyBlockSizes        = "block_sizes"

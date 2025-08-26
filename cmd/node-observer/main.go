@@ -73,7 +73,10 @@ func mainInternal(c string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	controller := node_observer.NewController(ctx, kubeClient, cfg)
+	controller, err := node_observer.NewController(ctx, kubeClient, cfg)
+	if err != nil {
+		return err
+	}
 
 	var g run.Group
 	// Signal handler

@@ -36,25 +36,29 @@ type Controller struct {
 	nodeInformer *NodeInformer
 }
 
-func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) *Controller {
+func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
 	var f httpreq.RequestFunc = func() (*http.Request, error) {
 		payload := topology.NewRequest(cfg.Provider, nil, cfg.Engine, cfg.Params)
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse payload: %v", err)
 		}
-		req, err := http.NewRequest("POST", cfg.TopologyGeneratorURL, bytes.NewBuffer(data))
+		req, err := http.NewRequestWithContext(ctx, "POST", cfg.GenerateTopologyURL, bytes.NewBuffer(data))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 		return req, nil
 	}
+	nodeInformer, err := NewNodeInformer(ctx, client, &cfg.Trigger, f)
+	if err != nil {
+		return nil, err
+	}
 	return &Controller{
 		ctx:          ctx,
 		client:       client,
-		nodeInformer: NewNodeInformer(ctx, client, &cfg.Trigger, f),
-	}
+		nodeInformer: nodeInformer,
+	}, nil
 }
 
 func (c *Controller) Start() error {

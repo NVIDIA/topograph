@@ -146,7 +146,7 @@ Topograph offers three endpoints for interacting with the service. Below are the
       - **reconfigure**: (optional) If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`
     - **slinky parameters**:
       - **namespace**: A string specifying namespace where SLURM cluster is running.
-      - **pod_label**: A string specifying label for pods running SLURM nodes.
+      - **podSelector**: A standard Kubernetes label selector for pods running SLURM nodes.
       - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
       - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
       - **topology_config_path**: A string specifying the key for the topology config in the ConfigMap.
