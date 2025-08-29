@@ -6,7 +6,7 @@ metadata:
     {{- include "node-observer.labels" . | nindent 4 }}
 data:
   node-observer-config.yaml: |-
-    topology_generator_url: "{{ include "topograph.url" $ }}/v1/generate"
+    generateTopologyUrl: "{{ include "topograph.url" $ }}/v1/generate"
     params:
       {{- toYaml .Values.global.engineParams | nindent 6 }}
     trigger:

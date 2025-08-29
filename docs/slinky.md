@@ -25,13 +25,15 @@ The parameters for the configuration file and topology request are defined in th
 ```yaml
 global:
   # provider – name of the cloud provider or on-prem environment.
-  # Supported values: "aws", "gcp", "oci", "nebius", "baremetal.ib".
-  provider: "aws"
-  engine: "slinky"
+  # Supported values: "aws", "gcp", "oci", "nebius", "netq", "baremetal.ib".
+  provider: aws
+  engine: slinky
   engineParams:
     namespace: ns-slinky                               # Namespace where Slinky is running
-    pod_label: "app.kubernetes.io/component=compute"   # Label of the pods running SLURM nodes
-    plugin: "topology/block"                           # Name of the topology plugin
+    podSelector:                                      # Label selector for pods running SLURM nodes
+      matchLabels:
+        app.kubernetes.io/component: compute
+    plugin: topology/block                             # Name of the topology plugin
     block_sizes: 4                                     # (Optional) Block size for the block topology plugin
     topology_configmap_name: slurm-config              # Name of the ConfigMap containing the topology config
     topology_config_path: topology.conf                # Key in the ConfigMap for the topology config
@@ -90,7 +92,11 @@ curl -X POST -H "Content-Type: application/json" \
       "name": "slinky",
       "params": {
         "namespace": "ns-slinky",
-        "pod_label": "app.kubernetes.io/component=compute",
+        "podSelector": {
+          "matchLabels": {
+            "app.kubernetes.io/component": "compute"
+          }
+        },
         "topology_config_path": "topology.conf",
         "topology_configmap_name": "slurm-config"
       }
@@ -109,7 +115,11 @@ curl -X POST -H "Content-Type: application/json" \
       "name": "slinky",
       "params": {
         "namespace": "ns-slinky",
-        "pod_label": "app.kubernetes.io/component=compute",
+        "podSelector": {
+          "matchLabels": {
+            "app.kubernetes.io/component": "compute"
+          }
+        },
         "topology_config_path": "topology.conf",
         "topology_configmap_name": "slurm-config",
         "plugin": "topology/block",

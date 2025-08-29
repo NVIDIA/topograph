@@ -10,15 +10,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestNewNodeInformer(t *testing.T) {
 	ctx := context.TODO()
 	trigger := &Trigger{
-		NodeLabels: map[string]string{"key": "val"},
-		PodLabels:  map[string]string{"key": "val"},
+		NodeSelector: map[string]string{"key": "val"},
+		PodSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"key": "val"},
+		},
 	}
-	informer := NewNodeInformer(ctx, nil, trigger, nil)
+	informer, err := NewNodeInformer(ctx, nil, trigger, nil)
+	require.NoError(t, err)
 	require.NotNil(t, informer.nodeFactory)
 	require.NotNil(t, informer.podFactory)
 

@@ -18,10 +18,10 @@ package node_observer
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestNewConfigFromFile(t *testing.T) {
@@ -40,45 +40,64 @@ func TestNewConfigFromFile(t *testing.T) {
 		{
 			name: "Case 2: parse error",
 			data: "12345",
-			err:  "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!int `12345` into node_observer.Config",
+			err:  "failed to parse",
 		},
 		{
 			name: "Case 3: empty config",
-			err:  "must specify topology_generator_url",
+			err:  "must specify generateTopologyUrl",
 		},
 		{
 			name: "Case 4: missing trigger",
 			data: `
-topology_generator_url: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 params:
   topology_config_path: topology.conf
   topology_configmap_name: topology-config
   topology_configmap_namespace: default
 `,
-			err: "must specify node_labels and/or pod_labels in trigger",
+			err: "must specify nodeSelector and/or podSelector in trigger",
 		},
 		{
 			name: "Case 5: valid",
 			data: `
-topology_generator_url: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 params:
   topology_config_path: topology.conf
   topology_configmap_name: topology-config
   topology_configmap_namespace: default
 trigger:
-  node_labels:
+  nodeSelector:
     a: b
     c: d
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: compute
+    matchExpressions:
+      - key: tier
+        operator: In
+        values:
+          - frontend
+          - backend
 `,
 			cfg: &Config{
-				TopologyGeneratorURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
+				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
 				Params: map[string]any{
 					"topology_config_path":         "topology.conf",
 					"topology_configmap_name":      "topology-config",
 					"topology_configmap_namespace": "default",
 				},
 				Trigger: Trigger{
-					NodeLabels: map[string]string{"a": "b", "c": "d"},
+					NodeSelector: map[string]string{"a": "b", "c": "d"},
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app.kubernetes.io/component": "compute"},
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "tier",
+								Operator: "In",
+								Values:   []string{"frontend", "backend"},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -104,8 +123,7 @@ trigger:
 			}
 			cfg, err := NewConfigFromFile(fname)
 			if len(tc.err) != 0 {
-				require.Error(t, err, "expected error starts with %q", tc.err)
-				require.True(t, strings.HasSuffix(err.Error(), tc.err), "unexpected error %q", err.Error())
+				require.ErrorContains(t, err, tc.err)
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tc.cfg, cfg)

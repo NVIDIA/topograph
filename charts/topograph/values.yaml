@@ -3,10 +3,10 @@
 # Declare variables to be passed into your templates.
 
 global:
-  # provider: "aws", "oci", "gcp", "nebius", "baremetal" or "test".
-  provider: "test"
+  # provider: "aws", "oci", "gcp", "nebius", "netq", "baremetal" or "test".
+  provider: test
   #  engine: "k8s" or "slinky"
-  engine: "k8s"
+  engine: k8s
   # engineParams:
 
   service:
@@ -46,10 +46,10 @@ config:
   # credentials_secret:
 
 topologyNodeLabels:
-  accelerator: "network.topology.nvidia.com/accelerator"
-  block: "network.topology.nvidia.com/block"
-  spine: "network.topology.nvidia.com/spine"
-  datacenter: "network.topology.nvidia.com/datacenter"
+  accelerator: network.topology.nvidia.com/accelerator
+  block: network.topology.nvidia.com/block
+  spine: network.topology.nvidia.com/spine
+  datacenter: network.topology.nvidia.com/datacenter
 
 podAnnotations: {}
 podLabels: {}
@@ -126,7 +126,7 @@ node-observer:
   verbosity: 3
   topograph:
     trigger:
-      node_labels: {}
+      nodeSelector: {}
 
 node-data-broker:
   image:

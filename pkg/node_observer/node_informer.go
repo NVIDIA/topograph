@@ -27,7 +27,7 @@ type NodeInformer struct {
 	podFactory  informers.SharedInformerFactory
 }
 
-func NewNodeInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, reqFunc httpreq.RequestFunc) *NodeInformer {
+func NewNodeInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, reqFunc httpreq.RequestFunc) (*NodeInformer, error) {
 	klog.InfoS("Configuring node informer", "trigger", trigger)
 
 	informer := &NodeInformer{
@@ -36,23 +36,28 @@ func NewNodeInformer(ctx context.Context, client kubernetes.Interface, trigger *
 		reqFunc: reqFunc,
 	}
 
-	if len(trigger.NodeLabels) != 0 {
+	if len(trigger.NodeSelector) != 0 {
 		listOptionsFunc := func(options *metav1.ListOptions) {
-			options.LabelSelector = labels.Set(trigger.NodeLabels).AsSelector().String()
+			options.LabelSelector = labels.Set(trigger.NodeSelector).AsSelector().String()
 		}
 		informer.nodeFactory = informers.NewSharedInformerFactoryWithOptions(
 			client, 0, informers.WithTweakListOptions(listOptionsFunc))
 	}
 
-	if len(trigger.PodLabels) != 0 {
+	if trigger.PodSelector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(trigger.PodSelector)
+		if err != nil {
+			return nil, err
+		}
+
 		listOptionsFunc := func(options *metav1.ListOptions) {
-			options.LabelSelector = labels.Set(trigger.PodLabels).AsSelector().String()
+			options.LabelSelector = selector.String()
 		}
 		informer.podFactory = informers.NewSharedInformerFactoryWithOptions(
 			client, 0, informers.WithTweakListOptions(listOptionsFunc))
 	}
 
-	return informer
+	return informer, nil
 }
 
 func (n *NodeInformer) Start() error {

@@ -12,7 +12,18 @@ global:
     podSelector:
       matchLabels:
         app.kubernetes.io/component: compute
-    plugin: topology/tree
+    topologies:
+      topo1:
+        plugin: topology/block
+        block_sizes: "2,4"
+      topo2:
+        plugin: topology/block
+        block_sizes: "8,16"
+      topo3:
+        plugin: topology/tree
+      topo-default:
+        plugin: topology/flat
+        cluster_default: true
     topology_config_path: topology.conf
     topology_configmap_name: slurm-config
 
