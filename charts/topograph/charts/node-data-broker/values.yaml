@@ -8,6 +8,8 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: 8.13.0
 
+enabled: true
+
 command:
   - tail
   - -f
