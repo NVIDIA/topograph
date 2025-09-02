@@ -60,8 +60,8 @@ func (r Registry) Get(name string) (Loader, error) {
 	return loader, nil
 }
 
-func HttpReq(method, url string, headers map[string]string) (string, error) {
-	req, err := http.NewRequest(method, url, nil)
+func HttpReq(ctx context.Context, method, url string, headers map[string]string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return "", err
 	}
