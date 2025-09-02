@@ -73,14 +73,14 @@ func convertRegion(region string) string {
 	return region[indx+1:]
 }
 
-func GetNodeAnnotations() (map[string]string, error) {
+func GetNodeAnnotations(ctx context.Context) (map[string]string, error) {
 	header := map[string]string{IMDSHeaderKey: IMDSHeaderVal}
-	instance, err := providers.HttpReq(http.MethodGet, IMDSInstanceURL, header)
+	instance, err := providers.HttpReq(ctx, http.MethodGet, IMDSInstanceURL, header)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute instance-id IMDS request: %v", err)
 	}
 
-	region, err := providers.HttpReq(http.MethodGet, IMDSRegionURL, header)
+	region, err := providers.HttpReq(ctx, http.MethodGet, IMDSRegionURL, header)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute region IMDS request: %v", err)
 	}

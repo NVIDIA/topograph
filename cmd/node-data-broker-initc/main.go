@@ -59,14 +59,15 @@ func main() {
 }
 
 func mainInternal(provider string) (err error) {
+	ctx := context.TODO()
 	var annotations map[string]string
 	switch provider {
 	case aws.NAME:
-		annotations, err = aws.GetNodeAnnotations()
+		annotations, err = aws.GetNodeAnnotations(ctx)
 	case gcp.NAME:
-		annotations, err = gcp.GetNodeAnnotations()
+		annotations, err = gcp.GetNodeAnnotations(ctx)
 	case oci.NAME, oci.NAME_IMDS:
-		annotations, err = oci.GetNodeAnnotations()
+		annotations, err = oci.GetNodeAnnotations(ctx)
 	case nebius.NAME:
 		annotations, err = nebius.GetNodeAnnotations()
 	case "":
@@ -91,14 +92,14 @@ func mainInternal(provider string) (err error) {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	node, err := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get node %q: %v", nodeName, err)
 	}
 
 	mergeNodeAnnotations(node, annotations)
 
-	_, err = clientset.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+	_, err = clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update node: %v", err)
 	}
