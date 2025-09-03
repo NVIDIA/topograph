@@ -67,20 +67,20 @@ func TestParseFakeNodes(t *testing.T) {
 }
 
 func TestParseTopologyNodes(t *testing.T) {
-	input := `BlockName=nvlblk01-lyris BlockIndex=0 Nodes=lyris[0001-0018] BlockSize=18
-BlockName=nvlblk02-lyris BlockIndex=1 Nodes=lyris[0019-0036] BlockSize=18
-BlockName=nvlblk03-lyris BlockIndex=2 Nodes=lyris[0037-0054] BlockSize=18
-BlockName=nvlblk04-lyris BlockIndex=3 Nodes=lyris[0055-0072] BlockSize=18
-BlockName=nvlblk05-lyris BlockIndex=4 Nodes=lyris[0073-0090] BlockSize=18
-BlockName=nvlblk06-lyris BlockIndex=5 Nodes=lyris[0091-0108] BlockSize=18
-BlockName=nvlblk07-lyris BlockIndex=6 Nodes=lyris[0109-0126] BlockSize=18
-BlockName=nvlblk08-lyris BlockIndex=7 Nodes=lyris[0127-0144] BlockSize=18
-AggregatedBlock=nvlblk01-lyris,nvlblk02-lyris BlockIndex=8 Nodes=lyris[0001-0036] BlockSize=36
-AggregatedBlock=nvlblk03-lyris,nvlblk04-lyris BlockIndex=9 Nodes=lyris[0037-0072] BlockSize=36
-AggregatedBlock=nvlblk05-lyris,nvlblk06-lyris BlockIndex=10 Nodes=lyris[0073-0108] BlockSize=36
-AggregatedBlock=nvlblk07-lyris,nvlblk08-lyris BlockIndex=11 Nodes=lyris[0109-0144] BlockSize=36
+	input := `BlockName=nvlblk01 BlockIndex=0 Nodes=dgx[0001-0018] BlockSize=18
+BlockName=nvlblk02 BlockIndex=1 Nodes=dgx[0019-0036] BlockSize=18
+BlockName=nvlblk03 BlockIndex=2 Nodes=dgx[0037-0054] BlockSize=18
+BlockName=nvlblk04 BlockIndex=3 Nodes=dgx[0055-0072] BlockSize=18
+BlockName=nvlblk05 BlockIndex=4 Nodes=dgx[0073-0090] BlockSize=18
+BlockName=nvlblk06 BlockIndex=5 Nodes=dgx[0091-0108] BlockSize=18
+BlockName=nvlblk07 BlockIndex=6 Nodes=dgx[0109-0126] BlockSize=18
+BlockName=nvlblk08 BlockIndex=7 Nodes=dgx[0127-0144] BlockSize=18
+AggregatedBlock=nvlblk01,nvlblk02 BlockIndex=8 Nodes=dgx[0001-0036] BlockSize=36
+AggregatedBlock=nvlblk03,nvlblk04 BlockIndex=9 Nodes=dgx[0037-0072] BlockSize=36
+AggregatedBlock=nvlblk05,nvlblk06 BlockIndex=10 Nodes=dgx[0073-0108] BlockSize=36
+AggregatedBlock=nvlblk07,nvlblk08 BlockIndex=11 Nodes=dgx[0109-0144] BlockSize=36
 `
-	expected := []string{"lyris[0001-0144]"}
+	expected := []string{"dgx[0001-0144]"}
 	actual, _ := parseTopologyNodes(input)
 	require.Equal(t, expected, actual)
 }
@@ -106,11 +106,11 @@ func TestGetParams(t *testing.T) {
   "topologies": {
 	"topo1": {
 	  "plugin": "topology/block",
-	  "block_sizes": "2,4"
+	  "block_sizes": [2,4]
 	},
 	"topo2": {
 	  "plugin": "topology/block",
-	  "block_sizes": "8,16",
+	  "block_sizes": [8,16],
 	  "nodes": ["n1", "n2", "n3"]
 	},
 	"topo3": {
@@ -127,11 +127,11 @@ func TestGetParams(t *testing.T) {
 					Topologies: map[string]*Topology{
 						"topo1": {
 							Plugin:     "topology/block",
-							BlockSizes: "2,4",
+							BlockSizes: []int{2, 4},
 						},
 						"topo2": {
 							Plugin:     "topology/block",
-							BlockSizes: "8,16",
+							BlockSizes: []int{8, 16},
 							Nodes: []string{
 								"n1",
 								"n2",

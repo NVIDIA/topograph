@@ -58,7 +58,7 @@ type BaseParams struct {
 
 type Topology struct {
 	Plugin     string   `mapstructure:"plugin"`
-	BlockSizes string   `mapstructure:"block_sizes"`
+	BlockSizes []int    `mapstructure:"block_sizes"`
 	Nodes      []string `mapstructure:"nodes"`
 	Default    bool     `mapstructure:"cluster_default"`
 }
@@ -295,7 +295,7 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams) (*translate.Con
 		for topo, sect := range params.Topologies {
 			spec := &translate.TopologySpec{
 				Plugin:         sect.Plugin,
-				BlockSizes:     getBlockSizes(sect.BlockSizes),
+				BlockSizes:     sect.BlockSizes,
 				ClusterDefault: sect.Default,
 			}
 
