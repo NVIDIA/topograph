@@ -113,8 +113,7 @@ readinessProbe:
 
 nodeSelector: {}
 
-tolerations:
-  - operator: Exists
+tolerations: []
 
 affinity: {}
 
