@@ -76,7 +76,6 @@ volumeMounts: []
 
 nodeSelector: {}
 
-tolerations:
-  - operator: Exists
+tolerations: []
 
 affinity: {}
