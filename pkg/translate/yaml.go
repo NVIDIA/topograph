@@ -19,7 +19,7 @@ import (
 
 type TopologyUnit struct {
 	Name    string     `yaml:"topology"`
-	Default bool       `yaml:"cluster_default"`
+	Default bool       `yaml:"clusterDefault"`
 	Flat    bool       `yaml:"flat,omitempty"`
 	Tree    *TreeTopo  `yaml:"tree,omitempty"`
 	Block   *BlockTopo `yaml:"block,omitempty"`
@@ -36,7 +36,7 @@ type Switch struct {
 }
 
 type BlockTopo struct {
-	BlockSizes []int    `yaml:"block_sizes"`
+	BlockSizes []int    `yaml:"blockSizes"`
 	Blocks     []*Block `yaml:"blocks"`
 }
 

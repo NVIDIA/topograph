@@ -11,7 +11,7 @@
         "plugin": "topology/block",
         "fakeNodesEnabled" : "true",
         "fake_node_pool": "fake[1-80]",
-        "topology_config_path": "topology_block_fake.conf"
+        "topologyConfigPath": "topology_block_fake.conf"
       }
     }
   }

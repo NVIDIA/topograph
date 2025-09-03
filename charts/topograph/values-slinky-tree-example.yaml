@@ -13,8 +13,8 @@ global:
       matchLabels:
         app.kubernetes.io/component: compute
     plugin: topology/tree
-    topology_config_path: topology.conf
-    topology_configmap_name: slurm-config
+    topologyConfigPath: topology.conf
+    topologyConfigmapName: slurm-config
 
 nodeSelector:
   dedicated: user-workload

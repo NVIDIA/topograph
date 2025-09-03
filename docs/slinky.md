@@ -35,8 +35,8 @@ global:
         app.kubernetes.io/component: compute
     plugin: topology/block                             # Name of the topology plugin
     block_sizes: 4                                     # (Optional) Block size for the block topology plugin
-    topology_configmap_name: slurm-config              # Name of the ConfigMap containing the topology config
-    topology_config_path: topology.conf                # Key in the ConfigMap for the topology config
+    topologyConfigmapName: slurm-config              # Name of the ConfigMap containing the topology config
+    topologyConfigPath: topology.conf                # Key in the ConfigMap for the topology config
 ```
 
 ## ConfigMap Annotations
@@ -97,8 +97,8 @@ curl -X POST -H "Content-Type: application/json" \
             "app.kubernetes.io/component": "compute"
           }
         },
-        "topology_config_path": "topology.conf",
-        "topology_configmap_name": "slurm-config"
+        "topologyConfigPath": "topology.conf",
+        "topologyConfigmapName": "slurm-config"
       }
     }
   }' \
@@ -120,8 +120,8 @@ curl -X POST -H "Content-Type: application/json" \
             "app.kubernetes.io/component": "compute"
           }
         },
-        "topology_config_path": "topology.conf",
-        "topology_configmap_name": "slurm-config",
+        "topologyConfigPath": "topology.conf",
+        "topologyConfigmapName": "slurm-config",
         "plugin": "topology/block",
         "block_sizes": "8,16,32"
       }

@@ -95,7 +95,7 @@ echo ""
 cat <<EOF > $SCRIPT_PATH
 #!/bin/bash
 
-curl -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"$PROVIDER"},"engine":{"name":"slurm","params":{"topology_config_path":"$TOPOLOGY_CONFIG_PATH","reconfigure":true}}}' http://localhost:49021/v1/generate
+curl -X POST -H "Content-Type: application/json" -d '{"provider":{"name":"$PROVIDER"},"engine":{"name":"slurm","params":{"topologyConfigPath":"$TOPOLOGY_CONFIG_PATH","reconfigure":true}}}' http://localhost:49021/v1/generate
 EOF
 
 chmod 755 $SCRIPT_PATH

@@ -51,9 +51,9 @@ func TestNewConfigFromFile(t *testing.T) {
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 params:
-  topology_config_path: topology.conf
-  topology_configmap_name: topology-config
-  topology_configmap_namespace: default
+  topologyConfigPath: topology.conf
+  topologyConfigmapName: topology-config
+  namespace: default
 `,
 			err: "must specify nodeSelector and/or podSelector in trigger",
 		},
@@ -62,9 +62,9 @@ params:
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 params:
-  topology_config_path: topology.conf
-  topology_configmap_name: topology-config
-  topology_configmap_namespace: default
+  topologyConfigPath: topology.conf
+  topologyConfigmapName: topology-config
+  namespace: default
 trigger:
   nodeSelector:
     a: b
@@ -82,9 +82,9 @@ trigger:
 			cfg: &Config{
 				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
 				Params: map[string]any{
-					"topology_config_path":         "topology.conf",
-					"topology_configmap_name":      "topology-config",
-					"topology_configmap_namespace": "default",
+					"topologyConfigPath":    "topology.conf",
+					"topologyConfigmapName": "topology-config",
+					"namespace":             "default",
 				},
 				Trigger: Trigger{
 					NodeSelector: map[string]string{"a": "b", "c": "d"},

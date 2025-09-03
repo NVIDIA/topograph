@@ -140,7 +140,7 @@ Topograph offers three endpoints for interacting with the service. Below are the
   - **engine name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, or `slinky`. This parameter will override the engine set in the topograph config.
   - **engine parameters**: (optional) A key-value map with engine-specific parameters.
     - **slurm parameters**:
-      - **topology_config_path**: (optional) A string specifying the file path for the topology configuration. If omitted, the topology config content is returned in the HTTP response.
+      - **topologyConfigPath**: (optional) A string specifying the file path for the topology configuration. If omitted, the topology config content is returned in the HTTP response.
       - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
       - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
       - **reconfigure**: (optional) If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`
@@ -149,8 +149,8 @@ Topograph offers three endpoints for interacting with the service. Below are the
       - **podSelector**: A standard Kubernetes label selector for pods running SLURM nodes.
       - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
       - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
-      - **topology_config_path**: A string specifying the key for the topology config in the ConfigMap.
-      - **topology_configmap_name**: A string specifying the name of the ConfigMap containing the topology config.
+      - **topologyConfigPath**: A string specifying the key for the topology config in the ConfigMap.
+      - **topologyConfigmapName**: A string specifying the name of the ConfigMap containing the topology config.
   - **nodes**: (optional) An array of regions mapping instance IDs to node names.
 
   Example:

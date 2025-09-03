@@ -9,7 +9,7 @@
     "name": "slurm",
     "params": {
       "plugin": "topology/block",
-      "topology_config_path": "topology.conf"
+      "topologyConfigPath": "topology.conf"
     }
   }
 }

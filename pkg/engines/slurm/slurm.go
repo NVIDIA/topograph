@@ -58,14 +58,14 @@ type BaseParams struct {
 
 type Topology struct {
 	Plugin     string   `mapstructure:"plugin"`
-	BlockSizes []int    `mapstructure:"block_sizes"`
+	BlockSizes []int    `mapstructure:"blockSizes"`
 	Nodes      []string `mapstructure:"nodes"`
-	Default    bool     `mapstructure:"cluster_default"`
+	Default    bool     `mapstructure:"clusterDefault"`
 }
 
 type Params struct {
 	BaseParams     `mapstructure:",squash"`
-	TopoConfigPath string `mapstructure:"topology_config_path"`
+	TopoConfigPath string `mapstructure:"topologyConfigPath"`
 	Reconfigure    bool   `mapstructure:"reconfigure"`
 }
 
