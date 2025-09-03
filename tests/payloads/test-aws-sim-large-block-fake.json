@@ -9,7 +9,7 @@
     "name": "slurm",
     "params": {
       "plugin": "topology/block",
-      "topology_config_path": "topology_block_fake.conf",
+      "topologyConfigPath": "topology_block_fake.conf",
       "fakeNodesEnabled": true,
       "block_sizes": "16,32",
       "fake_node_pool": "fake[100-200]"

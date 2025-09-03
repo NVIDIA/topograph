@@ -50,8 +50,8 @@ type Params struct {
 	slurm.BaseParams `mapstructure:",squash"`
 	Namespace        string               `mapstructure:"namespace"`
 	LabelSelector    metav1.LabelSelector `mapstructure:"podSelector"`
-	ConfigPath       string               `mapstructure:"topology_config_path"`
-	ConfigMapName    string               `mapstructure:"topology_configmap_name"`
+	ConfigPath       string               `mapstructure:"topologyConfigPath"`
+	ConfigMapName    string               `mapstructure:"topologyConfigmapName"`
 
 	// derived fields
 	podSelector string

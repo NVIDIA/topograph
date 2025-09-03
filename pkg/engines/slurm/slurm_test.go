@@ -106,16 +106,16 @@ func TestGetParams(t *testing.T) {
   "topologies": {
 	"topo1": {
 	  "plugin": "topology/block",
-	  "block_sizes": [2,4]
+	  "blockSizes": [2,4]
 	},
 	"topo2": {
 	  "plugin": "topology/block",
-	  "block_sizes": [8,16],
+	  "blockSizes": [8,16],
 	  "nodes": ["n1", "n2", "n3"]
 	},
 	"topo3": {
 	  "plugin": "topology/flat",
-	  "cluster_default": true
+	  "clusterDefault": true
 	}
   }
 }

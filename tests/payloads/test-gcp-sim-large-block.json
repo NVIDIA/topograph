@@ -10,7 +10,7 @@
     "params": {
       "plugin": "topology/block",
       "block_sizes": "8,16,32",
-      "topology_config_path": "topology.conf"
+      "topologyConfigPath": "topology.conf"
     }
   }
 }
