@@ -69,6 +69,11 @@ type Params struct {
 	Reconfigure    bool   `mapstructure:"reconfigure"`
 }
 
+type TopologyNodeFinder struct {
+	GetTopologyNodes func(context.Context, string, []any) (string, error)
+	Params           []any
+}
+
 type instanceMapper interface {
 	Instances2NodeMap(context.Context, []string) (map[string]string, error)
 	GetComputeInstancesRegion(context.Context) (string, error)
@@ -172,15 +177,22 @@ func parseFakeNodes(data string) (string, error) {
 	return "", fmt.Errorf("fake partition has no nodes")
 }
 
-func GetTopologyNodes(ctx context.Context, topo string) ([]string, error) {
+func getTopologyNodes(ctx context.Context, topo string, _ []any) (string, error) {
 	args := []string{"show", "topology", topo}
 	stdout, err := exec.Exec(ctx, "scontrol", args, nil)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	out := stdout.String()
-	klog.V(4).Infof("stdout: %s", out)
+	return out, nil
+}
 
+func GetTopologyNodes(ctx context.Context, topo string, f *TopologyNodeFinder) ([]string, error) {
+	out, err := f.GetTopologyNodes(ctx, topo, f.Params)
+	if err != nil {
+		return nil, err
+	}
+	klog.V(4).Infof("stdout: %s", out)
 	return parseTopologyNodes(out)
 }
 
@@ -225,7 +237,7 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 		params.Plugin = topology.TopologyTree
 	}
 
-	cfg, err := GetTranslateConfig(ctx, &params.BaseParams)
+	cfg, err := GetTranslateConfig(ctx, &params.BaseParams, &TopologyNodeFinder{GetTopologyNodes: getTopologyNodes})
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +280,7 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 	return []byte("OK\n"), nil
 }
 
-func GetTranslateConfig(ctx context.Context, params *BaseParams) (*translate.Config, error) {
+func GetTranslateConfig(ctx context.Context, params *BaseParams, f *TopologyNodeFinder) (*translate.Config, error) {
 	cfg := &translate.Config{
 		Plugin:     params.Plugin,
 		BlockSizes: getBlockSizes(params.BlockSizes),
@@ -301,7 +313,7 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams) (*translate.Con
 
 			if len(sect.Nodes) != 0 {
 				spec.Nodes = sect.Nodes
-			} else if nodes, err := GetTopologyNodes(ctx, topo); err == nil {
+			} else if nodes, err := GetTopologyNodes(ctx, topo, f); err == nil {
 				spec.Nodes = nodes
 			} else {
 				return nil, err
