@@ -94,6 +94,11 @@ func Expand(compressed []string) []string {
 	return result
 }
 
+// ExpandList decompresses a list of compacted node names back to individual entries
+func ExpandList(compressed string) []string {
+	return Expand(splitList(compressed))
+}
+
 // compressRange converts a list of numbers into a compact range format
 func compressRange(numbers []string) string {
 	switch len(numbers) {
@@ -131,4 +136,48 @@ func formatRange(start, end string) string {
 func atoi(s string) int {
 	num, _ := strconv.Atoi(s)
 	return num
+}
+
+// splitList splits a string of node names by commas, while preserving ranges
+func splitList(list string) []string {
+	var result []string
+	var current strings.Builder
+	bracketDepth := 0
+
+	for _, ch := range list {
+		switch ch {
+		case '[':
+			bracketDepth++
+			current.WriteRune(ch)
+		case ']':
+			if bracketDepth > 0 {
+				bracketDepth--
+			}
+			current.WriteRune(ch)
+		case ',':
+			if bracketDepth == 0 {
+				// split here
+				part := strings.TrimSpace(current.String())
+				if part != "" {
+					result = append(result, part)
+				}
+				current.Reset()
+			} else {
+				// inside brackets, keep comma
+				current.WriteRune(ch)
+			}
+		default:
+			current.WriteRune(ch)
+		}
+	}
+
+	// add the last part
+	if current.Len() > 0 {
+		part := strings.TrimSpace(current.String())
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+
+	return result
 }

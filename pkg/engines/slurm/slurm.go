@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -57,6 +58,7 @@ type BaseParams struct {
 }
 
 type Topology struct {
+	Partition  string   `mapstructure:"partition"`
 	Plugin     string   `mapstructure:"plugin"`
 	BlockSizes []int    `mapstructure:"blockSizes"`
 	Nodes      []string `mapstructure:"nodes"`
@@ -70,8 +72,8 @@ type Params struct {
 }
 
 type TopologyNodeFinder struct {
-	GetTopologyNodes func(context.Context, string, []any) (string, error)
-	Params           []any
+	GetPartitionNodes func(context.Context, string, []any) (string, error)
+	Params            []any
 }
 
 type instanceMapper interface {
@@ -79,7 +81,15 @@ type instanceMapper interface {
 	GetComputeInstancesRegion(context.Context) (string, error)
 }
 
-var ErrEnvironmentUnsupported = errors.New("environment must implement instanceMapper")
+var (
+	partitionNodesRe *regexp.Regexp
+
+	ErrEnvironmentUnsupported = errors.New("environment must implement instanceMapper")
+)
+
+func init() {
+	partitionNodesRe = regexp.MustCompile(`\sNodes=([^\s]+)`)
+}
 
 func NamedLoader() (string, engines.Loader) {
 	return NAME, Loader
@@ -177,8 +187,8 @@ func parseFakeNodes(data string) (string, error) {
 	return "", fmt.Errorf("fake partition has no nodes")
 }
 
-func getTopologyNodes(ctx context.Context, topo string, _ []any) (string, error) {
-	args := []string{"show", "topology", topo}
+func getPartitionNodes(ctx context.Context, partition string, _ []any) (string, error) {
+	args := []string{"show", "partition", partition}
 	stdout, err := exec.Exec(ctx, "scontrol", args, nil)
 	if err != nil {
 		return "", err
@@ -187,35 +197,25 @@ func getTopologyNodes(ctx context.Context, topo string, _ []any) (string, error)
 	return out, nil
 }
 
-func GetTopologyNodes(ctx context.Context, topo string, f *TopologyNodeFinder) ([]string, error) {
-	out, err := f.GetTopologyNodes(ctx, topo, f.Params)
+func GetPartitionNodes(ctx context.Context, partition string, f *TopologyNodeFinder) ([]string, error) {
+	if len(partition) == 0 {
+		return nil, fmt.Errorf("missing partition name")
+	}
+	out, err := f.GetPartitionNodes(ctx, partition, f.Params)
 	if err != nil {
 		return nil, err
 	}
-	klog.V(4).Infof("stdout: %s", out)
-	return parseTopologyNodes(out)
+	klog.V(4).Infof("GetPartitionNodes: %s", out)
+	return parsePartitionNodes(partition, out)
 }
 
-func parseTopologyNodes(data string) ([]string, error) {
-	linePrefix := "BlockName="
-	pairPrefix := "Nodes="
-	nodes := []string{}
-	scanner := bufio.NewScanner(strings.NewReader(data))
-	for scanner.Scan() {
-		if line := strings.TrimSpace(scanner.Text()); strings.HasPrefix(line, linePrefix) {
-			pairs := strings.Split(line, " ")
-			for _, pair := range pairs {
-				if str := strings.TrimSpace(pair); strings.HasPrefix(str, pairPrefix) {
-					nodes = append(nodes, str[6:])
-				}
-			}
-		}
+func parsePartitionNodes(partition string, data string) ([]string, error) {
+	match := partitionNodesRe.FindStringSubmatch(data)
+	if len(match) > 1 {
+		return cluset.Compact(cluset.ExpandList(match[1])), nil
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to scan fake nodes partition: %v", err)
-	}
-	return cluset.Compact(cluset.Expand(nodes)), nil
+	return nil, fmt.Errorf("partition %q has no nodes", partition)
 }
 
 func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
@@ -237,7 +237,7 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 		params.Plugin = topology.TopologyTree
 	}
 
-	cfg, err := GetTranslateConfig(ctx, &params.BaseParams, &TopologyNodeFinder{GetTopologyNodes: getTopologyNodes})
+	cfg, err := GetTranslateConfig(ctx, &params.BaseParams, &TopologyNodeFinder{GetPartitionNodes: getPartitionNodes})
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, f *TopologyNode
 
 			if len(sect.Nodes) != 0 {
 				spec.Nodes = sect.Nodes
-			} else if nodes, err := GetTopologyNodes(ctx, topo, f); err == nil {
+			} else if nodes, err := GetPartitionNodes(ctx, sect.Partition, f); err == nil {
 				spec.Nodes = nodes
 			} else {
 				return nil, err
