@@ -240,7 +240,7 @@ func TestGetTranslateConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, _ := GetTranslateConfig(ctx, tc.params)
+			cfg, _ := GetTranslateConfig(ctx, tc.params, nil)
 			require.Equal(t, tc.cfg, cfg)
 		})
 	}

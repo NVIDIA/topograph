@@ -133,8 +133,12 @@ func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Envi
 	// map k8s host name to SLURM host name
 	nodeMap := make(map[string]string)
 	for _, pod := range pods.Items {
-		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, pod.Spec.Hostname)
-		nodeMap[pod.Spec.NodeName] = pod.Spec.Hostname
+		host, ok := pod.Labels["slurm.node.name"]
+		if !ok {
+			host = pod.Spec.Hostname
+		}
+		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, host)
+		nodeMap[pod.Spec.NodeName] = host
 	}
 
 	return getComputeInstances(nodes, nodeMap)
@@ -196,7 +200,11 @@ func (eng *SlinkyEngine) generateConfigMapAnnotations() map[string]string {
 func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vertex, _ map[string]any) ([]byte, error) {
 	p := eng.params
 
-	cfg, err := slurm.GetTranslateConfig(ctx, &p.BaseParams)
+	topologyNodeFinder := &slurm.TopologyNodeFinder{
+		GetTopologyNodes: eng.getTopologyNodes,
+		Params:           []any{p.Namespace},
+	}
+	cfg, err := slurm.GetTranslateConfig(ctx, &p.BaseParams, topologyNodeFinder)
 	if err != nil {
 		return nil, err
 	}
@@ -260,4 +268,26 @@ func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, name
 
 	klog.Infof("Successfully %sd configmap %s/%s", verb, namespace, name)
 	return nil
+}
+
+func (eng *SlinkyEngine) getTopologyNodes(ctx context.Context, topo string, params []any) (string, error) {
+	if len(params) != 1 {
+		return "", fmt.Errorf("getTopologyNodes expects a namespace as a parameter")
+	}
+	namespace, ok := params[0].(string)
+	if !ok {
+		return "", fmt.Errorf("getTopologyNodes expects a string parameter")
+	}
+
+	labels := map[string]string{"app.kubernetes.io/component": "login"}
+	pods, err := k8s.GetPodsByLabels(ctx, eng.client, namespace, labels)
+	if err != nil {
+		return "", err
+	}
+	if len(pods.Items) == 0 {
+		return "", fmt.Errorf("no pods with labels %v", labels)
+	}
+
+	cmd := []string{"scontrol", "show", "topology", topo}
+	return k8s.ExecInPod(ctx, eng.client, eng.config, pods.Items[0].Name, pods.Items[0].Namespace, cmd)
 }

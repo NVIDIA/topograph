@@ -28,6 +28,11 @@ func GetNodes(ctx context.Context, client *kubernetes.Clientset) (*corev1.NodeLi
 	return nodes, nil
 }
 
+func GetPodsByLabels(ctx context.Context, client *kubernetes.Clientset, namespace string, l map[string]string) (*corev1.PodList, error) {
+	opt := metav1.ListOptions{LabelSelector: labels.SelectorFromSet(l).String()}
+	return client.CoreV1().Pods(namespace).List(ctx, opt)
+}
+
 func GetDaemonSetPods(ctx context.Context, client *kubernetes.Clientset, name, namespace, nodename string) (*corev1.PodList, error) {
 	ds, err := client.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
