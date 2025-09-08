@@ -66,23 +66,62 @@ func TestParseFakeNodes(t *testing.T) {
 	}
 }
 
-func TestParseTopologyNodes(t *testing.T) {
-	input := `BlockName=nvlblk01 BlockIndex=0 Nodes=dgx[0001-0018] BlockSize=18
-BlockName=nvlblk02 BlockIndex=1 Nodes=dgx[0019-0036] BlockSize=18
-BlockName=nvlblk03 BlockIndex=2 Nodes=dgx[0037-0054] BlockSize=18
-BlockName=nvlblk04 BlockIndex=3 Nodes=dgx[0055-0072] BlockSize=18
-BlockName=nvlblk05 BlockIndex=4 Nodes=dgx[0073-0090] BlockSize=18
-BlockName=nvlblk06 BlockIndex=5 Nodes=dgx[0091-0108] BlockSize=18
-BlockName=nvlblk07 BlockIndex=6 Nodes=dgx[0109-0126] BlockSize=18
-BlockName=nvlblk08 BlockIndex=7 Nodes=dgx[0127-0144] BlockSize=18
-AggregatedBlock=nvlblk01,nvlblk02 BlockIndex=8 Nodes=dgx[0001-0036] BlockSize=36
-AggregatedBlock=nvlblk03,nvlblk04 BlockIndex=9 Nodes=dgx[0037-0072] BlockSize=36
-AggregatedBlock=nvlblk05,nvlblk06 BlockIndex=10 Nodes=dgx[0073-0108] BlockSize=36
-AggregatedBlock=nvlblk07,nvlblk08 BlockIndex=11 Nodes=dgx[0109-0144] BlockSize=36
-`
-	expected := []string{"dgx[0001-0144]"}
-	actual, _ := parseTopologyNodes(input)
-	require.Equal(t, expected, actual)
+func TestParsePartitionNodes(t *testing.T) {
+	testCases := []struct {
+		name string
+		in   string
+		out  []string
+		err  string
+	}{
+		{
+			name: "Case 1: no nodes",
+			in: `PartitionName=my_partition
+   AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL
+   AllocNodes=ALL Default=NO QoS=N/A
+   DefaultTime=NONE DisableRootJobs=NO ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO
+   MaxNodes=UNLIMITED MaxTime=UNLIMITED MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED
+   NodeSets=my_partition
+   PriorityJobFactor=1 PriorityTier=1 RootOnly=NO ReqResv=NO OverSubscribe=NO
+   OverTimeLimit=NONE PreemptMode=OFF
+   State=UP TotalCPUs=384 TotalNodes=2 SelectTypeParameters=NONE
+   JobDefaults=(null)
+   DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED
+   TRES=cpu=384,mem=4095888M,node=2,billing=384,gres/gpu=16
+`,
+			err: `partition "test" has no nodes`,
+		},
+		{
+			name: "Case 2: valid input",
+			in: `PartitionName=my_partition
+   AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL
+   AllocNodes=ALL Default=NO QoS=N/A
+   DefaultTime=NONE DisableRootJobs=NO ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO
+   MaxNodes=UNLIMITED MaxTime=UNLIMITED MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED
+   NodeSets=my_partition
+   Nodes=dgx[0001-0010],dgx[0021-0030]
+   PriorityJobFactor=1 PriorityTier=1 RootOnly=NO ReqResv=NO OverSubscribe=NO
+   OverTimeLimit=NONE PreemptMode=OFF
+   Topology=topo_my_partition
+   State=UP TotalCPUs=384 TotalNodes=2 SelectTypeParameters=NONE
+   JobDefaults=(null)
+   DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED
+   TRES=cpu=384,mem=4095888M,node=2,billing=384,gres/gpu=16
+`,
+			out: []string{"dgx[0001-0010,0021-0030]"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			out, err := parsePartitionNodes("test", tc.in)
+			if len(tc.err) != 0 {
+				require.EqualError(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.out, out)
+			}
+		})
+	}
 }
 
 func TestGetParams(t *testing.T) {

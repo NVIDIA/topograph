@@ -201,8 +201,8 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vert
 	p := eng.params
 
 	topologyNodeFinder := &slurm.TopologyNodeFinder{
-		GetTopologyNodes: eng.getTopologyNodes,
-		Params:           []any{p.Namespace},
+		GetPartitionNodes: eng.getPartitionNodes,
+		Params:            []any{p.Namespace},
 	}
 	cfg, err := slurm.GetTranslateConfig(ctx, &p.BaseParams, topologyNodeFinder)
 	if err != nil {
@@ -270,13 +270,13 @@ func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, name
 	return nil
 }
 
-func (eng *SlinkyEngine) getTopologyNodes(ctx context.Context, topo string, params []any) (string, error) {
+func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string, params []any) (string, error) {
 	if len(params) != 1 {
-		return "", fmt.Errorf("getTopologyNodes expects a namespace as a parameter")
+		return "", fmt.Errorf("getPartitionNodes expects a namespace as a parameter")
 	}
 	namespace, ok := params[0].(string)
 	if !ok {
-		return "", fmt.Errorf("getTopologyNodes expects a string parameter")
+		return "", fmt.Errorf("getPartitionNodes expects a string parameter")
 	}
 
 	labels := map[string]string{"app.kubernetes.io/component": "login"}
@@ -288,6 +288,6 @@ func (eng *SlinkyEngine) getTopologyNodes(ctx context.Context, topo string, para
 		return "", fmt.Errorf("no pods with labels %v", labels)
 	}
 
-	cmd := []string{"scontrol", "show", "topology", topo}
+	cmd := []string{"scontrol", "show", "partition", partition}
 	return k8s.ExecInPod(ctx, eng.client, eng.config, pods.Items[0].Name, pods.Items[0].Namespace, cmd)
 }

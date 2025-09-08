@@ -55,15 +55,36 @@ func TestCompactExpand(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.compacted, Compact(tc.expanded))
-			require.Equal(t, toMap(tc.expanded), toMap(Expand(tc.compacted)))
+			require.ElementsMatch(t, tc.expanded, Expand(tc.compacted))
 		})
 	}
 }
 
-func toMap(arr []string) map[string]struct{} {
-	m := make(map[string]struct{})
-	for _, str := range arr {
-		m[str] = struct{}{}
+func TestExpandList(t *testing.T) {
+	testCases := []struct {
+		name   string
+		input  string
+		output []string
+	}{
+		{
+			name: "Case 1: empty list",
+		},
+		{
+			name:   "Case 2: single entry",
+			input:  "dgx[0001-0018]",
+			output: []string{"dgx[0001-0018]"},
+		},
+		{
+			name:   "Case 3: multiple entries",
+			input:  "dgx[0001-0018,0037-0054],dgx[0055-0072],dgx[0075,0090],dgx0127",
+			output: []string{"dgx[0001-0018,0037-0072,0075,0090,0127]"},
+		},
 	}
-	return m
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.output, Compact(ExpandList(tc.input)))
+
+		})
+	}
 }
