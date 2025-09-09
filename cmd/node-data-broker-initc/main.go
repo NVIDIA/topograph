@@ -69,7 +69,7 @@ func mainInternal(provider string) (err error) {
 	case oci.NAME, oci.NAME_IMDS:
 		annotations, err = oci.GetNodeAnnotations(ctx)
 	case nebius.NAME:
-		annotations, err = nebius.GetNodeAnnotations()
+		annotations, err = nebius.GetNodeAnnotations(ctx)
 	case "":
 		err = fmt.Errorf("must set provider")
 	default:

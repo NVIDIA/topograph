@@ -8,6 +8,7 @@ package nebius
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	compute "github.com/nebius/gosdk/proto/nebius/compute/v1"
 	"k8s.io/klog/v2"
@@ -95,7 +96,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 
 func hasNetIntf(ci *topology.ComputeInstances, nw []*compute.NetworkInterfaceStatus) (string, string, bool) {
 	for _, status := range nw {
-		if hostname, ok := ci.Instances[status.MacAddress]; ok {
+		if hostname, ok := ci.Instances[strings.ToUpper(status.MacAddress)]; ok {
 			return hostname, status.MacAddress, true
 		}
 	}
