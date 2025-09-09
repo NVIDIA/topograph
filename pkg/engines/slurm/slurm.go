@@ -310,13 +310,19 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, f *TopologyNode
 				BlockSizes:     sect.BlockSizes,
 				ClusterDefault: sect.Default,
 			}
-
+			klog.InfoS("Adding partition topology", "name", topo, "plugin", sect.Plugin, "default", sect.Default, "partition", sect.Partition)
 			if len(sect.Nodes) != 0 {
+				klog.V(4).Infof("%s %q provides nodes %v", sect.Plugin, topo, sect.Nodes)
 				spec.Nodes = sect.Nodes
-			} else if nodes, err := GetPartitionNodes(ctx, sect.Partition, f); err == nil {
-				spec.Nodes = nodes
 			} else {
-				return nil, err
+				if sect.Default && sect.Plugin == topology.TopologyFlat && len(sect.Partition) == 0 {
+					klog.V(4).Infof("skip node discovery for default %s %q", sect.Plugin, topo)
+				} else if nodes, err := GetPartitionNodes(ctx, sect.Partition, f); err == nil {
+					klog.V(4).Infof("%s %q discovered nodes %v", sect.Plugin, topo, nodes)
+					spec.Nodes = nodes
+				} else {
+					return nil, err
+				}
 			}
 			cfg.Topologies[topo] = spec
 		}

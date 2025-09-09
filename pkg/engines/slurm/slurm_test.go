@@ -211,6 +211,7 @@ func TestGetTranslateConfig(t *testing.T) {
 		name   string
 		params *BaseParams
 		cfg    *translate.Config
+		err    string
 	}{
 		{
 			name: "Case 1: minimal input",
@@ -257,9 +258,28 @@ func TestGetTranslateConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 4: with fake nodes",
+			name: "Case 5: with invalid partition topology",
 			params: &BaseParams{
 				Topologies: map[string]*Topology{
+					"topo1": {
+						Plugin: topology.TopologyBlock,
+						Nodes:  []string{"node[001-100]"},
+					},
+					"topo2": {
+						Plugin: topology.TopologyTree,
+					},
+				},
+			},
+			err: "missing partition name",
+		},
+		{
+			name: "Case 6: with valid partition topology",
+			params: &BaseParams{
+				Topologies: map[string]*Topology{
+					"default": {
+						Plugin:  topology.TopologyFlat,
+						Default: true,
+					},
 					"topo": {
 						Plugin: topology.TopologyBlock,
 						Nodes:  []string{"node[001-100]"},
@@ -268,6 +288,10 @@ func TestGetTranslateConfig(t *testing.T) {
 			},
 			cfg: &translate.Config{
 				Topologies: map[string]*translate.TopologySpec{
+					"default": {
+						Plugin:         topology.TopologyFlat,
+						ClusterDefault: true,
+					},
 					"topo": {
 						Plugin: topology.TopologyBlock,
 						Nodes:  []string{"node[001-100]"},
@@ -279,8 +303,13 @@ func TestGetTranslateConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, _ := GetTranslateConfig(ctx, tc.params, nil)
-			require.Equal(t, tc.cfg, cfg)
+			cfg, err := GetTranslateConfig(ctx, tc.params, nil)
+			if len(tc.err) != 0 {
+				require.EqualError(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.cfg, cfg)
+			}
 		})
 	}
 }
