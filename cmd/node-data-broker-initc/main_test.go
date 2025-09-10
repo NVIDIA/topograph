@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestMainInternal(t *testing.T) {
+func TestGetAnnotations(t *testing.T) {
 	testCases := []struct {
 		name     string
 		provider string
@@ -43,7 +44,7 @@ func TestMainInternal(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := mainInternal(tc.provider)
+			_, err := getAnnotations(context.TODO(), tc.provider)
 			require.EqualError(t, err, tc.err)
 		})
 	}
