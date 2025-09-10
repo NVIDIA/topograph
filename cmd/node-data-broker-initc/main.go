@@ -60,27 +60,7 @@ func main() {
 
 func mainInternal(provider string) (err error) {
 	ctx := context.TODO()
-	var annotations map[string]string
-	switch provider {
-	case aws.NAME:
-		annotations, err = aws.GetNodeAnnotations(ctx)
-	case gcp.NAME:
-		annotations, err = gcp.GetNodeAnnotations(ctx)
-	case oci.NAME, oci.NAME_IMDS:
-		annotations, err = oci.GetNodeAnnotations(ctx)
-	case nebius.NAME:
-		annotations, err = nebius.GetNodeAnnotations(ctx)
-	case "":
-		err = fmt.Errorf("must set provider")
-	default:
-		err = fmt.Errorf("unsupported provider %q", provider)
-	}
-	if err != nil {
-		return err
-	}
-
 	nodeName := os.Getenv("NODE_NAME")
-	klog.Infof("adding annotations %v in node %s for provider %s", annotations, nodeName, provider)
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -91,6 +71,12 @@ func mainInternal(provider string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
+
+	annotations, err := getAnnotations(ctx, provider)
+	if err != nil {
+		return err
+	}
+	klog.Infof("adding annotations %v in node %s for provider %s", annotations, nodeName, provider)
 
 	node, err := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
@@ -105,6 +91,23 @@ func mainInternal(provider string) (err error) {
 	}
 
 	return nil
+}
+
+func getAnnotations(ctx context.Context, provider string) (map[string]string, error) {
+	switch provider {
+	case aws.NAME:
+		return aws.GetNodeAnnotations(ctx)
+	case gcp.NAME:
+		return gcp.GetNodeAnnotations(ctx)
+	case oci.NAME, oci.NAME_IMDS:
+		return oci.GetNodeAnnotations(ctx)
+	case nebius.NAME:
+		return nebius.GetNodeAnnotations(ctx)
+	case "":
+		return nil, fmt.Errorf("must set provider")
+	default:
+		return nil, fmt.Errorf("unsupported provider %q", provider)
+	}
 }
 
 func mergeNodeAnnotations(node *corev1.Node, annotations map[string]string) {
