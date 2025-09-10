@@ -16,6 +16,7 @@ LINTER_BIN ?= golangci-lint
 DOCKER_BIN ?= docker
 GOOS ?= $(shell uname | tr '[:upper:]' '[:lower:]')
 GOARCH ?= $(shell arch | sed 's/x86_64/amd64/')
+PLATFORMS ?= linux/arm64,linux/amd64
 TARGETS := topograph node-observer node-data-broker-initc
 CMD_DIR := ./cmd
 OUTPUT_DIR := ./bin
@@ -89,12 +90,12 @@ image-build:
 image-push: image-build
 	$(DOCKER_BIN) push $(IMAGE_REPO):$(IMAGE_TAG)
 
-.PHONY: docker
-docker:
-	docker buildx create --use --name=crossplat --node=crossplat || true
-	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
-		-t $(IMAGE_REPO):$(IMAGE_TAG) -f ./Dockerfile --push .
+.PHONY: docker-buildx
+docker-buildx:
+	- $(DOCKER_BIN) buildx create --name=topograph-builder
+	$(DOCKER_BIN) buildx use topograph-builder
+	$(DOCKER_BIN) buildx build --platform $(PLATFORMS) -t $(IMAGE_REPO):$(IMAGE_TAG) -f ./Dockerfile --push .
+	- $(DOCKER_BIN) buildx rm topograph-builder
 
 .PHONY: ssl
 ssl:
