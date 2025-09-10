@@ -30,6 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
+	"github.com/NVIDIA/topograph/pkg/providers/baremetal"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
@@ -72,7 +73,7 @@ func mainInternal(provider string) (err error) {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	annotations, err := getAnnotations(ctx, provider)
+	annotations, err := getAnnotations(ctx, clientset, config, provider, nodeName)
 	if err != nil {
 		return err
 	}
@@ -93,7 +94,7 @@ func mainInternal(provider string) (err error) {
 	return nil
 }
 
-func getAnnotations(ctx context.Context, provider string) (map[string]string, error) {
+func getAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, provider, nodeName string) (map[string]string, error) {
 	switch provider {
 	case aws.NAME:
 		return aws.GetNodeAnnotations(ctx)
@@ -103,6 +104,8 @@ func getAnnotations(ctx context.Context, provider string) (map[string]string, er
 		return oci.GetNodeAnnotations(ctx)
 	case nebius.NAME:
 		return nebius.GetNodeAnnotations(ctx)
+	case baremetal.NAME_IB:
+		return baremetal.GetNodeAnnotations(ctx, client, config, nodeName)
 	case "":
 		return nil, fmt.Errorf("must set provider")
 	default:
