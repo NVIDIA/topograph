@@ -26,6 +26,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/baremetal"
 	"github.com/NVIDIA/topograph/pkg/providers/cw"
+	"github.com/NVIDIA/topograph/pkg/providers/dra"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/netq"
@@ -38,6 +39,7 @@ var Providers = providers.NewRegistry(
 	aws.NamedLoaderSim,
 	baremetal.NamedLoader,
 	cw.NamedLoader,
+	dra.NamedLoader,
 	gcp.NamedLoader,
 	gcp.NamedLoaderSim,
 	oci.NamedLoaderAPI,
