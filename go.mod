@@ -1,6 +1,6 @@
 module github.com/NVIDIA/topograph
 
-go 1.23.3
+go 1.24.7
 
 require (
 	cloud.google.com/go/compute v1.38.0
