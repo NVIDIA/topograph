@@ -172,3 +172,45 @@ func TestMixedYamlTopology(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, buf.String())
 }
+
+func TestBlockOnlyYamlTopology(t *testing.T) {
+	expected := `- topology: topo1
+  clusterDefault: true
+  block:
+    blockSizes:
+        - 2
+    blocks:
+        - block: block0
+          nodes: Node[104-105]
+- topology: topo2
+  clusterDefault: false
+  block:
+    blockSizes:
+        - 2
+    blocks:
+        - block: block0
+          nodes: Node[301,303]
+`
+
+	v, _ := GetBlockWithMultiIBTestSet()
+	delete(v.Vertices, topology.TopologyTree)
+
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo1": {
+				Plugin:         topology.TopologyBlock,
+				Nodes:          []string{"Node[104,105]"},
+				ClusterDefault: true,
+			},
+			"topo2": {
+				Plugin: topology.TopologyBlock,
+				Nodes:  []string{"Node[301,303]"},
+			},
+		},
+	}
+	nt, _ := NewNetworkTopology(v, cfg)
+	buf := &bytes.Buffer{}
+	err := nt.Generate(buf)
+	require.NoError(t, err)
+	require.Equal(t, expected, buf.String())
+}
