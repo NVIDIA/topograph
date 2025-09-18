@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/agrea/ptr"
+	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -126,6 +127,7 @@ func (nt *NetworkTopology) initTree(root *topology.Vertex) {
 			nt.vertices[v.ID] = v
 			if len(v.Vertices) == 0 {
 				nt.nodeInfo[v.Name] = &nodeInfo{instanceID: v.ID}
+				klog.V(4).InfoS("initTree: adding nodeInfo", "name", v.Name, "instanceID", v.ID)
 			}
 		}
 		for id, w := range v.Vertices {
@@ -165,6 +167,13 @@ func (nt *NetworkTopology) initBlocks(root *topology.Vertex) {
 			}
 			for _, w := range v.Vertices {
 				bInfo.nodes = append(bInfo.nodes, w.Name)
+
+				nt.nodeInfo[w.Name] = &nodeInfo{
+					instanceID: w.ID,
+					blockID:    id,
+					blockIndx:  ptr.Int(indx),
+				}
+				klog.V(4).InfoS("initBlocks: adding nodeInfo", "name", w.Name, "blockID", id, "blockIndx", indx)
 			}
 			nt.blocks = append(nt.blocks, bInfo)
 			indx++
