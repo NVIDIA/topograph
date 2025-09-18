@@ -7,6 +7,17 @@ rules:
 - apiGroups: [""]
   resources: [nodes]
   verbs: [get,list,update]
+{{- if eq .Values.global.provider "infiniband-k8s" }}
+- apiGroups: [apps]
+  resources: [daemonsets]
+  verbs: [get,list]
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [get,list]
+- apiGroups: [""]
+  resources: [pods/exec]
+  verbs: [create]
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

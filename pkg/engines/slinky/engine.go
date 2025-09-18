@@ -289,5 +289,10 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 	}
 
 	cmd := []string{"scontrol", "show", "partition", partition}
-	return k8s.ExecInPod(ctx, eng.client, eng.config, pods.Items[0].Name, pods.Items[0].Namespace, cmd)
+	buf, err := k8s.ExecInPod(ctx, eng.client, eng.config, pods.Items[0].Name, pods.Items[0].Namespace, cmd)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }

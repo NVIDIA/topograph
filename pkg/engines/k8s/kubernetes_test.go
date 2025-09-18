@@ -25,17 +25,26 @@ func TestGetComputeInstances(t *testing.T) {
 		name  string
 		nodes *corev1.NodeList
 		cis   []topology.ComputeInstances
-		err   string
 	}{
 		{
-			name:  "Case 1: instance error",
+			name:  "Case 1: missing instance",
 			nodes: &corev1.NodeList{Items: []corev1.Node{node1, nodeErr1}},
-			err:   `missing "topograph.nvidia.com/instance" annotation in node err1`,
+			cis: []topology.ComputeInstances{
+				{
+					Region:    "r1",
+					Instances: map[string]string{"i1": "node1"},
+				},
+			},
 		},
 		{
-			name:  "Case 2: region error",
+			name:  "Case 2: missing region",
 			nodes: &corev1.NodeList{Items: []corev1.Node{nodeErr2, node2}},
-			err:   `missing "topograph.nvidia.com/region" annotation in node err2`,
+			cis: []topology.ComputeInstances{
+				{
+					Region:    "r1",
+					Instances: map[string]string{"i2": "node2"},
+				},
+			},
 		},
 		{
 			name:  "Case 3: valid input",
@@ -56,12 +65,8 @@ func TestGetComputeInstances(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cis, err := getComputeInstances(tc.nodes)
-			if len(tc.err) != 0 {
-				require.EqualError(t, err, tc.err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.cis, cis)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tc.cis, cis)
 		})
 	}
 }

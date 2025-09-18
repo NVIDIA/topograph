@@ -80,7 +80,7 @@ The parameters for the configuration file and topology request are defined in th
 ```yaml
 global:
   # provider – name of the cloud provider or on-prem environment.
-  # Supported values: "aws", "gcp", "oci", "nebius", "baremetal.ib".
+  # Supported values: "aws", "gcp", "oci", "nebius", "netq", "infiniband-k8s".
   provider: "aws"
 
   engine: "k8s"

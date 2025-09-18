@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 global:
-  # provider: "aws", "oci", "gcp", "nebius", "netq", "baremetal", "dra" or "test".
+  # provider: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test".
   provider: test
   #  engine: "k8s" or "slinky"
   engine: k8s
