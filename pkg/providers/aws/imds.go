@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/NVIDIA/topograph/internal/exec"
@@ -41,7 +42,7 @@ const (
 )
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	stdout, err := exec.Pdsh(ctx, pdshCmd(IMDSInstanceURL), nodes)
+	stdout, err := exec.Pdsh(ctx, imdsCmd(IMDSInstanceURL), nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -53,9 +54,18 @@ func makeHeader(name, val string) string {
 	return fmt.Sprintf("%s: %s", name, val)
 }
 
-func pdshCmd(url string) string {
+func imdsCmd(url string) string {
 	return fmt.Sprintf("TOKEN=$(curl -s -X PUT -H %q %s); echo $(curl -s -H %q %s)",
 		IMDSTokenHeader, IMDSTokenURL, makeHeader(IMDSHeaderKey, "$TOKEN"), url)
+}
+
+func getRegion(ctx context.Context) (string, error) {
+	stdout, err := exec.Exec(ctx, "sh", []string{"-c", imdsCmd(IMDSRegionURL)}, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 func GetNodeAnnotations(ctx context.Context) (map[string]string, error) {

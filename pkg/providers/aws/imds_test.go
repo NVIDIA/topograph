@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPdshCmd(t *testing.T) {
+func TestImdsCmd(t *testing.T) {
 	expected := fmt.Sprintf(`TOKEN=$(curl -s -X PUT -H "X-aws-ec2-metadata-token-ttl-seconds: 60" %s); echo $(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" %s)`, IMDSTokenURL, IMDSInstanceURL)
-	require.Equal(t, expected, pdshCmd(IMDSInstanceURL))
+	require.Equal(t, expected, imdsCmd(IMDSInstanceURL))
 }

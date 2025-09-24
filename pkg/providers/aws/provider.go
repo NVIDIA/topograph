@@ -26,7 +26,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"k8s.io/klog/v2"
 
@@ -38,15 +37,10 @@ const NAME = "aws"
 
 type baseProvider struct {
 	clientFactory ClientFactory
-	imdsClient    IMDSClient
 }
 
 type EC2Client interface {
 	DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error)
-}
-
-type IMDSClient interface {
-	GetRegion(ctx context.Context, params *imds.GetRegionInput, optFns ...func(*imds.Options)) (*imds.GetRegionOutput, error)
 }
 
 type CredsClient interface {
@@ -75,13 +69,6 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, error) {
-	defaultCfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	imdsClient := imds.NewFromConfig(defaultCfg)
-
 	creds, err := getCredentials(ctx, cfg.Creds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credentials: %v", err)
@@ -107,7 +94,7 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, erro
 		}, nil
 	}
 
-	return New(clientFactory, imdsClient), nil
+	return New(clientFactory), nil
 }
 
 func getCredentials(ctx context.Context, creds map[string]string) (*Credentials, error) {
@@ -179,12 +166,9 @@ type Provider struct {
 	baseProvider
 }
 
-func New(clientFactory ClientFactory, imdsClient IMDSClient) *Provider {
+func New(clientFactory ClientFactory) *Provider {
 	return &Provider{
-		baseProvider: baseProvider{
-			clientFactory: clientFactory,
-			imdsClient:    imdsClient,
-		},
+		baseProvider: baseProvider{clientFactory: clientFactory},
 	}
 }
 
@@ -197,9 +181,5 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 
 // GetComputeInstancesRegion implements slurm.instanceMapper
 func (p *Provider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
-	output, err := p.imdsClient.GetRegion(ctx, &imds.GetRegionInput{})
-	if err != nil {
-		return "", err
-	}
-	return output.Region, nil
+	return getRegion(ctx)
 }
