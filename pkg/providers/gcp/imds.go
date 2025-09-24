@@ -51,12 +51,7 @@ func getRegion(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	// zone format is "projects/<PROJECT ID>/zones/<ZONE NAME>"
-	// we need to return zone name only
-	zone := stdout.String()
-	indx := strings.LastIndex(zone, "/")
-
-	return zone[indx+1:], nil
+	return convertRegion(strings.TrimSpace(stdout.String())), nil
 }
 
 func imdsCurlParams(url string) []string {
