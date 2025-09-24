@@ -102,11 +102,11 @@ func getCredentials(ctx context.Context, creds map[string]string) (*Credentials,
 
 	if len(creds) != 0 {
 		klog.Infof("Using provided AWS credentials")
-		if accessKeyID = creds["access_key_id"]; len(accessKeyID) == 0 {
-			return nil, fmt.Errorf("credentials error: missing access_key_id")
+		if accessKeyID = creds["accessKeyId"]; len(accessKeyID) == 0 {
+			return nil, fmt.Errorf("credentials error: missing accessKeyId")
 		}
-		if secretAccessKey = creds["secret_access_key"]; len(secretAccessKey) == 0 {
-			return nil, fmt.Errorf("credentials error: missing secret_access_key")
+		if secretAccessKey = creds["secretAccessKey"]; len(secretAccessKey) == 0 {
+			return nil, fmt.Errorf("credentials error: missing secretAccessKey")
 		}
 		sessionToken = creds["token"]
 	} else if len(os.Getenv("AWS_ACCESS_KEY_ID")) != 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) != 0 {
