@@ -106,19 +106,19 @@ Topograph operates with two primary concepts: `provider` and `engine`. A `provid
 
 Currently supported providers:
 
-- AWS
+- [AWS](./docs/providers/aws.md)
 - OCI
 - GCP
 - Nebius
 - NetQ
 - DRA
-- Bare metal
+- InfiniBand
 
 Currently supported engines:
 
-- [SLURM](./docs/slurm.md)
-- [Kubernetes](./docs/k8s.md)
-- [SLURM-on-Kubernetes (Slinky)](./docs/slinky.md)
+- [SLURM](./docs/engines/slurm.md)
+- [Kubernetes](./docs/engines/k8s.md)
+- [SLURM-on-Kubernetes (Slinky)](./docs/engines/slinky.md)
 
 ## Using Topograph
 
@@ -162,8 +162,8 @@ Topograph offers three endpoints for interacting with the service. Below are the
   "provider": {
     "name": "aws",
     "creds": {
-      "access_key_id": "id",
-      "secret_access_key": "secret"
+      "accessKeyId": "id",
+      "secretAccessKey": "secret"
     },
     "params": {
       "model_path": ""

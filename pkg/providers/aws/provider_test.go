@@ -34,18 +34,18 @@ func TestGetCredentials(t *testing.T) {
 		err   string
 	}{
 		{
-			name:  "Case 1: missing access_key_id",
-			creds: map[string]string{"secret_access_key": "secret"},
-			err:   "credentials error: missing access_key_id",
+			name:  "Case 1: missing accessKeyId",
+			creds: map[string]string{"secretAccessKey": "secret"},
+			err:   "credentials error: missing accessKeyId",
 		},
 		{
-			name:  "Case 2: missing secret_access_key",
-			creds: map[string]string{"access_key_id": "id"},
-			err:   "credentials error: missing secret_access_key",
+			name:  "Case 2: missing secretAccessKey",
+			creds: map[string]string{"accessKeyId": "id"},
+			err:   "credentials error: missing secretAccessKey",
 		},
 		{
 			name:  "Case 3: valid provided creds",
-			creds: map[string]string{"access_key_id": "id", "secret_access_key": "secret"},
+			creds: map[string]string{"accessKeyId": "id", "secretAccessKey": "secret"},
 			ret: &Credentials{
 				AccessKeyId:     "id",
 				SecretAccessKey: "secret",

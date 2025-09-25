@@ -28,8 +28,8 @@ import (
 
 const (
 	credentials = `
-access_key_id: id
-secret_access_key: key
+accessKeyId: id
+secretAccessKey: key
 `
 
 	configTemplate = `
@@ -98,7 +98,7 @@ func TestConfig(t *testing.T) {
 			CaCert: caCert.Name(),
 		},
 		CredsPath:   &credsPath,
-		Credentials: map[string]string{"access_key_id": "id", "secret_access_key": "key"},
+		Credentials: map[string]string{"accessKeyId": "id", "secretAccessKey": "key"},
 		Env: map[string]string{
 			"SLURM_CONF": "/etc/slurm/config.yaml",
 			"PATH":       "/a/b/c",
