@@ -108,8 +108,8 @@ Currently supported providers:
 
 - [AWS](./docs/providers/aws.md)
 - OCI
-- GCP
-- Nebius
+- [GCP](./docs/providers/gcp.md)
+- [Nebius](./docs/providers/nebius.md)
 - NetQ
 - DRA
 - InfiniBand
