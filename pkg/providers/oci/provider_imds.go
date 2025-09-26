@@ -37,11 +37,7 @@ func NamedLoaderIMDS() (string, providers.Loader) {
 }
 
 func LoaderIMDS(ctx context.Context, _ providers.Config) (providers.Provider, error) {
-	return NewIMDS(), nil
-}
-
-func NewIMDS() *imdsProvider {
-	return &imdsProvider{}
+	return &imdsProvider{}, nil
 }
 
 func (p *imdsProvider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
