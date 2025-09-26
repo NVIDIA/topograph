@@ -101,7 +101,7 @@ func getAnnotations(ctx context.Context, client *kubernetes.Clientset, config *r
 		return aws.GetNodeAnnotations(ctx)
 	case gcp.NAME:
 		return gcp.GetNodeAnnotations(ctx)
-	case oci.NAME, oci.NAME_IMDS:
+	case oci.NAME:
 		return oci.GetNodeAnnotations(ctx)
 	case nebius.NAME:
 		return nebius.GetNodeAnnotations(ctx)

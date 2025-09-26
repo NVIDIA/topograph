@@ -34,11 +34,11 @@ import (
 const (
 	NAME = "oci"
 
-	authTenancyID   = "tenancy_id"
-	authUserID      = "user_id"
+	authTenancyID   = "tenancyId"
+	authUserID      = "userId"
 	authRegion      = "region"
 	authFingerprint = "fingerprint"
-	authPrivateKey  = "private_key"
+	authPrivateKey  = "privateKey"
 	authPassphrase  = "passphrase"
 )
 
@@ -119,10 +119,10 @@ func getConfigurationProvider(creds map[string]string) (common.ConfigurationProv
 		var tenancyID, userID, region, fingerprint, privateKey, passphrase string
 		klog.Info("Using provided credentials")
 		if tenancyID = creds[authTenancyID]; len(tenancyID) == 0 {
-			return nil, fmt.Errorf("credentials error: missing tenancy_id")
+			return nil, fmt.Errorf("credentials error: missing tenancyId")
 		}
 		if userID = creds[authUserID]; len(userID) == 0 {
-			return nil, fmt.Errorf("credentials error: missing user_id")
+			return nil, fmt.Errorf("credentials error: missing userId")
 		}
 		if region = creds[authRegion]; len(region) == 0 {
 			return nil, fmt.Errorf("credentials error: missing region")
@@ -131,7 +131,7 @@ func getConfigurationProvider(creds map[string]string) (common.ConfigurationProv
 			return nil, fmt.Errorf("credentials error: missing fingerprint")
 		}
 		if privateKey = creds[authPrivateKey]; len(privateKey) == 0 {
-			return nil, fmt.Errorf("credentials error: missing private_key")
+			return nil, fmt.Errorf("credentials error: missing privateKey")
 		}
 		passphrase = creds[authPassphrase]
 
