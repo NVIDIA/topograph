@@ -45,50 +45,50 @@ func TestGetConfigurationProvider(t *testing.T) {
 		err      string
 	}{
 		{
-			name:  "Case 1: missing tenancy_id",
+			name:  "Case 1: missing tenancyId",
 			creds: map[string]string{"dummy": dummy},
-			err:   "credentials error: missing tenancy_id",
+			err:   "credentials error: missing tenancyId",
 		},
 		{
-			name:  "Case 2: missing user_id",
-			creds: map[string]string{"tenancy_id": tenant},
-			err:   "credentials error: missing user_id",
+			name:  "Case 2: missing userId",
+			creds: map[string]string{"tenancyId": tenant},
+			err:   "credentials error: missing userId",
 		},
 		{
 			name: "Case 3: missing region",
 			creds: map[string]string{
-				"tenancy_id": tenant,
-				"user_id":    user,
+				"tenancyId": tenant,
+				"userId":    user,
 			},
 			err: "credentials error: missing region",
 		},
 		{
 			name: "Case 4: missing fingerprint",
 			creds: map[string]string{
-				"tenancy_id": tenant,
-				"user_id":    user,
-				"region":     region,
+				"tenancyId": tenant,
+				"userId":    user,
+				"region":    region,
 			},
 			err: "credentials error: missing fingerprint",
 		},
 		{
-			name: "Case 5: missing private_key",
+			name: "Case 5: missing privateKey",
 			creds: map[string]string{
-				"tenancy_id":  tenant,
-				"user_id":     user,
+				"tenancyId":   tenant,
+				"userId":      user,
 				"region":      region,
 				"fingerprint": fingerprint,
 			},
-			err: "credentials error: missing private_key",
+			err: "credentials error: missing privateKey",
 		},
 		{
 			name: "Case 6: valid",
 			creds: map[string]string{
-				"tenancy_id":  tenant,
-				"user_id":     user,
+				"tenancyId":   tenant,
+				"userId":      user,
 				"region":      region,
 				"fingerprint": fingerprint,
-				"private_key": key,
+				"privateKey":  key,
 			},
 			provider: common.NewRawConfigurationProvider(tenant, user, region, fingerprint, key, &dummy),
 		},
