@@ -17,7 +17,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nebius/gosdk v0.0.0-20250925083101-fd7444ff5a96
 	github.com/oklog/run v1.1.0
-	github.com/oracle/oci-go-sdk/v65 v65.88.0
+	github.com/oracle/oci-go-sdk/v65 v65.101.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/api v0.247.0
@@ -87,6 +87,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/sony/gobreaker v1.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.37.0 // indirect
