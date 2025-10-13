@@ -8,6 +8,6 @@ ARG TARGETARCH
 
 RUN make build-${TARGETOS}-${TARGETARCH}
 
-FROM gcr.io/distroless/static-debian11:nonroot
+FROM alpine:3
 
 COPY --from=builder /go/src/github.com/NVIDIA/topograph/bin/* /usr/local/bin/

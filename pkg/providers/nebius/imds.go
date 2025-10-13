@@ -18,7 +18,7 @@ const (
 	IMDSParentID   = IMDSPath + "parent-id"
 	IMDSRegionPath = IMDSPath + "region-name"
 
-	MACCmd = "ip link show $(ip route show default | awk '{print $5}') | awk '/ether/ {print $2}' | tr '[:lower:]' '[:upper:]'"
+	MACCmd = "iface=$(awk '$2=='00000000' {print $1, $8}' /proc/net/route | sort -k2n | head -n1 | cut -d' ' -f1); cat /sys/class/net/$iface/address | tr '[:lower:]' '[:upper:]'"
 )
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
