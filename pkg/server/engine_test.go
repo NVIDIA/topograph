@@ -17,9 +17,13 @@
 package server
 
 import (
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestCheckCredentials(t *testing.T) {
@@ -56,4 +60,68 @@ func TestCheckCredentials(t *testing.T) {
 		})
 	}
 
+}
+
+type retrier struct {
+	codes []int
+}
+
+func (r *retrier) callback(_ *topology.Request) ([]byte, *HTTPError) {
+	var code int
+	if len(r.codes) == 0 {
+		code = http.StatusInternalServerError
+	} else {
+		code = r.codes[0]
+		r.codes = r.codes[1:]
+	}
+
+	if code == http.StatusOK {
+		return []byte{1, 2, 3, 4, 5}, nil
+	}
+
+	return nil, NewHTTPError(code, "error")
+}
+
+func TestProcessRequestWithRetries(t *testing.T) {
+	tr := &topology.Request{
+		Provider: topology.Provider{
+			Name: "test",
+		},
+		Engine: topology.Engine{
+			Name: "test",
+		},
+	}
+
+	testCases := []struct {
+		name    string
+		retrier *retrier
+		err     string
+	}{
+		{
+			name:    "Case 1: retry and failure",
+			retrier: &retrier{},
+			err:     "HTTP 500: error",
+		},
+		{
+			name:    "Case 2: retry and success",
+			retrier: &retrier{codes: []int{http.StatusInternalServerError, http.StatusOK}},
+		},
+		{
+			name:    "Case 3: user error",
+			retrier: &retrier{codes: []int{http.StatusBadRequest}},
+			err:     "HTTP 400: error",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ret, err := processRequestWithRetries(time.Millisecond, tr, tc.retrier.callback)
+			if len(tc.err) != 0 {
+				require.EqualError(t, err, tc.err)
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, []byte{1, 2, 3, 4, 5}, ret)
+			}
+		})
+	}
 }
