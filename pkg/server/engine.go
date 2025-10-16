@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
 	"time"
 
@@ -31,24 +32,43 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const (
+	maxRetries = 5
+	baseDelay  = 2 * time.Second
+)
+
 type asyncController struct {
 	queue *TrailingDelayQueue
 }
 
-func processRequest(item interface{}) (interface{}, *HTTPError) {
-	tr := item.(*topology.Request)
-	var code int
-	start := time.Now()
+func processRequest(item any) (any, *HTTPError) {
+	return processRequestWithRetries(baseDelay, item.(*topology.Request), processTopologyRequest)
+}
 
-	ret, err := processTopologyRequest(tr)
-	if err != nil {
-		code = err.Code
-	} else {
-		code = http.StatusOK
+func processRequestWithRetries(delay time.Duration, tr *topology.Request, f func(*topology.Request) ([]byte, *HTTPError)) ([]byte, *HTTPError) {
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		var code int
+		start := time.Now()
+
+		ret, err := f(tr)
+		if err != nil {
+			code = err.Code
+		} else {
+			code = http.StatusOK
+		}
+		metrics.AddTopologyRequest(tr.Provider.Name, tr.Engine.Name, code, time.Since(start))
+
+		if code != http.StatusInternalServerError || attempt == maxRetries {
+			return ret, err
+		}
+
+		// Exponential backoff: delay = delay * 2^attempt
+		sleep := time.Duration(float64(delay) * math.Pow(2, float64(attempt)))
+		klog.Infof("Attempt %d failed: %v — retrying in %v", attempt+1, err, sleep)
+		time.Sleep(sleep)
 	}
-	metrics.AddTopologyRequest(tr.Provider.Name, tr.Engine.Name, code, time.Since(start))
 
-	return ret, err
+	return nil, NewHTTPError(http.StatusInternalServerError, "no attempts")
 }
 
 func processTopologyRequest(tr *topology.Request) ([]byte, *HTTPError) {
