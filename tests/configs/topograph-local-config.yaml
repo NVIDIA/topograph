@@ -2,4 +2,4 @@ http:
   port: 49021
   ssl: false
 
-request_aggregation_delay: 2s
+requestAggregationDelay: 2s

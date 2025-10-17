@@ -36,7 +36,7 @@ http:
 provider: nebius
 engine: slurm
 
-credentials_path: /path/to/credentials.yaml
+credentialsPath: /path/to/credentials.yaml
 ``` 
 
 ### Credentials via API Request Payload

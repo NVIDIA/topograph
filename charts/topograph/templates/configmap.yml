@@ -11,7 +11,7 @@ data:
       ssl: false
     provider: {{ .Values.global.provider }}
     engine: {{ .Values.global.engine }}
-    request_aggregation_delay: {{ .Values.config.request_aggregation_delay }}
-    {{- if .Values.config.credentials_secret }}
-    credentials_path: /etc/topograph/credentials/config.yaml
+    requestAggregationDelay: {{ .Values.config.requestAggregationDelay }}
+    {{- if .Values.config.credentialsSecretName }}
+    credentialsPath: /etc/topograph/credentials.yaml
     {{- end }}

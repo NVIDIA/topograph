@@ -31,13 +31,13 @@ import (
 
 type Config struct {
 	HTTP                    Endpoint          `yaml:"http"`
-	RequestAggregationDelay time.Duration     `yaml:"request_aggregation_delay"`
+	RequestAggregationDelay time.Duration     `yaml:"requestAggregationDelay"`
 	Provider                string            `yaml:"provider,omitempty"`
 	Engine                  string            `yaml:"engine,omitempty"`
-	PageSize                *int              `yaml:"page_size,omitempty"`
+	PageSize                *int              `yaml:"pageSize,omitempty"`
 	SSL                     *SSL              `yaml:"ssl,omitempty"`
-	CredsPath               *string           `yaml:"credentials_path,omitempty"`
-	FwdSvcURL               *string           `yaml:"forward_service_url,omitempty"`
+	CredsPath               *string           `yaml:"credentialsPath,omitempty"`
+	FwdSvcURL               *string           `yaml:"forwardServiceUrl,omitempty"`
 	Env                     map[string]string `yaml:"env"`
 
 	// derived
@@ -94,7 +94,7 @@ func (cfg *Config) validate() error {
 	}
 
 	if cfg.RequestAggregationDelay == 0 {
-		return fmt.Errorf("request_aggregation_delay is not set")
+		return fmt.Errorf("requestAggregationDelay is not set")
 	}
 
 	if cfg.HTTP.SSL {

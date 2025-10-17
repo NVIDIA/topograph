@@ -8,13 +8,13 @@ http:
 # engine: slurm
 
 # waiting period before processing a request
-request_aggregation_delay: 15s
+requestAggregationDelay: 15s
 
 # URL of an external gRPC service for request processing (optional)
-# forward_service_url:
+# forwardServiceUrl:
 
 # number of results per API call (optional)
-page_size: 100
+pageSize: 100
 
 # ssl credentials for when http.ssl = true
 ssl:
@@ -23,7 +23,7 @@ ssl:
   ca_cert: /etc/topograph/ssl/ca-cert.pem
 
 # filepath to CSP credentials (optional)
-# credentials_path:
+# credentialsPath:
 
 # additional environment variables (optional)
 env:
