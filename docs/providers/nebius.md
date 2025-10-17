@@ -10,9 +10,9 @@ There are two ways to do this: using account credentials or an authorization tok
 ## Using credentials:
 
 Nebius credentials consist of the following fields:
-* `service-account-id`
-* `public-key-id`
-* `private-key`
+* `serviceAccountId`
+* `publicKeyId`
+* `privateKey`
 
 You can provide credentials either in the Topology configuration file or directly in the topology request payload.
 
@@ -21,9 +21,9 @@ You can provide credentials either in the Topology configuration file or directl
 Store your credentials in a YAML file:
 
 ```yaml
-service-account-id: <SERVICE-ACCOUNT-ID>
-public-key-id: <PUBLIC-KEY-ID>
-private-key: <PRIVATE-KEY>
+serviceAccountId: <SERVICE-ACCOUNT-ID>
+publicKeyId: <PUBLIC-KEY-ID>
+privateKey: <PRIVATE-KEY>
 ```
 
 Then reference this file in your Topograph config:
@@ -47,9 +47,9 @@ Pass credentials directly in the topology request payload:
 {
   "provider": {
     "creds": {
-      "service-account-id": "<SERVICE-ACCOUNT-ID>",
-      "public-key-id": "<PUBLIC-KEY-ID>",
-      "private-key": "<PRIVATE-KEY>"
+      "serviceAccountId": "<SERVICE-ACCOUNT-ID>",
+      "publicKeyId": "<PUBLIC-KEY-ID>",
+      "privateKey": "<PRIVATE-KEY>"
     }
   }
 }
