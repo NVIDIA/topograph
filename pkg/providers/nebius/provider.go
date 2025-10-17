@@ -23,9 +23,9 @@ import (
 const (
 	NAME = "nebius"
 
-	authServiceAccountID = "service-account-id"
-	authPublicKeyID      = "public-key-id"
-	authPrivateKey       = "private-key"
+	authServiceAccountID = "serviceAccountId"
+	authPublicKeyID      = "publicKeyId"
+	authPrivateKey       = "privateKey"
 	authTokenPath        = "/mnt/cloud-metadata/token"
 	authTokenEnvVar      = "IAM_TOKEN"
 

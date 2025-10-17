@@ -22,27 +22,27 @@ func TestGetAuthOption(t *testing.T) {
 		{
 			name:  "Case 1.1: no serviceAccountID in creds",
 			creds: map[string]string{"a": "b"},
-			err:   "credentials error: missing service-account-id",
+			err:   "credentials error: missing serviceAccountId",
 		},
 		{
 			name:  "Case 1.2: no publicKeyID in creds",
-			creds: map[string]string{"service-account-id": "service-account"},
-			err:   "credentials error: missing public-key-id",
+			creds: map[string]string{"serviceAccountId": "service-account"},
+			err:   "credentials error: missing publicKeyId",
 		},
 		{
 			name: "Case 1.3: no privateKey in creds",
 			creds: map[string]string{
-				"service-account-id": "service-account",
-				"public-key-id":      "data",
+				"serviceAccountId": "service-account",
+				"publicKeyId":      "data",
 			},
-			err: "credentials error: missing private-key",
+			err: "credentials error: missing privateKey",
 		},
 		{
 			name: "Case 1.4: valid creds",
 			creds: map[string]string{
-				"service-account-id": "service-account",
-				"public-key-id":      "id",
-				"private-key":        "key",
+				"serviceAccountId": "service-account",
+				"publicKeyId":      "id",
+				"privateKey":       "key",
 			},
 		},
 		{
