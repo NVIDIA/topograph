@@ -70,19 +70,19 @@ provider: test
 # Can be overridden if the engine is specified in a topology request to topograph
 engine: slurm
 
-# request_aggregation_delay: defines the delay before processing a request (required).
+# requestAggregationDelay: defines the delay before processing a request (required).
 # Topograph aggregates multiple sequential requests within this delay into a single request,
 # processing only if no new requests arrive during the specified duration.
-request_aggregation_delay: 15s
+requestAggregationDelay: 15s
 
-# forward_service_url: specifies the URL of an external gRPC service
+# forwardServiceUrl: specifies the URL of an external gRPC service
 # to which requests are forwarded (optional).
 # This can be useful for testing or integration with external systems.
 # See protos/topology.proto for details.
-# forward_service_url:
+# forwardServiceUrl:
 
-# page_size: sets the page size for topology requests against a CSP API (optional).
-page_size: 100
+# pageSize: sets the page size for topology requests against a CSP API (optional).
+pageSize: 100
 
 # ssl: specifies the paths to the TLS certificate, private key,
 # and CA certificate (required if `http.ssl=true`).
@@ -90,8 +90,12 @@ ssl:
   cert: /etc/topograph/ssl/server-cert.pem
   key: /etc/topograph/ssl/server-key.pem
   ca_cert: /etc/topograph/ssl/ca-cert.pem
-# credentials_path: specifies the path to a file containing CSP credentials (optional).
-# credentials_path:
+# credentialsPath: specifies the path to a YAML file containing API credentials (optional).
+# When using credentials in Kubernetes-based engines ("k8s" or "slinky"),
+# the secret file must be named `credentials.yaml`. For example:
+# `kubectl create secret generic <secret-name> --from-file=credentials.yaml=<path to credentials>`
+# For more details about credential configuration, refer to the docs/providers section.
+# credentialsPath:
 
 # env: environment variable names and values to inject into Topograph's shell (optional).
 # The `PATH` variable, if provided, will append the specified value to the existing `PATH`.

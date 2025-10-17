@@ -2,6 +2,6 @@ http:
   port: 49021
   ssl: false
 
-forward_service_url: localhost:49025
+forwardServiceUrl: localhost:49025
 
-request_aggregation_delay: 2s
+requestAggregationDelay: 2s

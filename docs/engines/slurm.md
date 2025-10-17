@@ -41,7 +41,7 @@ To test the service on a simulated cluster, first add the following lines to `/e
 ```bash
 provider: test
 engine: slurm
-forward_service_url: dns:localhost:49025
+forwardServiceUrl: dns:localhost:49025
 ```
 Then run the topograph service as normal.
 

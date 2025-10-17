@@ -41,9 +41,9 @@ verbosity: 3
 env: {}
 
 config:
-  request_aggregation_delay: 15s
-  # Optional secret with CSP credentials
-  # credentials_secret:
+  requestAggregationDelay: 15s
+  # Optional secret with API credentials
+  # credentialsSecretName:
 
 topologyNodeLabels:
   accelerator: network.topology.nvidia.com/accelerator

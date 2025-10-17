@@ -36,13 +36,13 @@ secretAccessKey: key
 http:
   port: 49021
   ssl: true
-request_aggregation_delay: 15s
-page_size: 50
+requestAggregationDelay: 15s
+pageSize: 50
 ssl:
   cert: %s
   key: %s
   ca_cert: %s
-credentials_path: %s
+credentialsPath: %s
 env:
   SLURM_CONF: /etc/slurm/config.yaml
   PATH: /a/b/c
@@ -145,14 +145,14 @@ func TestValidate(t *testing.T) {
 			err:  "port is not set",
 		},
 		{
-			name: "Case 2: missing request_aggregation_delay",
+			name: "Case 2: missing requestAggregationDelay",
 			cfg: Config{
 				HTTP: Endpoint{
 					Port: 1,
 					SSL:  true,
 				},
 			},
-			err: "request_aggregation_delay is not set",
+			err: "requestAggregationDelay is not set",
 		},
 		{
 			name: "Case 3: missing ssl section",
