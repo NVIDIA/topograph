@@ -25,7 +25,7 @@ type baseProvider struct {
 
 // Engine support
 
-// GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *baseProvider) GetComputeInstancesRegion(ctx context.Context) (string, error) {
-	return getRegion(ctx)
+// GetInstancesRegions implements slurm.instanceMapper
+func (p *baseProvider) GetInstancesRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	return getRegions(ctx, nodes)
 }

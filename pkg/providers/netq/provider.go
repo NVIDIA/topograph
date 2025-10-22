@@ -96,7 +96,11 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 	return i2n, nil
 }
 
-// GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion(_ context.Context) (string, error) {
-	return "local", nil
+// GetInstancesRegions implements slurm.instanceMapper
+func (p *Provider) GetInstancesRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	res := make(map[string]string)
+	for _, node := range nodes {
+		res[node] = "local"
+	}
+	return res, nil
 }

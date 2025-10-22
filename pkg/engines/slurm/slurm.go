@@ -77,8 +77,12 @@ type TopologyNodeFinder struct {
 }
 
 type instanceMapper interface {
+	// Instances2NodeMap receives a list of SLURM node names and returns a map of
+	// the service provider assigned compute instance IDs to the node names
 	Instances2NodeMap(context.Context, []string) (map[string]string, error)
-	GetComputeInstancesRegion(context.Context) (string, error)
+	// GetInstancesRegions receives a list of SLURM node names and returns a map
+	// of node names to their deployed regions
+	GetInstancesRegions(context.Context, []string) (map[string]string, error)
 }
 
 var (
@@ -114,22 +118,50 @@ func (eng *SlurmEngine) GetComputeInstances(ctx context.Context, environment eng
 		return nil, err
 	}
 
+	if len(nodes) == 0 {
+		return nil, nil
+	}
+
 	i2n, err := instanceMapper.Instances2NodeMap(ctx, nodes)
 	if err != nil {
 		return nil, err
 	}
 	klog.V(4).Infof("Detected instance map: %v", i2n)
 
-	region, err := instanceMapper.GetComputeInstancesRegion(ctx)
+	nodeRegions, err := instanceMapper.GetInstancesRegions(ctx, nodes)
 	if err != nil {
 		return nil, err
 	}
-	klog.V(4).Infof("Detected region: %s", region)
 
-	return []topology.ComputeInstances{{
-		Region:    region,
-		Instances: i2n,
-	}}, nil
+	return aggregateComputeInstances(i2n, nodeRegions), nil
+}
+
+func aggregateComputeInstances(i2n, nodeRegions map[string]string) []topology.ComputeInstances {
+	// regions maps region name to the corresponding index in "cis"
+	regions := make(map[string]int)
+	cis := []topology.ComputeInstances{}
+
+	for instance, node := range i2n {
+		region, ok := nodeRegions[node]
+		if !ok {
+			klog.Warningf("Failed to find region for node %s", node)
+			continue
+		}
+		indx, ok := regions[region]
+		if !ok {
+			indx = len(regions)
+			regions[region] = indx
+			cis = append(cis, topology.ComputeInstances{
+				Region:    region,
+				Instances: map[string]string{instance: node},
+			})
+		} else {
+			cis[indx].Instances[instance] = node
+		}
+	}
+	klog.V(4).Infof("Detected regions: %v", regions)
+
+	return cis
 }
 
 func GetNodeList(ctx context.Context) ([]string, error) {

@@ -45,17 +45,22 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 	return providers.ParseInstanceOutput(stdout)
 }
 
-func getRegion(ctx context.Context) (string, error) {
-	stdout, err := exec.Exec(ctx, "curl", imdsCurlParams(IMDSRegionURL), nil)
+func getRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	stdout, err := exec.Pdsh(ctx, pdshCmd(IMDSRegionURL), nodes)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return convertRegion(strings.TrimSpace(stdout.String())), nil
-}
+	res, err := providers.ParsePdshOutput(stdout, true)
+	if err != nil {
+		return nil, err
+	}
 
-func imdsCurlParams(url string) []string {
-	return []string{"-s", "-H", IMDSHeader, url}
+	for key, val := range res {
+		res[key] = convertRegion(strings.TrimSpace(val))
+	}
+
+	return res, nil
 }
 
 func pdshCmd(url string) string {

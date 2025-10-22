@@ -93,17 +93,13 @@ func parseTopologyOutput(buff *bytes.Buffer) (map[string]*topologyData, error) {
 	return topoMap, nil
 }
 
-func getRegion(ctx context.Context) (string, error) {
-	stdout, err := exec.Exec(ctx, "curl", imdsCurlParams(IMDSRegionURL), nil)
+func getRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	stdout, err := exec.Pdsh(ctx, pdshCmd(IMDSRegionURL), nodes)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return stdout.String(), nil
-}
-
-func imdsCurlParams(url string) []string {
-	return []string{"-s", "-H", IMDSHeader, "-L", url}
+	return providers.ParsePdshOutput(stdout, true)
 }
 
 func pdshCmd(url string) string {

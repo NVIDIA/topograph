@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/NVIDIA/topograph/internal/exec"
@@ -59,13 +58,13 @@ func imdsCmd(url string) string {
 		IMDSTokenHeader, IMDSTokenURL, makeHeader(IMDSHeaderKey, "$TOKEN"), url)
 }
 
-func getRegion(ctx context.Context) (string, error) {
-	stdout, err := exec.Exec(ctx, "sh", []string{"-c", imdsCmd(IMDSRegionURL)}, nil)
+func getRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	stdout, err := exec.Pdsh(ctx, imdsCmd(IMDSRegionURL), nodes)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return strings.TrimSpace(stdout.String()), nil
+	return providers.ParsePdshOutput(stdout, true)
 }
 
 func GetNodeAnnotations(ctx context.Context) (map[string]string, error) {

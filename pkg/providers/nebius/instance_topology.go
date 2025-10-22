@@ -22,15 +22,10 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 		return nil, fmt.Errorf("failed to create API client: %v", err)
 	}
 
-	projectID, err := client.ProjectID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project ID: %v", err)
-	}
-
 	topo := topology.NewClusterTopology()
 
 	for _, ci := range cis {
-		if err := p.generateRegionInstanceTopology(ctx, client, projectID, topo, &ci); err != nil {
+		if err := p.generateRegionInstanceTopology(ctx, client, topo, &ci); err != nil {
 			return nil, fmt.Errorf("failed to get instance topology: %v", err)
 		}
 	}
@@ -38,14 +33,14 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
 	if len(ci.Region) == 0 {
 		return fmt.Errorf("must specify region")
 	}
 	klog.InfoS("Getting instance topology", "region", ci.Region)
 
 	req := &compute.ListInstancesRequest{
-		ParentId: projectID,
+		ParentId: client.ProjectID(),
 		PageSize: client.PageSize(),
 	}
 

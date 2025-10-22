@@ -23,6 +23,7 @@ import (
 const (
 	NAME = "nebius"
 
+	authProjectID        = "projectId"
 	authServiceAccountID = "serviceAccountId"
 	authPublicKeyID      = "publicKeyId"
 	authPrivateKey       = "privateKey"
@@ -33,7 +34,7 @@ const (
 )
 
 type Client interface {
-	ProjectID() (string, error)
+	ProjectID() string
 	GetComputeInstanceList(context.Context, *compute.ListInstancesRequest) (*compute.ListInstancesResponse, error)
 	PageSize() int64
 }
@@ -46,19 +47,20 @@ type baseProvider struct {
 
 type nebiusClient struct {
 	instanceService services.InstanceService
+	projectID       string
 	pageSize        int
 }
 
-func (c *nebiusClient) ProjectID() (string, error) {
-	return getParentID()
-}
-
-func (c *nebiusClient) GetComputeInstanceList(ctx context.Context, req *compute.ListInstancesRequest) (*compute.ListInstancesResponse, error) {
-	return c.instanceService.List(ctx, req)
+func (c *nebiusClient) ProjectID() string {
+	return c.projectID
 }
 
 func (c *nebiusClient) PageSize() int64 {
 	return int64(c.pageSize)
+}
+
+func (c *nebiusClient) GetComputeInstanceList(ctx context.Context, req *compute.ListInstancesRequest) (*compute.ListInstancesResponse, error) {
+	return c.instanceService.List(ctx, req)
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -71,10 +73,21 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 		return nil, err
 	}
 
+	// if project ID is not passed in credentials, get it from file
+	projectID, ok := config.Creds[authProjectID]
+	if !ok {
+		klog.Info("Project ID is not in credentials; getting from file")
+		if projectID, err = getParentID(); err != nil {
+			return nil, fmt.Errorf("failed to get project ID: %v", err)
+		}
+	}
+	klog.Infof("Project ID %s", projectID)
+
 	instanceService := sdk.Services().Compute().V1().Instance()
 	clientFactory := func(pageSize *int) (Client, error) {
 		return &nebiusClient{
 			instanceService: instanceService,
+			projectID:       projectID,
 			pageSize:        getPageSize(pageSize),
 		}, nil
 	}
@@ -166,7 +179,7 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 	return instanceToNodeMap(ctx, nodes)
 }
 
-// GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion(_ context.Context) (string, error) {
-	return getRegion()
+// GetInstancesRegions implements slurm.instanceMapper
+func (p *Provider) GetInstancesRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	return getRegions(ctx, nodes)
 }
