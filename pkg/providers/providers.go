@@ -83,14 +83,22 @@ func HttpReq(ctx context.Context, method, url string, headers map[string]string)
 }
 
 func ParseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
-	i2n := map[string]string{}
+	return ParsePdshOutput(buff, false)
+}
+
+func ParsePdshOutput(buff *bytes.Buffer, direct bool) (map[string]string, error) {
+	res := make(map[string]string)
 	scanner := bufio.NewScanner(buff)
 	for scanner.Scan() {
 		arr := strings.Split(scanner.Text(), ": ")
 		if len(arr) == 2 {
-			node, instance := arr[0], arr[1]
-			klog.V(4).Info("Node name: ", node, "Instance ID: ", instance)
-			i2n[instance] = node
+			node, attr := arr[0], arr[1]
+			klog.V(4).Info("Node name: ", node, "Attribute: ", attr)
+			if direct {
+				res[node] = attr
+			} else {
+				res[attr] = node
+			}
 		}
 	}
 
@@ -98,7 +106,7 @@ func ParseInstanceOutput(buff *bytes.Buffer) (map[string]string, error) {
 		return nil, err
 	}
 
-	return i2n, nil
+	return res, nil
 }
 
 func ReadFile(path string) (string, error) {

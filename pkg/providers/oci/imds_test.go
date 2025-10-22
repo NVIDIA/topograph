@@ -76,11 +76,6 @@ node4: { "customerHPCIslandId": "hpc4", "customerNetworkBlock": "net4", "custome
 	}
 }
 
-func TestImdsCurlParams(t *testing.T) {
-	expected := []string{"-s", "-H", IMDSHeader, "-L", IMDSRegionURL}
-	require.Equal(t, expected, imdsCurlParams(IMDSRegionURL))
-}
-
 func TestPdshCmd(t *testing.T) {
 	expected := fmt.Sprintf(`echo $(curl -s -H "Authorization: Bearer Oracle" -L %s)`, IMDSInstanceURL)
 	require.Equal(t, expected, pdshCmd(IMDSInstanceURL))

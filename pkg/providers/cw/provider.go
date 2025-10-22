@@ -78,9 +78,13 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 	return i2n, nil
 }
 
-// GetComputeInstancesRegion implements slurm.instanceMapper
-func (p *Provider) GetComputeInstancesRegion(_ context.Context) (string, error) {
-	return "", nil
+// GetInstancesRegions implements slurm.instanceMapper
+func (p *Provider) GetInstancesRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	res := make(map[string]string)
+	for _, node := range nodes {
+		res[node] = ""
+	}
+	return res, nil
 }
 
 // GetNodeRegion implements k8s.k8sNodeInfo

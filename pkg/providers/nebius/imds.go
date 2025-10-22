@@ -30,12 +30,17 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 	return providers.ParseInstanceOutput(stdout)
 }
 
-func getParentID() (string, error) {
-	return providers.ReadFile(IMDSParentID)
+func getRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	stdout, err := exec.Pdsh(ctx, "cat "+IMDSRegionPath, nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	return providers.ParsePdshOutput(stdout, true)
 }
 
-func getRegion() (string, error) {
-	return providers.ReadFile(IMDSRegionPath)
+func getParentID() (string, error) {
+	return providers.ReadFile(IMDSParentID)
 }
 
 func GetNodeAnnotations(ctx context.Context) (map[string]string, error) {

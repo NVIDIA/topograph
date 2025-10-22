@@ -34,8 +34,8 @@ type simClient struct {
 	apiErr      int
 }
 
-func (c *simClient) ProjectID() (string, error) {
-	return "", nil
+func (c *simClient) ProjectID() string {
+	return ""
 }
 
 func (c *simClient) PageSize() int64 {

@@ -23,11 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestImdsCurlParams(t *testing.T) {
-	expected := []string{"-s", "-H", IMDSHeader, IMDSInstanceURL}
-	require.Equal(t, expected, imdsCurlParams(IMDSInstanceURL))
-}
-
 func TestPdshCmd(t *testing.T) {
 	expected := fmt.Sprintf(`echo $(curl -s -H "Metadata-Flavor: Google" %s)`, IMDSInstanceURL)
 	require.Equal(t, expected, pdshCmd(IMDSInstanceURL))

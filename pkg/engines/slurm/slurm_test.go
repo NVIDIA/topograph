@@ -27,6 +27,61 @@ import (
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
+func TestAggregateComputeInstances(t *testing.T) {
+	testCases := []struct {
+		name    string
+		i2n     map[string]string
+		regions map[string]string
+		cis     []topology.ComputeInstances
+	}{
+		{
+			name: "Case 1: no data",
+			cis:  []topology.ComputeInstances{},
+		},
+		{
+			name:    "Case 2: full match",
+			i2n:     map[string]string{"i1": "n1", "i2": "n2", "i3": "n3", "i4": "n4", "i5": "n5"},
+			regions: map[string]string{"n1": "r1", "n2": "r1", "n3": "r2", "n4": "r2", "n5": "r3"},
+			cis: []topology.ComputeInstances{
+				{
+					Region:    "r1",
+					Instances: map[string]string{"i1": "n1", "i2": "n2"},
+				},
+				{
+					Region:    "r2",
+					Instances: map[string]string{"i3": "n3", "i4": "n4"},
+				},
+				{
+					Region:    "r3",
+					Instances: map[string]string{"i5": "n5"},
+				},
+			},
+		},
+		{
+			name:    "Case 3: partial match",
+			i2n:     map[string]string{"i1": "n1", "i2": "n2", "i3": "n3", "i4": "n4", "i5": "n5"},
+			regions: map[string]string{"n1": "r1", "n3": "r2", "n4": "r2"},
+			cis: []topology.ComputeInstances{
+				{
+					Region:    "r1",
+					Instances: map[string]string{"i1": "n1"},
+				},
+				{
+					Region:    "r2",
+					Instances: map[string]string{"i3": "n3", "i4": "n4"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cis := aggregateComputeInstances(tc.i2n, tc.regions)
+			require.ElementsMatch(t, tc.cis, cis)
+		})
+	}
+}
+
 func TestParseFakeNodes(t *testing.T) {
 	testCases := []struct {
 		name string
