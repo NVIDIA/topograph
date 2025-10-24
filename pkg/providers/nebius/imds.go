@@ -8,6 +8,7 @@ package nebius
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -56,7 +57,7 @@ func GetNodeAnnotations(ctx context.Context) (map[string]string, error) {
 	}
 
 	return map[string]string{
-		topology.KeyNodeInstance: mac.String(),
-		topology.KeyNodeRegion:   region,
+		topology.KeyNodeInstance: strings.TrimSpace(mac.String()),
+		topology.KeyNodeRegion:   strings.TrimSpace(region),
 	}, nil
 }

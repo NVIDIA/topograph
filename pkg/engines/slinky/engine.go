@@ -153,7 +153,6 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 			klog.V(4).Infof("Cannot resolve k8s node %q", node.Name)
 			continue
 		}
-		klog.V(4).InfoS("Adding compute instance", "host", hostName, "node", node.Name)
 		instance, ok := node.Annotations[topology.KeyNodeInstance]
 		if !ok {
 			return nil, fmt.Errorf("missing %q annotation in node %s", topology.KeyNodeInstance, node.Name)
@@ -162,6 +161,7 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 		if !ok {
 			return nil, fmt.Errorf("missing %q annotation in node %s", topology.KeyNodeRegion, node.Name)
 		}
+		klog.V(4).InfoS("Adding compute instance", "host", hostName, "node", node.Name, "instance", instance, "region", region)
 		if _, ok = regions[region]; !ok {
 			regions[region] = make(map[string]string)
 			regionNames = append(regionNames, region)
