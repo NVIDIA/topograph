@@ -7,6 +7,7 @@ package nebius
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -31,7 +32,7 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 }
 
 func getRegions(ctx context.Context, nodes []string) (map[string]string, error) {
-	stdout, err := exec.Pdsh(ctx, "cat "+IMDSRegionPath, nodes)
+	stdout, err := exec.Pdsh(ctx, fmt.Sprintf("echo $(cat %s)", IMDSRegionPath), nodes)
 	if err != nil {
 		return nil, err
 	}
