@@ -21,8 +21,8 @@ TARGETS := topograph node-observer node-data-broker-initc
 CMD_DIR := ./cmd
 OUTPUT_DIR := ./bin
 
-IMAGE_REPO ?=docker.io/nvidia/topograph
-GIT_REF =$(shell git rev-parse --abbrev-ref HEAD)
+IMAGE_REPO ?=ghcr.io/nvidia/topograph
+GIT_REF ?=$(shell git rev-parse --abbrev-ref HEAD)
 IMAGE_TAG ?=$(GIT_REF)
 
 .PHONY: build
