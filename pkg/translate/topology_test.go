@@ -212,7 +212,7 @@ func TestToTreeTopology(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, testTreeConfig, buf.String())
 }
 
@@ -225,7 +225,7 @@ func TestToBlockTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, testBlockConfig1_1, buf.String())
 }
 
@@ -238,7 +238,7 @@ func TestToBlockMultiIBTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, testBlockConfig2, buf.String())
 }
 
@@ -251,7 +251,7 @@ func TestToBlockIBTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, testBlockConfig1_2, buf.String())
 }
 
@@ -263,7 +263,7 @@ func TestToBlockDiffNumNode(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, testBlockConfigDiffNumNodes, buf.String())
 }
 
@@ -276,7 +276,7 @@ func TestToBlockDFSIBTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, testBlockConfigDFS, buf.String())
 }
 
@@ -304,7 +304,7 @@ func TestBlockFakeNodes(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, testBlockConfigFakeNodes, buf.String())
 }
 
@@ -362,7 +362,7 @@ func TestToSlurmNameShortener(t *testing.T) {
 	nt, _ := NewNetworkTopology(root, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, shortNameExpectedResult, buf.String())
 }
 

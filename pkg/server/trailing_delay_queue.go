@@ -25,11 +25,13 @@ import (
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru"
 	"k8s.io/klog/v2"
+
+	"github.com/NVIDIA/topograph/internal/httperr"
 )
 
 const RequestHistorySize = 100
 
-type HandleFunc func(interface{}) (interface{}, *HTTPError)
+type HandleFunc func(interface{}) (interface{}, *httperr.Error)
 
 type Completion struct {
 	Ret     interface{}
@@ -85,12 +87,13 @@ func (q *TrailingDelayQueue) run() {
 			if item != nil {
 				res := &Completion{}
 				if data, err := q.handle(item); err != nil {
-					res.Status = err.Code
+					res.Status = err.Code()
 					res.Message = err.Error()
-					klog.Error(res.Message)
+					klog.Errorf("HTTP %d: %s", res.Status, res.Message)
 				} else {
 					res.Ret = data
 					res.Status = http.StatusOK
+					klog.Info("HTTP 200")
 				}
 
 				q.mutex.Lock()

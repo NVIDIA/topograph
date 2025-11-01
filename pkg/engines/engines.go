@@ -18,35 +18,34 @@ package engines
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/NVIDIA/topograph/internal/component"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 type Engine interface {
-	GetComputeInstances(ctx context.Context, environment Environment) ([]topology.ComputeInstances, error)
-	GenerateOutput(ctx context.Context, vertex *topology.Vertex, params map[string]any) ([]byte, error)
+	GetComputeInstances(ctx context.Context, environment Environment) ([]topology.ComputeInstances, *httperr.Error)
+	GenerateOutput(ctx context.Context, vertex *topology.Vertex, params map[string]any) ([]byte, *httperr.Error)
 }
 
-type Environment interface{}
+type Environment any
 
 type Config = map[string]any
 type NamedLoader = component.NamedLoader[Engine, Config]
 type Loader = component.Loader[Engine, Config]
 type Registry component.Registry[Engine, Config]
 
-var ErrUnsupportedEngine = errors.New("unsupported engine")
-
 func NewRegistry(namedLoaders ...NamedLoader) Registry {
 	return Registry(component.NewRegistry(namedLoaders...))
 }
 
-func (r Registry) Get(name string) (Loader, error) {
+func (r Registry) Get(name string) (Loader, *httperr.Error) {
 	loader, ok := r[name]
 	if !ok {
-		return nil, fmt.Errorf("unsupported engine %q, %w", name, ErrUnsupportedEngine)
+		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("unsupported engine %q", name))
 	}
 
 	return loader, nil

@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/server"
 )
 
@@ -32,7 +33,7 @@ func TestTrailingDelayQueue(t *testing.T) {
 	var counter int32
 	type Int struct{ val int }
 
-	processItem := func(item interface{}) (interface{}, *server.HTTPError) {
+	processItem := func(item interface{}) (interface{}, *httperr.Error) {
 		klog.Infof("Processing item: %v\n", item)
 		atomic.AddInt32(&counter, 1)
 		return nil, nil

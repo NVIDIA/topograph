@@ -178,7 +178,7 @@ func TestGetComputeInstances(t *testing.T) {
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {
-				require.NoError(t, err)
+				require.Nil(t, err)
 				require.Equal(t, tc.cis, cis)
 			}
 		})

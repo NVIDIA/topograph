@@ -18,10 +18,12 @@ package k8s
 
 import (
 	"context"
+	"net/http"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -37,19 +39,15 @@ func NamedLoader() (string, engines.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, config engines.Config) (engines.Engine, error) {
-	return New()
-}
-
-func New() (*K8sEngine, error) {
+func Loader(_ context.Context, _ engines.Config) (engines.Engine, *httperr.Error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	return &K8sEngine{
@@ -58,9 +56,9 @@ func New() (*K8sEngine, error) {
 	}, nil
 }
 
-func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
+func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, *httperr.Error) {
 	if err := NewTopologyLabeler().ApplyNodeLabels(ctx, tree, eng); err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	return []byte("OK\n"), nil

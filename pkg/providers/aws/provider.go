@@ -19,6 +19,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -68,10 +70,10 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, error) {
+func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *httperr.Error) {
 	creds, err := getCredentials(ctx, cfg.Creds)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get credentials: %v", err)
+		return nil, err
 	}
 
 	clientFactory := func(region string, pageSize *int) (*Client, error) {
@@ -97,16 +99,16 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, erro
 	return New(clientFactory), nil
 }
 
-func getCredentials(ctx context.Context, creds map[string]string) (*Credentials, error) {
+func getCredentials(ctx context.Context, creds map[string]string) (*Credentials, *httperr.Error) {
 	var accessKeyID, secretAccessKey, sessionToken string
 
 	if len(creds) != 0 {
 		klog.Infof("Using provided AWS credentials")
 		if accessKeyID = creds["accessKeyId"]; len(accessKeyID) == 0 {
-			return nil, fmt.Errorf("credentials error: missing accessKeyId")
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing accessKeyId")
 		}
 		if secretAccessKey = creds["secretAccessKey"]; len(secretAccessKey) == 0 {
-			return nil, fmt.Errorf("credentials error: missing secretAccessKey")
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing secretAccessKey")
 		}
 		sessionToken = creds["token"]
 	} else if len(os.Getenv("AWS_ACCESS_KEY_ID")) != 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) != 0 {
@@ -118,7 +120,7 @@ func getCredentials(ctx context.Context, creds map[string]string) (*Credentials,
 		klog.Infof("Using node AWS access credentials")
 		creds, err := getCredentialsFromProvider(ctx)
 		if err != nil {
-			return nil, err
+			return nil, httperr.NewError(http.StatusUnauthorized, err.Error())
 		}
 		accessKeyID = creds.AccessKeyID
 		secretAccessKey = creds.SecretAccessKey
@@ -151,7 +153,7 @@ func getCredentialsFromProvider(ctx context.Context) (creds aws.Credentials, err
 	}
 }
 
-func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
@@ -159,7 +161,7 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 
 	klog.Infof("Extracted topology for %d instances", topo.Len())
 
-	return topo.ToThreeTierGraph(NAME, instances, false)
+	return topo.ToThreeTierGraph(NAME, instances, false), nil
 }
 
 type Provider struct {

@@ -8,10 +8,12 @@ package infiniband
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -28,15 +30,15 @@ func NamedLoaderK8S() (string, providers.Loader) {
 	return NAME_K8S, LoaderK8S
 }
 
-func LoaderK8S(ctx context.Context, _ providers.Config) (providers.Provider, error) {
+func LoaderK8S(ctx context.Context, _ providers.Config) (providers.Provider, *httperr.Error) {
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	return &ProviderK8S{
@@ -45,14 +47,14 @@ func LoaderK8S(ctx context.Context, _ providers.Config) (providers.Provider, err
 	}, nil
 }
 
-func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	if len(cis) > 1 {
-		return nil, ErrMultiRegionNotSupported
+		return nil, httperr.NewError(http.StatusBadRequest, "on-prem does not support multi-region topology requests")
 	}
 
 	nodes, err := k8s.GetNodes(ctx, p.client)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	domainMap := topology.NewDomainMap()
@@ -65,7 +67,7 @@ func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []
 	ibnetdiscover := NewIBNetDiscoverK8S(p.config, p.client)
 	treeRoot, err := getIbTree(ctx, cis, ibnetdiscover)
 	if err != nil {
-		return nil, fmt.Errorf("getIbTree failed: %v", err)
+		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("getIbTree failed: %v", err))
 	}
 
 	return toGraph(domainMap, treeRoot), nil

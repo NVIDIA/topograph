@@ -48,7 +48,7 @@ func TestTreeYamlTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, expected, buf.String())
 }
 
@@ -87,7 +87,7 @@ func TestBlockYamlTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, expected, buf.String())
 }
 
@@ -169,7 +169,7 @@ func TestMixedYamlTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, expected, buf.String())
 }
 
@@ -211,6 +211,6 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	require.Equal(t, expected, buf.String())
 }

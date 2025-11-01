@@ -7,10 +7,11 @@ package infiniband
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/NVIDIA/topograph/internal/exec"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -19,36 +20,34 @@ const NAME_BM = "infiniband-bm"
 
 type ProviderBM struct{}
 
-var ErrMultiRegionNotSupported = errors.New("on-prem does not support multi-region topology requests")
-
 func NamedLoaderBM() (string, providers.Loader) {
 	return NAME_BM, LoaderBM
 }
 
-func LoaderBM(ctx context.Context, config providers.Config) (providers.Provider, error) {
+func LoaderBM(_ context.Context, _ providers.Config) (providers.Provider, *httperr.Error) {
 	return &ProviderBM{}, nil
 }
 
-func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	if len(cis) > 1 {
-		return nil, ErrMultiRegionNotSupported
+		return nil, httperr.NewError(http.StatusBadRequest, "on-prem does not support multi-region topology requests")
 	}
 
 	nodes := topology.GetNodeNameList(cis)
 
 	output, err := exec.Pdsh(ctx, cmdClusterID, nodes)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	domainMap, err := populateDomainsFromPdshOutput(output)
 	if err != nil {
-		return nil, fmt.Errorf("failed to populate NVL domains: %v", err)
+		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to populate NVL domains: %v", err))
 	}
 
 	treeRoot, err := getIbTree(ctx, cis, &IBNetDiscoverBM{})
 	if err != nil {
-		return nil, fmt.Errorf("getIbTree failed: %v", err)
+		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("getIbTree failed: %v", err))
 	}
 
 	return toGraph(domainMap, treeRoot), nil

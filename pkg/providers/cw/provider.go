@@ -18,11 +18,12 @@ package cw
 
 import (
 	"context"
-	"fmt"
+	"net/http"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/NVIDIA/topograph/internal/exec"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/ib"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -36,27 +37,23 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
-	return New()
-}
-
-func New() (*Provider, error) {
+func Loader(_ context.Context, _ providers.Config) (providers.Provider, *httperr.Error) {
 	return &Provider{}, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	if len(instances) > 1 {
-		return nil, fmt.Errorf("CW does not support mult-region topology requests")
+		return nil, httperr.NewError(http.StatusBadRequest, "CW does not support mult-region topology requests")
 	}
 
 	output, err := exec.Exec(ctx, "ibnetdiscover", nil, nil)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	roots, _, err := ib.GenerateTopologyConfig(output.Bytes(), instances)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	treeRoot := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
@@ -88,11 +85,11 @@ func (p *Provider) GetInstancesRegions(ctx context.Context, nodes []string) (map
 }
 
 // GetNodeRegion implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeRegion(node *v1.Node) (string, error) {
+func (p *Provider) GetNodeRegion(node *corev1.Node) (string, error) {
 	return node.Labels["topology.kubernetes.io/region"], nil
 }
 
 // GetNodeInstance implements k8s.k8sNodeInfo
-func (p *Provider) GetNodeInstance(node *v1.Node) (string, error) {
+func (p *Provider) GetNodeInstance(node *corev1.Node) (string, error) {
 	return node.Labels["kubernetes.io/hostname"], nil
 }

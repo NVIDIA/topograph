@@ -18,6 +18,8 @@ package component
 
 import (
 	"context"
+
+	"github.com/NVIDIA/topograph/internal/httperr"
 )
 
 type (
@@ -26,7 +28,7 @@ type (
 	NamedLoader[T, C any] func() (string, Loader[T, C])
 	// Loader returns a component of type `T` for
 	// the configuration `config` of type `C`.
-	Loader[T, C any] func(ctx context.Context, config C) (T, error)
+	Loader[T, C any] func(ctx context.Context, config C) (T, *httperr.Error)
 	// Registry is a simple map of name to `Loader` so that
 	// component loaders can be looked up by name.
 	Registry[T, C any] map[string]Loader[T, C]

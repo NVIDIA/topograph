@@ -20,8 +20,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,6 +32,7 @@ import (
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/internal/files"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -85,11 +86,7 @@ type instanceMapper interface {
 	GetInstancesRegions(context.Context, []string) (map[string]string, error)
 }
 
-var (
-	partitionNodesRe *regexp.Regexp
-
-	ErrEnvironmentUnsupported = errors.New("environment must implement instanceMapper")
-)
+var partitionNodesRe *regexp.Regexp
 
 func init() {
 	partitionNodesRe = regexp.MustCompile(`\sNodes=([^\s]+)`)
@@ -99,23 +96,19 @@ func NamedLoader() (string, engines.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, config engines.Config) (engines.Engine, error) {
-	return New()
-}
-
-func New() (*SlurmEngine, error) {
+func Loader(_ context.Context, _ engines.Config) (engines.Engine, *httperr.Error) {
 	return &SlurmEngine{}, nil
 }
 
-func (eng *SlurmEngine) GetComputeInstances(ctx context.Context, environment engines.Environment) ([]topology.ComputeInstances, error) {
+func (eng *SlurmEngine) GetComputeInstances(ctx context.Context, environment engines.Environment) ([]topology.ComputeInstances, *httperr.Error) {
 	instanceMapper, ok := environment.(instanceMapper)
 	if !ok {
-		return nil, ErrEnvironmentUnsupported
+		return nil, httperr.NewError(http.StatusBadRequest, "environment must implement instanceMapper")
 	}
 
 	nodes, err := GetNodeList(ctx)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	if len(nodes) == 0 {
@@ -124,13 +117,13 @@ func (eng *SlurmEngine) GetComputeInstances(ctx context.Context, environment eng
 
 	i2n, err := instanceMapper.Instances2NodeMap(ctx, nodes)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 	klog.V(4).Infof("Detected instance map: %v", i2n)
 
 	nodeRegions, err := instanceMapper.GetInstancesRegions(ctx, nodes)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	return aggregateComputeInstances(i2n, nodeRegions), nil
@@ -250,20 +243,20 @@ func parsePartitionNodes(partition string, data string) ([]string, error) {
 	return nil, fmt.Errorf("partition %q has no nodes", partition)
 }
 
-func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
+func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, *httperr.Error) {
 	return GenerateOutput(ctx, tree, params)
 }
 
-func GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, error) {
+func GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, *httperr.Error) {
 	p, err := getParams(params)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	return GenerateOutputParams(ctx, tree, p)
 }
 
-func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Params) ([]byte, error) {
+func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Params) ([]byte, *httperr.Error) {
 	// apply legacy default plugin value
 	if len(params.Plugin) == 0 && len(params.Topologies) == 0 {
 		params.Plugin = topology.TopologyTree
@@ -271,25 +264,24 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 
 	cfg, err := GetTranslateConfig(ctx, &params.BaseParams, &TopologyNodeFinder{GetPartitionNodes: getPartitionNodes})
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	nt, err := translate.NewNetworkTopology(root, cfg)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	path := params.TopoConfigPath
 	buf := &bytes.Buffer{}
 	if len(path) != 0 {
 		if _, err := fmt.Fprintf(buf, TopologyHeader, params.Plugin); err != nil {
-			return nil, err
+			return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 	}
 
-	err = nt.Generate(buf)
-	if err != nil {
-		return nil, err
+	if httpErr := nt.Generate(buf); httpErr != nil {
+		return nil, httpErr
 	}
 
 	data := buf.Bytes()
@@ -301,11 +293,11 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 
 	klog.Infof("Writing topology config in %q", path)
 	if err = files.Create(path, data); err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 	if params.Reconfigure {
 		if err = reconfigure(ctx); err != nil {
-			return nil, err
+			return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 	}
 

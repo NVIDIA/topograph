@@ -158,7 +158,7 @@ func TestGetURL(t *testing.T) {
 				require.EqualError(t, err, tc.err)
 			} else {
 
-				require.NoError(t, err)
+				require.Nil(t, err)
 				require.Equal(t, tc.url, u)
 			}
 		})

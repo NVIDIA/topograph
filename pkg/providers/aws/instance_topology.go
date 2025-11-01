@@ -19,18 +19,20 @@ package aws
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 var defaultPageSize int32 = 100
 
-func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
+func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {
 	topo := topology.NewClusterTopology()
 
 	for _, ci := range cis {
@@ -42,15 +44,16 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageSize *int, ci *topology.ComputeInstances, topo *topology.ClusterTopology) error {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageSize *int, ci *topology.ComputeInstances, topo *topology.ClusterTopology) *httperr.Error {
 	if len(ci.Region) == 0 {
-		return fmt.Errorf("must specify region")
+		return httperr.NewError(http.StatusBadRequest, "must specify region")
 	}
 	klog.Infof("Getting instance topology for %s region", ci.Region)
 
 	client, err := p.clientFactory(ci.Region, pageSize)
 	if err != nil {
-		return fmt.Errorf("failed to get client: %v", err)
+		return httperr.NewError(http.StatusBadGateway,
+			fmt.Sprintf("failed to get client: %v", err))
 	}
 	input := &ec2.DescribeInstanceTopologyInput{}
 
@@ -75,7 +78,8 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 		duration := time.Since(start).Seconds()
 		if err != nil {
 			apiLatency.WithLabelValues(ci.Region, "Error").Observe(duration)
-			return fmt.Errorf("failed to describe instance topology: %v", err)
+			return httperr.NewError(http.StatusBadGateway,
+				fmt.Sprintf("failed to describe instance topology: %v", err))
 		}
 		apiLatency.WithLabelValues(ci.Region, "Success").Observe(duration)
 		total += len(output.Instances)
