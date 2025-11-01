@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net/http"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/config"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
@@ -61,24 +63,20 @@ func NamedLoader() (string, engines.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, params engines.Config) (engines.Engine, error) {
-	return New(params)
-}
-
-func New(params engines.Config) (*SlinkyEngine, error) {
+func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.Error) {
 	p, err := getParameters(params)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	return &SlinkyEngine{
@@ -114,10 +112,10 @@ func getParameters(params engines.Config) (*Params, error) {
 	return p, nil
 }
 
-func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, error) {
+func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, *httperr.Error) {
 	nodes, err := k8s.GetNodes(ctx, eng.client)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	opt := metav1.ListOptions{
@@ -125,7 +123,9 @@ func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Envi
 	}
 	pods, err := eng.client.CoreV1().Pods(eng.params.Namespace).List(ctx, opt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list SLURM pods in the cluster: %v", err)
+		return nil,
+			httperr.NewError(http.StatusBadGateway,
+				fmt.Sprintf("failed to list SLURM pods in the cluster: %v", err))
 	}
 
 	klog.V(4).Infof("Found %d pods in %q namespace with selector %q", len(pods.Items), eng.params.Namespace, eng.params.podSelector)
@@ -144,7 +144,7 @@ func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Envi
 	return getComputeInstances(nodes, nodeMap)
 }
 
-func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]topology.ComputeInstances, error) {
+func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]topology.ComputeInstances, *httperr.Error) {
 	regions := make(map[string]map[string]string)
 	regionNames := []string{}
 	for _, node := range nodes.Items {
@@ -155,11 +155,15 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 		}
 		instance, ok := node.Annotations[topology.KeyNodeInstance]
 		if !ok {
-			return nil, fmt.Errorf("missing %q annotation in node %s", topology.KeyNodeInstance, node.Name)
+			return nil,
+				httperr.NewError(http.StatusBadGateway,
+					fmt.Sprintf("missing %q annotation in node %s", topology.KeyNodeInstance, node.Name))
 		}
 		region, ok := node.Annotations[topology.KeyNodeRegion]
 		if !ok {
-			return nil, fmt.Errorf("missing %q annotation in node %s", topology.KeyNodeRegion, node.Name)
+			return nil,
+				httperr.NewError(http.StatusBadGateway,
+					fmt.Sprintf("missing %q annotation in node %s", topology.KeyNodeRegion, node.Name))
 		}
 		klog.V(4).InfoS("Adding compute instance", "host", hostName, "node", node.Name, "instance", instance, "region", region)
 		if _, ok = regions[region]; !ok {
@@ -197,7 +201,7 @@ func (eng *SlinkyEngine) generateConfigMapAnnotations() map[string]string {
 	return annotations
 }
 
-func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vertex, _ map[string]any) ([]byte, error) {
+func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vertex, _ map[string]any) ([]byte, *httperr.Error) {
 	p := eng.params
 
 	topologyNodeFinder := &slurm.TopologyNodeFinder{
@@ -206,22 +210,21 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vert
 	}
 	cfg, err := slurm.GetTranslateConfig(ctx, &p.BaseParams, topologyNodeFinder)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	nt, err := translate.NewNetworkTopology(root, cfg)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	buf := &bytes.Buffer{}
-	err = nt.Generate(buf)
-	if err != nil {
-		return nil, err
+	if httpErr := nt.Generate(buf); httpErr != nil {
+		return nil, httpErr
 	}
 	err = eng.UpdateTopologyConfigmap(ctx, p.ConfigMapName, p.Namespace, map[string]string{p.ConfigPath: buf.String()})
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
 	return []byte("OK\n"), nil

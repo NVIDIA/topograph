@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,11 +29,12 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/component"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 type Provider interface {
-	GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error)
+	GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error)
 }
 
 type Config struct {
@@ -45,16 +45,14 @@ type NamedLoader = component.NamedLoader[Provider, Config]
 type Loader = component.Loader[Provider, Config]
 type Registry component.Registry[Provider, Config]
 
-var ErrUnsupportedProvider = errors.New("unsupported provider")
-
 func NewRegistry(namedLoaders ...NamedLoader) Registry {
 	return Registry(component.NewRegistry(namedLoaders...))
 }
 
-func (r Registry) Get(name string) (Loader, error) {
+func (r Registry) Get(name string) (Loader, *httperr.Error) {
 	loader, ok := r[name]
 	if !ok {
-		return nil, fmt.Errorf("unsupported provider %q, %w", name, ErrUnsupportedProvider)
+		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("unsupported provider %q", name))
 	}
 
 	return loader, nil

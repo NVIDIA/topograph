@@ -8,6 +8,7 @@ package nebius
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/nebius/gosdk"
@@ -16,6 +17,7 @@ import (
 	services "github.com/nebius/gosdk/services/nebius/compute/v1"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -67,18 +69,19 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
-	sdk, err := getSDK(ctx, config.Creds)
-	if err != nil {
-		return nil, err
+func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
+	sdk, httpErr := getSDK(ctx, config.Creds)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 
 	// if project ID is not passed in credentials, get it from file
 	projectID, ok := config.Creds[authProjectID]
 	if !ok {
+		var err error
 		klog.Info("Project ID is not in credentials; getting from file")
 		if projectID, err = getParentID(); err != nil {
-			return nil, fmt.Errorf("failed to get project ID: %v", err)
+			return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to get project ID: %v", err))
 		}
 	}
 	klog.Infof("Project ID %s", projectID)
@@ -95,19 +98,19 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 	return New(clientFactory), nil
 }
 
-func getAuthOption(creds map[string]string) (gosdk.Option, error) {
+func getAuthOption(creds map[string]string) (gosdk.Option, *httperr.Error) {
 	if len(creds) != 0 {
 		klog.Info("Authentication with provided credentials")
 
 		var serviceAccountID, publicKeyID, privateKey string
 		if serviceAccountID = creds[authServiceAccountID]; len(serviceAccountID) == 0 {
-			return nil, fmt.Errorf("credentials error: missing %s", authServiceAccountID)
+			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("credentials error: missing %s", authServiceAccountID))
 		}
 		if publicKeyID = creds[authPublicKeyID]; len(publicKeyID) == 0 {
-			return nil, fmt.Errorf("credentials error: missing %s", authPublicKeyID)
+			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("credentials error: missing %s", authPublicKeyID))
 		}
 		if privateKey = creds[authPrivateKey]; len(privateKey) == 0 {
-			return nil, fmt.Errorf("credentials error: missing %s", authPrivateKey)
+			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("credentials error: missing %s", authPrivateKey))
 		}
 
 		return gosdk.WithCredentials(
@@ -124,23 +127,23 @@ func getAuthOption(creds map[string]string) (gosdk.Option, error) {
 		klog.Infof("Authentication with %s", authTokenPath)
 		token, err := providers.ReadFile(authTokenPath)
 		if err != nil {
-			return nil, err
+			return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 		return gosdk.WithCredentials(gosdk.IAMToken(token)), nil
 	}
 
-	return nil, fmt.Errorf("missing authentication credentials")
+	return nil, httperr.NewError(http.StatusBadRequest, "missing authentication credentials")
 }
 
-func getSDK(ctx context.Context, creds map[string]string) (*gosdk.SDK, error) {
-	opt, err := getAuthOption(creds)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gosdk: %v", err)
+func getSDK(ctx context.Context, creds map[string]string) (*gosdk.SDK, *httperr.Error) {
+	opt, httpErr := getAuthOption(creds)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 
 	sdk, err := gosdk.New(ctx, opt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create gosdk: %v", err)
+		return nil, httperr.NewError(http.StatusUnauthorized, fmt.Sprintf("failed to create gosdk: %v", err))
 	}
 
 	return sdk, nil
@@ -153,13 +156,13 @@ func getPageSize(sz *int) int {
 	return *sz
 }
 
-func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, false)
+	return topo.ToThreeTierGraph(NAME, instances, false), nil
 }
 
 type Provider struct {

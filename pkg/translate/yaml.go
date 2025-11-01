@@ -8,10 +8,12 @@ package translate
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"sort"
 	"strings"
 
 	"github.com/NVIDIA/topograph/internal/cluset"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
@@ -46,7 +48,7 @@ type Block struct {
 }
 
 // toYamlTopology generates SLURM cluster topology config in YAML format
-func (nt *NetworkTopology) toYamlTopology(wr io.Writer) error {
+func (nt *NetworkTopology) toYamlTopology(wr io.Writer) *httperr.Error {
 	topoNames := make([]string, 0, len(nt.config.Topologies))
 	for topoName := range nt.config.Topologies {
 		topoNames = append(topoNames, topoName)
@@ -60,14 +62,11 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer) error {
 		case topology.TopologyTree:
 			tu, err := nt.getTreeTopologyUnit(topoName, topoSpec)
 			if err != nil {
-				return err
+				return httperr.NewError(http.StatusBadGateway, err.Error())
 			}
 			topologies = append(topologies, tu)
 		case topology.TopologyBlock:
-			tu, err := nt.getBlockTopologyUnit(topoName, topoSpec)
-			if err != nil {
-				return err
-			}
+			tu := nt.getBlockTopologyUnit(topoName, topoSpec)
 			topologies = append(topologies, tu)
 		case topology.TopologyFlat:
 			topologies = append(topologies, &TopologyUnit{
@@ -76,7 +75,7 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer) error {
 				Default: topoSpec.ClusterDefault,
 			})
 		default:
-			return fmt.Errorf("unsupported topology plugin %q", topoSpec.Plugin)
+			return httperr.NewError(http.StatusBadRequest, fmt.Sprintf("unsupported topology plugin %q", topoSpec.Plugin))
 		}
 	}
 
@@ -87,14 +86,17 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer) error {
 
 	data, err := yaml.Marshal(topologies)
 	if err != nil {
-		return err
+		return httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	_, err = wr.Write(data)
-	return err
+	if _, err = wr.Write(data); err != nil {
+		return httperr.NewError(http.StatusInternalServerError, err.Error())
+	}
+
+	return nil
 }
 
-func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, error) {
+func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {
 	// populate map [block indx : blockInfo]
 	nodeNames := cluset.Expand(topoSpec.Nodes)
 	blockMap := make(map[int]*blockInfo)
@@ -147,7 +149,7 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 			BlockSizes: blockSizes,
 			Blocks:     blocks,
 		},
-	}, nil
+	}
 }
 
 func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, error) {

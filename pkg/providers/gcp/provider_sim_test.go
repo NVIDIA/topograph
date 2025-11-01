@@ -125,7 +125,7 @@ func TestProviderSim(t *testing.T) {
 				},
 			},
 			apiErr: errInstances,
-			err:    "failed to get instance topology: API error",
+			err:    "API error",
 		},
 		{
 			name: "Case 3.4: unsupported instance ID",
@@ -149,7 +149,7 @@ capacity_blocks:
 					Instances: map[string]string{"11": "node11"},
 				},
 			},
-			err: `failed to get instance topology: invalid instance ID "n11"; must be numerical`,
+			err: `invalid instance ID "n11"; must be numerical`,
 		},
 		{
 			name:  "Case 4: missing region",
@@ -159,7 +159,7 @@ capacity_blocks:
 					Instances: map[string]string{"11": "node11", "12": "nodeCPU"},
 				},
 			},
-			err: "failed to get instance topology: must specify region",
+			err: "must specify region",
 		},
 		{
 			name:  "Case 5: valid single cluster",
@@ -245,23 +245,23 @@ BlockSizes=2,4
 					"api_error":  tc.apiErr,
 				},
 			}
-			provider, err := LoaderSim(ctx, cfg)
-			if err != nil {
+			provider, httpErr := LoaderSim(ctx, cfg)
+			if httpErr != nil {
 				if len(tc.err) == 0 {
-					require.NoError(t, err)
+					require.Nil(t, httpErr)
 				} else if tc.err != ignoreErrMsg {
-					require.EqualError(t, err, tc.err)
+					require.EqualError(t, httpErr, tc.err)
 				}
 				return
 			}
 
-			topo, err := provider.GenerateTopologyConfig(ctx, tc.pageSize, tc.instances)
+			topo, httpErr := provider.GenerateTopologyConfig(ctx, tc.pageSize, tc.instances)
 			if len(tc.err) != 0 {
-				require.EqualError(t, err, tc.err)
+				require.EqualError(t, httpErr, tc.err)
 			} else {
-				require.NoError(t, err)
-				data, err := slurm.GenerateOutput(ctx, topo, tc.params)
-				require.NoError(t, err)
+				require.Nil(t, httpErr)
+				data, httpErr := slurm.GenerateOutput(ctx, topo, tc.params)
+				require.Nil(t, httpErr)
 				require.Equal(t, tc.topology, string(data))
 			}
 		})

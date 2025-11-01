@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -66,7 +67,7 @@ type retrier struct {
 	codes []int
 }
 
-func (r *retrier) callback(_ *topology.Request) ([]byte, *HTTPError) {
+func (r *retrier) callback(_ *topology.Request) ([]byte, *httperr.Error) {
 	var code int
 	if len(r.codes) == 0 {
 		code = http.StatusInternalServerError
@@ -79,7 +80,7 @@ func (r *retrier) callback(_ *topology.Request) ([]byte, *HTTPError) {
 		return []byte{1, 2, 3, 4, 5}, nil
 	}
 
-	return nil, NewHTTPError(code, "error")
+	return nil, httperr.NewError(code, "error")
 }
 
 func TestProcessRequestWithRetries(t *testing.T) {
@@ -96,11 +97,13 @@ func TestProcessRequestWithRetries(t *testing.T) {
 		name    string
 		retrier *retrier
 		err     string
+		code    int
 	}{
 		{
 			name:    "Case 1: retry and failure",
 			retrier: &retrier{},
-			err:     "HTTP 500: error",
+			err:     "error",
+			code:    500,
 		},
 		{
 			name:    "Case 2: retry and success",
@@ -109,7 +112,8 @@ func TestProcessRequestWithRetries(t *testing.T) {
 		{
 			name:    "Case 3: user error",
 			retrier: &retrier{codes: []int{http.StatusBadRequest}},
-			err:     "HTTP 400: error",
+			err:     "error",
+			code:    400,
 		},
 	}
 
@@ -118,6 +122,7 @@ func TestProcessRequestWithRetries(t *testing.T) {
 			ret, err := processRequestWithRetries(time.Millisecond, tr, tc.retrier.callback)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
+				require.Equal(t, tc.code, err.Code())
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, []byte{1, 2, 3, 4, 5}, ret)

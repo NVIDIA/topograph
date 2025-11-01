@@ -19,20 +19,22 @@ package server
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	pb "github.com/NVIDIA/topograph/pkg/protos"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	klog.Infof("Forwarding request to %s", url)
 	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to %s: %v", url, err)
+		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to connect to %s: %v", url, err))
 	}
 	defer func() { _ = conn.Close() }()
 
@@ -52,7 +54,7 @@ func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis [
 			InstanceIds: ids,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to forward request: %v", err)
+			return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to forward request: %v", err))
 		}
 
 		klog.V(4).Infof("Response: %s", response.String())
@@ -61,7 +63,7 @@ func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis [
 		}
 	}
 
-	return topo.ToThreeTierGraph(tr.Provider.Name, cis, false)
+	return topo.ToThreeTierGraph(tr.Provider.Name, cis, false), nil
 }
 
 func convert(inst *pb.Instance) *topology.InstanceTopology {

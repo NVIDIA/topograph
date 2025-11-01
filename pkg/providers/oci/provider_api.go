@@ -19,6 +19,7 @@ package oci
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/common"
@@ -27,6 +28,7 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/identity"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -75,15 +77,15 @@ func NamedLoaderAPI() (string, providers.Loader) {
 	return NAME, LoaderAPI
 }
 
-func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider, error) {
-	provider, err := getConfigurationProvider(config.Creds)
-	if err != nil {
-		return nil, err
+func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
+	provider, httpErr := getConfigurationProvider(config.Creds)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 
 	tenantID, err := provider.TenancyOCID()
 	if err != nil {
-		return nil, fmt.Errorf("unable to get tenancy OCID from config: %v", err)
+		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("unable to get tenancy OCID from config: %v", err))
 	}
 
 	clientFactory := func(region string, pageSize *int) (Client, error) {
@@ -114,24 +116,24 @@ func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider
 	return NewAPI(clientFactory), nil
 }
 
-func getConfigurationProvider(creds map[string]string) (common.ConfigurationProvider, error) {
+func getConfigurationProvider(creds map[string]string) (common.ConfigurationProvider, *httperr.Error) {
 	if len(creds) != 0 {
 		var tenancyID, userID, region, fingerprint, privateKey, passphrase string
 		klog.Info("Using provided credentials")
 		if tenancyID = creds[authTenancyID]; len(tenancyID) == 0 {
-			return nil, fmt.Errorf("credentials error: missing tenancyId")
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing tenancyId")
 		}
 		if userID = creds[authUserID]; len(userID) == 0 {
-			return nil, fmt.Errorf("credentials error: missing userId")
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing userId")
 		}
 		if region = creds[authRegion]; len(region) == 0 {
-			return nil, fmt.Errorf("credentials error: missing region")
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing region")
 		}
 		if fingerprint = creds[authFingerprint]; len(fingerprint) == 0 {
-			return nil, fmt.Errorf("credentials error: missing fingerprint")
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing fingerprint")
 		}
 		if privateKey = creds[authPrivateKey]; len(privateKey) == 0 {
-			return nil, fmt.Errorf("credentials error: missing privateKey")
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing privateKey")
 		}
 		passphrase = creds[authPassphrase]
 
@@ -147,9 +149,8 @@ func getConfigurationProvider(creds map[string]string) (common.ConfigurationProv
 
 	klog.Infof("No default configuration provider found: %v; trying instance principal configuration provider", err)
 	configProvider, err = auth.InstancePrincipalConfigurationProvider()
-
 	if err != nil {
-		return nil, fmt.Errorf("unable to authenticate API: %s", err.Error())
+		return nil, httperr.NewError(http.StatusUnauthorized, fmt.Sprintf("unable to authenticate API: %v", err))
 	}
 
 	return configProvider, nil
@@ -159,16 +160,16 @@ func NewAPI(clientFactory ClientFactory) *apiProvider {
 	return &apiProvider{clientFactory: clientFactory}
 }
 
-func (p *apiProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *apiProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, true)
+	return topo.ToThreeTierGraph(NAME, instances, true), nil
 }
 
-func (p *apiProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
+func (p *apiProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {
 	topo := topology.NewClusterTopology()
 
 	for _, ci := range cis {
@@ -180,15 +181,15 @@ func (p *apiProvider) generateInstanceTopology(ctx context.Context, pageSize *in
 	return topo, nil
 }
 
-func (p *apiProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci topology.ComputeInstances, topo *topology.ClusterTopology) error {
+func (p *apiProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci topology.ComputeInstances, topo *topology.ClusterTopology) *httperr.Error {
 	if len(ci.Region) == 0 {
-		return fmt.Errorf("must specify region")
+		return httperr.NewError(http.StatusBadRequest, "must specify region")
 	}
 	klog.Infof("Getting instance topology for %s region", ci.Region)
 
 	client, err := p.clientFactory(ci.Region, pageSize)
 	if err != nil {
-		return fmt.Errorf("failed to create API client: %v", err)
+		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to create API client: %v", err))
 	}
 
 	req := identity.ListAvailabilityDomainsRequest{
@@ -199,13 +200,13 @@ func (p *apiProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci 
 	resp, err := client.ListAvailabilityDomains(ctx, req)
 	reportLatency(resp.HTTPResponse(), start, "ListAvailabilityDomains")
 	if err != nil {
-		return fmt.Errorf("failed to get availability domains: %v", err)
+		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get availability domains: %v", err))
 	}
 
 	for _, ad := range resp.Items {
 		err := getComputeHostSummary(ctx, client, ad.Name, topo, ci.Instances)
 		if err != nil {
-			return fmt.Errorf("failed to get hosts info: %v", err)
+			return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get hosts info: %v", err))
 		}
 	}
 

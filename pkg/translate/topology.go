@@ -13,6 +13,7 @@ import (
 	"github.com/agrea/ptr"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -238,7 +239,7 @@ func (nt *NetworkTopology) markBlockNodes(block *topology.Vertex, indx int) *blo
 	return bInfo
 }
 
-func (nt *NetworkTopology) Generate(wr io.Writer) error {
+func (nt *NetworkTopology) Generate(wr io.Writer) *httperr.Error {
 	if len(nt.config.Topologies) != 0 {
 		return nt.toYamlTopology(wr)
 	} else {

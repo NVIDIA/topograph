@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-package server
+package httperr
 
-import "fmt"
-
-type HTTPError struct {
-	Code    int
-	Message string
+type Error struct {
+	code int
+	msg  string
 }
 
-func NewHTTPError(code int, msg string) *HTTPError {
-	return &HTTPError{
-		Code:    code,
-		Message: msg,
+func NewError(code int, msg string) *Error {
+	return &Error{
+		code: code,
+		msg:  msg,
 	}
 }
 
-func (e *HTTPError) Error() string {
-	return fmt.Sprintf("HTTP %d: %s", e.Code, e.Message)
+func (e *Error) Error() string {
+	return e.msg
+}
+
+func (e *Error) Code() int {
+	return e.code
 }
