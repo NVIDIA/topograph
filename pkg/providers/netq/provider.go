@@ -8,8 +8,10 @@ package netq
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/NVIDIA/topograph/internal/config"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -35,15 +37,15 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
-	params, err := GetParams(config.Params)
+func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
+	params, err := getParams(config.Params)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	cred, err := GetCred(config.Creds)
+	cred, err := getCred(config.Creds)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	return &Provider{
@@ -52,7 +54,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 	}, nil
 }
 
-func GetCred(cred map[string]string) (*Credentials, error) {
+func getCred(cred map[string]string) (*Credentials, error) {
 	user, ok := cred["username"]
 	if !ok {
 		return nil, fmt.Errorf("username not provided")
@@ -66,7 +68,7 @@ func GetCred(cred map[string]string) (*Credentials, error) {
 	return &Credentials{user: user, passwd: passwd}, nil
 }
 
-func GetParams(params map[string]any) (*ProviderParams, error) {
+func getParams(params map[string]any) (*ProviderParams, error) {
 	p := &ProviderParams{}
 	if err := config.Decode(params, p); err != nil {
 		return nil, fmt.Errorf("failed to decode params: %w", err)
@@ -82,7 +84,7 @@ func GetParams(params map[string]any) (*ProviderParams, error) {
 	return p, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	return p.generateTopologyConfig(ctx, instances)
 }
 

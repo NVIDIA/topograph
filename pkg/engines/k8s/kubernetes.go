@@ -19,25 +19,27 @@ package k8s
 import (
 	"context"
 	"maps"
+	"net/http"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, error) {
+func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, *httperr.Error) {
 	nodes, err := k8s.GetNodes(ctx, eng.client)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
-	return getComputeInstances(nodes)
+	return getComputeInstances(nodes), nil
 }
 
-func getComputeInstances(nodes *corev1.NodeList) ([]topology.ComputeInstances, error) {
+func getComputeInstances(nodes *corev1.NodeList) []topology.ComputeInstances {
 	regions := make(map[string]map[string]string)
 	regionNames := []string{}
 	for _, node := range nodes.Items {
@@ -63,7 +65,7 @@ func getComputeInstances(nodes *corev1.NodeList) ([]topology.ComputeInstances, e
 		cis = append(cis, topology.ComputeInstances{Region: region, Instances: regions[region]})
 	}
 
-	return cis, nil
+	return cis
 }
 
 func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels map[string]string) error {

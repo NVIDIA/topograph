@@ -138,8 +138,7 @@ func TestToThreeTierGraphNoNorm(t *testing.T) {
 		Vertices: map[string]*Vertex{TopologyTree: v0, TopologyBlock: blocks},
 	}
 
-	graph, err := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, false)
-	require.NoError(t, err)
+	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, false)
 	require.Equal(t, expected, graph)
 }
 
@@ -209,8 +208,7 @@ func TestToThreeTierGraphNorm(t *testing.T) {
 		Vertices: map[string]*Vertex{TopologyTree: v0, TopologyBlock: blocks},
 	}
 
-	graph, err := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, true)
-	require.NoError(t, err)
+	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, true)
 	require.Equal(t, expected, graph)
 
 	inst0 := "Instance:i-001 Block:nn-11111111 (switch.1.1) Spine:nn-55555555 (switch.2.1) Datacenter:nn-77777777 (switch.3.1) Accelerator:acc-111111"

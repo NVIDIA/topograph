@@ -8,24 +8,26 @@ package translate
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/NVIDIA/topograph/internal/cluset"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 // toTreeTopology generates SLURM cluster topology config in "topology/tree" format
-func (nt *NetworkTopology) toTreeTopology(wr io.Writer) error {
+func (nt *NetworkTopology) toTreeTopology(wr io.Writer) *httperr.Error {
 	queue := []string{""}
 	for len(queue) > 0 {
 		id := queue[0]
 		queue = queue[1:]
 		v, ok := nt.vertices[id]
 		if !ok {
-			return fmt.Errorf("missing vertex with ID %q", id)
+			return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("missing vertex with ID %q", id))
 		}
 		if err := writeVertex(wr, v); err != nil {
-			return err
+			return httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 		queue = append(queue, nt.tree[id]...)
 	}

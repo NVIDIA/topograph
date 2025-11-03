@@ -19,7 +19,9 @@ package oci
 import (
 	"context"
 	"fmt"
+	"net/http"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -36,17 +38,17 @@ func NamedLoaderIMDS() (string, providers.Loader) {
 	return NAME_IMDS, LoaderIMDS
 }
 
-func LoaderIMDS(ctx context.Context, _ providers.Config) (providers.Provider, error) {
+func LoaderIMDS(_ context.Context, _ providers.Config) (providers.Provider, *httperr.Error) {
 	return &imdsProvider{}, nil
 }
 
-func (p *imdsProvider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *imdsProvider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	topo, err := p.generateInstanceTopology(ctx, instances)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, true)
+	return topo.ToThreeTierGraph(NAME, instances, true), nil
 }
 
 func (p *imdsProvider) generateInstanceTopology(ctx context.Context, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {

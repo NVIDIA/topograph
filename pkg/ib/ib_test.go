@@ -278,7 +278,7 @@ func TestGenerateTopologyConfigValid(t *testing.T) {
 	}
 
 	data, err = slurm.GenerateOutputParams(context.TODO(), tree, &slurm.Params{})
-	require.NoError(t, err)
+	require.Nil(t, err)
 
 	expected := `SwitchName=S-2c5eab0300b87b40 Switches=S-2c5eab0300c25f00
 SwitchName=S-2c5eab0300c25f00 Switches=S-2c5eab0300b879c0,S-2c5eab0300b87a80,S-2c5eab0300c26040
@@ -315,7 +315,7 @@ func TestGenerateTopologyConfigInvalid(t *testing.T) {
 	}
 
 	data, err = slurm.GenerateOutputParams(context.TODO(), tree, &slurm.Params{})
-	require.NoError(t, err)
+	require.Nil(t, err)
 
 	expected := ""
 	require.Equal(t, expected, string(data))

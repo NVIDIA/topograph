@@ -19,13 +19,16 @@ package test
 import (
 	"context"
 	"fmt"
+	"net/http"
+
+	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/config"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
-	"k8s.io/klog/v2"
 )
 
 const NAME = "test"
@@ -43,14 +46,10 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
-	return New(config)
-}
-
-func New(cfg providers.Config) (*Provider, error) {
+func Loader(_ context.Context, cfg providers.Config) (providers.Provider, *httperr.Error) {
 	var p Params
 	if err := config.Decode(cfg.Params, &p); err != nil {
-		return nil, fmt.Errorf("error decoding params: %w", err)
+		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("error decoding params: %v", err))
 	}
 	provider := &Provider{}
 
@@ -60,14 +59,14 @@ func New(cfg providers.Config) (*Provider, error) {
 		klog.InfoS("Using simulated topology", "model path", p.ModelPath)
 		model, err := models.NewModelFromFile(p.ModelPath)
 		if err != nil {
-			return nil, err // Wrapped by models.NewModelFromFile
+			return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 		}
 		provider.tree, provider.instance2node = model.ToGraph()
 	}
 	return provider, nil
 }
 
-func (p *Provider) GetComputeInstances(_ context.Context) ([]topology.ComputeInstances, error) {
+func (p *Provider) GetComputeInstances(_ context.Context) ([]topology.ComputeInstances, *httperr.Error) {
 	return []topology.ComputeInstances{
 		{
 			Instances: p.instance2node,
@@ -75,6 +74,6 @@ func (p *Provider) GetComputeInstances(_ context.Context) ([]topology.ComputeIns
 	}, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(_ context.Context, _ *int, _ []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(_ context.Context, _ *int, _ []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	return p.tree, nil
 }

@@ -183,23 +183,23 @@ BlockSizes=2,4
 					"api_error":  tc.apiErr,
 				},
 			}
-			provider, err := LoaderSim(ctx, cfg)
-			if err != nil {
+			provider, httpErr := LoaderSim(ctx, cfg)
+			if httpErr != nil {
 				if len(tc.err) == 0 {
-					require.NoError(t, err)
+					require.Nil(t, httpErr)
 				} else if tc.err != ignoreErrMsg {
-					require.EqualError(t, err, tc.err)
+					require.EqualError(t, httpErr, tc.err)
 				}
 				return
 			}
 
-			topo, err := provider.GenerateTopologyConfig(ctx, tc.pageSize, tc.instances)
+			topo, httpErr := provider.GenerateTopologyConfig(ctx, tc.pageSize, tc.instances)
 			if len(tc.err) != 0 {
-				require.EqualError(t, err, tc.err)
+				require.EqualError(t, httpErr, tc.err)
 			} else {
-				require.NoError(t, err)
-				data, err := slurm.GenerateOutput(ctx, topo, tc.params)
-				require.NoError(t, err)
+				require.Nil(t, httpErr)
+				data, httpErr := slurm.GenerateOutput(ctx, topo, tc.params)
+				require.Nil(t, httpErr)
 				require.Equal(t, tc.topology, string(data))
 			}
 		})

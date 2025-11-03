@@ -17,6 +17,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/httpreq"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -50,56 +51,56 @@ type AuthOutput struct {
 	AccessToken string `json:"access_token"`
 }
 
-func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	// 1. login to NetQ server
 	payload := strings.NewReader(fmt.Sprintf(`{"username":%q, "password":%q}`, p.cred.user, p.cred.passwd))
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
 	}
-	u, err := getURL(p.params.ApiURL, nil, LoginURL)
-	if err != nil {
-		return nil, err
+	u, httpErr := getURL(p.params.ApiURL, nil, LoginURL)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 	klog.V(4).Infof("Fetching %s", u)
 	f := getRequestFunc(ctx, "POST", u, headers, payload)
-	_, data, err := httpreq.DoRequest(f)
+	resp, data, err := httpreq.DoRequest(f)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(resp.StatusCode, err.Error())
 	}
 
 	if len(data) == 0 {
-		return nil, fmt.Errorf("failed to login to NetQ server")
+		return nil, httperr.NewError(http.StatusUnauthorized, "failed to login to NetQ server")
 	}
 
 	//get access token
 	var authOutput AuthOutput
 	if err := json.Unmarshal(data, &authOutput); err != nil {
-		return nil, fmt.Errorf("failed to parse access token: %v", err)
+		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to parse access token: %v", err))
 	}
 
 	// 2. set OpID
 	headers = map[string]string{
 		"Authorization": "Bearer " + authOutput.AccessToken,
 	}
-	u, err = getURL(p.params.ApiURL, nil, OpIdURL, p.params.OpID)
-	if err != nil {
-		return nil, err
+	u, httpErr = getURL(p.params.ApiURL, nil, OpIdURL, p.params.OpID)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 	klog.V(4).Infof("Fetching %s", u)
 	f = getRequestFunc(ctx, "GET", u, headers, nil)
-	_, data, err = httpreq.DoRequest(f)
+	resp, data, err = httpreq.DoRequest(f)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(resp.StatusCode, err.Error())
 	}
 
 	if len(data) == 0 {
-		return nil, fmt.Errorf("failed to set NetQ OpID")
+		return nil, httperr.NewError(http.StatusBadGateway, "failed to set NetQ OpID")
 	}
 
 	//get access token
 	if err := json.Unmarshal(data, &authOutput); err != nil {
-		return nil, fmt.Errorf("failed to parse access token: %v", err)
+		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to parse access token: %v", err))
 	}
 
 	// 3. get Topology
@@ -109,21 +110,21 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 		"Authorization": "Bearer " + authOutput.AccessToken,
 	}
 	query := map[string]string{"timestamp": "0"}
-	u, err = getURL(p.params.ApiURL, query, TopologyURL)
-	if err != nil {
-		return nil, err
+	u, httpErr = getURL(p.params.ApiURL, query, TopologyURL)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 	klog.V(4).Infof("Fetching %s", u)
 	f = getRequestFunc(ctx, "POST", u, headers, payload)
-	_, data, err = httpreq.DoRequest(f)
+	resp, data, err = httpreq.DoRequest(f)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(resp.StatusCode, err.Error())
 	}
 
 	var netqResponse []NetqResponse
 	err = json.Unmarshal(data, &netqResponse)
 	if err != nil {
-		return nil, fmt.Errorf("netq output read failed: %v", err)
+		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("netq output read failed: %v", err))
 	}
 
 	return parseNetq(netqResponse, topology.GetNodeNameMap(cis))
@@ -142,10 +143,10 @@ func getRequestFunc(ctx context.Context, method, url string, headers map[string]
 	}
 }
 
-func getURL(baseURL string, query map[string]string, paths ...string) (string, error) {
+func getURL(baseURL string, query map[string]string, paths ...string) (string, *httperr.Error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return "", err
+		return "", httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	u.Path = path.Join(append([]string{u.Path}, paths...)...)
@@ -162,9 +163,9 @@ func getURL(baseURL string, query map[string]string, paths ...string) (string, e
 }
 
 // parseNetq parses Netq topology output
-func parseNetq(resp []NetqResponse, inputNodes map[string]bool) (*topology.Vertex, error) {
+func parseNetq(resp []NetqResponse, inputNodes map[string]bool) (*topology.Vertex, *httperr.Error) {
 	if len(resp) != 1 {
-		return nil, fmt.Errorf("invalid NetQ response: multiple entries")
+		return nil, httperr.NewError(http.StatusBadGateway, "invalid NetQ response: multiple entries")
 	}
 
 	layer := make(map[string]*topology.Vertex)   // current layer starting from leaves (nodeId : Vertex)

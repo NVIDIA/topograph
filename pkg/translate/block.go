@@ -9,11 +9,13 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"strings"
 
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/cluset"
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 )
 
@@ -85,7 +87,7 @@ func getBlockSize(blocks []*blockInfo, requestedBlockSizes []int, useFake bool) 
 	return outputbs
 }
 
-func (nt *NetworkTopology) toBlockTopology(wr io.Writer) error {
+func (nt *NetworkTopology) toBlockTopology(wr io.Writer) *httperr.Error {
 	var fnc *fakeNodeConfig
 	if len(nt.config.FakeNodePool) != 0 {
 		fnc = getFakeNodeConfig(nt.config.FakeNodePool)
@@ -106,13 +108,13 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer) error {
 		if fnc != nil && len(bInfo.nodes) < fnc.baseBlockSize {
 			fakeNodeNames, err := fnc.getFreeFakeNodes(fnc.baseBlockSize - len(bInfo.nodes))
 			if err != nil {
-				return err
+				return httperr.NewError(http.StatusBadGateway, err.Error())
 			}
 			outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
 		}
 
 		if _, err := fmt.Fprintf(wr, "%sBlockName=%s Nodes=%s\n", comment, bInfo.id, outputNodeNames); err != nil {
-			return err
+			return httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 	}
 
@@ -121,6 +123,9 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer) error {
 		bss = append(bss, fmt.Sprintf("%d", bs))
 	}
 
-	_, err := fmt.Fprintf(wr, "BlockSizes=%s\n", strings.Join(bss, ","))
-	return err
+	if _, err := fmt.Fprintf(wr, "BlockSizes=%s\n", strings.Join(bss, ",")); err != nil {
+		return httperr.NewError(http.StatusInternalServerError, err.Error())
+	}
+
+	return nil
 }

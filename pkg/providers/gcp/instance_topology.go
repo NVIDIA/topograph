@@ -19,6 +19,7 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
@@ -26,34 +27,35 @@ import (
 	"google.golang.org/api/iterator"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
+func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {
 	client, err := p.clientFactory(pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get client: %v", err)
+		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get client: %v", err))
 	}
 
 	projectID, err := client.ProjectID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get project ID: %v", err)
+		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get project ID: %v", err))
 	}
 
 	topo := topology.NewClusterTopology()
 
 	for _, ci := range cis {
-		if err := p.generateRegionInstanceTopology(ctx, client, projectID, topo, &ci); err != nil {
-			return nil, fmt.Errorf("failed to get instance topology: %v", err)
+		if httpErr := p.generateRegionInstanceTopology(ctx, client, projectID, topo, &ci); httpErr != nil {
+			return nil, httpErr
 		}
 	}
 
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, topo *topology.ClusterTopology, ci *topology.ComputeInstances) *httperr.Error {
 	if len(ci.Region) == 0 {
-		return fmt.Errorf("must specify region")
+		return httperr.NewError(http.StatusBadRequest, "must specify region")
 	}
 	klog.InfoS("Getting instance topology", "region", ci.Region, "project", projectID)
 
@@ -72,7 +74,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 				if err == iterator.Done {
 					break
 				} else {
-					return err
+					return httperr.NewError(http.StatusBadGateway, err.Error())
 				}
 			}
 			instanceId := strconv.FormatUint(*instance.Id, 10)

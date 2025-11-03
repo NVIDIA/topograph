@@ -26,6 +26,7 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -72,7 +73,7 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
+func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
 	clientFactory := func(pageSize *int) (Client, error) {
 		instanceClient, err := compute.NewInstancesRESTClient(ctx)
 		if err != nil {
@@ -88,13 +89,13 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 	return New(clientFactory), nil
 }
 
-func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, false)
+	return topo.ToThreeTierGraph(NAME, instances, false), nil
 }
 
 type Provider struct {

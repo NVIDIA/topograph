@@ -64,8 +64,7 @@ func TestGetComputeInstances(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cis, err := getComputeInstances(tc.nodes)
-			require.NoError(t, err)
+			cis := getComputeInstances(tc.nodes)
 			require.Equal(t, tc.cis, cis)
 		})
 	}

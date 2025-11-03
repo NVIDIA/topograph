@@ -8,34 +8,36 @@ package nebius
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	compute "github.com/nebius/gosdk/proto/nebius/compute/v1"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
+func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {
 	client, err := p.clientFactory(pageSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create API client: %v", err)
+		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to create API client: %v", err))
 	}
 
 	topo := topology.NewClusterTopology()
 
 	for _, ci := range cis {
 		if err := p.generateRegionInstanceTopology(ctx, client, topo, &ci); err != nil {
-			return nil, fmt.Errorf("failed to get instance topology: %v", err)
+			return nil, err
 		}
 	}
 
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, topo *topology.ClusterTopology, ci *topology.ComputeInstances) error {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, topo *topology.ClusterTopology, ci *topology.ComputeInstances) *httperr.Error {
 	if len(ci.Region) == 0 {
-		return fmt.Errorf("must specify region")
+		return httperr.NewError(http.StatusBadRequest, "must specify region")
 	}
 	klog.InfoS("Getting instance topology", "region", ci.Region)
 
@@ -47,7 +49,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 	for {
 		resp, err := client.GetComputeInstanceList(ctx, req)
 		if err != nil {
-			return fmt.Errorf("failed to get instance list: %v", err)
+			return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get instance list: %v", err))
 		}
 
 		for _, instance := range resp.Items {

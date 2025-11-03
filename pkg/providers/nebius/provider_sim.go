@@ -8,10 +8,12 @@ package nebius
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	compute "github.com/nebius/gosdk/proto/nebius/compute/v1"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -100,15 +102,15 @@ func NamedLoaderSim() (string, providers.Loader) {
 	return NAME_SIM, LoaderSim
 }
 
-func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, error) {
+func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, *httperr.Error) {
 	p, err := providers.GetSimulationParams(cfg.Params)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	model, err := models.NewModelFromFile(p.ModelPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load model file: %v", err)
+		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("failed to load model file: %v", err))
 	}
 
 	instanceIDs := make([]string, 0, len(model.Nodes))
@@ -144,7 +146,7 @@ func NewSim(factory ClientFactory) *simProvider {
 
 // Engine support
 
-func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
+func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
 	client, _ := p.clientFactory(nil)
 
 	return client.(*simClient).model.Instances, nil

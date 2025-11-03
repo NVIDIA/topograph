@@ -7,10 +7,12 @@ package dra
 
 import (
 	"context"
+	"net/http"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -27,15 +29,15 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
-func Loader(ctx context.Context, config providers.Config) (providers.Provider, error) {
+func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	return &Provider{
@@ -44,7 +46,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, e
 	}, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	regIndices := make(map[string]int) // map[region : index]
 	for i, ci := range instances {
 		regIndices[ci.Region] = i
@@ -52,7 +54,7 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 
 	nodes, err := k8s.GetNodes(ctx, p.client)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	domainMap := topology.NewDomainMap()

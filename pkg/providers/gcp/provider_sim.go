@@ -19,6 +19,7 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
@@ -26,6 +27,7 @@ import (
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/iterator"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -129,15 +131,15 @@ func NamedLoaderSim() (string, providers.Loader) {
 	return NAME_SIM, LoaderSim
 }
 
-func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, error) {
+func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *httperr.Error) {
 	p, err := providers.GetSimulationParams(cfg.Params)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	model, err := models.NewModelFromFile(p.ModelPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load model file for simulation: %v", err)
+		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("failed to load model file: %v", err))
 	}
 
 	instanceIDs := make([]string, 0, len(model.Nodes))
@@ -178,7 +180,7 @@ func NewSim(clientFactory ClientFactory) *simProvider {
 
 // Engine support
 
-func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, error) {
+func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
 	client, _ := p.clientFactory(nil)
 
 	return client.(*simClient).model.Instances, nil

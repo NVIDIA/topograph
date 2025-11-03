@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/internal/component"
+	"github.com/NVIDIA/topograph/internal/httperr"
 )
 
 type Loader = component.Loader[string, struct{}]
@@ -32,7 +33,7 @@ func NamedOne() (string, Loader) {
 	return "one", one
 }
 
-func one(ctx context.Context, spec struct{}) (string, error) {
+func one(ctx context.Context, spec struct{}) (string, *httperr.Error) {
 	return "ONE", nil
 }
 
@@ -40,11 +41,11 @@ func NamedTwo() (string, Loader) {
 	return "two", two
 }
 
-func two(ctx context.Context, spec struct{}) (string, error) {
+func two(ctx context.Context, spec struct{}) (string, *httperr.Error) {
 	return "TWO", nil
 }
 
-func three(ctx context.Context, spec struct{}) (string, error) {
+func three(ctx context.Context, spec struct{}) (string, *httperr.Error) {
 	return "THREE", nil
 }
 
@@ -58,18 +59,18 @@ func TestRegistry(t *testing.T) {
 	f1 := reg["one"]
 	require.NotNil(t, f1)
 	v1, err := f1(nil, struct{}{})
-	assert.NoError(t, err)
+	assert.Nil(t, err)
 	assert.Equal(t, "ONE", v1)
 
 	f2 := reg["two"]
 	require.NotNil(t, f2)
 	v2, err := f2(nil, struct{}{})
-	assert.NoError(t, err)
+	assert.Nil(t, err)
 	assert.Equal(t, "TWO", v2)
 
 	f3 := reg["three"]
 	require.NotNil(t, f3)
 	v3, err := f3(nil, struct{}{})
-	assert.NoError(t, err)
+	assert.Nil(t, err)
 	assert.Equal(t, "THREE", v3)
 }
