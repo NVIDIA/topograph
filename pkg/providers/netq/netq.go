@@ -23,7 +23,7 @@ import (
 const (
 	LoginURL    = "auth/v1/login"
 	OpIdURL     = "auth/v1/select/opid"
-	TopologyURL = "telemetry/v1/object/topologygraph/fetch-topology"
+	TopologyURL = "api/netq/telemetry/v1/object/topologygraph/fetch-topology"
 )
 
 type NetqResponse struct {
@@ -49,7 +49,7 @@ type AuthOutput struct {
 	AccessToken string `json:"access_token"`
 }
 
-func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
+func (p *Provider) getNetworkTree(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	// 1. login to NetQ server
 	payload := strings.NewReader(fmt.Sprintf(`{"username":%q, "password":%q}`, p.cred.user, p.cred.passwd))
 	headers := map[string]string{
@@ -242,9 +242,5 @@ func parseNetq(resp []NetqResponse, inputNodes map[string]bool) (*topology.Verte
 		treeRoot.Vertices[node.ID] = node
 	}
 
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.TopologyTree: treeRoot},
-	}
-
-	return root, nil
+	return treeRoot, nil
 }

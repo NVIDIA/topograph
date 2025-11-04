@@ -85,7 +85,24 @@ func getParams(params map[string]any) (*ProviderParams, error) {
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
-	return p.generateTopologyConfig(ctx, instances)
+	domains, err := p.getNvlDomains(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	treeRoot, err := p.getNetworkTree(ctx, instances)
+	if err != nil {
+		return nil, err
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{
+			topology.TopologyTree:  treeRoot,
+			topology.TopologyBlock: domains.ToBlocks(),
+		},
+	}
+
+	return root, nil
 }
 
 // Instances2NodeMap implements slurm.instanceMapper
