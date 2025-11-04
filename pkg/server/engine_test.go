@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
+	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -126,6 +127,93 @@ func TestProcessRequestWithRetries(t *testing.T) {
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, []byte{1, 2, 3, 4, 5}, ret)
+			}
+		})
+	}
+}
+
+func TestProcessTopologyRequest(t *testing.T) {
+	srv = &HttpServer{
+		cfg: &config.Config{},
+	}
+	testCases := []struct {
+		name string
+		tr   *topology.Request
+		cfg  string
+		err  string
+		code int
+	}{
+		{
+			name: "Case 1: invalid engine name",
+			tr: &topology.Request{
+				Engine: topology.Engine{Name: "bad"},
+			},
+			err:  `unsupported engine "bad"`,
+			code: http.StatusBadRequest,
+		},
+		{
+			name: "Case 2: invalid provider name",
+			tr: &topology.Request{
+				Engine:   topology.Engine{Name: "slurm"},
+				Provider: topology.Provider{Name: "bad"},
+			},
+			err:  `unsupported provider "bad"`,
+			code: http.StatusBadRequest,
+		},
+		{
+			name: "Case 3: invalid engine parameters",
+			tr: &topology.Request{
+				Engine: topology.Engine{
+					Name: "slinky",
+					Params: map[string]any{
+						"namespace":             "data",
+						"topologyConfigPath":    "data",
+						"topologyConfigmapName": "data",
+					},
+				},
+				Provider: topology.Provider{Name: "test"},
+			},
+			err:  `must specify engine parameter "podSelector"`,
+			code: http.StatusBadRequest,
+		},
+		{
+			name: "Case 4: invalid provider parameters",
+			tr: &topology.Request{
+				Engine: topology.Engine{Name: "slurm"},
+				Provider: topology.Provider{
+					Name:   "test",
+					Params: map[string]any{"model_path": "/not/exist"},
+				},
+			},
+			err:  `failed to read /not/exist: open /not/exist: no such file or directory`,
+			code: http.StatusBadRequest,
+		},
+		{
+			name: "Case 5: valid input",
+			tr: &topology.Request{
+				Engine: topology.Engine{Name: "slurm"},
+				Provider: topology.Provider{
+					Name:   "test",
+					Params: map[string]any{"model_path": "../../tests/models/small-tree.yaml"},
+				},
+			},
+			cfg: `SwitchName=S1 Switches=S[2-3]
+SwitchName=S2 Nodes=I[21-22,25]
+SwitchName=S3 Nodes=I[34-36]
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := processTopologyRequest(tc.tr)
+			if len(tc.err) != 0 {
+				require.NotNil(t, err)
+				require.EqualError(t, err, tc.err)
+				require.Equal(t, tc.code, err.Code())
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, tc.cfg, string(data))
 			}
 		})
 	}

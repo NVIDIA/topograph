@@ -97,12 +97,15 @@ func TestParseNetq(t *testing.T) {
 			{Id: "C4", Name: "C4", Tier: 3},
 		},
 	}}
+
+	// valid input
 	netqResponse := []NetqResponse{{
 		Links: links,
 		Nodes: nodes,
 	}}
 
-	root, _ := parseNetq(netqResponse, map[string]bool{"A": true})
+	root, err := parseNetq(netqResponse, map[string]bool{"A": true})
+	require.Nil(t, err)
 
 	top := []*topology.Vertex{}
 	for _, v := range root.Vertices[topology.TopologyTree].Vertices {
@@ -115,6 +118,11 @@ func TestParseNetq(t *testing.T) {
 	c1 := &topology.Vertex{ID: "C1", Name: "C1", Vertices: map[string]*topology.Vertex{"S1": s1}}
 
 	require.Equal(t, []*topology.Vertex{c1}, top)
+
+	// invalid input
+	netqResponse = []NetqResponse{{}, {}}
+	_, err = parseNetq(netqResponse, map[string]bool{})
+	require.EqualError(t, err, "invalid NetQ response: multiple entries")
 }
 
 func TestGetURL(t *testing.T) {
