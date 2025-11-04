@@ -19,6 +19,7 @@ package slurm
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -364,6 +365,51 @@ func TestGetTranslateConfig(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tc.cfg, cfg)
+			}
+		})
+	}
+}
+
+func TestGenerateOutput(t *testing.T) {
+	ctx := context.TODO()
+	v, _ := translate.GetTreeTestSet(false)
+	cfg := `SwitchName=S1 Switches=S[2-3]
+SwitchName=S2 Nodes=Node[201-202,205]
+SwitchName=S3 Nodes=Node[304-306]
+`
+
+	testCases := []struct {
+		name   string
+		vertex *topology.Vertex
+		params map[string]any
+		cfg    string
+		err    string
+		code   int
+	}{
+		{
+			name:   "Case 1: invalid params",
+			params: map[string]any{"reconfigure": "bad"},
+			err:    "could not decode configuration: 1 error(s) decoding:\n\n* error decoding 'reconfigure': invalid bool \"bad\"",
+			code:   http.StatusBadRequest,
+		},
+		{
+			name:   "Case 2: invalid blocksize",
+			vertex: v,
+			params: map[string]any{"block_sizes": "bad"},
+			cfg:    cfg,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := GenerateOutput(ctx, tc.vertex, tc.params)
+			if len(tc.err) != 0 {
+				require.NotNil(t, err)
+				require.EqualError(t, err, tc.err)
+				require.Equal(t, tc.code, err.Code())
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, tc.cfg, string(cfg))
 			}
 		})
 	}
