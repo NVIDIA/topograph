@@ -1,0 +1,46 @@
+[
+    {
+        "CreatedAt": "2025-11-04T16:45:16.482Z",
+        "Description": "Test",
+        "DomainUUID": "3fbfc98b-7f95-4749-ab11-bd351a2aab3e",
+        "GpuIDList": [
+            "690a2d9cc5e905fa41a87cdc",
+            "690a2d9cc5e905fa41a87cdd",
+            "690a2d9cc5e905fa41a87cde",
+            "690a2d9cc5e905fa41a87cdf"
+        ],
+        "Health": "HEALTHY",
+        "ID": "690a2d9cc5e905fa41a87d79",
+        "LocationInfo": {
+            "ChassisID": 1,
+            "ChassisSerialNumber": "1825024170029",
+            "HostID": 1,
+            "SlotID": 5,
+            "TrayIndex": 4
+        },
+        "Name": "node1",
+        "UpdatedAt": "2025-11-05T18:37:47.155Z"
+    },
+    {
+        "CreatedAt": "2025-11-04T16:45:16.482Z",
+        "Description": "",
+        "DomainUUID": "3fbfc98b-7f95-4749-ab11-bd351a2aab3e",
+        "GpuIDList": [
+            "690a2d9cc5e905fa41a87ce0",
+            "690a2d9cc5e905fa41a87ce2",
+            "690a2d9cc5e905fa41a87ce3",
+            "690a2d9cc5e905fa41a87ce1"
+        ],
+        "Health": "HEALTHY",
+        "ID": "690a2d9cc5e905fa41a87d7a",
+        "LocationInfo": {
+            "ChassisID": 1,
+            "ChassisSerialNumber": "1825024170029",
+            "HostID": 1,
+            "SlotID": 22,
+            "TrayIndex": 12
+        },
+        "Name": "node2",
+        "UpdatedAt": "2025-11-05T18:37:47.155Z"
+    }
+]
