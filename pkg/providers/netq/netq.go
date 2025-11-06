@@ -64,9 +64,13 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 	}
 	klog.V(4).Infof("Fetching %s", u)
 	f := getRequestFunc(ctx, "POST", u, headers, payload)
-	resp, data, err := httpreq.DoRequest(f)
+	resp, data, err := httpreq.DoRequest(f, true)
 	if err != nil {
-		return nil, httperr.NewError(resp.StatusCode, err.Error())
+		code := http.StatusInternalServerError
+		if resp != nil {
+			code = resp.StatusCode
+		}
+		return nil, httperr.NewError(code, err.Error())
 	}
 
 	if len(data) == 0 {
@@ -89,9 +93,13 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 	}
 	klog.V(4).Infof("Fetching %s", u)
 	f = getRequestFunc(ctx, "GET", u, headers, nil)
-	resp, data, err = httpreq.DoRequest(f)
+	resp, data, err = httpreq.DoRequest(f, true)
 	if err != nil {
-		return nil, httperr.NewError(resp.StatusCode, err.Error())
+		code := http.StatusInternalServerError
+		if resp != nil {
+			code = resp.StatusCode
+		}
+		return nil, httperr.NewError(code, err.Error())
 	}
 
 	if len(data) == 0 {
@@ -116,9 +124,13 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 	}
 	klog.V(4).Infof("Fetching %s", u)
 	f = getRequestFunc(ctx, "POST", u, headers, payload)
-	resp, data, err = httpreq.DoRequest(f)
+	resp, data, err = httpreq.DoRequest(f, true)
 	if err != nil {
-		return nil, httperr.NewError(resp.StatusCode, err.Error())
+		code := http.StatusInternalServerError
+		if resp != nil {
+			code = resp.StatusCode
+		}
+		return nil, httperr.NewError(code, err.Error())
 	}
 
 	var netqResponse []NetqResponse
