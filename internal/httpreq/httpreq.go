@@ -17,6 +17,7 @@
 package httpreq
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"math"
@@ -43,13 +44,18 @@ var (
 type RequestFunc func() (*http.Request, error)
 
 // DoRequest sends HTTP requests and returns HTTP response
-func DoRequest(f RequestFunc) (*http.Response, []byte, error) {
+func DoRequest(f RequestFunc, insecureSkipVerify bool) (*http.Response, []byte, error) {
 	req, err := f()
 	if err != nil {
 		return nil, nil, err
 	}
 	klog.V(4).Infof("Sending HTTP request %s", req.URL.String())
 	client := &http.Client{}
+	if insecureSkipVerify {
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to send HTTP request: %v", err)
@@ -65,15 +71,15 @@ func DoRequest(f RequestFunc) (*http.Response, []byte, error) {
 		return resp, body, nil
 	}
 
-	return resp, body, fmt.Errorf("HTTP %d %s: %s", resp.StatusCode, resp.Status, string(body))
+	return resp, body, fmt.Errorf("%s: %s", resp.Status, string(body))
 }
 
 // DoRequestWithRetries sends HTTP requests and returns HTTP response; retries if needed
-func DoRequestWithRetries(f RequestFunc) (resp *http.Response, body []byte, err error) {
+func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) (resp *http.Response, body []byte, err error) {
 	klog.V(4).Infof("Sending HTTP request with retries")
 	for r := 1; r <= retries; r++ {
-		resp, body, err = DoRequest(f)
-		if err == nil || !retryHttpCodes[resp.StatusCode] {
+		resp, body, err = DoRequest(f, insecureSkipVerify)
+		if err == nil || resp == nil || !retryHttpCodes[resp.StatusCode] {
 			break
 		}
 		wait := time.Duration(int(math.Pow(2, float64(r))) * time.Now().Second())

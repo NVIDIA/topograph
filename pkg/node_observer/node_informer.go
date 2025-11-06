@@ -120,7 +120,7 @@ func (n *NodeInformer) eventHandler(action string) func(obj any) {
 }
 
 func (n *NodeInformer) sendRequest() {
-	_, _, err := httpreq.DoRequestWithRetries(n.reqFunc)
+	_, _, err := httpreq.DoRequestWithRetries(n.reqFunc, false)
 	if err != nil {
 		klog.Errorf("failed to send HTTP request: %v", err)
 	}
