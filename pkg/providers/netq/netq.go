@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"path"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -58,19 +56,15 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
 	}
-	u, httpErr := getURL(p.params.ApiURL, nil, LoginURL)
+	url, httpErr := httpreq.GetURL(p.params.ApiURL, nil, LoginURL)
 	if httpErr != nil {
 		return nil, httpErr
 	}
-	klog.V(4).Infof("Fetching %s", u)
-	f := getRequestFunc(ctx, "POST", u, headers, payload)
-	resp, data, err := httpreq.DoRequest(f, true)
-	if err != nil {
-		code := http.StatusInternalServerError
-		if resp != nil {
-			code = resp.StatusCode
-		}
-		return nil, httperr.NewError(code, err.Error())
+	klog.V(4).Infof("Fetching %s", url)
+	f := getRequestFunc(ctx, "POST", url, headers, payload)
+	_, data, httpErr := httpreq.DoRequest(f, true)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 
 	if len(data) == 0 {
@@ -87,19 +81,15 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 	headers = map[string]string{
 		"Authorization": "Bearer " + authOutput.AccessToken,
 	}
-	u, httpErr = getURL(p.params.ApiURL, nil, OpIdURL, p.params.OpID)
+	url, httpErr = httpreq.GetURL(p.params.ApiURL, nil, OpIdURL, p.params.OpID)
 	if httpErr != nil {
 		return nil, httpErr
 	}
-	klog.V(4).Infof("Fetching %s", u)
-	f = getRequestFunc(ctx, "GET", u, headers, nil)
-	resp, data, err = httpreq.DoRequest(f, true)
-	if err != nil {
-		code := http.StatusInternalServerError
-		if resp != nil {
-			code = resp.StatusCode
-		}
-		return nil, httperr.NewError(code, err.Error())
+	klog.V(4).Infof("Fetching %s", url)
+	f = getRequestFunc(ctx, "GET", url, headers, nil)
+	_, data, httpErr = httpreq.DoRequest(f, true)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 
 	if len(data) == 0 {
@@ -118,24 +108,19 @@ func (p *Provider) generateTopologyConfig(ctx context.Context, cis []topology.Co
 		"Authorization": "Bearer " + authOutput.AccessToken,
 	}
 	query := map[string]string{"timestamp": "0"}
-	u, httpErr = getURL(p.params.ApiURL, query, TopologyURL)
+	url, httpErr = httpreq.GetURL(p.params.ApiURL, query, TopologyURL)
 	if httpErr != nil {
 		return nil, httpErr
 	}
-	klog.V(4).Infof("Fetching %s", u)
-	f = getRequestFunc(ctx, "POST", u, headers, payload)
-	resp, data, err = httpreq.DoRequest(f, true)
-	if err != nil {
-		code := http.StatusInternalServerError
-		if resp != nil {
-			code = resp.StatusCode
-		}
-		return nil, httperr.NewError(code, err.Error())
+	klog.V(4).Infof("Fetching %s", url)
+	f = getRequestFunc(ctx, "POST", url, headers, payload)
+	_, data, httpErr = httpreq.DoRequest(f, true)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 
 	var netqResponse []NetqResponse
-	err = json.Unmarshal(data, &netqResponse)
-	if err != nil {
+	if err := json.Unmarshal(data, &netqResponse); err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("netq output read failed: %v", err))
 	}
 
@@ -153,25 +138,6 @@ func getRequestFunc(ctx context.Context, method, url string, headers map[string]
 		}
 		return req, nil
 	}
-}
-
-func getURL(baseURL string, query map[string]string, paths ...string) (string, *httperr.Error) {
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		return "", httperr.NewError(http.StatusBadRequest, err.Error())
-	}
-
-	u.Path = path.Join(append([]string{u.Path}, paths...)...)
-
-	if len(query) != 0 {
-		q := u.Query()
-		for key, val := range query {
-			q.Set(key, val)
-		}
-		u.RawQuery = q.Encode()
-	}
-
-	return u.String(), nil
 }
 
 // parseNetq parses Netq topology output

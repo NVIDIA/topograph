@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2025 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package httpreq
@@ -22,9 +11,13 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
+	"path"
 	"time"
 
 	"k8s.io/klog/v2"
+
+	"github.com/NVIDIA/topograph/internal/httperr"
 )
 
 var (
@@ -44,10 +37,10 @@ var (
 type RequestFunc func() (*http.Request, error)
 
 // DoRequest sends HTTP requests and returns HTTP response
-func DoRequest(f RequestFunc, insecureSkipVerify bool) (*http.Response, []byte, error) {
+func DoRequest(f RequestFunc, insecureSkipVerify bool) (*http.Response, []byte, *httperr.Error) {
 	req, err := f()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 	klog.V(4).Infof("Sending HTTP request %s", req.URL.String())
 	client := &http.Client{}
@@ -58,24 +51,28 @@ func DoRequest(f RequestFunc, insecureSkipVerify bool) (*http.Response, []byte, 
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to send HTTP request: %v", err)
+		code := http.StatusBadGateway
+		if resp != nil {
+			code = resp.StatusCode
+		}
+		return resp, nil, httperr.NewError(code, err.Error())
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read HTTP response: %v", err)
+		return resp, nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to read HTTP response: %v", err))
 	}
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return resp, body, nil
 	}
 
-	return resp, body, fmt.Errorf("%s: %s", resp.Status, string(body))
+	return resp, body, httperr.NewError(resp.StatusCode, string(body))
 }
 
 // DoRequestWithRetries sends HTTP requests and returns HTTP response; retries if needed
-func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) (resp *http.Response, body []byte, err error) {
+func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) (resp *http.Response, body []byte, err *httperr.Error) {
 	klog.V(4).Infof("Sending HTTP request with retries")
 	for r := 1; r <= retries; r++ {
 		resp, body, err = DoRequest(f, insecureSkipVerify)
@@ -88,4 +85,23 @@ func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) (resp *http.Re
 	}
 
 	return
+}
+
+func GetURL(baseURL string, query map[string]string, paths ...string) (string, *httperr.Error) {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return "", httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+
+	u.Path = path.Join(append([]string{u.Path}, paths...)...)
+
+	if len(query) != 0 {
+		q := u.Query()
+		for key, val := range query {
+			q.Set(key, val)
+		}
+		u.RawQuery = q.Encode()
+	}
+
+	return u.String(), nil
 }
