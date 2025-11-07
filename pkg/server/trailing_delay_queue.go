@@ -31,10 +31,10 @@ import (
 
 const RequestHistorySize = 100
 
-type HandleFunc func(interface{}) (interface{}, *httperr.Error)
+type HandleFunc func(any) (any, *httperr.Error)
 
 type Completion struct {
-	Ret     interface{}
+	Ret     any
 	Status  int
 	Message string
 }
@@ -45,10 +45,10 @@ type TrailingDelayQueue struct {
 	handle   HandleFunc
 	delay    time.Duration
 	shutdown chan struct{}
-	item     interface{} // current item to be processed, if not nil
-	lastTime time.Time   // last submit time
-	uid      string      // unique item processing ID
-	store    *lru.Cache  // map uid:process result
+	item     any        // current item to be processed, if not nil
+	lastTime time.Time  // last submit time
+	uid      string     // unique item processing ID
+	store    *lru.Cache // map uid:process result
 }
 
 func NewTrailingDelayQueue(handle HandleFunc, delay time.Duration) *TrailingDelayQueue {
@@ -73,7 +73,7 @@ func (q *TrailingDelayQueue) run() {
 			klog.V(4).Infof("queue shutdown")
 			return
 		case <-q.ticker.C:
-			var item interface{}
+			var item any
 			var uid string
 			q.mutex.Lock()
 			if time.Since(q.lastTime) > q.delay && q.item != nil {
@@ -104,7 +104,7 @@ func (q *TrailingDelayQueue) run() {
 	}
 }
 
-func (q *TrailingDelayQueue) Submit(item interface{}) string {
+func (q *TrailingDelayQueue) Submit(item any) string {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 

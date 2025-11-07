@@ -9,9 +9,12 @@ import (
 	"context"
 	"net/http"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -23,6 +26,15 @@ const NAME = "dra"
 type Provider struct {
 	config *rest.Config
 	client *kubernetes.Clientset
+	params *Params
+}
+
+type Params struct {
+	// NodeSelector (optional) specifies nodes participating in the topology
+	NodeSelector map[string]string `mapstructure:"nodeSelector"`
+
+	// derived fields
+	nodeListOpt *metav1.ListOptions
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -30,6 +42,11 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
+	p, err := getParameters(config.Params)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
@@ -43,7 +60,23 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	return &Provider{
 		config: cfg,
 		client: client,
+		params: p,
 	}, nil
+}
+
+func getParameters(params map[string]any) (*Params, error) {
+	p := &Params{}
+	if err := config.Decode(params, p); err != nil {
+		return nil, err
+	}
+
+	if len(p.NodeSelector) != 0 {
+		p.nodeListOpt = &metav1.ListOptions{
+			LabelSelector: labels.Set(p.NodeSelector).String(),
+		}
+	}
+
+	return p, nil
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
@@ -52,7 +85,7 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		regIndices[ci.Region] = i
 	}
 
-	nodes, err := k8s.GetNodes(ctx, p.client)
+	nodes, err := k8s.GetNodes(ctx, p.client, p.params.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}

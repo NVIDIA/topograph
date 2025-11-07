@@ -3,11 +3,12 @@
 # Declare variables to be passed into your templates.
 
 global:
-  # provider: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test".
-  provider: test
-  #  engine: "k8s" or "slinky"
-  engine: k8s
-  # engineParams:
+  provider:
+    # name: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test".
+    name: test
+  engine:
+    # name: "k8s" or "slinky"
+    name: k8s
 
   service:
     type: ClusterIP

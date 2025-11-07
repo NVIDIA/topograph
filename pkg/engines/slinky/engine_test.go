@@ -29,17 +29,19 @@ import (
 )
 
 func TestGetParameters(t *testing.T) {
-	selector := map[string]any{
-		"matchLabels": map[string]string{"app.kubernetes.io/component": "compute"},
+	podSelector := map[string]any{
+		"matchLabels": map[string]string{"key": "value"},
 	}
+	nodeSelector := map[string]string{"key": "value"}
 	invalidSelector := map[string]any{
 		"matchExpressions": []metav1.LabelSelectorRequirement{
 			{Operator: "BAD"},
 		},
 	}
 	labelSelector := metav1.LabelSelector{
-		MatchLabels: map[string]string{"app.kubernetes.io/component": "compute"},
+		MatchLabels: map[string]string{"key": "value"},
 	}
+
 	testCases := []struct {
 		name   string
 		params map[string]any
@@ -69,7 +71,7 @@ func TestGetParameters(t *testing.T) {
 			err: `could not decode configuration:`,
 		},
 		{
-			name: "Case 4: invalid label selector",
+			name: "Case 4: invalid pod label selector",
 			params: map[string]any{
 				topology.KeyNamespace:         "namespace",
 				topology.KeyPodSelector:       invalidSelector,
@@ -82,23 +84,24 @@ func TestGetParameters(t *testing.T) {
 			name: "Case 5: minimal valid input",
 			params: map[string]any{
 				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       selector,
+				topology.KeyPodSelector:       podSelector,
 				topology.KeyTopoConfigPath:    "path",
 				topology.KeyTopoConfigmapName: "name",
 			},
 			ret: &Params{
 				Namespace:     "namespace",
-				LabelSelector: labelSelector,
+				PodSelector:   labelSelector,
 				ConfigPath:    "path",
 				ConfigMapName: "name",
-				podSelector:   "app.kubernetes.io/component=compute",
+				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
 		{
 			name: "Case 6: complete valid input",
 			params: map[string]any{
 				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       selector,
+				topology.KeyPodSelector:       podSelector,
+				topology.KeyNodeSelector:      nodeSelector,
 				topology.KeyPlugin:            topology.TopologyBlock,
 				topology.KeyBlockSizes:        "16",
 				topology.KeyTopoConfigPath:    "path",
@@ -110,10 +113,12 @@ func TestGetParameters(t *testing.T) {
 					BlockSizes: "16",
 				},
 				Namespace:     "namespace",
-				LabelSelector: labelSelector,
+				PodSelector:   labelSelector,
+				NodeSelector:  nodeSelector,
 				ConfigPath:    "path",
 				ConfigMapName: "name",
-				podSelector:   "app.kubernetes.io/component=compute",
+				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
+				nodeListOpt:   &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
 	}
@@ -219,7 +224,7 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 			name: "minimal params, no plugin/block",
 			params: &Params{
 				Namespace:     "test-namespace",
-				LabelSelector: labelSelector,
+				PodSelector:   labelSelector,
 				ConfigPath:    "topology.conf",
 				ConfigMapName: "slurm-topology",
 			},
@@ -231,7 +236,7 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 				BaseParams: slurm.BaseParams{
 					Plugin: topology.TopologyBlock,
 				},
-				LabelSelector: labelSelector,
+				PodSelector:   labelSelector,
 				ConfigPath:    "topology.conf",
 				ConfigMapName: "slurm-topology",
 			},
@@ -244,7 +249,7 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 					BlockSizes: "8,16,32",
 				},
 				Namespace:     "test-namespace",
-				LabelSelector: labelSelector,
+				PodSelector:   labelSelector,
 				ConfigPath:    "topology.conf",
 				ConfigMapName: "slurm-topology",
 			},
@@ -258,7 +263,7 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 					BlockSizes: "8,16,32",
 				},
 				Namespace:     "test-namespace",
-				LabelSelector: labelSelector,
+				PodSelector:   labelSelector,
 				ConfigPath:    "topology.conf",
 				ConfigMapName: "slurm-topology",
 			},

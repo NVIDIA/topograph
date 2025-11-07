@@ -38,7 +38,7 @@ type Controller struct {
 
 func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
 	var f httpreq.RequestFunc = func() (*http.Request, error) {
-		payload := topology.NewRequest(cfg.Provider, nil, cfg.Engine, cfg.Params)
+		payload := topology.NewRequest(cfg.Provider, cfg.Engine)
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse payload: %v", err)

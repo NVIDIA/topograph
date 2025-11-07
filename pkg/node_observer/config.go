@@ -22,14 +22,16 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 type Config struct {
-	GenerateTopologyURL string         `yaml:"generateTopologyUrl"`
-	Trigger             Trigger        `yaml:"trigger"`
-	Provider            string         `yaml:"provider"`
-	Engine              string         `yaml:"engine"`
-	Params              map[string]any `yaml:"params"`
+	GenerateTopologyURL string            `yaml:"generateTopologyUrl"`
+	Trigger             Trigger           `yaml:"trigger"`
+	Provider            topology.Provider `yaml:"provider"`
+	Engine              topology.Engine   `yaml:"engine"`
+	Params              map[string]any    `yaml:"params"`
 }
 
 type Trigger struct {

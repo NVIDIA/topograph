@@ -15,7 +15,7 @@ rules:
 - apiGroups: [apps]
   resources: [daemonsets]
   verbs: [get,list]
-{{- if eq .Values.global.engine "slinky" }}
+{{- if eq .Values.global.engine.name "slinky" }}
 - apiGroups: [""]
   resources: [configmaps]
   verbs: [create,get,list,update]

@@ -45,16 +45,10 @@ type ComputeInstances struct {
 	Instances map[string]string `json:"instances"` // <instance ID>:<node name> map
 }
 
-func NewRequest(prv string, creds map[string]string, eng string, params map[string]any) *Request {
+func NewRequest(prv Provider, eng Engine) *Request {
 	return &Request{
-		Provider: Provider{
-			Name:  prv,
-			Creds: creds,
-		},
-		Engine: Engine{
-			Name:   eng,
-			Params: params,
-		},
+		Provider: prv,
+		Engine:   eng,
 	}
 }
 
