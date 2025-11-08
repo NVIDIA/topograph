@@ -7,12 +7,10 @@ package node_observer
 
 import (
 	"context"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -78,10 +76,10 @@ func (s *StatusInformer) Start() error {
 		return err
 	}
 
-	go wait.Until(func() {
+	go func() {
 		for s.processEvent() {
 		}
-	}, time.Second, s.ctx.Done())
+	}()
 
 	return nil
 }
@@ -181,8 +179,8 @@ func (s *StatusInformer) startPodInformer() error {
 }
 
 func (s *StatusInformer) processEvent() bool {
-	item, quit := s.queue.Get()
-	if quit {
+	item, shutdown := s.queue.Get()
+	if shutdown {
 		return false
 	}
 	defer s.queue.Done(item)
