@@ -33,6 +33,15 @@ func GetPodsByLabels(ctx context.Context, client *kubernetes.Clientset, namespac
 	return client.CoreV1().Pods(namespace).List(ctx, opt)
 }
 
+func IsPodReady(pod *corev1.Pod) bool {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 func GetDaemonSetPods(ctx context.Context, client *kubernetes.Clientset, name, namespace, nodename string) (*corev1.PodList, error) {
 	ds, err := client.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
