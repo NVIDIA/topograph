@@ -133,6 +133,9 @@ func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Envi
 	// map k8s host name to SLURM host name
 	nodeMap := make(map[string]string)
 	for _, pod := range pods.Items {
+		if !k8s.IsPodReady(&pod) {
+			continue
+		}
 		host, ok := pod.Labels["slurm.node.name"]
 		if !ok {
 			host = pod.Spec.Hostname

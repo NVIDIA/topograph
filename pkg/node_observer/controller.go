@@ -31,9 +31,9 @@ import (
 )
 
 type Controller struct {
-	ctx          context.Context
-	client       kubernetes.Interface
-	nodeInformer *NodeInformer
+	ctx            context.Context
+	client         kubernetes.Interface
+	statusInformer *StatusInformer
 }
 
 func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
@@ -50,23 +50,23 @@ func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config
 		req.Header.Set("Content-Type", "application/json")
 		return req, nil
 	}
-	nodeInformer, err := NewNodeInformer(ctx, client, &cfg.Trigger, f)
+	statusInformer, err := NewStatusInformer(ctx, client, &cfg.Trigger, f)
 	if err != nil {
 		return nil, err
 	}
 	return &Controller{
-		ctx:          ctx,
-		client:       client,
-		nodeInformer: nodeInformer,
+		ctx:            ctx,
+		client:         client,
+		statusInformer: statusInformer,
 	}, nil
 }
 
 func (c *Controller) Start() error {
 	klog.Infof("Starting state observer")
-	return c.nodeInformer.Start()
+	return c.statusInformer.Start()
 }
 
 func (c *Controller) Stop(err error) {
 	klog.Infof("Stopping state observer")
-	c.nodeInformer.Stop(err)
+	c.statusInformer.Stop(err)
 }
