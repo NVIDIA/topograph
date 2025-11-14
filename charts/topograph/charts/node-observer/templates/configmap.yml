@@ -7,7 +7,9 @@ metadata:
 data:
   node-observer-config.yaml: |-
     generateTopologyUrl: "{{ include "topograph.url" $ }}/v1/generate"
-    params:
-      {{- toYaml .Values.global.engineParams | nindent 6 }}
+    provider:
+      {{- toYaml .Values.global.provider | nindent 6 }}
+    engine:
+      {{- toYaml .Values.global.engine | nindent 6 }}
     trigger:
       {{- toYaml .Values.topograph.trigger | nindent 6 }}

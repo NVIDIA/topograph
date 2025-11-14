@@ -19,8 +19,12 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-func GetNodes(ctx context.Context, client *kubernetes.Clientset) (*corev1.NodeList, error) {
-	nodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+func GetNodes(ctx context.Context, client *kubernetes.Clientset, opt *metav1.ListOptions) (*corev1.NodeList, error) {
+	if opt == nil {
+		opt = &metav1.ListOptions{}
+	}
+
+	nodes, err := client.CoreV1().Nodes().List(ctx, *opt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list node in the cluster: %v", err)
 	}

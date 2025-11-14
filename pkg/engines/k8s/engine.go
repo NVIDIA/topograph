@@ -20,9 +20,12 @@ import (
 	"context"
 	"net/http"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -33,13 +36,27 @@ const NAME = "k8s"
 type K8sEngine struct {
 	config *rest.Config
 	client *kubernetes.Clientset
+	params *Params
+}
+
+type Params struct {
+	// NodeSelector (optional) specifies nodes participating in the topology
+	NodeSelector map[string]string `mapstructure:"nodeSelector"`
+
+	// derived fields
+	nodeListOpt *metav1.ListOptions
 }
 
 func NamedLoader() (string, engines.Loader) {
 	return NAME, Loader
 }
 
-func Loader(_ context.Context, _ engines.Config) (engines.Engine, *httperr.Error) {
+func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.Error) {
+	p, err := getParameters(params)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
@@ -53,7 +70,23 @@ func Loader(_ context.Context, _ engines.Config) (engines.Engine, *httperr.Error
 	return &K8sEngine{
 		config: config,
 		client: client,
+		params: p,
 	}, nil
+}
+
+func getParameters(params engines.Config) (*Params, error) {
+	p := &Params{}
+	if err := config.Decode(params, p); err != nil {
+		return nil, err
+	}
+
+	if len(p.NodeSelector) != 0 {
+		p.nodeListOpt = &metav1.ListOptions{
+			LabelSelector: labels.Set(p.NodeSelector).String(),
+		}
+	}
+
+	return p, nil
 }
 
 func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, *httperr.Error) {

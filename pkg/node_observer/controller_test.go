@@ -11,14 +11,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestNewController(t *testing.T) {
 	ctx := context.TODO()
 
 	cfg := &Config{
-		Provider: "test",
-		Engine:   "test",
+		Provider: topology.Provider{Name: "test"},
+		Engine:   topology.Engine{Name: "test"},
 	}
 
 	testCases := []struct {

@@ -9,8 +9,6 @@ data:
     http:
       port: {{ .Values.global.service.port }}
       ssl: false
-    provider: {{ .Values.global.provider }}
-    engine: {{ .Values.global.engine }}
     requestAggregationDelay: {{ .Values.config.requestAggregationDelay }}
     {{- if .Values.config.credentialsSecretName }}
     credentialsPath: /etc/topograph/credentials/credentials.yaml

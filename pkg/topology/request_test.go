@@ -22,6 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewRequest(t *testing.T) {
+	provider := Provider{Name: "test", Params: map[string]any{"key": 1}}
+	engine := Engine{}
+
+	require.Equal(t, &Request{Provider: provider}, NewRequest(provider, engine))
+}
+
 func TestPayload(t *testing.T) {
 	testCases := []struct {
 		name    string

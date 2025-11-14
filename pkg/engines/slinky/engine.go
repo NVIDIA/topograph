@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -50,13 +51,20 @@ type SlinkyEngine struct {
 
 type Params struct {
 	slurm.BaseParams `mapstructure:",squash"`
-	Namespace        string               `mapstructure:"namespace"`
-	LabelSelector    metav1.LabelSelector `mapstructure:"podSelector"`
-	ConfigPath       string               `mapstructure:"topologyConfigPath"`
-	ConfigMapName    string               `mapstructure:"topologyConfigmapName"`
+	// Namespace specifies the namespace where Slinky cluster is deployed
+	Namespace string `mapstructure:"namespace"`
+	// PodSelector specifies slurmd pods
+	PodSelector metav1.LabelSelector `mapstructure:"podSelector"`
+	// NodeSelector (optional) specifies nodes running slurmd pods
+	NodeSelector map[string]string `mapstructure:"nodeSelector"`
+	// ConfigMapName specifies the name of the configmap containing topology config
+	ConfigMapName string `mapstructure:"topologyConfigmapName"`
+	// ConfigPath specifies the topology config filename inside the configmap
+	ConfigPath string `mapstructure:"topologyConfigPath"`
 
 	// derived fields
-	podSelector string
+	podListOpt  *metav1.ListOptions
+	nodeListOpt *metav1.ListOptions
 }
 
 func NamedLoader() (string, engines.Loader) {
@@ -92,15 +100,23 @@ func getParameters(params engines.Config) (*Params, error) {
 		return nil, err
 	}
 
-	selector, err := metav1.LabelSelectorAsSelector(&p.LabelSelector)
+	sel, err := metav1.LabelSelectorAsSelector(&p.PodSelector)
 	if err != nil {
 		return nil, err
 	}
-	p.podSelector = selector.String()
+	p.podListOpt = &metav1.ListOptions{
+		LabelSelector: sel.String(),
+	}
+
+	if len(p.NodeSelector) != 0 {
+		p.nodeListOpt = &metav1.ListOptions{
+			LabelSelector: labels.Set(p.NodeSelector).String(),
+		}
+	}
 
 	for key, val := range map[string]string{
 		topology.KeyNamespace:         p.Namespace,
-		topology.KeyPodSelector:       p.podSelector,
+		topology.KeyPodSelector:       p.podListOpt.LabelSelector,
 		topology.KeyTopoConfigPath:    p.ConfigPath,
 		topology.KeyTopoConfigmapName: p.ConfigMapName,
 	} {
@@ -113,22 +129,20 @@ func getParameters(params engines.Config) (*Params, error) {
 }
 
 func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, *httperr.Error) {
-	nodes, err := k8s.GetNodes(ctx, eng.client)
+
+	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	opt := metav1.ListOptions{
-		LabelSelector: eng.params.podSelector,
-	}
-	pods, err := eng.client.CoreV1().Pods(eng.params.Namespace).List(ctx, opt)
+	pods, err := eng.client.CoreV1().Pods(eng.params.Namespace).List(ctx, *eng.params.podListOpt)
 	if err != nil {
 		return nil,
 			httperr.NewError(http.StatusBadGateway,
 				fmt.Sprintf("failed to list SLURM pods in the cluster: %v", err))
 	}
 
-	klog.V(4).Infof("Found %d pods in %q namespace with selector %q", len(pods.Items), eng.params.Namespace, eng.params.podSelector)
+	klog.V(4).Infof("Found %d pods in %q namespace with selector %q", len(pods.Items), eng.params.Namespace, eng.params.podListOpt.LabelSelector)
 
 	// map k8s host name to SLURM host name
 	nodeMap := make(map[string]string)

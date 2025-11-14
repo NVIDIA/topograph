@@ -7,7 +7,7 @@ rules:
 - apiGroups: [""]
   resources: [nodes]
   verbs: [get,list,update]
-{{- if eq .Values.global.provider "infiniband-k8s" }}
+{{- if eq .Values.global.provider.name "infiniband-k8s" }}
 - apiGroups: [apps]
   resources: [daemonsets]
   verbs: [get,list]
