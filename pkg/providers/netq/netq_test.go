@@ -104,11 +104,11 @@ func TestParseNetq(t *testing.T) {
 		Nodes: nodes,
 	}}
 
-	root, err := parseNetq(netqResponse, map[string]bool{"A": true})
+	treeRoot, err := parseNetq(netqResponse, map[string]bool{"A": true})
 	require.Nil(t, err)
 
 	top := []*topology.Vertex{}
-	for _, v := range root.Vertices[topology.TopologyTree].Vertices {
+	for _, v := range treeRoot.Vertices {
 		top = append(top, v)
 	}
 

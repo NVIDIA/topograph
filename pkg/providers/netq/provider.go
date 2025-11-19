@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"k8s.io/klog/v2"
+
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -85,7 +87,27 @@ func getParams(params map[string]any) (*ProviderParams, error) {
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
-	return p.generateTopologyConfig(ctx, instances)
+	domains, err := p.getNvlDomains(ctx)
+	if err != nil {
+		klog.Warningf("Failed to get NVL domains: %v", err)
+	}
+
+	treeRoot, err := p.getNetworkTree(ctx, instances)
+	if err != nil {
+		return nil, err
+	}
+
+	root := &topology.Vertex{
+		Vertices: map[string]*topology.Vertex{
+			topology.TopologyTree: treeRoot,
+		},
+	}
+
+	if domains != nil {
+		root.Vertices[topology.TopologyBlock] = domains.ToBlocks()
+	}
+
+	return root, nil
 }
 
 // Instances2NodeMap implements slurm.instanceMapper
