@@ -28,30 +28,19 @@ func TestLoader(t *testing.T) {
 			err:    "apiUrl not provided",
 		},
 		{
-			name: "Case 2: missing opid",
+			name: "Case 2: missing creds",
 			config: providers.Config{
 				Params: map[string]any{
 					"apiUrl": "url",
-				},
-			},
-			err: "opid not provided",
-		},
-		{
-			name: "Case 3: missing creds",
-			config: providers.Config{
-				Params: map[string]any{
-					"apiUrl": "url",
-					"opid":   "id",
 				},
 			},
 			err: "username not provided",
 		},
 		{
-			name: "Case 4: missing password",
+			name: "Case 3: missing password",
 			config: providers.Config{
 				Params: map[string]any{
 					"apiUrl": "url",
-					"opid":   "id",
 				},
 				Creds: map[string]string{
 					"username": "user",
@@ -60,11 +49,10 @@ func TestLoader(t *testing.T) {
 			err: "password not provided",
 		},
 		{
-			name: "Case 5: valid input",
+			name: "Case 4: valid input",
 			config: providers.Config{
 				Params: map[string]any{
 					"apiUrl": "url",
-					"opid":   "id",
 				},
 				Creds: map[string]string{
 					"username": "user",

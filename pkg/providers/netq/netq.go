@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	LoginURL    = "auth/v1/login"
-	OpIdURL     = "auth/v1/select/opid"
+	LoginURL    = "api/netq/auth/v1/login"
+	OpIdURL     = "api/netq/auth/v1/select/opid"
 	TopologyURL = "api/netq/telemetry/v1/object/topologygraph/fetch-topology"
 )
 
@@ -46,11 +46,19 @@ type Links struct {
 }
 
 type AuthOutput struct {
-	AccessToken string `json:"access_token"`
+	AccessToken string     `json:"access_token"`
+	Premises    []Premises `json:"premises"`
+}
+
+type Premises struct {
+	ConfigKeyViewed bool   `json:"config_key_viewed"`
+	Name            string `json:"name"`
+	Namespace       string `json:"namespace"`
+	OPID            int    `json:"opid"`
 }
 
 func (p *Provider) getNetworkTree(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
-	// 1. login to NetQ server
+	// login to NetQ server
 	payload := strings.NewReader(fmt.Sprintf(`{"username":%q, "password":%q}`, p.cred.user, p.cred.passwd))
 	headers := map[string]string{
 		"Content-Type": "application/json",
@@ -71,38 +79,57 @@ func (p *Provider) getNetworkTree(ctx context.Context, cis []topology.ComputeIns
 		return nil, httperr.NewError(http.StatusUnauthorized, "failed to login to NetQ server")
 	}
 
-	//get access token
+	// get access token and premises
 	var authOutput AuthOutput
 	if err := json.Unmarshal(data, &authOutput); err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to parse access token: %v", err))
 	}
 
-	// 2. set OpID
-	headers = map[string]string{
-		"Authorization": "Bearer " + authOutput.AccessToken,
+	treeRoot := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
+	for _, premises := range authOutput.Premises {
+		if premises.ConfigKeyViewed {
+			klog.InfoS("Getting topology graph for premises", "name", premises.Name, "OPID", premises.OPID)
+			if httpErr = p.getPremisesTopology(ctx, cis, treeRoot, authOutput.AccessToken, fmt.Sprintf("%d", premises.OPID)); httpErr != nil {
+				return nil, httpErr
+			}
+		}
 	}
-	url, httpErr = httpreq.GetURL(p.params.ApiURL, nil, OpIdURL, p.params.OpID)
+
+	if len(treeRoot.Vertices) == 0 {
+		return nil, httperr.NewError(http.StatusBadGateway, "no topology available from the provided premises")
+	}
+
+	return treeRoot, nil
+}
+
+func (p *Provider) getPremisesTopology(ctx context.Context, cis []topology.ComputeInstances, treeRoot *topology.Vertex, token, opid string) *httperr.Error {
+	// set OpID
+	headers := map[string]string{
+		"Authorization": "Bearer " + token,
+	}
+	url, httpErr := httpreq.GetURL(p.params.ApiURL, nil, OpIdURL, opid)
 	if httpErr != nil {
-		return nil, httpErr
+		return httpErr
 	}
 	klog.V(4).Infof("Fetching %s", url)
-	f = getRequestFunc(ctx, "GET", url, headers, nil)
-	_, data, httpErr = httpreq.DoRequest(f, true)
+	f := getRequestFunc(ctx, "GET", url, headers, nil)
+	_, data, httpErr := httpreq.DoRequest(f, true)
 	if httpErr != nil {
-		return nil, httpErr
+		return httpErr
 	}
 
 	if len(data) == 0 {
-		return nil, httperr.NewError(http.StatusBadGateway, "failed to set NetQ OpID")
+		return httperr.NewError(http.StatusBadGateway, "failed to set NetQ OpID")
 	}
 
-	//get access token
+	// get access token
+	var authOutput AuthOutput
 	if err := json.Unmarshal(data, &authOutput); err != nil {
-		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to parse access token: %v", err))
+		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to parse access token: %v", err))
 	}
 
-	// 3. get Topology
-	payload = strings.NewReader(`{"filters": [], "subgroupNestingDepth":2}`)
+	// get topology graph
+	payload := strings.NewReader(`{"filters": [], "subgroupNestingDepth":2}`)
 	headers = map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + authOutput.AccessToken,
@@ -110,21 +137,16 @@ func (p *Provider) getNetworkTree(ctx context.Context, cis []topology.ComputeIns
 	query := map[string]string{"timestamp": "0"}
 	url, httpErr = httpreq.GetURL(p.params.ApiURL, query, TopologyURL)
 	if httpErr != nil {
-		return nil, httpErr
+		return httpErr
 	}
 	klog.V(4).Infof("Fetching %s", url)
 	f = getRequestFunc(ctx, "POST", url, headers, payload)
 	_, data, httpErr = httpreq.DoRequest(f, true)
 	if httpErr != nil {
-		return nil, httpErr
+		return httpErr
 	}
 
-	var netqResponse []NetqResponse
-	if err := json.Unmarshal(data, &netqResponse); err != nil {
-		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("netq output read failed: %v", err))
-	}
-
-	return parseNetq(netqResponse, topology.GetNodeNameMap(cis))
+	return parseNetq(treeRoot, data, topology.GetNodeNameMap(cis))
 }
 
 func getRequestFunc(ctx context.Context, method, url string, headers map[string]string, payload io.Reader) httpreq.RequestFunc {
@@ -141,9 +163,14 @@ func getRequestFunc(ctx context.Context, method, url string, headers map[string]
 }
 
 // parseNetq parses Netq topology output
-func parseNetq(resp []NetqResponse, inputNodes map[string]bool) (*topology.Vertex, *httperr.Error) {
+func parseNetq(treeRoot *topology.Vertex, data []byte, inputNodes map[string]bool) *httperr.Error {
+	var resp []NetqResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("netq output read failed: %v", err))
+	}
+
 	if len(resp) != 1 {
-		return nil, httperr.NewError(http.StatusBadGateway, "invalid NetQ response: multiple entries")
+		return httperr.NewError(http.StatusBadGateway, "invalid NetQ response: multiple entries")
 	}
 
 	layer := make(map[string]*topology.Vertex)   // current layer starting from leaves (nodeId : Vertex)
@@ -154,6 +181,7 @@ func parseNetq(resp []NetqResponse, inputNodes map[string]bool) (*topology.Verte
 	// split nodes between leaves and switches
 	for _, nodelist := range resp[0].Nodes {
 		for _, cnode := range nodelist.Cnode {
+			klog.V(4).InfoS("NetQ node", "tier", cnode.Tier, "name", cnode.Name, "id", cnode.Id)
 			v := &topology.Vertex{
 				ID:   cnode.Id,
 				Name: cnode.Name,
@@ -234,13 +262,9 @@ func parseNetq(resp []NetqResponse, inputNodes map[string]bool) (*topology.Verte
 	merger.Merge()
 	top = merger.TopTier()
 
-	treeRoot := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-	}
-
 	for _, node := range top {
 		treeRoot.Vertices[node.ID] = node
 	}
 
-	return treeRoot, nil
+	return nil
 }
