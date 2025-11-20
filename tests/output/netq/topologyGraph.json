@@ -1,0 +1,1505 @@
+[
+  {
+    "links": [
+      {
+        "compounded_links": [
+          {
+            "id": "node9:swp17s0-*-node12:ens4f0np0",
+            "interfaces": [
+              {
+                "interface": "swp17s0",
+                "node": "node9"
+              },
+              {
+                "interface": "ens4f0np0",
+                "node": "node12"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp20s0-*-node12:ens1f1np3",
+            "interfaces": [
+              {
+                "interface": "swp20s0",
+                "node": "node9"
+              },
+              {
+                "interface": "ens1f1np3",
+                "node": "node12"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp19s0-*-node12:ens4f1np2",
+            "interfaces": [
+              {
+                "interface": "swp19s0",
+                "node": "node9"
+              },
+              {
+                "interface": "ens4f1np2",
+                "node": "node12"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp18s0-*-node12:ens1f0np1",
+            "interfaces": [
+              {
+                "interface": "swp18s0",
+                "node": "node9"
+              },
+              {
+                "interface": "ens1f0np1",
+                "node": "node12"
+              }
+            ]
+          }
+        ],
+        "id": "node12-*-node9",
+        "interfaces": [
+          {
+            "node": "node9"
+          },
+          {
+            "node": "node12"
+          }
+        ],
+        "size": 4,
+        "src": "node9",
+        "target": "node12"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node0:swp17s2-*-node22:ens4f0np0",
+            "interfaces": [
+              {
+                "interface": "swp17s2",
+                "node": "node0"
+              },
+              {
+                "interface": "ens4f0np0",
+                "node": "node22"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp20s2-*-node22:ens1f1np3",
+            "interfaces": [
+              {
+                "interface": "swp20s2",
+                "node": "node0"
+              },
+              {
+                "interface": "ens1f1np3",
+                "node": "node22"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp19s2-*-node22:ens4f1np2",
+            "interfaces": [
+              {
+                "interface": "swp19s2",
+                "node": "node0"
+              },
+              {
+                "interface": "ens4f1np2",
+                "node": "node22"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp18s2-*-node22:ens1f0np1",
+            "interfaces": [
+              {
+                "interface": "swp18s2",
+                "node": "node0"
+              },
+              {
+                "interface": "ens1f0np1",
+                "node": "node22"
+              }
+            ]
+          }
+        ],
+        "id": "node0-*-node22",
+        "interfaces": [
+          {
+            "node": "node0"
+          },
+          {
+            "node": "node22"
+          }
+        ],
+        "size": 4,
+        "src": "node0",
+        "target": "node22"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node9:swp17s1-*-node19:ens4f0np0",
+            "interfaces": [
+              {
+                "interface": "swp17s1",
+                "node": "node9"
+              },
+              {
+                "interface": "ens4f0np0",
+                "node": "node19"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp20s1-*-node19:ens1f1np3",
+            "interfaces": [
+              {
+                "interface": "swp20s1",
+                "node": "node9"
+              },
+              {
+                "interface": "ens1f1np3",
+                "node": "node19"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp19s1-*-node19:ens4f1np2",
+            "interfaces": [
+              {
+                "interface": "swp19s1",
+                "node": "node9"
+              },
+              {
+                "interface": "ens4f1np2",
+                "node": "node19"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp18s1-*-node19:ens1f0np1",
+            "interfaces": [
+              {
+                "interface": "swp18s1",
+                "node": "node9"
+              },
+              {
+                "interface": "ens1f0np1",
+                "node": "node19"
+              }
+            ]
+          }
+        ],
+        "id": "node19-*-node9",
+        "interfaces": [
+          {
+            "node": "node9"
+          },
+          {
+            "node": "node19"
+          }
+        ],
+        "size": 4,
+        "src": "node9",
+        "target": "node19"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node0:swp17s3-*-node2:ens4f0np0",
+            "interfaces": [
+              {
+                "interface": "swp17s3",
+                "node": "node0"
+              },
+              {
+                "interface": "ens4f0np0",
+                "node": "node2"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp20s3-*-node2:ens1f1np3",
+            "interfaces": [
+              {
+                "interface": "swp20s3",
+                "node": "node0"
+              },
+              {
+                "interface": "ens1f1np3",
+                "node": "node2"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp19s3-*-node2:ens4f1np2",
+            "interfaces": [
+              {
+                "interface": "swp19s3",
+                "node": "node0"
+              },
+              {
+                "interface": "ens4f1np2",
+                "node": "node2"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp18s3-*-node2:ens1f0np1",
+            "interfaces": [
+              {
+                "interface": "swp18s3",
+                "node": "node0"
+              },
+              {
+                "interface": "ens1f0np1",
+                "node": "node2"
+              }
+            ]
+          }
+        ],
+        "id": "node0-*-node2",
+        "interfaces": [
+          {
+            "node": "node0"
+          },
+          {
+            "node": "node2"
+          }
+        ],
+        "size": 4,
+        "src": "node0",
+        "target": "node2"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node7:ens4f0np0-*-node9:swp17s3",
+            "interfaces": [
+              {
+                "interface": "ens4f0np0",
+                "node": "node7"
+              },
+              {
+                "interface": "swp17s3",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node7:ens1f0np1-*-node9:swp18s3",
+            "interfaces": [
+              {
+                "interface": "ens1f0np1",
+                "node": "node7"
+              },
+              {
+                "interface": "swp18s3",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node7:ens4f1np2-*-node9:swp19s3",
+            "interfaces": [
+              {
+                "interface": "ens4f1np2",
+                "node": "node7"
+              },
+              {
+                "interface": "swp19s3",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node7:ens1f1np3-*-node9:swp20s3",
+            "interfaces": [
+              {
+                "interface": "ens1f1np3",
+                "node": "node7"
+              },
+              {
+                "interface": "swp20s3",
+                "node": "node9"
+              }
+            ]
+          }
+        ],
+        "id": "node7-*-node9",
+        "interfaces": [
+          {
+            "node": "node7"
+          },
+          {
+            "node": "node9"
+          }
+        ],
+        "size": 4,
+        "src": "node7",
+        "target": "node9"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node0:swp17s1-*-node24:ens4f0np0",
+            "interfaces": [
+              {
+                "interface": "swp17s1",
+                "node": "node0"
+              },
+              {
+                "interface": "ens4f0np0",
+                "node": "node24"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp20s1-*-node24:ens1f1np3",
+            "interfaces": [
+              {
+                "interface": "swp20s1",
+                "node": "node0"
+              },
+              {
+                "interface": "ens1f1np3",
+                "node": "node24"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp19s1-*-node24:ens4f1np2",
+            "interfaces": [
+              {
+                "interface": "swp19s1",
+                "node": "node0"
+              },
+              {
+                "interface": "ens4f1np2",
+                "node": "node24"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp18s1-*-node24:ens1f0np1",
+            "interfaces": [
+              {
+                "interface": "swp18s1",
+                "node": "node0"
+              },
+              {
+                "interface": "ens1f0np1",
+                "node": "node24"
+              }
+            ]
+          }
+        ],
+        "id": "node0-*-node24",
+        "interfaces": [
+          {
+            "node": "node0"
+          },
+          {
+            "node": "node24"
+          }
+        ],
+        "size": 4,
+        "src": "node0",
+        "target": "node24"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node0:swp1s3-*-node3:swp1s3",
+            "interfaces": [
+              {
+                "interface": "swp1s3",
+                "node": "node0"
+              },
+              {
+                "interface": "swp1s3",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp36-*-node3:swp4",
+            "interfaces": [
+              {
+                "interface": "swp36",
+                "node": "node0"
+              },
+              {
+                "interface": "swp4",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp50s1-*-node3:swp18s1",
+            "interfaces": [
+              {
+                "interface": "swp50s1",
+                "node": "node0"
+              },
+              {
+                "interface": "swp18s1",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp52s2-*-node3:swp20s2",
+            "interfaces": [
+              {
+                "interface": "swp52s2",
+                "node": "node0"
+              },
+              {
+                "interface": "swp20s2",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp50s0-*-node3:swp18s0",
+            "interfaces": [
+              {
+                "interface": "swp50s0",
+                "node": "node0"
+              },
+              {
+                "interface": "swp18s0",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp4s0-*-node3:swp4s0",
+            "interfaces": [
+              {
+                "interface": "swp4s0",
+                "node": "node0"
+              },
+              {
+                "interface": "swp4s0",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp52s0-*-node3:swp20s0",
+            "interfaces": [
+              {
+                "interface": "swp52s0",
+                "node": "node0"
+              },
+              {
+                "interface": "swp20s0",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp49s2-*-node3:swp17s2",
+            "interfaces": [
+              {
+                "interface": "swp49s2",
+                "node": "node0"
+              },
+              {
+                "interface": "swp17s2",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp4s3-*-node3:swp4s3",
+            "interfaces": [
+              {
+                "interface": "swp4s3",
+                "node": "node0"
+              },
+              {
+                "interface": "swp4s3",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp52s1-*-node3:swp20s1",
+            "interfaces": [
+              {
+                "interface": "swp52s1",
+                "node": "node0"
+              },
+              {
+                "interface": "swp20s1",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp1s2-*-node3:swp1s2",
+            "interfaces": [
+              {
+                "interface": "swp1s2",
+                "node": "node0"
+              },
+              {
+                "interface": "swp1s2",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp33-*-node3:swp1",
+            "interfaces": [
+              {
+                "interface": "swp33",
+                "node": "node0"
+              },
+              {
+                "interface": "swp1",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp50s3-*-node3:swp18s3",
+            "interfaces": [
+              {
+                "interface": "swp50s3",
+                "node": "node0"
+              },
+              {
+                "interface": "swp18s3",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp51s0-*-node3:swp19s0",
+            "interfaces": [
+              {
+                "interface": "swp51s0",
+                "node": "node0"
+              },
+              {
+                "interface": "swp19s0",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp49s3-*-node3:swp17s3",
+            "interfaces": [
+              {
+                "interface": "swp49s3",
+                "node": "node0"
+              },
+              {
+                "interface": "swp17s3",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp35-*-node3:swp3",
+            "interfaces": [
+              {
+                "interface": "swp35",
+                "node": "node0"
+              },
+              {
+                "interface": "swp3",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp1s1-*-node3:swp1s1",
+            "interfaces": [
+              {
+                "interface": "swp1s1",
+                "node": "node0"
+              },
+              {
+                "interface": "swp1s1",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp4s2-*-node3:swp4s2",
+            "interfaces": [
+              {
+                "interface": "swp4s2",
+                "node": "node0"
+              },
+              {
+                "interface": "swp4s2",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp51s3-*-node3:swp19s3",
+            "interfaces": [
+              {
+                "interface": "swp51s3",
+                "node": "node0"
+              },
+              {
+                "interface": "swp19s3",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp4s1-*-node3:swp4s1",
+            "interfaces": [
+              {
+                "interface": "swp4s1",
+                "node": "node0"
+              },
+              {
+                "interface": "swp4s1",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp51s1-*-node3:swp19s1",
+            "interfaces": [
+              {
+                "interface": "swp51s1",
+                "node": "node0"
+              },
+              {
+                "interface": "swp19s1",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp51s2-*-node3:swp19s2",
+            "interfaces": [
+              {
+                "interface": "swp51s2",
+                "node": "node0"
+              },
+              {
+                "interface": "swp19s2",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp49s0-*-node3:swp17s0",
+            "interfaces": [
+              {
+                "interface": "swp49s0",
+                "node": "node0"
+              },
+              {
+                "interface": "swp17s0",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp1s0-*-node3:swp1s0",
+            "interfaces": [
+              {
+                "interface": "swp1s0",
+                "node": "node0"
+              },
+              {
+                "interface": "swp1s0",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp34-*-node3:swp2",
+            "interfaces": [
+              {
+                "interface": "swp34",
+                "node": "node0"
+              },
+              {
+                "interface": "swp2",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp52s3-*-node3:swp20s3",
+            "interfaces": [
+              {
+                "interface": "swp52s3",
+                "node": "node0"
+              },
+              {
+                "interface": "swp20s3",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp49s1-*-node3:swp17s1",
+            "interfaces": [
+              {
+                "interface": "swp49s1",
+                "node": "node0"
+              },
+              {
+                "interface": "swp17s1",
+                "node": "node3"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp50s2-*-node3:swp18s2",
+            "interfaces": [
+              {
+                "interface": "swp50s2",
+                "node": "node0"
+              },
+              {
+                "interface": "swp18s2",
+                "node": "node3"
+              }
+            ]
+          }
+        ],
+        "id": "node0-*-node3",
+        "interfaces": [
+          {
+            "node": "node0"
+          },
+          {
+            "node": "node3"
+          }
+        ],
+        "size": 28,
+        "src": "node0",
+        "target": "node3"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node9:swp17s2-*-node25:ens4f0np0",
+            "interfaces": [
+              {
+                "interface": "swp17s2",
+                "node": "node9"
+              },
+              {
+                "interface": "ens4f0np0",
+                "node": "node25"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp20s2-*-node25:ens1f1np3",
+            "interfaces": [
+              {
+                "interface": "swp20s2",
+                "node": "node9"
+              },
+              {
+                "interface": "ens1f1np3",
+                "node": "node25"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp19s2-*-node25:ens4f1np2",
+            "interfaces": [
+              {
+                "interface": "swp19s2",
+                "node": "node9"
+              },
+              {
+                "interface": "ens4f1np2",
+                "node": "node25"
+              }
+            ]
+          },
+          {
+            "id": "node9:swp18s2-*-node25:ens1f0np1",
+            "interfaces": [
+              {
+                "interface": "swp18s2",
+                "node": "node9"
+              },
+              {
+                "interface": "ens1f0np1",
+                "node": "node25"
+              }
+            ]
+          }
+        ],
+        "id": "node25-*-node9",
+        "interfaces": [
+          {
+            "node": "node9"
+          },
+          {
+            "node": "node25"
+          }
+        ],
+        "size": 4,
+        "src": "node9",
+        "target": "node25"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node0:swp17s0-*-node21:ens4f0np0",
+            "interfaces": [
+              {
+                "interface": "swp17s0",
+                "node": "node0"
+              },
+              {
+                "interface": "ens4f0np0",
+                "node": "node21"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp20s0-*-node21:ens1f1np3",
+            "interfaces": [
+              {
+                "interface": "swp20s0",
+                "node": "node0"
+              },
+              {
+                "interface": "ens1f1np3",
+                "node": "node21"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp19s0-*-node21:ens4f1np2",
+            "interfaces": [
+              {
+                "interface": "swp19s0",
+                "node": "node0"
+              },
+              {
+                "interface": "ens4f1np2",
+                "node": "node21"
+              }
+            ]
+          },
+          {
+            "id": "node0:swp18s0-*-node21:ens1f0np1",
+            "interfaces": [
+              {
+                "interface": "swp18s0",
+                "node": "node0"
+              },
+              {
+                "interface": "ens1f0np1",
+                "node": "node21"
+              }
+            ]
+          }
+        ],
+        "id": "node0-*-node21",
+        "interfaces": [
+          {
+            "node": "node0"
+          },
+          {
+            "node": "node21"
+          }
+        ],
+        "size": 4,
+        "src": "node0",
+        "target": "node21"
+      },
+      {
+        "compounded_links": [
+          {
+            "id": "node3:swp22s0-*-node9:swp50s0",
+            "interfaces": [
+              {
+                "interface": "swp22s0",
+                "node": "node3"
+              },
+              {
+                "interface": "swp50s0",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp23s1-*-node9:swp51s1",
+            "interfaces": [
+              {
+                "interface": "swp23s1",
+                "node": "node3"
+              },
+              {
+                "interface": "swp51s1",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp24s3-*-node9:swp52s3",
+            "interfaces": [
+              {
+                "interface": "swp24s3",
+                "node": "node3"
+              },
+              {
+                "interface": "swp52s3",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp21s3-*-node9:swp49s3",
+            "interfaces": [
+              {
+                "interface": "swp21s3",
+                "node": "node3"
+              },
+              {
+                "interface": "swp49s3",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp23s0-*-node9:swp51s0",
+            "interfaces": [
+              {
+                "interface": "swp23s0",
+                "node": "node3"
+              },
+              {
+                "interface": "swp51s0",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp24s1-*-node9:swp52s1",
+            "interfaces": [
+              {
+                "interface": "swp24s1",
+                "node": "node3"
+              },
+              {
+                "interface": "swp52s1",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp5-*-node9:swp33",
+            "interfaces": [
+              {
+                "interface": "swp5",
+                "node": "node3"
+              },
+              {
+                "interface": "swp33",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp24s2-*-node9:swp52s2",
+            "interfaces": [
+              {
+                "interface": "swp24s2",
+                "node": "node3"
+              },
+              {
+                "interface": "swp52s2",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp22s2-*-node9:swp50s2",
+            "interfaces": [
+              {
+                "interface": "swp22s2",
+                "node": "node3"
+              },
+              {
+                "interface": "swp50s2",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp23s2-*-node9:swp51s2",
+            "interfaces": [
+              {
+                "interface": "swp23s2",
+                "node": "node3"
+              },
+              {
+                "interface": "swp51s2",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp23s3-*-node9:swp51s3",
+            "interfaces": [
+              {
+                "interface": "swp23s3",
+                "node": "node3"
+              },
+              {
+                "interface": "swp51s3",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp6-*-node9:swp34",
+            "interfaces": [
+              {
+                "interface": "swp6",
+                "node": "node3"
+              },
+              {
+                "interface": "swp34",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp8-*-node9:swp36",
+            "interfaces": [
+              {
+                "interface": "swp8",
+                "node": "node3"
+              },
+              {
+                "interface": "swp36",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp21s0-*-node9:swp49s0",
+            "interfaces": [
+              {
+                "interface": "swp21s0",
+                "node": "node3"
+              },
+              {
+                "interface": "swp49s0",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp22s1-*-node9:swp50s1",
+            "interfaces": [
+              {
+                "interface": "swp22s1",
+                "node": "node3"
+              },
+              {
+                "interface": "swp50s1",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp22s3-*-node9:swp50s3",
+            "interfaces": [
+              {
+                "interface": "swp22s3",
+                "node": "node3"
+              },
+              {
+                "interface": "swp50s3",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp21s2-*-node9:swp49s2",
+            "interfaces": [
+              {
+                "interface": "swp21s2",
+                "node": "node3"
+              },
+              {
+                "interface": "swp49s2",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp21s1-*-node9:swp49s1",
+            "interfaces": [
+              {
+                "interface": "swp21s1",
+                "node": "node3"
+              },
+              {
+                "interface": "swp49s1",
+                "node": "node9"
+              }
+            ]
+          },
+          {
+            "id": "node3:swp24s0-*-node9:swp52s0",
+            "interfaces": [
+              {
+                "interface": "swp24s0",
+                "node": "node3"
+              },
+              {
+                "interface": "swp52s0",
+                "node": "node9"
+              }
+            ]
+          }
+        ],
+        "id": "node3-*-node9",
+        "interfaces": [
+          {
+            "node": "node3"
+          },
+          {
+            "node": "node9"
+          }
+        ],
+        "size": 19,
+        "src": "node3",
+        "target": "node9"
+      }
+    ],
+    "nodes": [
+      {
+        "auto_tier": true,
+        "compounded_nodes": [
+          {
+            "auto_tier": true,
+            "default_tier": 1,
+            "device_type": "switch",
+            "id": "node0",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 45.5
+                },
+                "width": 150,
+                "x": 4000,
+                "y": 0
+              }
+            },
+            "name": "net-unit-l1",
+            "node_type": "device",
+            "parent": "1",
+            "size": 1,
+            "tier": 1
+          },
+          {
+            "auto_tier": true,
+            "default_tier": 1,
+            "device_type": "switch",
+            "id": "node9",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 45.5
+                },
+                "width": 150,
+                "x": 5000,
+                "y": 0
+              }
+            },
+            "name": "net-unit-l2",
+            "node_type": "device",
+            "parent": "1",
+            "size": 1,
+            "tier": 1
+          }
+        ],
+        "default_tier": 1,
+        "id": "tier-1",
+        "layout": {
+          "tier": {
+            "height": 243,
+            "width": 1395,
+            "x": 4500,
+            "y": 45.5
+          }
+        },
+        "name": "tier-1",
+        "node_type": "tier",
+        "size": 2,
+        "tier": 1
+      },
+      {
+        "auto_tier": true,
+        "compounded_nodes": [
+          {
+            "auto_tier": true,
+            "default_tier": -1,
+            "device_type": "discovered_via_lldp",
+            "id": "node2",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 2045.5
+                },
+                "width": 150,
+                "x": 1000,
+                "y": 2000
+              }
+            },
+            "name": "dgx-04",
+            "node_type": "device",
+            "parent": "-1",
+            "size": 1,
+            "tier": -1
+          },
+          {
+            "auto_tier": true,
+            "default_tier": -1,
+            "device_type": "discovered_via_lldp",
+            "id": "node7",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 2045.5
+                },
+                "width": 150,
+                "x": 2000,
+                "y": 2000
+              }
+            },
+            "name": "dgx-08",
+            "node_type": "device",
+            "parent": "-1",
+            "size": 1,
+            "tier": -1
+          },
+          {
+            "auto_tier": true,
+            "default_tier": -1,
+            "device_type": "discovered_via_lldp",
+            "id": "node12",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 2045.5
+                },
+                "width": 150,
+                "x": 3000,
+                "y": 2000
+              }
+            },
+            "name": "dgx-05",
+            "node_type": "device",
+            "parent": "-1",
+            "size": 1,
+            "tier": -1
+          },
+          {
+            "auto_tier": true,
+            "default_tier": -1,
+            "device_type": "discovered_via_lldp",
+            "id": "node19",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 2045.5
+                },
+                "width": 150,
+                "x": 4000,
+                "y": 2000
+              }
+            },
+            "name": "dgx-06",
+            "node_type": "device",
+            "parent": "-1",
+            "size": 1,
+            "tier": -1
+          },
+          {
+            "auto_tier": true,
+            "default_tier": -1,
+            "device_type": "discovered_via_lldp",
+            "id": "node21",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 2045.5
+                },
+                "width": 150,
+                "x": 5000,
+                "y": 2000
+              }
+            },
+            "name": "dgx-01",
+            "node_type": "device",
+            "parent": "-1",
+            "size": 1,
+            "tier": -1
+          },
+          {
+            "auto_tier": true,
+            "default_tier": -1,
+            "device_type": "discovered_via_lldp",
+            "id": "node22",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 2045.5
+                },
+                "width": 150,
+                "x": 6000,
+                "y": 2000
+              }
+            },
+            "name": "dgx-03",
+            "node_type": "device",
+            "parent": "-1",
+            "size": 1,
+            "tier": -1
+          },
+          {
+            "auto_tier": true,
+            "default_tier": -1,
+            "device_type": "discovered_via_lldp",
+            "id": "node24",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 2045.5
+                },
+                "width": 150,
+                "x": 7000,
+                "y": 2000
+              }
+            },
+            "name": "dgx-02",
+            "node_type": "device",
+            "parent": "-1",
+            "size": 1,
+            "tier": -1
+          },
+          {
+            "auto_tier": true,
+            "default_tier": -1,
+            "device_type": "discovered_via_lldp",
+            "id": "node25",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 4500,
+                  "y": 2045.5
+                },
+                "width": 150,
+                "x": 8000,
+                "y": 2000
+              }
+            },
+            "name": "dgx-07",
+            "node_type": "device",
+            "parent": "-1",
+            "size": 1,
+            "tier": -1
+          }
+        ],
+        "default_tier": -1,
+        "id": "tier-unclassified",
+        "layout": {
+          "tier": {
+            "height": 243,
+            "width": 7404,
+            "x": 4500,
+            "y": 2045.5
+          }
+        },
+        "name": "tier-unclassified",
+        "node_type": "tier",
+        "size": 8,
+        "tier": -1
+      },
+      {
+        "auto_tier": true,
+        "compounded_nodes": [
+          {
+            "auto_tier": true,
+            "default_tier": 2,
+            "device_type": "switch",
+            "id": "node3",
+            "layout": {
+              "tier": {
+                "height": 150,
+                "parent": {
+                  "x": 5000,
+                  "y": -954.5
+                },
+                "width": 150,
+                "x": 5000,
+                "y": -1000
+              }
+            },
+            "name": "net-unit-s1",
+            "node_type": "device",
+            "parent": "2",
+            "size": 1,
+            "tier": 2
+          }
+        ],
+        "default_tier": 2,
+        "id": "tier-2",
+        "layout": {
+          "tier": {
+            "height": 243,
+            "width": 417,
+            "x": 5000,
+            "y": -954.5
+          }
+        },
+        "name": "tier-2",
+        "node_type": "tier",
+        "size": 1,
+        "tier": 2
+      }
+    ]
+  }
+]

@@ -27,7 +27,6 @@ type Provider struct {
 
 type ProviderParams struct {
 	ApiURL string `mapstructure:"apiUrl"`
-	OpID   string `mapstructure:"opid"`
 }
 
 type Credentials struct {
@@ -79,19 +78,10 @@ func getParams(params map[string]any) (*ProviderParams, error) {
 		return nil, fmt.Errorf("apiUrl not provided")
 	}
 
-	if len(p.OpID) == 0 {
-		return nil, fmt.Errorf("opid not provided")
-	}
-
 	return p, nil
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
-	domains, err := p.getNvlDomains(ctx)
-	if err != nil {
-		klog.Warningf("Failed to get NVL domains: %v", err)
-	}
-
 	treeRoot, err := p.getNetworkTree(ctx, instances)
 	if err != nil {
 		return nil, err
@@ -103,7 +93,9 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		},
 	}
 
-	if domains != nil {
+	if domains, err := p.getNvlDomains(ctx); err != nil {
+		klog.Warningf("Failed to get NVL domains: %v", err)
+	} else {
 		root.Vertices[topology.TopologyBlock] = domains.ToBlocks()
 	}
 
