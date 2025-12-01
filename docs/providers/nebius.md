@@ -10,9 +10,12 @@ There are two ways to do this: using account credentials or an authorization tok
 ## Using credentials:
 
 Nebius credentials consist of the following fields:
+* `projectId`
 * `serviceAccountId`
 * `publicKeyId`
 * `privateKey`
+
+The `projectId` field is optional. If it is omitted, the project ID is retrieved from `/mnt/cloud-metadata/parent-id`.
 
 You can provide credentials either in the Topology configuration file or directly in the topology request payload.
 
@@ -21,6 +24,7 @@ You can provide credentials either in the Topology configuration file or directl
 Store your credentials in a YAML file:
 
 ```yaml
+projectId: <PROJECT-ID>
 serviceAccountId: <SERVICE-ACCOUNT-ID>
 publicKeyId: <PUBLIC-KEY-ID>
 privateKey: <PRIVATE-KEY>
@@ -47,6 +51,7 @@ Pass credentials directly in the topology request payload:
 {
   "provider": {
     "creds": {
+      "projectId": "PROJECT-ID",
       "serviceAccountId": "<SERVICE-ACCOUNT-ID>",
       "publicKeyId": "<PUBLIC-KEY-ID>",
       "privateKey": "<PRIVATE-KEY>"
