@@ -304,15 +304,20 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 	if err != nil {
 		return "", err
 	}
-	if len(pods.Items) == 0 {
-		return "", fmt.Errorf("no pods with labels %v", labels)
+
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			continue
+		}
+
+		cmd := []string{"scontrol", "show", "partition", partition}
+		buf, err := k8s.ExecInPod(ctx, eng.client, eng.config, pod.Name, pod.Namespace, cmd)
+		if err != nil {
+			return "", err
+		}
+
+		return buf.String(), nil
 	}
 
-	cmd := []string{"scontrol", "show", "partition", partition}
-	buf, err := k8s.ExecInPod(ctx, eng.client, eng.config, pods.Items[0].Name, pods.Items[0].Namespace, cmd)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	return "", fmt.Errorf("no running pods with labels %v", labels)
 }
