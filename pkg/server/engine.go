@@ -45,8 +45,10 @@ func processRequest(item any) (any, *httperr.Error) {
 }
 
 func processRequestWithRetries(delay time.Duration, tr *topology.Request, f func(*topology.Request) ([]byte, *httperr.Error)) ([]byte, *httperr.Error) {
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	attempt := 0
+	for {
 		var code int
+		attempt++
 		start := time.Now()
 
 		ret, err := f(tr)
@@ -62,12 +64,10 @@ func processRequestWithRetries(delay time.Duration, tr *topology.Request, f func
 		}
 
 		// Exponential backoff: delay = delay * 2^attempt
-		sleep := time.Duration(float64(delay) * math.Pow(2, float64(attempt)))
-		klog.Infof("Attempt %d failed: %v — retrying in %v", attempt+1, err, sleep)
+		sleep := time.Duration(float64(delay) * math.Pow(2, float64(attempt-1)))
+		klog.Infof("Attempt %d failed: %v — retrying in %v", attempt, err, sleep)
 		time.Sleep(sleep)
 	}
-
-	return nil, httperr.NewError(http.StatusInternalServerError, "no attempts")
 }
 
 func processTopologyRequest(tr *topology.Request) ([]byte, *httperr.Error) {

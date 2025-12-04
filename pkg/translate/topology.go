@@ -145,6 +145,12 @@ func (nt *NetworkTopology) initTree(root *topology.Vertex) {
 func (nt *NetworkTopology) initBlocks(root *topology.Vertex) {
 	blockRoot, ok := root.Vertices[topology.TopologyBlock]
 	if !ok {
+		klog.Warning("block topology data not found")
+		return
+	}
+
+	if len(blockRoot.Vertices) == 0 {
+		klog.Warning("no blocks found in block topology")
 		return
 	}
 

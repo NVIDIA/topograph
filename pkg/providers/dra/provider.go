@@ -7,6 +7,7 @@ package dra
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,7 +22,11 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const NAME = "dra"
+const (
+	NAME = "dra"
+
+	DomainLabel = "nvidia.com/gpu.clique"
+)
 
 type Provider struct {
 	config *rest.Config
@@ -92,7 +97,7 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 
 	domainMap := topology.NewDomainMap()
 	for _, node := range nodes.Items {
-		clusterID, ok := node.Labels["nvidia.com/gpu.clique"]
+		clusterID, ok := node.Labels[DomainLabel]
 		if !ok {
 			continue
 		}
@@ -107,6 +112,12 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		if host, ok := i2n[node.Name]; ok {
 			domainMap.AddHost(clusterID, node.Name, host)
 		}
+	}
+
+	if len(domainMap) == 0 {
+		return nil, httperr.NewError(http.StatusBadGateway,
+			fmt.Sprintf("no matching nodes found; check label %q and annotations %q and %q",
+				DomainLabel, topology.KeyNodeRegion, topology.KeyNodeInstance))
 	}
 
 	return toGraph(domainMap), nil
