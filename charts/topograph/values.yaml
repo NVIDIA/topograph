@@ -18,9 +18,8 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/nvidia/topograph
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
   tag: main
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
@@ -121,8 +120,8 @@ affinity: {}
 node-observer:
   image:
     repository: ghcr.io/nvidia/topograph
-    pullPolicy: IfNotPresent
     tag: main
+    pullPolicy: IfNotPresent
   verbosity: 3
   topograph:
     trigger:
@@ -137,6 +136,6 @@ node-data-broker:
     enabled: true
     image:
       repository: ghcr.io/nvidia/topograph
-      pullPolicy: IfNotPresent
       tag: main
+      pullPolicy: IfNotPresent
   verbosity: 3
