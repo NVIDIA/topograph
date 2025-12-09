@@ -1,0 +1,39 @@
+# Default values for topology-generator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  provider:
+    # name: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test".
+    name: infiniband-k8s
+  engine:
+    # name: "k8s" or "slinky"
+    name: k8s
+
+node-observer:
+  image:
+    repository: ghcr.io/nvidia/topograph
+    tag: main
+    pullPolicy: IfNotPresent
+  topograph:
+    trigger:
+      nodeSelector:
+        brightcomputing.com/node-category: dgx
+
+node-data-broker:
+  image:
+    repository: ghcr.io/nvidia/topograph/ib
+    pullPolicy: IfNotPresent
+    tag: main
+  securityContext:
+    privileged: true
+  nodeSelector:
+    brightcomputing.com/node-category: dgx
+  volumeMounts:
+  - name: sys-class
+    mountPath: /sys/class
+  volumes:
+  - name: sys-class
+    hostPath:
+      path: /sys/class
+      type: Directory
