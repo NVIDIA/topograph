@@ -19,7 +19,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/nvidia/topograph
   tag: main
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 imagePullSecrets: []
 nameOverride: ""
@@ -121,7 +121,7 @@ node-observer:
   image:
     repository: ghcr.io/nvidia/topograph
     tag: main
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   verbosity: 3
   topograph:
     trigger:
@@ -137,5 +137,5 @@ node-data-broker:
     image:
       repository: ghcr.io/nvidia/topograph
       tag: main
-      pullPolicy: IfNotPresent
+      pullPolicy: Always
   verbosity: 3

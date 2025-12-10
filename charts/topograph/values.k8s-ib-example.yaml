@@ -11,10 +11,6 @@ global:
     name: k8s
 
 node-observer:
-  image:
-    repository: ghcr.io/nvidia/topograph
-    tag: main
-    pullPolicy: IfNotPresent
   topograph:
     trigger:
       nodeSelector:
