@@ -220,11 +220,16 @@ func getresult(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := srv.async.queue.Get(uid)
-	if len(res.Message) != 0 {
-		http.Error(w, res.Message, res.Status)
-	} else {
+
+	switch res.Status {
+	case http.StatusOK:
 		w.WriteHeader(res.Status)
 		_, _ = w.Write(res.Ret.([]byte))
+	case http.StatusAccepted:
+		w.WriteHeader(res.Status)
+		_, _ = w.Write([]byte(res.Message))
+	default:
+		http.Error(w, res.Message, res.Status)
 	}
 }
 
