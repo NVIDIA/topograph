@@ -126,10 +126,12 @@ func (q *TrailingDelayQueue) Get(uid string) *Completion {
 		return res.(*Completion)
 	}
 
-	completion := &Completion{Message: fmt.Sprintf("no data for request ID %s", uid)}
+	completion := &Completion{}
 	if uid == q.uid {
-		completion.Status = http.StatusAccepted
+		completion.Message = fmt.Sprintf("request ID %s has not completed yet", uid)
+		completion.Status = http.StatusProcessing
 	} else {
+		completion.Message = fmt.Sprintf("request ID %s not found", uid)
 		completion.Status = http.StatusNotFound
 	}
 

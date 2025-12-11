@@ -210,9 +210,10 @@ Topograph offers three endpoints for interacting with the service. Below are the
 - **URL Query Parameters:**
   - **uid**: Specifies the request ID returned by the topology request endpoint.
 - **Response:** Depending on the request's execution stage, this endpoint can return:
-  - "404 NotFound" if the configuration is not ready yet.
-  - "200 OK" if the request has been completed successfully.
-  - "500 InternalServerError" if there was an error during request execution.
+  - "200 OK" - The request has completed successfully.
+  - "102 Processing" - The request is still in progress and has not completed yet.
+  - "404 Not Found" - The specified request ID does not exist.
+  - Other error responses encountered by Topograph during request execution.
 
 Example usage:
 
