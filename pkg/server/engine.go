@@ -18,13 +18,13 @@ package server
 
 import (
 	"context"
-	"math"
 	"net/http"
 	"time"
 
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
+	"github.com/NVIDIA/topograph/internal/httpreq"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/registry"
@@ -59,14 +59,13 @@ func processRequestWithRetries(delay time.Duration, tr *topology.Request, f func
 		}
 		metrics.AddTopologyRequest(tr.Provider.Name, tr.Engine.Name, code, time.Since(start))
 
-		if code != http.StatusInternalServerError || attempt == maxRetries {
+		if !httpreq.ShouldRetry(code) || attempt == maxRetries {
 			return ret, err
 		}
 
-		// Exponential backoff: delay = delay * 2^attempt
-		sleep := time.Duration(float64(delay) * math.Pow(2, float64(attempt-1)))
-		klog.Infof("Attempt %d failed: %v — retrying in %v", attempt, err, sleep)
-		time.Sleep(sleep)
+		wait := httpreq.GetNextBackoff(nil, delay, attempt-1)
+		klog.Infof("Attempt %d failed with error: %v. Retrying in %s", attempt, err, wait.String())
+		time.Sleep(wait)
 	}
 }
 
