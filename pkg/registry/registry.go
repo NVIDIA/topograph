@@ -28,6 +28,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/dra"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
+	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/netq"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
@@ -48,6 +49,8 @@ var Providers = providers.NewRegistry(
 	oci.NamedLoaderSim,
 	nebius.NamedLoader,
 	netq.NamedLoader,
+	lambdai.NamedLoader,
+	//TODO: add lambdai.NamedLoaderSim,
 	provider_test.NamedLoader,
 )
 
