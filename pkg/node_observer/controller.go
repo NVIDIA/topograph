@@ -17,7 +17,6 @@
 package node_observer
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -37,19 +36,14 @@ type Controller struct {
 }
 
 func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
-	var f httpreq.RequestFunc = func() (*http.Request, error) {
-		payload := topology.NewRequest(cfg.Provider, cfg.Engine)
-		data, err := json.Marshal(payload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse payload: %v", err)
-		}
-		req, err := http.NewRequestWithContext(ctx, "POST", cfg.GenerateTopologyURL, bytes.NewBuffer(data))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		return req, nil
+	headers := map[string]string{"Content-Type": "application/json"}
+	payload := topology.NewRequest(cfg.Provider, cfg.Engine)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %v", err)
 	}
+
+	f := httpreq.GetRequestFunc(ctx, http.MethodPost, headers, nil, data, cfg.GenerateTopologyURL)
 	statusInformer, err := NewStatusInformer(ctx, client, &cfg.Trigger, f)
 	if err != nil {
 		return nil, err

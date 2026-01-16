@@ -30,28 +30,17 @@ type ComputeNode struct {
 }
 
 func (p *Provider) getNvlDomains(ctx context.Context) (topology.DomainMap, *httperr.Error) {
-	url, headers, httpErr := p.getComputeUrl()
-	if httpErr != nil {
-		return nil, httpErr
-	}
+	auth := p.cred.user + ":" + p.cred.passwd
+	authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+	headers := map[string]string{"Authorization": authHeader}
 
-	klog.V(4).Infof("Fetching %s", url)
-	f := getRequestFunc(ctx, "GET", url, headers, nil)
+	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, nil, nil, p.params.ApiURL, ComputeURL)
 	_, data, err := httpreq.DoRequest(f, true)
 	if err != nil {
 		return nil, err
 	}
 
 	return parseComputeNodes(data)
-}
-
-func (p *Provider) getComputeUrl() (string, map[string]string, *httperr.Error) {
-	auth := p.cred.user + ":" + p.cred.passwd
-	authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-	headers := map[string]string{"Authorization": authHeader}
-
-	url, err := httpreq.GetURL(p.params.ApiURL, nil, ComputeURL)
-	return url, headers, err
 }
 
 func parseComputeNodes(data []byte) (topology.DomainMap, *httperr.Error) {

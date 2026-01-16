@@ -9,7 +9,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -59,17 +58,12 @@ type Premises struct {
 
 func (p *Provider) getNetworkTree(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	// login to NetQ server
-	payload := strings.NewReader(fmt.Sprintf(`{"username":%q, "password":%q}`, p.cred.user, p.cred.passwd))
+	payload := []byte(fmt.Sprintf(`{"username":%q, "password":%q}`, p.cred.user, p.cred.passwd))
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
 	}
-	url, httpErr := httpreq.GetURL(p.params.ApiURL, nil, LoginURL)
-	if httpErr != nil {
-		return nil, httpErr
-	}
-	klog.V(4).Infof("Fetching %s", url)
-	f := getRequestFunc(ctx, "POST", url, headers, payload)
+	f := httpreq.GetRequestFunc(ctx, http.MethodPost, headers, nil, payload, p.params.ApiURL, LoginURL)
 	_, data, httpErr := httpreq.DoRequest(f, true)
 	if httpErr != nil {
 		return nil, httpErr
@@ -107,12 +101,7 @@ func (p *Provider) getPremisesTopology(ctx context.Context, cis []topology.Compu
 	headers := map[string]string{
 		"Authorization": "Bearer " + token,
 	}
-	url, httpErr := httpreq.GetURL(p.params.ApiURL, nil, OpIdURL, opid)
-	if httpErr != nil {
-		return httpErr
-	}
-	klog.V(4).Infof("Fetching %s", url)
-	f := getRequestFunc(ctx, "GET", url, headers, nil)
+	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, nil, nil, p.params.ApiURL, OpIdURL, opid)
 	_, data, httpErr := httpreq.DoRequest(f, true)
 	if httpErr != nil {
 		return httpErr
@@ -129,37 +118,19 @@ func (p *Provider) getPremisesTopology(ctx context.Context, cis []topology.Compu
 	}
 
 	// get topology graph
-	payload := strings.NewReader(`{"filters": [], "subgroupNestingDepth":2}`)
+	payload := []byte(`{"filters": [], "subgroupNestingDepth":2}`)
 	headers = map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + authOutput.AccessToken,
 	}
 	query := map[string]string{"timestamp": "0"}
-	url, httpErr = httpreq.GetURL(p.params.ApiURL, query, TopologyURL)
-	if httpErr != nil {
-		return httpErr
-	}
-	klog.V(4).Infof("Fetching %s", url)
-	f = getRequestFunc(ctx, "POST", url, headers, payload)
+	f = httpreq.GetRequestFunc(ctx, http.MethodPost, headers, query, payload, p.params.ApiURL, TopologyURL)
 	_, data, httpErr = httpreq.DoRequest(f, true)
 	if httpErr != nil {
 		return httpErr
 	}
 
 	return parseNetq(treeRoot, data, topology.GetNodeNameMap(cis))
-}
-
-func getRequestFunc(ctx context.Context, method, url string, headers map[string]string, payload io.Reader) httpreq.RequestFunc {
-	return func() (*http.Request, error) {
-		req, err := http.NewRequestWithContext(ctx, method, url, payload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
-		}
-		for key, val := range headers {
-			req.Header.Add(key, val)
-		}
-		return req, nil
-	}
 }
 
 // parseNetq parses Netq topology output
