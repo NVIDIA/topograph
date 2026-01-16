@@ -6,6 +6,8 @@
 package httpreq
 
 import (
+	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -79,13 +81,13 @@ func ParseRetryAfter(resp *http.Response) (time.Duration, bool) {
 	return 0, false
 }
 
-type RequestFunc func() (*http.Request, error)
+type RequestFunc func() (*http.Request, *httperr.Error)
 
 // DoRequest sends HTTP requests and returns HTTP response
 func DoRequest(f RequestFunc, insecureSkipVerify bool) (*http.Response, []byte, *httperr.Error) {
-	req, err := f()
-	if err != nil {
-		return nil, nil, httperr.NewError(http.StatusInternalServerError, err.Error())
+	req, httpErr := f()
+	if httpErr != nil {
+		return nil, nil, httpErr
 	}
 	klog.V(4).Infof("Sending HTTP request %s", req.URL.String())
 	client := &http.Client{}
@@ -117,23 +119,23 @@ func DoRequest(f RequestFunc, insecureSkipVerify bool) (*http.Response, []byte, 
 }
 
 // DoRequestWithRetries sends HTTP requests and returns HTTP response; retries if needed
-func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) (resp *http.Response, body []byte, err *httperr.Error) {
+func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) ([]byte, *httperr.Error) {
 	klog.V(4).Infof("Sending HTTP request with retries")
 	attempt := 0
 	for {
 		attempt++
-		resp, body, err = DoRequest(f, insecureSkipVerify)
+		resp, body, err := DoRequest(f, insecureSkipVerify)
 		if err == nil || attempt == maxRetries || !ShouldRetry(err.Code()) {
-			break
+			return body, err
 		}
 		wait := GetNextBackoff(resp, baseDelay, attempt-1)
 		klog.Infof("Attempt %d failed with error: %v. Retrying in %s", attempt, err, wait.String())
 		time.Sleep(wait)
 	}
-
-	return
 }
 
+// GetURL builds a fully-qualified URL from a base URL, optional path segments,
+// and optional query parameters.
 func GetURL(baseURL string, query map[string]string, paths ...string) (string, *httperr.Error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
@@ -151,6 +153,24 @@ func GetURL(baseURL string, query map[string]string, paths ...string) (string, *
 	}
 
 	return u.String(), nil
+}
+
+func GetRequestFunc(ctx context.Context, method string, headers, query map[string]string, payload []byte, baseUrl string, paths ...string) RequestFunc {
+	return func() (*http.Request, *httperr.Error) {
+		u, httpErr := GetURL(baseUrl, query, paths...)
+		if httpErr != nil {
+			return nil, httpErr
+		}
+		klog.V(4).Infof("Fetching %s", u)
+		req, err := http.NewRequestWithContext(ctx, method, u, bytes.NewBuffer(payload))
+		if err != nil {
+			return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to create HTTP request: %v", err))
+		}
+		for key, val := range headers {
+			req.Header.Add(key, val)
+		}
+		return req, nil
+	}
 }
 
 // GetNextBackoff determines the retry delay from Retry-After header or exponential backoff

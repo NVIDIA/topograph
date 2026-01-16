@@ -11,7 +11,110 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/internal/httperr"
 )
+
+func TestShouldRetry(t *testing.T) {
+	testCases := []struct {
+		name   string
+		status int
+		retry  bool
+	}{
+		{
+			name:   "request timeout",
+			status: http.StatusRequestTimeout, // 408
+			retry:  true,
+		},
+		{
+			name:   "too many requests",
+			status: http.StatusTooManyRequests, // 429
+			retry:  true,
+		},
+		{
+			name:   "internal server error",
+			status: http.StatusInternalServerError, // 500
+			retry:  true,
+		},
+		{
+			name:   "bad gateway",
+			status: http.StatusBadGateway, // 502
+			retry:  true,
+		},
+		{
+			name:   "service unavailable",
+			status: http.StatusServiceUnavailable, // 503
+			retry:  true,
+		},
+		{
+			name:   "gateway timeout",
+			status: http.StatusGatewayTimeout, // 504
+			retry:  true,
+		},
+		{
+			name:   "ok",
+			status: http.StatusOK, // 200
+			retry:  false,
+		},
+		{
+			name:   "bad request",
+			status: http.StatusBadRequest, // 400
+			retry:  false,
+		},
+		{
+			name:   "unauthorized",
+			status: http.StatusUnauthorized, // 401
+			retry:  false,
+		},
+		{
+			name:   "not found",
+			status: http.StatusNotFound, // 404
+			retry:  false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			retry := ShouldRetry(tc.status)
+			require.Equal(t, tc.retry, retry)
+		})
+	}
+}
+
+type callback struct{ status, attempts int }
+
+func (c *callback) Inc() (*http.Request, *httperr.Error) {
+	c.attempts++
+	return nil, httperr.NewError(c.status, "error")
+}
+
+func TestDoRequestWithRetries(t *testing.T) {
+	testCases := []struct {
+		name     string
+		status   int
+		attempts int
+	}{
+		{
+			name:     "gateway timeout",
+			status:   http.StatusGatewayTimeout, // 504
+			attempts: maxRetries,
+		},
+		{
+			name:     "unauthorized",
+			status:   http.StatusUnauthorized, // 401
+			attempts: 1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &callback{status: tc.status}
+			_, err := DoRequestWithRetries(c.Inc, false)
+			require.Equal(t, tc.status, err.Code())
+			require.Equal(t, tc.attempts, c.attempts)
+		})
+	}
+}
 
 func TestGetURL(t *testing.T) {
 	testCases := []struct {

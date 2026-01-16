@@ -185,7 +185,7 @@ func (s *StatusInformer) processEvent() bool {
 	}
 	defer s.queue.Done(item)
 
-	_, _, err := httpreq.DoRequestWithRetries(s.reqFunc, false)
+	_, err := httpreq.DoRequestWithRetries(s.reqFunc, false)
 	if err != nil {
 		klog.Errorf("failed to send HTTP request: %v", err)
 	}
