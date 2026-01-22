@@ -117,6 +117,14 @@ tolerations: []
 
 affinity: {}
 
+serviceMonitor:
+  enabled: false
+  namespace: monitoring
+  port: http
+  path: /metrics
+  interval: 15s
+  scheme: http
+
 node-observer:
   image:
     repository: ghcr.io/nvidia/topograph
