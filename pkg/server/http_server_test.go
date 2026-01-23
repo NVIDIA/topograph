@@ -218,6 +218,13 @@ func TestServerLocal(t *testing.T) {
 			payload:  slurmTreePayload,
 			expected: slurmTreeConfig,
 		},
+		{
+			name:     "Case 6: mock Lambda request for tree topology",
+			endpoint: "generate",
+			provider: "lambdai-sim",
+			payload:  slurmTreePayload,
+			expected: slurmTreeConfig,
+		},
 	}
 
 	for _, tc := range testCases {

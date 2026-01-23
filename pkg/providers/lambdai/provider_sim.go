@@ -51,7 +51,7 @@ func (c *simClient) InstanceList(ctx context.Context, req *InstanceListRequest) 
 
 	var indx int
 	from := getPage(req.PageToken)
-	for indx = from; indx < from+c.pageSize; indx++ {
+	for indx = from; indx < from+c.pageSize && indx < len(c.instanceIDs); indx++ {
 		node, exists := c.model.Nodes[c.instanceIDs[indx]]
 		if !exists {
 			continue
@@ -62,7 +62,7 @@ func (c *simClient) InstanceList(ctx context.Context, req *InstanceListRequest) 
 			//TODO: check whether the below mapping is correct
 			NVLink: &NVLinkInfo{
 				DomainID: node.NVLink,
-				CliqueID: node.CapacityBlock,
+				CliqueID: "simulation",
 			},
 		}
 
