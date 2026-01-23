@@ -139,7 +139,10 @@ func NewSim(clientFactory ClientFactory) *simProvider {
 // Engine support
 
 func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
-	client, _ := p.clientFactory(nil)
+	client, err := p.clientFactory(nil)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusInternalServerError, "failed to create client")
+	}
 
 	return client.(*simClient).model.Instances, nil
 }
