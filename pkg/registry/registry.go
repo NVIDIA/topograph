@@ -50,7 +50,7 @@ var Providers = providers.NewRegistry(
 	nebius.NamedLoader,
 	netq.NamedLoader,
 	lambdai.NamedLoader,
-	//TODO: add lambdai.NamedLoaderSim,
+	lambdai.NamedLoaderSim,
 	provider_test.NamedLoader,
 )
 
