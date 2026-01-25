@@ -6,11 +6,149 @@
 package translate
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestBlockTopology(t *testing.T) {
+	testCases := []struct {
+		name   string
+		nt     *NetworkTopology
+		output string
+		err    string
+	}{
+		{
+			name: "single block without name or dynamic nodes",
+			nt: &NetworkTopology{
+				config: &Config{
+					BlockSizes: []int{2},
+				},
+				blocks: []*blockInfo{
+					{
+						id:    "b1",
+						nodes: []string{"n1", "n2"},
+					},
+				},
+			},
+			output: strings.Join([]string{
+				"BlockName=b1 Nodes=n[1-2]",
+				"BlockSizes=2",
+				"",
+			}, "\n"),
+		},
+		{
+			name: "block with name and dynamic nodes",
+			nt: &NetworkTopology{
+				config: &Config{
+					BlockSizes:   []int{2},
+					DynamicNodes: []string{"n2"},
+					MinBlocks:    3,
+				},
+				blocks: []*blockInfo{
+					{
+						id:    "b1",
+						name:  "block1",
+						nodes: []string{"n1", "n2"},
+					},
+				},
+			},
+			output: `# b1=block1
+BlockName=b1 Nodes=n1 # dynamic=n2
+BlockName=extraBlock2 Nodes=
+BlockName=extraBlock3 Nodes=
+BlockSizes=2
+`,
+		},
+		{
+			name: "fake nodes added to meet base block size",
+			nt: &NetworkTopology{
+				config: &Config{
+					BlockSizes:   []int{3},
+					FakeNodePool: "fake[1-6]",
+					MinBlocks:    3,
+				},
+				blocks: []*blockInfo{
+					{
+						id:    "b1",
+						nodes: []string{"n1"},
+					},
+					{
+						id:    "b2",
+						nodes: []string{"n2"},
+					},
+				},
+			},
+			output: `BlockName=b1 Nodes=n1,fake[1-2]
+BlockName=b2 Nodes=n2,fake[3-4]
+BlockName=extraBlock3 Nodes=
+BlockSizes=3
+`,
+		},
+		{
+			name: "not enough fake nodes to meet base block size",
+			nt: &NetworkTopology{
+				config: &Config{
+					BlockSizes:   []int{3},
+					FakeNodePool: "fake1",
+					MinBlocks:    3,
+				},
+				blocks: []*blockInfo{
+					{
+						id:    "b1",
+						nodes: []string{"n1"},
+					},
+					{
+						id:    "b2",
+						nodes: []string{"n2"},
+					},
+				},
+			},
+			err: errNotEnoughFakeNodes.Error(),
+		},
+		{
+			name: "multiple blocks with mixed settings",
+			nt: &NetworkTopology{
+				config: &Config{
+					BlockSizes:   []int{2, 4},
+					DynamicNodes: []string{"n3"},
+				},
+				blocks: []*blockInfo{
+					{
+						id:    "b1",
+						nodes: []string{"n1", "n2"},
+					},
+					{
+						id:    "b2",
+						name:  "block2",
+						nodes: []string{"n3"},
+					},
+				},
+			},
+			output: `BlockName=b1 Nodes=n[1-2]
+# b2=block2
+BlockName=b2 Nodes= # dynamic=n3
+BlockSizes=1,2
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := tc.nt.toBlockTopology(&buf)
+			if len(tc.err) != 0 {
+				require.EqualError(t, err, tc.err)
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, tc.output, buf.String())
+			}
+		})
+	}
+}
 
 func TestGetBlockSize(t *testing.T) {
 	testCases := []struct {

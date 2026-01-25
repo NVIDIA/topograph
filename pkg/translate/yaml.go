@@ -32,9 +32,10 @@ type TreeTopo struct {
 }
 
 type Switch struct {
-	Name     string `yaml:"switch"`
-	Children string `yaml:"children,omitempty"`
-	Nodes    string `yaml:"nodes,omitempty"`
+	Name         string `yaml:"switch"`
+	Children     string `yaml:"children,omitempty"`
+	Nodes        string `yaml:"nodes,omitempty"`
+	DynamicNodes string `yaml:"dynamicNodes,omitempty"`
 }
 
 type BlockTopo struct {
@@ -43,8 +44,9 @@ type BlockTopo struct {
 }
 
 type Block struct {
-	Name  string `yaml:"block"`
-	Nodes string `yaml:"nodes"`
+	Name         string `yaml:"block"`
+	Nodes        string `yaml:"nodes,omitempty"`
+	DynamicNodes string `yaml:"dynamicNodes,omitempty"`
 }
 
 // toYamlTopology generates SLURM cluster topology config in YAML format
@@ -98,8 +100,9 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer) *httperr.Error {
 
 func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {
 	// populate map [block indx : blockInfo]
-	nodeNames := cluset.Expand(topoSpec.Nodes)
+	dynamicNodesMap := nodeList2map(topoSpec.DynamicNodes)
 	blockMap := make(map[int]*blockInfo)
+	nodeNames := cluset.Expand(topoSpec.Nodes)
 	for _, nodeName := range nodeNames {
 		info, ok := nt.nodeInfo[nodeName]
 		if !ok {
@@ -134,9 +137,18 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 	// populate block topology units ordered by block indices
 	blocks := make([]*Block, 0, len(bInfos))
 	for indx, bInfo := range bInfos {
+		static, dynamic := splitNodes(bInfo.nodes, dynamicNodesMap)
 		blocks = append(blocks, &Block{
-			Name:  fmt.Sprintf("block%d", indx),
-			Nodes: strings.Join(cluset.Compact(bInfo.nodes), ","),
+			Name:         fmt.Sprintf("block%d", indx),
+			Nodes:        static,
+			DynamicNodes: dynamic,
+		})
+	}
+
+	// add empty blocks if needed
+	for indx := len(blocks) + 1; indx <= topoSpec.MinBlocks; indx++ {
+		blocks = append(blocks, &Block{
+			Name: fmt.Sprintf("extraBlock%d", indx),
 		})
 	}
 
@@ -153,6 +165,7 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 }
 
 func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, error) {
+	dynamicNodesMap := nodeList2map(topoSpec.DynamicNodes)
 	tu := &TopologyUnit{
 		Name:    topoName,
 		Default: topoSpec.ClusterDefault,
@@ -205,7 +218,7 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 					sw.Children = strings.Join(cluset.Compact(childen), ",")
 				}
 				if len(leaves) != 0 {
-					sw.Nodes = strings.Join(cluset.Compact(leaves), ",")
+					sw.Nodes, sw.DynamicNodes = splitNodes(leaves, dynamicNodesMap)
 				}
 				tu.Tree.Switches = append(tu.Tree.Switches, sw)
 			}

@@ -55,15 +55,19 @@ type BaseParams struct {
 	BlockSizes       string               `mapstructure:"block_sizes"`
 	FakeNodesEnabled bool                 `mapstructure:"fakeNodesEnabled"`
 	FakeNodePool     string               `mapstructure:"fake_node_pool"`
+	DynamicNodes     []string             `mapstructure:"dynamicNodes"`
+	MinBlocks        int                  `mapstructure:"minBlocks"`
 	Topologies       map[string]*Topology `mapstructure:"topologies,omitempty"`
 }
 
 type Topology struct {
-	Partition  string   `mapstructure:"partition"`
-	Plugin     string   `mapstructure:"plugin"`
-	BlockSizes []int    `mapstructure:"blockSizes"`
-	Nodes      []string `mapstructure:"nodes"`
-	Default    bool     `mapstructure:"clusterDefault"`
+	Partition    string   `mapstructure:"partition"`
+	Plugin       string   `mapstructure:"plugin"`
+	BlockSizes   []int    `mapstructure:"blockSizes"`
+	DynamicNodes []string `mapstructure:"dynamicNodes"`
+	MinBlocks    int      `mapstructure:"minBlocks"`
+	Nodes        []string `mapstructure:"nodes"`
+	Default      bool     `mapstructure:"clusterDefault"`
 }
 
 type Params struct {
@@ -306,8 +310,10 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 
 func GetTranslateConfig(ctx context.Context, params *BaseParams, f *TopologyNodeFinder) (*translate.Config, error) {
 	cfg := &translate.Config{
-		Plugin:     params.Plugin,
-		BlockSizes: getBlockSizes(params.BlockSizes),
+		Plugin:       params.Plugin,
+		BlockSizes:   getBlockSizes(params.BlockSizes),
+		DynamicNodes: params.DynamicNodes,
+		MinBlocks:    params.MinBlocks,
 	}
 
 	// set fake nodes
@@ -332,6 +338,8 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, f *TopologyNode
 			spec := &translate.TopologySpec{
 				Plugin:         sect.Plugin,
 				BlockSizes:     sect.BlockSizes,
+				DynamicNodes:   sect.DynamicNodes,
+				MinBlocks:      sect.MinBlocks,
 				ClusterDefault: sect.Default,
 			}
 			klog.InfoS("Adding partition topology", "name", topo, "plugin", sect.Plugin, "default", sect.Default, "partition", sect.Partition)
