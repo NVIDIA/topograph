@@ -1,0 +1,14 @@
+{
+  "provider": {
+    "name": "test",
+    "params": {
+        "testcaseName": "invalid HTTP method",
+        "description": "Return 'HTTP 405 Method Not Allowed' error when processing topology request. The caller should retry with POST method.",
+        "generateResponseCode": 405,
+        "errorMessage": "Invalid request method"
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  }
+}

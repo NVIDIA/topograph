@@ -1,0 +1,15 @@
+{
+  "provider": {
+    "name": "test",
+    "params": {
+        "testcaseName": "error 500 during topology discovery",
+        "description": "Return 'HTTP 500 InternalServerError' during topology discovery after Topograph retried 5 times with exponential backoff.",
+        "generateResponseCode": 202,
+        "topologyResponseCode": 500,
+        "errorMessage": "failed to populate NVL domains"
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  }
+}

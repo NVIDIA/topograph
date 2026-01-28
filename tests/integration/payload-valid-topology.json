@@ -1,0 +1,15 @@
+{
+  "provider": {
+    "name": "test",
+    "params": {
+        "testcaseName": "successful topology discovery",
+        "description": "Generate a valid topology config.",
+        "generateResponseCode": 202,
+        "topologyResponseCode": 200,
+        "modelFileName": "small-tree.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  }
+}
