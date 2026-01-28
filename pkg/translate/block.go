@@ -14,7 +14,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 )
@@ -98,22 +97,36 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer) *httperr.Error {
 		fnc.baseBlockSize = finalBlockSizes[0]
 	}
 
+	dynamicNodeMap := nodeList2map(nt.config.DynamicNodes)
 	for _, bInfo := range nt.blocks {
 		var comment string
 		if len(bInfo.name) != 0 {
 			comment = fmt.Sprintf("# %s=%s\n", bInfo.id, bInfo.name)
 		}
 
-		outputNodeNames := strings.Join(cluset.Compact(bInfo.nodes), ",")
+		static, dynamic := splitNodes(bInfo.nodes, dynamicNodeMap)
 		if fnc != nil && len(bInfo.nodes) < fnc.baseBlockSize {
 			fakeNodeNames, err := fnc.getFreeFakeNodes(fnc.baseBlockSize - len(bInfo.nodes))
 			if err != nil {
 				return httperr.NewError(http.StatusBadGateway, err.Error())
 			}
-			outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
+			static = fmt.Sprintf("%s,%s", static, fakeNodeNames)
 		}
 
-		if _, err := fmt.Fprintf(wr, "%sBlockName=%s Nodes=%s\n", comment, bInfo.id, outputNodeNames); err != nil {
+		// append the block line with the names of dynamic nodes, if present
+		var suffix string
+		if len(dynamic) != 0 {
+			suffix = fmt.Sprintf(" # dynamic=%s", dynamic)
+		}
+
+		if _, err := fmt.Fprintf(wr, "%sBlockName=%s Nodes=%s%s\n", comment, bInfo.id, static, suffix); err != nil {
+			return httperr.NewError(http.StatusInternalServerError, err.Error())
+		}
+	}
+
+	// add empty blocks if needed
+	for i := len(nt.blocks) + 1; i <= nt.config.MinBlocks; i++ {
+		if _, err := fmt.Fprintf(wr, "BlockName=extraBlock%d Nodes=\n", i); err != nil {
 			return httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 	}
