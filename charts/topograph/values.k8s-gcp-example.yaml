@@ -1,0 +1,26 @@
+# Default values for topology-generator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  provider:
+    name: gcp
+  engine:
+    name: k8s
+
+config:
+  credentialsSecretName: gcp-compute-client-key 
+
+node-observer:
+  topograph:
+    trigger:
+      nodeSelector:
+        brightcomputing.com/node-category: dgx
+
+node-data-broker:
+  image:
+    repository: ghcr.io/nvidia/topograph/ib
+    pullPolicy: IfNotPresent
+    tag: main
+  nodeSelector:
+    brightcomputing.com/node-category: dgx
