@@ -47,6 +47,10 @@ spec:
               value: {{ printf "%s-%s" .Release.Name "node-data-broker" | trunc 63 | trimSuffix "-" }}
             - name: NODE_DATA_BROKER_NAMESPACE
               value: {{ .Release.Namespace }}
+            {{- if and (eq .Values.global.provider.name "gcp") .Values.config.credentialsSecretName }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /etc/topograph/credentials/credentials.yaml
+            {{- end }}
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
