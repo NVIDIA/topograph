@@ -1,0 +1,15 @@
+{
+  "provider": {
+    "name": "test",
+    "params": {
+        "testcaseName": "topology request ID not found",
+        "description": "Return 'HTTP 404 Not Found' when looking up the request ID. The caller should resubmit topology request.",
+        "generateResponseCode": 202,
+        "topologyResponseCode": 404,
+        "errorMessage": "request ID 12345 not found"
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  }
+}

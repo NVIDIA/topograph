@@ -1,0 +1,14 @@
+{
+  "provider": {
+    "name": "test",
+    "params": {
+        "testcaseName": "topograph stuck at topology discovery",
+        "description": "Continuously return 'HTTP 202 Accepted' during topology discovery. The caller should stop retrying after some time and report an error.",
+        "generateResponseCode": 202,
+        "topologyResponseCode": 202
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  }
+}

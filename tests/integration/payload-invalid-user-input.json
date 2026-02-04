@@ -1,0 +1,14 @@
+{
+  "provider": {
+    "name": "test",
+    "params": {
+        "testcaseName": "invalid payload syntax",
+        "description": "Return 'HTTP 400 Bad Request' error when parsing topology request. The caller should NOT retry with the same payload.",
+        "generateResponseCode": 400,
+        "errorMessage": "failed to parse payload: json: cannot unmarshal number into Go struct field Request.nodes of type []topology.ComputeInstances"
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  }
+}
