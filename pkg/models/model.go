@@ -69,7 +69,11 @@ func NewModelFromFile(fname string) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %v", fname, err)
 	}
+	return NewModelFromData(data, fname)
+}
 
+func NewModelFromData(data []byte, fname string) (*Model, error) {
+	var err error
 	model := &Model{}
 	if err = yaml.Unmarshal(data, model); err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %v", fname, err)
