@@ -22,7 +22,7 @@ func TestBlockTopology(t *testing.T) {
 		err    string
 	}{
 		{
-			name: "single block without name or dynamic nodes",
+			name: "a block without name",
 			nt: &NetworkTopology{
 				config: &Config{
 					BlockSizes: []int{2},
@@ -41,25 +41,21 @@ func TestBlockTopology(t *testing.T) {
 			}, "\n"),
 		},
 		{
-			name: "block with name and dynamic nodes",
+			name: "a block with name",
 			nt: &NetworkTopology{
 				config: &Config{
-					BlockSizes:   []int{2},
-					DynamicNodes: []string{"n2"},
-					MinBlocks:    3,
+					BlockSizes: []int{2},
 				},
 				blocks: []*blockInfo{
 					{
-						id:    "b1",
-						name:  "block1",
+						id:    "block001",
+						name:  "nvl1",
 						nodes: []string{"n1", "n2"},
 					},
 				},
 			},
-			output: `# b1=block1
-BlockName=b1 Nodes=n1 # dynamic=n2
-BlockName=block002
-BlockName=block003
+			output: `# block001=nvl1
+BlockName=block001 Nodes=n[1-2]
 BlockSizes=2
 `,
 		},
@@ -69,22 +65,20 @@ BlockSizes=2
 				config: &Config{
 					BlockSizes:   []int{3},
 					FakeNodePool: "fake[1-6]",
-					MinBlocks:    3,
 				},
 				blocks: []*blockInfo{
 					{
-						id:    "b1",
+						id:    "block001",
 						nodes: []string{"n1"},
 					},
 					{
-						id:    "b2",
+						id:    "block002",
 						nodes: []string{"n2"},
 					},
 				},
 			},
-			output: `BlockName=b1 Nodes=n1,fake[1-2]
-BlockName=b2 Nodes=n2,fake[3-4]
-BlockName=block003
+			output: `BlockName=block001 Nodes=n1,fake[1-2]
+BlockName=block002 Nodes=n2,fake[3-4]
 BlockSizes=3
 `,
 		},
@@ -94,7 +88,6 @@ BlockSizes=3
 				config: &Config{
 					BlockSizes:   []int{3},
 					FakeNodePool: "fake1",
-					MinBlocks:    3,
 				},
 				blocks: []*blockInfo{
 					{
@@ -113,8 +106,7 @@ BlockSizes=3
 			name: "multiple blocks with mixed settings",
 			nt: &NetworkTopology{
 				config: &Config{
-					BlockSizes:   []int{2, 4},
-					DynamicNodes: []string{"n3"},
+					BlockSizes: []int{2, 4},
 				},
 				blocks: []*blockInfo{
 					{
@@ -130,7 +122,7 @@ BlockSizes=3
 			},
 			output: `BlockName=b1 Nodes=n[1-2]
 # b2=block2
-BlockName=b2 Nodes= # dynamic=n3
+BlockName=b2 Nodes=n3
 BlockSizes=1,2
 `,
 		},
