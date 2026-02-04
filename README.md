@@ -143,7 +143,7 @@ Topograph offers three endpoints for interacting with the service. Below are the
   - **provider credentials**: (optional) A key-value map with provider-specific parameters for authentication.
   - **provider parameters**: (optional) A key-value map with parameters that are used for provider simulation with toposim.
     - **generateResponseCode**: (optional) An integer parameter that specifies the response code for the generate request. Supported by Providers = [test]. Valid values [202,4xx-6xx]. Default value = 202.
-    - **topologyResponseCode**: (optional) An integer parameter that specifies the response code for the generate request. Supported by Providers = [test]. Valid values [200,4xx-6xx]. Default value = 200.  
+    - **topologyResponseCode**: (optional) An integer parameter that specifies the response code for the topology request. Supported by Providers = [test]. Valid values [200,4xx-6xx]. Default value = 200.  
     - **modelFileName**: (optional) A string parameter that specifies the name of the model file to use for simulating topology. Supported by Providers = [test].
     - **errorMessage**: (optional) A string parameter that specifies the message to be returned with error responses. Supported by Providers = [test].  
     - **model_path**: (optional) A string parameter that points to the model file to use for simulating topology.

@@ -80,7 +80,7 @@ func HandleTestProviderRequest(w http.ResponseWriter, tr *topology.Request) bool
 	}
 
 	//check and see if we need to short-circuit the request
-	if 400 <= p.GenerateResponseCode && p.GenerateResponseCode <= 699 {
+	if 400 <= p.GenerateResponseCode && p.GenerateResponseCode <= 599 {
 		http.Error(w, p.ErrorMessage, p.GenerateResponseCode)
 		return true
 	} else if p.GenerateResponseCode != http.StatusAccepted {
@@ -88,7 +88,7 @@ func HandleTestProviderRequest(w http.ResponseWriter, tr *topology.Request) bool
 		return true
 	}
 
-	//conntinue with the normal flow
+	//continue with the normal flow
 	return false
 }
 
@@ -99,7 +99,7 @@ func Loader(_ context.Context, cfg providers.Config) (providers.Provider, *httpe
 	}
 	provider := &Provider{}
 
-	if 400 <= p.TopologyResponseCode && p.TopologyResponseCode <= 699 {
+	if 400 <= p.TopologyResponseCode && p.TopologyResponseCode <= 599 {
 		return nil, httperr.NewError(p.TopologyResponseCode, p.ErrorMessage)
 	} else if p.TopologyResponseCode != 200 {
 		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("Invalid topology response code: %v", p.TopologyResponseCode))
