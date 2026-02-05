@@ -30,9 +30,9 @@ import (
 type band int
 
 const (
-	blockBand band = iota + 1
+	leafBand band = iota + 1
 	spineBand
-	datacenterBand
+	coreBand
 )
 
 type ClusterTopology struct {
@@ -40,23 +40,23 @@ type ClusterTopology struct {
 }
 
 type InstanceTopology struct {
-	InstanceID     string
-	BlockID        string
-	BlockName      string // optional
-	SpineID        string
-	SpineName      string // optional
-	DatacenterID   string
-	DatacenterName string // optional
-	AcceleratorID  string
+	InstanceID    string
+	LeafID        string
+	LeafName      string // optional
+	SpineID       string
+	SpineName     string // optional
+	CoreID        string
+	CoreName      string // optional
+	AcceleratorID string
 }
 
 func (inst *InstanceTopology) String() string {
 	var buf strings.Builder
 	buf.WriteString("Instance:" + inst.InstanceID)
-	if len(inst.BlockID) != 0 {
-		buf.WriteString(" Block:" + inst.BlockID)
-		if len(inst.BlockName) != 0 {
-			buf.WriteString(" (" + inst.BlockName + ")")
+	if len(inst.LeafID) != 0 {
+		buf.WriteString(" Leaf:" + inst.LeafID)
+		if len(inst.LeafName) != 0 {
+			buf.WriteString(" (" + inst.LeafName + ")")
 		}
 	}
 	if len(inst.SpineID) != 0 {
@@ -65,10 +65,10 @@ func (inst *InstanceTopology) String() string {
 			buf.WriteString(" (" + inst.SpineName + ")")
 		}
 	}
-	if len(inst.DatacenterID) != 0 {
-		buf.WriteString(" Datacenter:" + inst.DatacenterID)
-		if len(inst.DatacenterName) != 0 {
-			buf.WriteString(" (" + inst.DatacenterName + ")")
+	if len(inst.CoreID) != 0 {
+		buf.WriteString(" Core:" + inst.CoreID)
+		if len(inst.CoreName) != 0 {
+			buf.WriteString(" (" + inst.CoreName + ")")
 		}
 	}
 	if len(inst.AcceleratorID) != 0 {
@@ -122,8 +122,8 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 			domainMap.AddHost(inst.AcceleratorID, inst.InstanceID, nodeName)
 		}
 
-		swNames := [3]string{inst.BlockName, inst.SpineName, inst.DatacenterName}
-		for i, swID := range []string{inst.BlockID, inst.SpineID, inst.DatacenterID} {
+		swNames := [3]string{inst.LeafName, inst.SpineName, inst.CoreName}
+		for i, swID := range []string{inst.LeafID, inst.SpineID, inst.CoreID} {
 			if len(swID) == 0 {
 				continue
 			}
@@ -180,33 +180,33 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 func (c *ClusterTopology) Normalize() {
 	// sort by network hierarchy
 	sort.Slice(c.Instances, func(i, j int) bool {
-		if c.Instances[i].DatacenterID != c.Instances[j].DatacenterID {
-			return c.Instances[i].DatacenterID < c.Instances[j].DatacenterID
+		if c.Instances[i].CoreID != c.Instances[j].CoreID {
+			return c.Instances[i].CoreID < c.Instances[j].CoreID
 		}
 
 		if c.Instances[i].SpineID != c.Instances[j].SpineID {
 			return c.Instances[i].SpineID < c.Instances[j].SpineID
 		}
 
-		if c.Instances[i].BlockID != c.Instances[j].BlockID {
-			return c.Instances[i].BlockID < c.Instances[j].BlockID
+		if c.Instances[i].LeafID != c.Instances[j].LeafID {
+			return c.Instances[i].LeafID < c.Instances[j].LeafID
 		}
 
 		return c.Instances[i].InstanceID < c.Instances[j].InstanceID
 	})
 
 	// normalize switch names
-	bandCounts := map[band]int{blockBand: 0, spineBand: 0, datacenterBand: 0}
+	bandCounts := map[band]int{leafBand: 0, spineBand: 0, coreBand: 0}
 
 	switches := make(map[string]string)
 	for i, inst := range c.Instances {
-		name, ok := switches[inst.BlockID]
+		name, ok := switches[inst.LeafID]
 		if !ok {
-			bandCounts[blockBand]++
-			name = fmt.Sprintf("switch.%d.%d", blockBand, bandCounts[blockBand])
-			switches[inst.BlockID] = name
+			bandCounts[leafBand]++
+			name = fmt.Sprintf("switch.%d.%d", leafBand, bandCounts[leafBand])
+			switches[inst.LeafID] = name
 		}
-		c.Instances[i].BlockName = name
+		c.Instances[i].LeafName = name
 
 		name, ok = switches[inst.SpineID]
 		if !ok {
@@ -216,12 +216,12 @@ func (c *ClusterTopology) Normalize() {
 		}
 		c.Instances[i].SpineName = name
 
-		name, ok = switches[inst.DatacenterID]
+		name, ok = switches[inst.CoreID]
 		if !ok {
-			bandCounts[datacenterBand]++
-			name = fmt.Sprintf("switch.%d.%d", datacenterBand, bandCounts[datacenterBand])
-			switches[inst.DatacenterID] = name
+			bandCounts[coreBand]++
+			name = fmt.Sprintf("switch.%d.%d", coreBand, bandCounts[coreBand])
+			switches[inst.CoreID] = name
 		}
-		c.Instances[i].DatacenterName = name
+		c.Instances[i].CoreName = name
 	}
 }

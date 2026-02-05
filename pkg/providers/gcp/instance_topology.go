@@ -101,12 +101,12 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 					continue
 				}
 				inst := &topology.InstanceTopology{
-					InstanceID:   instanceId,
-					DatacenterID: instance.ResourceStatus.PhysicalHostTopology.GetCluster(),
-					SpineID:      instance.ResourceStatus.PhysicalHostTopology.GetBlock(),
-					BlockID:      instance.ResourceStatus.PhysicalHostTopology.GetSubblock(),
+					InstanceID: instanceId,
+					CoreID:     instance.ResourceStatus.PhysicalHostTopology.GetCluster(),
+					SpineID:    instance.ResourceStatus.PhysicalHostTopology.GetBlock(),
+					LeafID:     instance.ResourceStatus.PhysicalHostTopology.GetSubblock(),
 				}
-				inst.AcceleratorID = inst.BlockID
+				inst.AcceleratorID = inst.LeafID
 				klog.Infof("Adding topology: %s", inst.String())
 				topo.Append(inst)
 			}

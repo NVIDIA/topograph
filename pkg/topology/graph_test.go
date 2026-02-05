@@ -26,29 +26,29 @@ var (
 	instances = []*InstanceTopology{
 		{
 			InstanceID:    "i-001",
-			DatacenterID:  "nn-77777777",
+			CoreID:        "nn-77777777",
 			SpineID:       "nn-55555555",
-			BlockID:       "nn-11111111",
+			LeafID:        "nn-11111111",
 			AcceleratorID: "acc-111111",
 		},
 		{
 			InstanceID:    "i-002",
-			DatacenterID:  "nn-77777777",
+			CoreID:        "nn-77777777",
 			SpineID:       "nn-55555555",
-			BlockID:       "nn-22222222",
+			LeafID:        "nn-22222222",
 			AcceleratorID: "acc-222222",
 		},
 		{
-			InstanceID:   "i-003",
-			DatacenterID: "nn-77777777",
-			SpineID:      "nn-66666666",
-			BlockID:      "nn-33333333",
+			InstanceID: "i-003",
+			CoreID:     "nn-77777777",
+			SpineID:    "nn-66666666",
+			LeafID:     "nn-33333333",
 		},
 		{
-			InstanceID:   "i-004",
-			DatacenterID: "nn-77777777",
-			SpineID:      "nn-66666666",
-			BlockID:      "nn-44444444",
+			InstanceID: "i-004",
+			CoreID:     "nn-77777777",
+			SpineID:    "nn-66666666",
+			LeafID:     "nn-44444444",
 		},
 	}
 
@@ -76,10 +76,10 @@ func TestToThreeTierGraphNoNorm(t *testing.T) {
 	}
 	require.Equal(t, len(instances), topo.Len())
 
-	inst0 := "Instance:i-001 Block:nn-11111111 Spine:nn-55555555 Datacenter:nn-77777777 Accelerator:acc-111111"
+	inst0 := "Instance:i-001 Leaf:nn-11111111 Spine:nn-55555555 Core:nn-77777777 Accelerator:acc-111111"
 	require.Equal(t, inst0, topo.Instances[0].String())
 
-	inst2 := "Instance:i-003 Block:nn-33333333 Spine:nn-66666666 Datacenter:nn-77777777"
+	inst2 := "Instance:i-003 Leaf:nn-33333333 Spine:nn-66666666 Core:nn-77777777"
 	require.Equal(t, inst2, topo.Instances[2].String())
 
 	v31 := &Vertex{ID: "nn-11111111", Vertices: map[string]*Vertex{"i-001": n1}}
@@ -211,9 +211,9 @@ func TestToThreeTierGraphNorm(t *testing.T) {
 	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, true)
 	require.Equal(t, expected, graph)
 
-	inst0 := "Instance:i-001 Block:nn-11111111 (switch.1.1) Spine:nn-55555555 (switch.2.1) Datacenter:nn-77777777 (switch.3.1) Accelerator:acc-111111"
+	inst0 := "Instance:i-001 Leaf:nn-11111111 (switch.1.1) Spine:nn-55555555 (switch.2.1) Core:nn-77777777 (switch.3.1) Accelerator:acc-111111"
 	require.Equal(t, inst0, topo.Instances[0].String())
 
-	inst2 := "Instance:i-003 Block:nn-33333333 (switch.1.3) Spine:nn-66666666 (switch.2.2) Datacenter:nn-77777777 (switch.3.1)"
+	inst2 := "Instance:i-003 Leaf:nn-33333333 (switch.1.3) Spine:nn-66666666 (switch.2.2) Core:nn-77777777 (switch.3.1)"
 	require.Equal(t, inst2, topo.Instances[2].String())
 }

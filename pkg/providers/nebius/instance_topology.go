@@ -71,9 +71,9 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			path := ibTopology.GetPath()
 			switch len(path) {
 			case 3:
-				inst.DatacenterID = path[0]
+				inst.CoreID = path[0]
 				inst.SpineID = path[1]
-				inst.BlockID = path[2]
+				inst.LeafID = path[2]
 			default:
 				klog.Warningf("unsupported size %d of topology path for node %q", len(path), hostname)
 				continue

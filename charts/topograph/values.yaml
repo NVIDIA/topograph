@@ -47,9 +47,9 @@ config:
 
 topologyNodeLabels:
   accelerator: network.topology.nvidia.com/accelerator
-  block: network.topology.nvidia.com/block
+  leaf: network.topology.nvidia.com/leaf
   spine: network.topology.nvidia.com/spine
-  datacenter: network.topology.nvidia.com/datacenter
+  core: network.topology.nvidia.com/core
 
 podAnnotations: {}
 podLabels: {}

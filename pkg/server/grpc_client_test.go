@@ -40,9 +40,9 @@ func TestConvert(t *testing.T) {
 			},
 			out: &topology.InstanceTopology{
 				InstanceID:    "1",
-				BlockID:       "block1",
+				LeafID:        "block1",
 				SpineID:       "spine1",
-				DatacenterID:  "dc1",
+				CoreID:        "dc1",
 				AcceleratorID: "nvl1",
 			},
 		},

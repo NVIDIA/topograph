@@ -55,11 +55,11 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			for indx := range len(inst.NetworkPath) {
 				switch indx {
 				case 0:
-					t.BlockID = inst.NetworkPath[indx]
+					t.LeafID = inst.NetworkPath[indx]
 				case 1:
 					t.SpineID = inst.NetworkPath[indx]
 				case 2:
-					t.DatacenterID = inst.NetworkPath[indx]
+					t.CoreID = inst.NetworkPath[indx]
 				default:
 					klog.Warningf("unsupported size %d of topology path for instance %q", len(inst.NetworkPath), inst.ID)
 				}
