@@ -291,16 +291,12 @@ func TestGetTranslateConfig(t *testing.T) {
 		{
 			name: "Case 3: valid blocksize",
 			params: &BaseParams{
-				Plugin:       topology.TopologyBlock,
-				BlockSizes:   "2,4,8",
-				DynamicNodes: []string{"n[01-03]", "n[05,07-08]"},
-				MinBlocks:    50,
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: "2,4,8",
 			},
 			cfg: &translate.Config{
-				Plugin:       topology.TopologyBlock,
-				BlockSizes:   []int{2, 4, 8},
-				DynamicNodes: []string{"n[01-03]", "n[05,07-08]"},
-				MinBlocks:    50,
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{2, 4, 8},
 			},
 		},
 		{
@@ -341,9 +337,8 @@ func TestGetTranslateConfig(t *testing.T) {
 						Default: true,
 					},
 					"topo": {
-						Plugin:       topology.TopologyBlock,
-						DynamicNodes: []string{"n[01-03]"},
-						Nodes:        []string{"node[001-100]"},
+						Plugin: topology.TopologyBlock,
+						Nodes:  []string{"node[001-100]"},
 					},
 				},
 			},
@@ -354,9 +349,8 @@ func TestGetTranslateConfig(t *testing.T) {
 						ClusterDefault: true,
 					},
 					"topo": {
-						Plugin:       topology.TopologyBlock,
-						DynamicNodes: []string{"n[01-03]"},
-						Nodes:        []string{"node[001-100]"},
+						Plugin: topology.TopologyBlock,
+						Nodes:  []string{"node[001-100]"},
 					},
 				},
 			},

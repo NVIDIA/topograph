@@ -59,7 +59,7 @@ func TestBlockYamlTopology(t *testing.T) {
     blockSizes:
         - 2
     blocks:
-        - block: block0
+        - block: block1
           nodes: Node[104-105]
 - topology: topo2
   clusterDefault: false
@@ -67,7 +67,7 @@ func TestBlockYamlTopology(t *testing.T) {
     blockSizes:
         - 2
     blocks:
-        - block: block0
+        - block: block1
           nodes: Node[301,303]
 `
 	v, _ := GetBlockWithMultiIBTestSet()
@@ -115,8 +115,7 @@ func TestMixedYamlTopology(t *testing.T) {
         - switch: S1
           children: S[2-3]
         - switch: S6
-          nodes: Node403
-          dynamicNodes: Node[401-402]
+          nodes: Node[401-403]
         - switch: S2
           nodes: Node[104-105]
         - switch: S3
@@ -127,7 +126,7 @@ func TestMixedYamlTopology(t *testing.T) {
     blockSizes:
         - 2
     blocks:
-        - block: block0
+        - block: block1
           nodes: Node[104-105]
 - topology: topo4
   clusterDefault: false
@@ -135,11 +134,8 @@ func TestMixedYamlTopology(t *testing.T) {
     blockSizes:
         - 2
     blocks:
-        - block: block0
-          nodes: Node[301-302]
-          dynamicNodes: Node303
-        - block: extraBlock2
-        - block: extraBlock3
+        - block: block1
+          nodes: Node[301-303]
 - topology: topo5
   clusterDefault: true
   flat: true
@@ -152,20 +148,17 @@ func TestMixedYamlTopology(t *testing.T) {
 				Nodes:  []string{"Node[201,205]"},
 			},
 			"topo2": {
-				Plugin:       topology.TopologyTree,
-				Nodes:        []string{"Node[104,105]", "Node[201,205]", "Node[401-403]"},
-				DynamicNodes: []string{"Node[401-402]"},
+				Plugin: topology.TopologyTree,
+				Nodes:  []string{"Node[104,105]", "Node[201,205]", "Node[401-403]"},
 			},
 			"topo3": {
 				Plugin: topology.TopologyBlock,
 				Nodes:  []string{"Node[104,105]"},
 			},
 			"topo4": {
-				Plugin:       topology.TopologyBlock,
-				Nodes:        []string{"Node[301,302,303]"},
-				DynamicNodes: []string{"Node303"},
-				MinBlocks:    3,
-				BlockSizes:   []int{2},
+				Plugin:     topology.TopologyBlock,
+				Nodes:      []string{"Node[301,302,303]"},
+				BlockSizes: []int{2},
 			},
 			"topo5": {
 				Plugin:         topology.TopologyFlat,
@@ -187,7 +180,7 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
     blockSizes:
         - 2
     blocks:
-        - block: block0
+        - block: block1
           nodes: Node[104-105]
 - topology: topo2
   clusterDefault: false
@@ -195,7 +188,7 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
     blockSizes:
         - 2
     blocks:
-        - block: block0
+        - block: block1
           nodes: Node[301,303]
 `
 

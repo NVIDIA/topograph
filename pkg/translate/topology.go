@@ -9,12 +9,10 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 
 	"github.com/agrea/ptr"
 	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -23,8 +21,6 @@ type Config struct {
 	Plugin       string // topology plugin (cluster-wide)
 	BlockSizes   []int
 	FakeNodePool string
-	DynamicNodes []string
-	MinBlocks    int
 	Topologies   map[string]*TopologySpec // per-partiton topology settings
 }
 
@@ -32,8 +28,6 @@ type Config struct {
 type TopologySpec struct {
 	Plugin         string
 	BlockSizes     []int
-	DynamicNodes   []string
-	MinBlocks      int
 	ClusterDefault bool
 	Nodes          []string
 }
@@ -260,34 +254,4 @@ func (nt *NetworkTopology) Generate(wr io.Writer) *httperr.Error {
 		}
 		return nt.toTreeTopology(wr)
 	}
-}
-
-func nodeList2map(nodes []string) map[string]bool {
-	if len(nodes) == 0 {
-		return nil
-	}
-
-	res := make(map[string]bool)
-	for _, node := range cluset.Expand(nodes) {
-		res[node] = true
-	}
-
-	return res
-}
-
-func splitNodes(nodes []string, dynamicNodeMap map[string]bool) (string, string) {
-	if len(dynamicNodeMap) == 0 {
-		return strings.Join(cluset.Compact(nodes), ","), ""
-	}
-
-	var static, dynamic []string
-	for _, node := range nodes {
-		if dynamicNodeMap[node] {
-			dynamic = append(dynamic, node)
-		} else {
-			static = append(static, node)
-		}
-	}
-
-	return strings.Join(cluset.Compact(static), ","), strings.Join(cluset.Compact(dynamic), ",")
 }

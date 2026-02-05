@@ -39,6 +39,8 @@ BlockSizes=3
 
 	testBlockConfig1_2 = `BlockName=B1 Nodes=Node[104-106]
 BlockName=B2 Nodes=Node[201-202,205]
+BlockName=B3 Nodes=Node[304-306]
+BlockName=B4 Nodes=Node[401-403]
 BlockSizes=3
 `
 
@@ -368,21 +370,23 @@ func TestToSlurmNameShortener(t *testing.T) {
 
 func getBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 	//
-	//     ibRoot1
-	//        |
-	//        S1
-	//      /    \
-	//    S2      S3
-	//    |       |
-	//   ---     ---
-	//   I14\    I21\
-	//   I15-B1  I22-B2
-	//   I16/    I25/
-	//   ---     ---
+	//         ------core------
+	//        |                |
+	//        L1               R1
+	//      /    \           /    \
+	//    L2      L3       R2      R3
+	//    |       |        |       |
+	//   ---     ---      ---     ---
+	//   I14\    I21\     I34\    I41\
+	//   I15-B1  I22-B2   I35-B3  I42-B4
+	//   I16/    I25/     I36/    I43/
+	//   ---     ---      ---     ---
 	//
 	instance2node := map[string]string{
 		"I14": "Node104", "I15": "Node105", "I16": "Node106",
 		"I21": "Node201", "I22": "Node202", "I25": "Node205",
+		"I34": "Node304", "I35": "Node305", "I36": "Node306",
+		"I41": "Node401", "I42": "Node402", "I43": "Node403",
 	}
 
 	n14 := &topology.Vertex{ID: "I14", Name: "Node104"}
@@ -393,20 +397,42 @@ func getBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
 	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
 
-	sw2 := &topology.Vertex{
-		ID:       "S2",
+	n34 := &topology.Vertex{ID: "I34", Name: "Node304"}
+	n35 := &topology.Vertex{ID: "I35", Name: "Node305"}
+	n36 := &topology.Vertex{ID: "I36", Name: "Node306"}
+
+	n41 := &topology.Vertex{ID: "I41", Name: "Node401"}
+	n42 := &topology.Vertex{ID: "I42", Name: "Node402"}
+	n43 := &topology.Vertex{ID: "I43", Name: "Node403"}
+
+	l2 := &topology.Vertex{
+		ID:       "L2",
 		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
 	}
-	sw3 := &topology.Vertex{
-		ID:       "S3",
+	l3 := &topology.Vertex{
+		ID:       "L3",
 		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
-	sw1 := &topology.Vertex{
-		ID:       "S1",
-		Vertices: map[string]*topology.Vertex{"S2": sw2, "S3": sw3},
+	l1 := &topology.Vertex{
+		ID:       "l1",
+		Vertices: map[string]*topology.Vertex{"L2": l2, "L3": l3},
 	}
+
+	r2 := &topology.Vertex{
+		ID:       "R2",
+		Vertices: map[string]*topology.Vertex{"I34": n34, "I35": n35, "I36": n36},
+	}
+	r3 := &topology.Vertex{
+		ID:       "R3",
+		Vertices: map[string]*topology.Vertex{"I41": n41, "I42": n42, "I43": n43},
+	}
+	r1 := &topology.Vertex{
+		ID:       "r1",
+		Vertices: map[string]*topology.Vertex{"R2": r2, "R3": r3},
+	}
+
 	treeRoot := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{"S1": sw1},
+		Vertices: map[string]*topology.Vertex{"L1": l1, "R1": r1},
 	}
 
 	block1 := &topology.Vertex{
@@ -417,9 +443,19 @@ func getBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 		ID:       "B2",
 		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
 	}
+	block3 := &topology.Vertex{
+		ID:       "B3",
+		Vertices: map[string]*topology.Vertex{"I34": n34, "I35": n35, "I36": n36},
+	}
+	block4 := &topology.Vertex{
+		ID:       "B4",
+		Vertices: map[string]*topology.Vertex{"I41": n41, "I42": n42, "I43": n43},
+	}
 
 	blockRoot := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2},
+		Vertices: map[string]*topology.Vertex{
+			"B1": block1, "B2": block2, "B3": block3, "B4": block4,
+		},
 	}
 
 	root := &topology.Vertex{
