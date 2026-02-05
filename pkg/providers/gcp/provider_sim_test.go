@@ -218,10 +218,10 @@ SwitchName=tor2 Nodes=node[21-22]
 					Instances: map[string]string{"11": "node11", "12": "node12", "21": "node21", "22": "node22", "31": "node31"},
 				},
 			},
-			topology: `# block002=tor2
-BlockName=block002 Nodes=node[21-22]
-# block001=tor1
+			topology: `# block001=tor1
 BlockName=block001 Nodes=node[11-12]
+# block002=tor2
+BlockName=block002 Nodes=node[21-22]
 BlockSizes=2,4
 `,
 		},

@@ -203,10 +203,10 @@ func (nt *NetworkTopology) initBlocks(root *topology.Vertex) {
 			}
 		}
 		// sort blocks according to the node appearance in the tree
-		stack := []*topology.Vertex{treeRoot}
-		for len(stack) > 0 {
-			v := stack[0]
-			stack = stack[1:]
+		queue := []*topology.Vertex{treeRoot}
+		for len(queue) > 0 {
+			v := queue[0]
+			queue = queue[1:]
 
 			if len(v.Vertices) == 0 { // a leaf (node)
 				// check if this node hasn't been visited
@@ -226,7 +226,7 @@ func (nt *NetworkTopology) initBlocks(root *topology.Vertex) {
 				sort.Strings(keys)
 				for _, key := range keys {
 					w := v.Vertices[key]
-					stack = append([]*topology.Vertex{w}, stack...)
+					queue = append(queue, w)
 				}
 			}
 		}

@@ -37,26 +37,26 @@ BlockName=B2 Nodes=Node[201-202,205]
 BlockSizes=3
 `
 
-	testBlockConfig1_2 = `BlockName=B2 Nodes=Node[201-202,205]
-BlockName=B1 Nodes=Node[104-106]
+	testBlockConfig1_2 = `BlockName=B1 Nodes=Node[104-106]
+BlockName=B2 Nodes=Node[201-202,205]
 BlockSizes=3
 `
 
-	testBlockConfigDiffNumNodes = `BlockName=B2 Nodes=Node[201-202,205-206]
-BlockName=B1 Nodes=Node[104-106]
+	testBlockConfigDiffNumNodes = `BlockName=B1 Nodes=Node[104-106]
+BlockName=B2 Nodes=Node[201-202,205-206]
 BlockSizes=3,6
 `
 
-	testBlockConfig2 = `BlockName=B2 Nodes=Node[201-202,205]
-BlockName=B1 Nodes=Node[104-106]
+	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
 BlockName=B4 Nodes=Node[401-403]
-BlockName=B3 Nodes=Node[301-303]
+BlockName=B1 Nodes=Node[104-106]
+BlockName=B2 Nodes=Node[201-202,205]
 BlockSizes=3
 `
 
-	testBlockConfigDFS = `BlockName=B3 Nodes=Node205
-BlockName=B2 Nodes=Node[104-105]
+	testBlockConfigDFS = `BlockName=B2 Nodes=Node[104-105]
 BlockName=B1 Nodes=Node202
+BlockName=B3 Nodes=Node205
 BlockSizes=1
 `
 
@@ -72,9 +72,9 @@ SwitchName=switch.1.1 Nodes=node-1
 SwitchName=switch.1.2 Nodes=node-2
 `
 
-	testBlockConfigFakeNodes = `BlockName=B3 Nodes=Node205,fake[100-101]
-BlockName=B2 Nodes=Node[104-105],fake102
-BlockName=B1 Nodes=Node202,fake[103-104]
+	testBlockConfigFakeNodes = `BlockName=B2 Nodes=Node[104-105],fake100
+BlockName=B1 Nodes=Node202,fake[101-102]
+BlockName=B3 Nodes=Node205,fake[103-104]
 BlockSizes=3
 `
 )
