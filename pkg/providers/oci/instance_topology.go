@@ -87,10 +87,10 @@ func convert(host *core.ComputeHostSummary) (*topology.InstanceTopology, error) 
 	}
 
 	topo := &topology.InstanceTopology{
-		InstanceID:   *host.InstanceId,
-		BlockID:      *host.LocalBlockId,
-		SpineID:      *host.NetworkBlockId,
-		DatacenterID: *host.HpcIslandId,
+		InstanceID: *host.InstanceId,
+		LeafID:     *host.LocalBlockId,
+		SpineID:    *host.NetworkBlockId,
+		CoreID:     *host.HpcIslandId,
 	}
 
 	if host.GpuMemoryFabricId != nil {

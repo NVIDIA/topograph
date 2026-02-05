@@ -26,23 +26,23 @@ import (
 
 const (
 	DefaultLabelAccelerator = "network.topology.nvidia.com/accelerator"
-	DefaultLabelBlock       = "network.topology.nvidia.com/block"
+	DefaultLabelLeaf        = "network.topology.nvidia.com/leaf"
 	DefaultLabelSpine       = "network.topology.nvidia.com/spine"
-	DefaultLabelDatacenter  = "network.topology.nvidia.com/datacenter"
+	DefaultLabelCore        = "network.topology.nvidia.com/core"
 )
 
 var (
-	labelAccelerator, labelBlock, labelSpine, labelDatacenter string
+	labelAccelerator, labelLeaf, labelSpine, labelCore string
 
 	switchNetworkHierarchy []string
 )
 
-func InitLabels(accelerator, block, spine, datacenter string) {
+func InitLabels(accelerator, leaf, spine, core string) {
 	labelAccelerator = accelerator
-	labelBlock = block
+	labelLeaf = leaf
 	labelSpine = spine
-	labelDatacenter = datacenter
-	switchNetworkHierarchy = []string{labelBlock, labelSpine, labelDatacenter}
+	labelCore = core
+	switchNetworkHierarchy = []string{labelLeaf, labelSpine, labelCore}
 }
 
 // map nodename:[label name: label value]

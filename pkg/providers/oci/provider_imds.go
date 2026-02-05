@@ -78,9 +78,9 @@ func (p *imdsProvider) getComputeHostInfo(ctx context.Context, ci topology.Compu
 		if nodeTopology, ok := topoMap[node]; ok {
 			topo.Instances = append(topo.Instances, &topology.InstanceTopology{
 				InstanceID:    instanceID,
-				BlockID:       nodeTopology.LocalBlock,
+				LeafID:        nodeTopology.LocalBlock,
 				SpineID:       nodeTopology.NetworkBlock,
-				DatacenterID:  nodeTopology.HPCIslandId,
+				CoreID:        nodeTopology.HPCIslandId,
 				AcceleratorID: nodeTopology.GpuMemoryFabric,
 			})
 		}

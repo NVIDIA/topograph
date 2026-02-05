@@ -69,9 +69,9 @@ func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis [
 func convert(inst *pb.Instance) *topology.InstanceTopology {
 	topo := &topology.InstanceTopology{
 		InstanceID:    inst.Id,
-		BlockID:       inst.NetworkLayers[0],
+		LeafID:        inst.NetworkLayers[0],
 		SpineID:       inst.NetworkLayers[1],
-		DatacenterID:  inst.NetworkLayers[2],
+		CoreID:        inst.NetworkLayers[2],
 		AcceleratorID: inst.NvlinkDomain,
 	}
 	klog.V(4).Infof("Adding instance topology %s", topo.String())

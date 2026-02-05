@@ -7,9 +7,9 @@ Topograph is a tool designed to enhance scheduling decisions in Kubernetes clust
 Topograph maps both the multi-tier network hierarchy and accelerated network domains (such as NVLink) using node labels.
 Most cloud providers expose three levels of network topology through their APIs. To provide a unified view, Topograph assigns four labels to each node:
 * `network.topology.nvidia.com/accelerator`: Identifies high-speed interconnect domains, such as NVLink.
-* `network.topology.nvidia.com/block`: Indicates the switches directly connected to compute nodes.
-* `network.topology.nvidia.com/spine`: Represents the next tier of switches above the block level.
-* `network.topology.nvidia.com/datacenter`: Denotes the top-level switches.
+* `network.topology.nvidia.com/leaf`: Indicates the switches directly connected to compute nodes.
+* `network.topology.nvidia.com/spine`: Represents the next tier of switches above the leaf level.
+* `network.topology.nvidia.com/core`: Denotes the top-level switches.
 
 The names of these node labels are configurable via the [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
 
@@ -17,9 +17,9 @@ For example, if a node belongs to NVLink domain `nvl1` and connects to switch `s
 
 ```
   network.topology.nvidia.com/accelerator: nvl1
-  network.topology.nvidia.com/block: s1
+  network.topology.nvidia.com/leaf: s1
   network.topology.nvidia.com/spine: s2
-  network.topology.nvidia.com/datacenter: s3
+  network.topology.nvidia.com/core: s3
 ```
 
 <p align="center"><img src="../assets/topograph-k8s.png" width="600" alt="Design"></p>
@@ -55,15 +55,15 @@ closer network proximity.
                     operator: In
                     values:
                       - myapp
-              topologyKey: network.topology.nvidia.com/block
+              topologyKey: network.topology.nvidia.com/leaf
 ```
-Pods are prioritized to be placed on nodes sharing the label `network.topology.nvidia.com/block`.
+Pods are prioritized to be placed on nodes sharing the label `network.topology.nvidia.com/leaf`.
 These nodes are connected to the same network switch, ensuring the lowest latency for communication.
 
 Nodes with the label `network.topology.nvidia.com/spine` are next in priority.
 Pods on these nodes will still be relatively close, but with slightly higher latency.
 
-In the three-tier network, all nodes will share the same `network.topology.nvidia.com/datacenter` label,
+In the three-tier network, all nodes will share the same `network.topology.nvidia.com/core` label,
 so it doesn’t need to be included in pod affinity settings.
 
 Since the default Kubernetes scheduler places one pod at a time, the placement may vary depending on where

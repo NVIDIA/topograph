@@ -27,10 +27,10 @@ import (
 
 func TestConvert(t *testing.T) {
 	valid := &topology.InstanceTopology{
-		InstanceID:   "id",
-		BlockID:      "block",
-		SpineID:      "net",
-		DatacenterID: "datacenter",
+		InstanceID: "id",
+		LeafID:     "leaf",
+		SpineID:    "net",
+		CoreID:     "core",
 	}
 
 	testCases := []struct {
@@ -55,7 +55,7 @@ func TestConvert(t *testing.T) {
 			name: "Case 3: missing NetworkBlockId",
 			host: &core.ComputeHostSummary{
 				InstanceId:   &valid.InstanceID,
-				LocalBlockId: &valid.BlockID,
+				LocalBlockId: &valid.LeafID,
 			},
 			err: `missing NetworkBlockId for instance "id"`,
 		},
@@ -63,7 +63,7 @@ func TestConvert(t *testing.T) {
 			name: "Case 4: missing HpcIslandId",
 			host: &core.ComputeHostSummary{
 				InstanceId:     &valid.InstanceID,
-				LocalBlockId:   &valid.BlockID,
+				LocalBlockId:   &valid.LeafID,
 				NetworkBlockId: &valid.SpineID,
 			},
 			err: `missing HpcIslandId for instance "id"`,
@@ -72,9 +72,9 @@ func TestConvert(t *testing.T) {
 			name: "Case 5: valid input",
 			host: &core.ComputeHostSummary{
 				InstanceId:     &valid.InstanceID,
-				LocalBlockId:   &valid.BlockID,
+				LocalBlockId:   &valid.LeafID,
 				NetworkBlockId: &valid.SpineID,
-				HpcIslandId:    &valid.DatacenterID,
+				HpcIslandId:    &valid.CoreID,
 			},
 			topo: valid,
 		},
