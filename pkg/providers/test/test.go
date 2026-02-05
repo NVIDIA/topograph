@@ -99,7 +99,7 @@ func Loader(_ context.Context, cfg providers.Config) (providers.Provider, *httpe
 	}
 	provider := &Provider{}
 
-	if 400 <= p.TopologyResponseCode && p.TopologyResponseCode <= 599 {
+	if (400 <= p.TopologyResponseCode && p.TopologyResponseCode <= 599) || p.TopologyResponseCode == 202 {
 		return nil, httperr.NewError(p.TopologyResponseCode, p.ErrorMessage)
 	} else if p.TopologyResponseCode != 200 {
 		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("Invalid topology response code: %v", p.TopologyResponseCode))
