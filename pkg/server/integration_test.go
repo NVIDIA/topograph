@@ -91,15 +91,12 @@ func TestServerIntegration(t *testing.T) {
 				tc.timeout = 10 * time.Second
 			}
 
-			ctx, cancel := context.WithTimeout(t.Context(), tc.timeout)
-			defer cancel()
-
-			testIntegration(t, ctx, baseURL, string(payload), tc.expected, tc.generateMethod, tc.timeout)
+			testIntegration(t, baseURL, string(payload), tc.expected, tc.generateMethod, tc.timeout)
 		})
 	}
 }
 
-func testIntegration(t *testing.T, _ context.Context, baseURL, payload, expected, generateMethod string, timeout time.Duration) {
+func testIntegration(t *testing.T, baseURL, payload, expected, generateMethod string, timeout time.Duration) {
 
 	start, delay := time.Now(), 2*time.Second
 
@@ -140,15 +137,19 @@ func testIntegration(t *testing.T, _ context.Context, baseURL, payload, expected
 
 	for time.Since(start) < timeout {
 		time.Sleep(delay)
-		fmt.Println("time since start: ", time.Since(start))
 		resp, err = http.Get(fullURL)
 		require.NoError(t, err)
 
-		if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusNotFound && resp.StatusCode == tp.Provider.Params.TopologyResponseCode {
-			break
+		if resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusNotFound {
+			resp.Body.Close()
+			continue
 		}
 
-		resp.Body.Close()
+		if resp.StatusCode == tp.Provider.Params.TopologyResponseCode {
+			break
+		} else {
+			resp.Body.Close()
+		}
 	}
 
 	require.NoError(t, err)
