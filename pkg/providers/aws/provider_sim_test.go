@@ -208,10 +208,10 @@ SwitchName=tor2 Nodes=node[21-22]
 			region:    "region",
 			intervals: []interval{{11, 12}, {21, 22}, {31, 32}},
 			params:    map[string]any{"plugin": "topology/block"},
-			topology: `# block002=nvl2
-BlockName=block002 Nodes=node[21-22]
-# block001=nvl1
+			topology: `# block001=nvl1
 BlockName=block001 Nodes=node[11-12]
+# block002=nvl2
+BlockName=block002 Nodes=node[21-22]
 BlockSizes=2,4
 `,
 		},
@@ -222,10 +222,10 @@ BlockSizes=2,4
 			intervals: []interval{{101, 164}, {201, 264}},
 			pageSize:  ptr.Int(25),
 			params:    map[string]any{"plugin": "topology/block"},
-			topology: `# block002=nvl2
-BlockName=block002 Nodes=node[201-264]
-# block001=nvl1
+			topology: `# block001=nvl1
 BlockName=block001 Nodes=node[101-164]
+# block002=nvl2
+BlockName=block002 Nodes=node[201-264]
 BlockSizes=64,128
 `,
 		},

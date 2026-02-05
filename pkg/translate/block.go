@@ -126,7 +126,7 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer) *httperr.Error {
 
 	// add empty blocks if needed
 	for i := len(nt.blocks) + 1; i <= nt.config.MinBlocks; i++ {
-		if _, err := fmt.Fprintf(wr, "BlockName=extraBlock%d Nodes=\n", i); err != nil {
+		if _, err := fmt.Fprintf(wr, "BlockName=block%03d\n", i); err != nil {
 			return httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 	}

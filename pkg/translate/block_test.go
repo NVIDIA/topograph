@@ -58,8 +58,8 @@ func TestBlockTopology(t *testing.T) {
 			},
 			output: `# b1=block1
 BlockName=b1 Nodes=n1 # dynamic=n2
-BlockName=extraBlock2 Nodes=
-BlockName=extraBlock3 Nodes=
+BlockName=block002
+BlockName=block003
 BlockSizes=2
 `,
 		},
@@ -84,7 +84,7 @@ BlockSizes=2
 			},
 			output: `BlockName=b1 Nodes=n1,fake[1-2]
 BlockName=b2 Nodes=n2,fake[3-4]
-BlockName=extraBlock3 Nodes=
+BlockName=block003
 BlockSizes=3
 `,
 		},
