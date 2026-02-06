@@ -29,6 +29,7 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/metrics"
+	"github.com/NVIDIA/topograph/pkg/providers/test"
 	"github.com/NVIDIA/topograph/pkg/registry"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -128,6 +129,11 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 func generate(w http.ResponseWriter, r *http.Request) {
 	tr := readRequest(w, r)
 	if tr == nil {
+		return
+	}
+
+	// Check for test provider short-circuit [test cases handling]
+	if test.HandleTestProviderRequest(w, tr) {
 		return
 	}
 

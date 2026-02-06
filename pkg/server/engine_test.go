@@ -182,10 +182,10 @@ func TestProcessTopologyRequest(t *testing.T) {
 				Engine: topology.Engine{Name: "slurm"},
 				Provider: topology.Provider{
 					Name:   "test",
-					Params: map[string]any{"model_path": "/not/exist"},
+					Params: map[string]any{"modelFileName": "not_exist.yaml"},
 				},
 			},
-			err:  `failed to read /not/exist: open /not/exist: no such file or directory`,
+			err:  `failed to read embedded model file not_exist.yaml: open models/not_exist.yaml: file does not exist`,
 			code: http.StatusBadRequest,
 		},
 		{
@@ -194,7 +194,7 @@ func TestProcessTopologyRequest(t *testing.T) {
 				Engine: topology.Engine{Name: "slurm"},
 				Provider: topology.Provider{
 					Name:   "test",
-					Params: map[string]any{"model_path": "../../tests/models/small-tree.yaml"},
+					Params: map[string]any{"modelFileName": "small-tree.yaml"},
 				},
 			},
 			cfg: `SwitchName=S1 Switches=S[2-3]

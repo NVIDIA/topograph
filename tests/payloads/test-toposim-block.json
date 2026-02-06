@@ -2,7 +2,7 @@
   "provider": {
     "name": "test",
     "params": {
-      "model_path": "tests/models/medium.yaml"
+      "modelFileName": "medium.yaml"
     }
   },
   "engine": {

@@ -29,6 +29,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
+	"github.com/NVIDIA/topograph/tests"
 )
 
 const NAME = "test"
@@ -39,29 +40,84 @@ type Provider struct {
 }
 
 type Params struct {
-	ModelPath string `mapstructure:"model_path"`
+	TestcaseName         string `mapstructure:"testcaseName"`
+	Description          string `mapstructure:"description"`
+	GenerateResponseCode int    `mapstructure:"generateResponseCode"`
+	TopologyResponseCode int    `mapstructure:"topologyResponseCode"`
+	ModelFileName        string `mapstructure:"modelFileName"`
+	ErrorMessage         string `mapstructure:"errorMessage"`
 }
 
 func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
+func NewParams() *Params {
+	//Default params
+	p := Params{
+		GenerateResponseCode: http.StatusAccepted,
+		TopologyResponseCode: http.StatusOK,
+	}
+
+	return &p
+}
+
+func HandleTestProviderRequest(w http.ResponseWriter, tr *topology.Request) bool {
+
+	//If not test provider request, continue with the normal flow
+	if tr.Provider.Name != NAME {
+		return false
+	}
+
+	klog.InfoS("Using test provider; returning simulated response immediately")
+
+	//Parse the params
+	p := NewParams()
+	if err := config.Decode(tr.Provider.Params, p); err != nil {
+		http.Error(w, fmt.Sprintf("error decoding params: %v", err), http.StatusBadRequest)
+		return true
+	}
+
+	//check and see if we need to short-circuit the request
+	if 400 <= p.GenerateResponseCode && p.GenerateResponseCode <= 599 {
+		http.Error(w, p.ErrorMessage, p.GenerateResponseCode)
+		return true
+	} else if p.GenerateResponseCode != http.StatusAccepted {
+		http.Error(w, "Unsupported response code.", http.StatusBadRequest)
+		return true
+	}
+
+	//continue with the normal flow
+	return false
+}
+
 func Loader(_ context.Context, cfg providers.Config) (providers.Provider, *httperr.Error) {
-	var p Params
-	if err := config.Decode(cfg.Params, &p); err != nil {
+	p := NewParams()
+	if err := config.Decode(cfg.Params, p); err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("error decoding params: %v", err))
 	}
 	provider := &Provider{}
 
-	if len(p.ModelPath) == 0 {
-		provider.tree, provider.instance2node = translate.GetTreeTestSet(false)
-	} else {
-		klog.InfoS("Using simulated topology", "model path", p.ModelPath)
-		model, err := models.NewModelFromFile(p.ModelPath)
+	if (400 <= p.TopologyResponseCode && p.TopologyResponseCode <= 599) || p.TopologyResponseCode == 202 {
+		return nil, httperr.NewError(p.TopologyResponseCode, p.ErrorMessage)
+	} else if p.TopologyResponseCode != 200 {
+		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("Invalid topology response code: %v", p.TopologyResponseCode))
+	}
+
+	if len(p.ModelFileName) != 0 {
+		klog.InfoS("Using simulated topology from", "modelFileName", p.ModelFileName)
+		data, err := tests.GetModelFileData(p.ModelFileName)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("failed to read embedded model file %s: %v", p.ModelFileName, err))
+		}
+
+		model, err := models.NewModelFromData(data, p.ModelFileName)
 		if err != nil {
 			return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 		}
 		provider.tree, provider.instance2node = model.ToGraph()
+	} else {
+		provider.tree, provider.instance2node = translate.GetTreeTestSet(false)
 	}
 	return provider, nil
 }

@@ -58,6 +58,7 @@ SwitchName=S3 Nodes=Node[304-306]
   "provider": {
     "name": "%s",
     "params": {
+	  "modelFileName": "medium.yaml",
       "model_path": "../../tests/models/medium.yaml"
     }
   },
@@ -97,6 +98,7 @@ SwitchName=no-topology Nodes=n-CPU
   "provider": {
     "name": "%s",
     "params": {
+	  "modelFileName": "large.yaml",
       "model_path": "../../tests/models/large.yaml"
     }
   },
