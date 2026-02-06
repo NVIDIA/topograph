@@ -98,8 +98,6 @@ func TestServerIntegration(t *testing.T) {
 
 func testIntegration(t *testing.T, baseURL, payload, expected, generateMethod string, timeout time.Duration) {
 
-	start, delay := time.Now(), 2*time.Second
-
 	// parse payload to get the request details
 	tp, err := ParseTestPayload([]byte(payload))
 	require.NoError(t, err)
@@ -135,34 +133,45 @@ func testIntegration(t *testing.T, baseURL, payload, expected, generateMethod st
 	params.Add("uid", out)
 	fullURL := fmt.Sprintf("%s?%s", baseURL+"/v1/topology", params.Encode())
 
+	//invoke topology endpoint with retries and validate response code and body
+	code, body, err := topologyRequestWithRetries(fullURL, timeout)
+	require.NoError(t, err)
+	require.Equal(t, tp.Provider.Params.TopologyResponseCode, code)
+	if code == http.StatusOK {
+		require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
+	}
+}
+
+func topologyRequestWithRetries(url string, timeout time.Duration) (int, []byte, error) {
+
+	start, delay := time.Now(), 2*time.Second
+
+	var resp *http.Response
+	var code int
+	var err error
+	var body []byte
+
 	for time.Since(start) < timeout {
 		time.Sleep(delay)
-		resp, err = http.Get(fullURL)
-		require.NoError(t, err)
-
-		if resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusNotFound {
-			resp.Body.Close()
-			continue
+		resp, err = http.Get(url)
+		if err != nil {
+			return 0, nil, err
 		}
 
-		if resp.StatusCode == tp.Provider.Params.TopologyResponseCode {
+		code = resp.StatusCode
+		if resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusNotFound {
+			resp.Body.Close()
+		} else if resp.StatusCode == http.StatusOK {
+			body, err = io.ReadAll(resp.Body)
+			resp.Body.Close()
 			break
 		} else {
 			resp.Body.Close()
+			break
 		}
 	}
 
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	require.Equal(t, tp.Provider.Params.TopologyResponseCode, resp.StatusCode)
-	if resp.StatusCode != http.StatusOK {
-		return
-	}
-
-	body, err = io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
+	return code, body, err
 }
 
 func ParseTestPayload(data []byte) (*TestPayload, error) {
