@@ -40,7 +40,6 @@ type Provider struct {
 }
 
 type Params struct {
-	ModelPath            string `mapstructure:"model_path"`
 	TestcaseName         string `mapstructure:"testcaseName"`
 	Description          string `mapstructure:"description"`
 	GenerateResponseCode int    `mapstructure:"generateResponseCode"`
@@ -117,15 +116,8 @@ func Loader(_ context.Context, cfg providers.Config) (providers.Provider, *httpe
 			return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 		}
 		provider.tree, provider.instance2node = model.ToGraph()
-	} else if len(p.ModelPath) == 0 {
-		provider.tree, provider.instance2node = translate.GetTreeTestSet(false)
 	} else {
-		klog.InfoS("Using simulated topology", "model path", p.ModelPath)
-		model, err := models.NewModelFromFile(p.ModelPath)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, err.Error())
-		}
-		provider.tree, provider.instance2node = model.ToGraph()
+		provider.tree, provider.instance2node = translate.GetTreeTestSet(false)
 	}
 	return provider, nil
 }

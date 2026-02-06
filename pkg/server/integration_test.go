@@ -181,7 +181,6 @@ type TestPayload struct {
 type TestProvider struct {
 	Name   string `json:"name"`
 	Params struct {
-		ModelPath            string `json:"model_path,omitempty"`
 		TestcaseName         string `json:"testcaseName,omitempty"`
 		Description          string `json:"description,omitempty"`
 		GenerateResponseCode int    `json:"generateResponseCode,omitempty"`

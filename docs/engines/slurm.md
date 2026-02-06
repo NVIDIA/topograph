@@ -53,12 +53,12 @@ You must then start the toposim service as such, setting the path to the test mo
 You can then verify the topology results via simulation by querying topograph, and specifying the test model path as a parameter to the provider.
 If you want to view the tree topology, then use the command:
 ```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"params":{"model_path":"/usr/local/bin/tests/models/<cluster-model>.yaml"}}}' http://localhost:49021/v1/generate)
+id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"params":{"modelFileName":"<cluster-model>.yaml"}}}' http://localhost:49021/v1/generate)
 ```
 
 And if you want to view the block topology (with specified block sizes), use the command:
 ```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"params":{"model_path":"/usr/local/bin/tests/models/<cluster-model>.yaml"}},"engine":{"params":{"plugin":"topology/block", "block_sizes": "4,8"}}}' http://localhost:49021/v1/generate)
+id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"params":{"modelFileName":"<cluster-model>.yaml"}},"engine":{"params":{"plugin":"topology/block", "block_sizes": "4,8"}}}' http://localhost:49021/v1/generate)
 ```
 
 You can query the results of either topology request with:

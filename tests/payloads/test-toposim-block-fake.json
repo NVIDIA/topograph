@@ -2,7 +2,7 @@
     "provider": {
       "name": "test",
       "params": {
-        "model_path": "tests/models/nvl72.yaml"
+        "modelFileName": "nvl72.yaml"
       }
     },
     "engine": {

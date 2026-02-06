@@ -146,7 +146,6 @@ Topograph offers three endpoints for interacting with the service. Below are the
     - **topologyResponseCode**: (optional) An integer parameter that specifies the response code for the topology request. Supported by Providers = [test]. Valid values [200,202,4xx-6xx]. Default value = 200.  
     - **modelFileName**: (optional) A string parameter that specifies the name of the model file to use for simulating topology. Supported by Providers = [test].
     - **errorMessage**: (optional) A string parameter that specifies the message to be returned with error responses. Supported by Providers = [test].  
-    - **model_path**: (optional) A string parameter that points to the model file to use for simulating topology.
   - **engine name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, or `slinky`. This parameter will override the engine set in the topograph config.
   - **engine parameters**: (optional) A key-value map with engine-specific parameters.
     - **slurm parameters**:
@@ -173,9 +172,6 @@ Topograph offers three endpoints for interacting with the service. Below are the
       "accessKeyId": "id",
       "secretAccessKey": "secret"
     },
-    "params": {
-      "model_path": ""
-    }
   },
   "engine": {
     "name": "slurm",
