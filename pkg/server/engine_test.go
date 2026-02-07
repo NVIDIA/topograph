@@ -85,6 +85,9 @@ func (r *retrier) callback(_ *topology.Request) ([]byte, *httperr.Error) {
 }
 
 func TestProcessRequestWithRetries(t *testing.T) {
+	backOff = time.Millisecond
+	defer func() { backOff = defaultBackOff }()
+
 	tr := &topology.Request{
 		Provider: topology.Provider{
 			Name: "test",
@@ -120,7 +123,7 @@ func TestProcessRequestWithRetries(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret, err := processRequestWithRetries(time.Millisecond, tr, tc.retrier.callback)
+			ret, err := processRequestWithRetries(tr, tc.retrier.callback)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 				require.Equal(t, tc.code, err.Code())
