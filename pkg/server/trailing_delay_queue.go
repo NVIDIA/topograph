@@ -113,6 +113,11 @@ func (q *TrailingDelayQueue) Submit(item any) string {
 	q.lastTime = time.Now()
 	if len(q.uid) == 0 {
 		q.uid = uuid.New().String()
+		res := &Completion{
+			Status:  http.StatusAccepted,
+			Message: fmt.Sprintf("request ID %s has not completed yet", q.uid),
+		}
+		q.store.Add(q.uid, res)
 	}
 
 	return q.uid
@@ -126,16 +131,10 @@ func (q *TrailingDelayQueue) Get(uid string) *Completion {
 		return res.(*Completion)
 	}
 
-	completion := &Completion{}
-	if uid == q.uid {
-		completion.Message = fmt.Sprintf("request ID %s has not completed yet", uid)
-		completion.Status = http.StatusAccepted
-	} else {
-		completion.Message = fmt.Sprintf("request ID %s not found", uid)
-		completion.Status = http.StatusNotFound
+	return &Completion{
+		Message: fmt.Sprintf("request ID %s not found", uid),
+		Status:  http.StatusNotFound,
 	}
-
-	return completion
 }
 
 func (q *TrailingDelayQueue) Shutdown() {

@@ -238,7 +238,7 @@ func TestGetNextBackoff(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			wait := GetNextBackoff(tc.resp, baseDelay, tc.iter)
+			wait := GetNextBackoff(tc.resp, backOff, tc.iter)
 			correct := tc.check(wait)
 			require.True(t, correct)
 		})
