@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/version"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/dra"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
@@ -37,20 +38,18 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 )
 
-var GitTag string
-
 func main() {
 	var provider string
-	var version bool
+	var ver bool
 	flag.StringVar(&provider, "provider", "", "API provider")
-	flag.BoolVar(&version, "version", false, "show the version")
+	flag.BoolVar(&ver, "version", false, "show the version")
 
 	klog.InitFlags(nil)
 	flag.Parse()
 	defer klog.Flush()
 
-	if version {
-		fmt.Println("Version:", GitTag)
+	if ver {
+		fmt.Println("Version:", version.Version)
 		os.Exit(0)
 	}
 

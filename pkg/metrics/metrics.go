@@ -21,9 +21,20 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/NVIDIA/topograph/internal/version"
 )
 
 var (
+	versionInfo = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name:      "version",
+			Help:      "Topograph version",
+			Subsystem: "topograph",
+		},
+		[]string{"version"},
+	)
+
 	httpRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:      "http_request_duration_seconds",
@@ -64,6 +75,7 @@ var (
 )
 
 func init() {
+	prometheus.MustRegister(versionInfo)
 	prometheus.MustRegister(httpRequestDuration)
 	prometheus.MustRegister(topologyRequestDuration)
 	prometheus.MustRegister(missingTopologyNodes)
@@ -73,6 +85,7 @@ func init() {
 func AddHttpRequest(method, path, proto, from string, code int, duration time.Duration) {
 	status := fmt.Sprintf("%d", code)
 	httpRequestDuration.WithLabelValues(method, path, proto, from, status).Observe(duration.Seconds())
+	versionInfo.WithLabelValues(version.Version).Set(1)
 }
 
 func AddTopologyRequest(provider, engine string, code int, duration time.Duration) {
