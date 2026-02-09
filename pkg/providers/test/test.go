@@ -29,7 +29,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
-	"github.com/NVIDIA/topograph/tests"
 )
 
 const NAME = "test"
@@ -106,15 +105,11 @@ func Loader(_ context.Context, cfg providers.Config) (providers.Provider, *httpe
 
 	if len(p.ModelFileName) != 0 {
 		klog.InfoS("Using simulated topology from", "modelFileName", p.ModelFileName)
-		data, err := tests.GetModelFileData(p.ModelFileName)
+		model, err := models.NewModelFromFile(p.ModelFileName)
 		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("failed to read embedded model file %s: %v", p.ModelFileName, err))
+			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("failed to read model file %s: %v", p.ModelFileName, err))
 		}
 
-		model, err := models.NewModelFromData(data, p.ModelFileName)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, err.Error())
-		}
 		provider.tree, provider.instance2node = model.ToGraph()
 	} else {
 		provider.tree, provider.instance2node = translate.GetTreeTestSet(false)

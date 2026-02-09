@@ -2,7 +2,7 @@
   "provider": {
     "name": "aws-sim",
     "params": {
-      "model_path": "tests/models/nvl72.yaml"
+      "modelFileName": "tests/models/nvl72.yaml"
     }
   },
   "engine": {

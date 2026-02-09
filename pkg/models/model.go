@@ -19,12 +19,14 @@ package models
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/tests"
 )
 
 type Model struct {
@@ -65,7 +67,17 @@ func (n *Node) String() string {
 }
 
 func NewModelFromFile(fname string) (*Model, error) {
-	data, err := os.ReadFile(fname)
+	var err error
+	var data []byte
+	//Check if the fileName includes the path (absolute or relative).
+	//If it is just the fileName, load it from the testdata directory first, otherwise fallback to the given path
+	dir, fileName := filepath.Split(fname)
+	if len(dir) == 0 {
+		data, err = tests.GetModelFileData(fileName)
+	} else {
+		data, err = os.ReadFile(fname)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %v", fname, err)
 	}

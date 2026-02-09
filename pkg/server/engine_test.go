@@ -188,7 +188,7 @@ func TestProcessTopologyRequest(t *testing.T) {
 					Params: map[string]any{"modelFileName": "not_exist.yaml"},
 				},
 			},
-			err:  `failed to read embedded model file not_exist.yaml: open models/not_exist.yaml: file does not exist`,
+			err:  `failed to read model file not_exist.yaml: failed to read not_exist.yaml: open models/not_exist.yaml: file does not exist`,
 			code: http.StatusBadRequest,
 		},
 		{

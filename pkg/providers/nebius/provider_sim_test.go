@@ -177,8 +177,8 @@ SwitchName=tor2 Nodes=node[21-22]
 
 			cfg := providers.Config{
 				Params: map[string]any{
-					"model_path": f.Name(),
-					"api_error":  tc.apiErr,
+					"modelFileName": f.Name(),
+					"api_error":     tc.apiErr,
 				},
 			}
 			provider, httpErr := LoaderSim(ctx, cfg)

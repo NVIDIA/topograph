@@ -26,8 +26,8 @@ import (
 var ErrAPIError = errors.New("API error")
 
 type SimulationParams struct {
-	ModelPath string `mapstructure:"model_path"`
-	APIError  int    `mapstructure:"api_error"`
+	ModelFileName string `mapstructure:"modelFileName"`
+	APIError      int    `mapstructure:"api_error"`
 }
 
 func GetSimulationParams(params map[string]any) (*SimulationParams, error) {
@@ -35,8 +35,8 @@ func GetSimulationParams(params map[string]any) (*SimulationParams, error) {
 	if err := config.Decode(params, &p); err != nil {
 		return nil, fmt.Errorf("error decoding params: %w", err)
 	}
-	if len(p.ModelPath) == 0 {
-		return nil, fmt.Errorf("no model path for simulation")
+	if len(p.ModelFileName) == 0 {
+		return nil, fmt.Errorf("no model file name for simulation")
 	}
 	return &p, nil
 }
