@@ -30,7 +30,7 @@ build:
 	@for target in $(TARGETS); do \
 	  echo "Building $${target} for $(GOOS)/$(GOARCH)"; \
 	  CGO_ENABLED=0 go build -a -o $(OUTPUT_DIR)/$${target} \
-	    -ldflags '-extldflags "-static" -X main.GitTag=$(GIT_REF)' \
+	    -ldflags '-extldflags "-static" -X github.com/NVIDIA/topograph/internal/version.Version=$(GIT_REF)' \
 	    $(CMD_DIR)/$${target}; \
 	done
 

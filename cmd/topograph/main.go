@@ -26,30 +26,29 @@ import (
 	"github.com/oklog/run"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/version"
 	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/engines/k8s"
 	"github.com/NVIDIA/topograph/pkg/server"
 )
 
-var GitTag string
-
 func main() {
 	var cfg string
 	var labelAccelerator, labelLeaf, labelSpine, labelCore string
-	var version bool
+	var ver bool
 	flag.StringVar(&cfg, "c", "/etc/topograph/topograph-config.yaml", "config file")
 	flag.StringVar(&labelAccelerator, "k8s-topology-key-accelerator", k8s.DefaultLabelAccelerator, "K8s node label for accelerated network type")
 	flag.StringVar(&labelLeaf, "k8s-topology-key-leaf", k8s.DefaultLabelLeaf, "K8s node label for the cluster's lower network tier")
 	flag.StringVar(&labelSpine, "k8s-topology-key-spine", k8s.DefaultLabelSpine, "K8s node label for the cluster's middle network tier")
 	flag.StringVar(&labelCore, "k8s-topology-key-core", k8s.DefaultLabelCore, "K8s node label for the cluster's top network tier")
-	flag.BoolVar(&version, "version", false, "show the version")
+	flag.BoolVar(&ver, "version", false, "show the version")
 
 	klog.InitFlags(nil)
 	flag.Parse()
 	defer klog.Flush()
 
-	if version {
-		fmt.Println("Version:", GitTag)
+	if ver {
+		fmt.Println("Version:", version.Version)
 		os.Exit(0)
 	}
 
