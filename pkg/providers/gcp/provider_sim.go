@@ -137,7 +137,7 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	model, err := models.NewModelFromFile(p.ModelPath)
+	model, err := models.NewModelFromFile(p.ModelFileName)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("failed to load model file: %v", err))
 	}

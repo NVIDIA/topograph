@@ -2,7 +2,7 @@
   "provider": {
     "name": "oci-sim",
     "params": {
-      "model_path": "tests/models/large.yaml"
+      "modelFileName": "tests/models/large.yaml"
     }
   },
   "engine": {

@@ -2,7 +2,7 @@
   "provider": {
     "name": "aws-sim",
     "params": {
-      "model_path": "tests/models/medium.yaml"
+      "modelFileName": "tests/models/medium.yaml"
     }
   },
   "engine": {

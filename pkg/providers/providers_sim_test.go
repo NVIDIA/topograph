@@ -32,23 +32,23 @@ func TestGetSimParams(t *testing.T) {
 		{
 			name:   "Case 1: no input",
 			params: nil,
-			err:    "no model path for simulation",
+			err:    "no model file name for simulation",
 		},
 		{
 			name:   "Case 2: empty input",
 			params: make(map[string]any),
-			err:    "no model path for simulation",
+			err:    "no model file name for simulation",
 		},
 		{
 			name:   "Case 3: missing model",
 			params: map[string]any{"key": "value"},
-			err:    "no model path for simulation",
+			err:    "no model file name for simulation",
 		},
 		{
 			name:   "Case 4: valid input",
-			params: map[string]any{"model_path": "/path/to/model"},
+			params: map[string]any{"modelFileName": "/path/to/model"},
 			sim: &SimulationParams{
-				ModelPath: "/path/to/model",
+				ModelFileName: "/path/to/model",
 			},
 		},
 	}
