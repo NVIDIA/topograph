@@ -32,19 +32,21 @@ import (
 )
 
 const (
-	maxRetries = 5
-	baseDelay  = 2 * time.Second
+	maxRetries     = 5
+	defaultBackOff = 2 * time.Second
 )
 
-type asyncController struct {
-	queue *TrailingDelayQueue
+var backOff time.Duration
+
+func init() {
+	backOff = defaultBackOff
 }
 
 func processRequest(item any) (any, *httperr.Error) {
-	return processRequestWithRetries(baseDelay, item.(*topology.Request), processTopologyRequest)
+	return processRequestWithRetries(item.(*topology.Request), processTopologyRequest)
 }
 
-func processRequestWithRetries(delay time.Duration, tr *topology.Request, f func(*topology.Request) ([]byte, *httperr.Error)) ([]byte, *httperr.Error) {
+func processRequestWithRetries(tr *topology.Request, f func(*topology.Request) ([]byte, *httperr.Error)) ([]byte, *httperr.Error) {
 	attempt := 0
 	for {
 		var code int
@@ -63,7 +65,7 @@ func processRequestWithRetries(delay time.Duration, tr *topology.Request, f func
 			return ret, err
 		}
 
-		wait := httpreq.GetNextBackoff(nil, delay, attempt-1)
+		wait := httpreq.GetNextBackoff(nil, backOff, attempt-1)
 		klog.Infof("Attempt %d failed with error: %v. Retrying in %s", attempt, err, wait.String())
 		time.Sleep(wait)
 	}

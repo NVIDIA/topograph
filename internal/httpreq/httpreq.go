@@ -27,8 +27,8 @@ const (
 	// maxRetries is the maximum number of retry attempts
 	maxRetries = 5
 
-	// baseDelay is the initial delay used for retry backoff
-	baseDelay = 500 * time.Millisecond
+	// backOff is the initial delay used for retry backoff
+	backOff = 500 * time.Millisecond
 
 	// maxRetryAfter is the maximum delay allowed when honoring a Retry-After header
 	maxRetryAfter = 5 * time.Minute
@@ -128,7 +128,7 @@ func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) ([]byte, *http
 		if err == nil || attempt == maxRetries || !ShouldRetry(err.Code()) {
 			return body, err
 		}
-		wait := GetNextBackoff(resp, baseDelay, attempt-1)
+		wait := GetNextBackoff(resp, backOff, attempt-1)
 		klog.Infof("Attempt %d failed with error: %v. Retrying in %s", attempt, err, wait.String())
 		time.Sleep(wait)
 	}

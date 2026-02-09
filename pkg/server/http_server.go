@@ -41,6 +41,10 @@ type HttpServer struct {
 	async *asyncController
 }
 
+type asyncController struct {
+	queue *TrailingDelayQueue
+}
+
 var srv *HttpServer
 
 func InitHttpServer(ctx context.Context, cfg *config.Config) {

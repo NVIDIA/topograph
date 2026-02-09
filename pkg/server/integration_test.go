@@ -31,6 +31,8 @@ SwitchName=S3 Nodes=I[34-36]
 )
 
 func TestServerIntegration(t *testing.T) {
+	backOff = 100 * time.Millisecond
+	defer func() { backOff = defaultBackOff }()
 
 	port, err := test.GetAvailablePort()
 	require.NoError(t, err)
@@ -58,7 +60,7 @@ func TestServerIntegration(t *testing.T) {
 	}{
 		{
 			filename: "../../tests/integration/payload-error-500-after-retries.json",
-			timeout:  1 * time.Minute,
+			timeout:  time.Minute,
 		},
 		{
 			filename:       "../../tests/integration/payload-invalid-http-method.json",
@@ -88,7 +90,7 @@ func TestServerIntegration(t *testing.T) {
 			payload, err := io.ReadAll(payloadFile)
 			require.NoError(t, err)
 			if tc.timeout <= 0 {
-				tc.timeout = 10 * time.Second
+				tc.timeout = 5 * time.Second
 			}
 
 			testIntegration(t, baseURL, string(payload), tc.expected, tc.generateMethod, tc.timeout)
@@ -144,7 +146,7 @@ func testIntegration(t *testing.T, baseURL, payload, expected, generateMethod st
 
 func topologyRequestWithRetries(url string, timeout time.Duration) (int, []byte, error) {
 
-	start, delay := time.Now(), 2*time.Second
+	start, delay := time.Now(), time.Second
 
 	var resp *http.Response
 	var code int
@@ -159,16 +161,16 @@ func topologyRequestWithRetries(url string, timeout time.Duration) (int, []byte,
 		}
 
 		code = resp.StatusCode
-		if resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusNotFound {
+		if code == http.StatusAccepted {
 			resp.Body.Close()
-		} else if resp.StatusCode == http.StatusOK {
-			body, err = io.ReadAll(resp.Body)
-			resp.Body.Close()
-			break
-		} else {
-			resp.Body.Close()
-			break
+			continue
 		}
+
+		if code == http.StatusOK {
+			body, err = io.ReadAll(resp.Body)
+		}
+		resp.Body.Close()
+		break
 	}
 
 	return code, body, err
