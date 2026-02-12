@@ -50,7 +50,7 @@ var (
 			Name:      "request_duration_seconds",
 			Help:      "Topology request duration in seconds.",
 			Subsystem: "topograph",
-			Buckets:   prometheus.DefBuckets,
+			Buckets:   []float64{1, 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20, 25, 30},
 		},
 		[]string{"provider", "engine", "status"},
 	)
