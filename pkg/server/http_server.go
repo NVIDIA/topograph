@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -166,6 +167,13 @@ func readRequest(w http.ResponseWriter, r *http.Request) *topology.Request {
 		return httpError(w, "", "", "Unable to read request body", http.StatusInternalServerError, time.Since(start))
 	}
 	defer func() { _ = r.Body.Close() }()
+
+	if testPayload := os.Getenv("TOPOGRAPH_TEST_PAYLOAD"); len(testPayload) != 0 {
+		body, err = os.ReadFile(testPayload)
+		if err != nil {
+			return httpError(w, "", "", "Unable to read request file "+testPayload, http.StatusInternalServerError, time.Since(start))
+		}
+	}
 
 	tr, err := topology.GetTopologyRequest(body)
 	if err != nil {
