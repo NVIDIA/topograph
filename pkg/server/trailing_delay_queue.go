@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const RequestHistorySize = 100
@@ -45,10 +46,14 @@ type TrailingDelayQueue struct {
 	handle   HandleFunc
 	delay    time.Duration
 	shutdown chan struct{}
-	item     any        // current item to be processed, if not nil
-	lastTime time.Time  // last submit time
-	uid      string     // unique item processing ID
+	items    sync.Map   // map request hash to item being processed
 	store    *lru.Cache // map uid:process result
+}
+
+type QueueItem struct {
+	item     any       // current item to be processed, if not nil
+	lastTime time.Time // last submit time
+	uid      string    // unique item processing ID
 }
 
 func NewTrailingDelayQueue(handle HandleFunc, delay time.Duration) *TrailingDelayQueue {
@@ -73,18 +78,18 @@ func (q *TrailingDelayQueue) run() {
 			klog.V(4).Infof("queue shutdown")
 			return
 		case <-q.ticker.C:
-			var item any
-			var uid string
-			q.mutex.Lock()
-			if time.Since(q.lastTime) > q.delay && q.item != nil {
-				item = q.item
-				uid = q.uid
-				q.item = nil
-				q.uid = ""
-			}
-			q.mutex.Unlock()
+			q.items.Range(func(key, value any) bool {
+				entry := value.(*QueueItem)
+				if time.Since(entry.lastTime) < q.delay {
+					return true
+				}
+				q.mutex.Lock()
+				q.items.Delete(key)
+				q.mutex.Unlock()
 
-			if item != nil {
+				item := entry.item
+				uid := entry.uid
+
 				res := &Completion{}
 				if data, err := q.handle(item); err != nil {
 					res.Status = err.Code()
@@ -99,28 +104,49 @@ func (q *TrailingDelayQueue) run() {
 				q.mutex.Lock()
 				q.store.Add(uid, res)
 				q.mutex.Unlock()
-			}
+				return true
+			})
 		}
 	}
 }
 
-func (q *TrailingDelayQueue) Submit(item any) string {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
+func (q *TrailingDelayQueue) Submit(item any) (string, error) {
 
 	klog.Infof("Submit request; delay processing by %s", q.delay.String())
-	q.item = item
-	q.lastTime = time.Now()
-	if len(q.uid) == 0 {
-		q.uid = uuid.New().String()
-		res := &Completion{
-			Status:  http.StatusAccepted,
-			Message: fmt.Sprintf("request ID %s has not completed yet", q.uid),
-		}
-		q.store.Add(q.uid, res)
+	var hash string
+	var err error
+	if h, ok := item.(interface{ Hash() (string, error) }); ok {
+		hash, err = h.Hash()
+	} else {
+		hash, err = topology.GetHash(item)
 	}
 
-	return q.uid
+	if err != nil {
+		return "", fmt.Errorf("failed to hash request: %v", err)
+	}
+
+	entry := &QueueItem{
+		item:     item,
+		lastTime: time.Now(),
+	}
+
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	if prevEntry, exists := q.items.Load(hash); !exists {
+		entry.uid = uuid.New().String()
+		q.items.Store(hash, entry)
+	} else {
+		entry.uid = prevEntry.(*QueueItem).uid
+		q.items.Swap(hash, entry)
+	}
+
+	res := &Completion{
+		Status:  http.StatusAccepted,
+		Message: fmt.Sprintf("request ID %s has not completed yet", entry.uid),
+	}
+	q.store.Add(entry.uid, res)
+
+	return entry.uid, nil
 }
 
 func (q *TrailingDelayQueue) Get(uid string) *Completion {
