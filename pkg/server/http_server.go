@@ -148,7 +148,11 @@ func generate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uid := srv.async.queue.Submit(tr)
+	uid, err := srv.async.queue.Submit(tr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.WriteHeader(http.StatusAccepted)
 	_, _ = w.Write([]byte(uid))

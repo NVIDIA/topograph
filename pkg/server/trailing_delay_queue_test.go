@@ -17,39 +17,84 @@
 package server_test
 
 import (
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/stretchr/testify/require"
-	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/server"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func TestTrailingDelayQueue(t *testing.T) {
+func TestRepeatingPayload(t *testing.T) {
 	var counter int32
-	type Int struct{ val int }
 
-	processItem := func(item interface{}) (interface{}, *httperr.Error) {
-		klog.Infof("Processing item: %v\n", item)
+	processItem := func(item any) (any, *httperr.Error) {
 		atomic.AddInt32(&counter, 1)
 		return nil, nil
 	}
 
-	queue := server.NewTrailingDelayQueue(processItem, 2*time.Second)
+	queue := server.NewTrailingDelayQueue(processItem, 500*time.Millisecond)
 
+	request := &topology.Request{
+		Provider: topology.Provider{Name: "test"},
+		Engine: topology.Engine{
+			Name:   "test",
+			Params: map[string]any{"a": 1, "b": 2, "c": 3, "d": 4},
+		},
+	}
 	for cycle := 1; cycle <= 2; cycle++ {
-		for i := 0; i < 3; i++ {
-			queue.Submit(&Int{val: i})
-			time.Sleep(500 * time.Millisecond)
+		for range 3 {
+			_, err := queue.Submit(request)
+			require.NoError(t, err)
+			time.Sleep(100 * time.Millisecond)
 		}
 
-		time.Sleep(4 * time.Second)
+		time.Sleep(time.Second)
 		val := int(atomic.LoadInt32(&counter))
 		require.Equal(t, cycle, val)
+	}
+
+	queue.Shutdown()
+}
+
+func TestVaryingPayload(t *testing.T) {
+
+	processItem := func(item any) (any, *httperr.Error) {
+		return item, nil
+	}
+
+	queue := server.NewTrailingDelayQueue(processItem, 500*time.Millisecond)
+
+	submissions := [3]string{}
+	for i := range len(submissions) {
+		request := &topology.Request{
+			Provider: topology.Provider{Name: "test"},
+			Engine: topology.Engine{
+				Name:   "test",
+				Params: map[string]any{"a": i, "b": 2, "c": 3, "d": 4},
+			},
+		}
+		uid, err := queue.Submit(request)
+		require.NoError(t, err)
+		submissions[i] = uid
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	for i := 1; i < len(submissions); i++ {
+		require.NotEqual(t, submissions[i], submissions[i-1])
+	}
+
+	time.Sleep(time.Second)
+	for i := 0; i < len(submissions); i++ {
+		res := queue.Get(submissions[i])
+		require.NotNil(t, res)
+		require.Equal(t, http.StatusOK, res.Status)
+		require.Equal(t, i, res.Ret.(*topology.Request).Engine.Params["a"])
 	}
 
 	queue.Shutdown()

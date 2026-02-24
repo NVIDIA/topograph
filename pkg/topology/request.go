@@ -17,6 +17,7 @@
 package topology
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -137,4 +138,28 @@ func GetNodeNameMap(cis []ComputeInstances) map[string]bool {
 		}
 	}
 	return nodes
+}
+
+func (p *Request) Hash() (string, error) {
+	dataToHash := Request{
+		Provider: Provider{
+			Name:   p.Provider.Name,
+			Params: p.Provider.Params,
+		},
+		Engine: Engine{
+			Name:   p.Engine.Name,
+			Params: p.Engine.Params,
+		},
+	}
+	return GetHash(dataToHash)
+}
+
+func GetHash(data any) (string, error) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request for hashing: %v", err)
+	}
+
+	hash := md5.Sum(jsonData)
+	return fmt.Sprintf("%x", hash), nil
 }
