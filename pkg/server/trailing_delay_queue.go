@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru"
 	"k8s.io/klog/v2"
 
@@ -30,6 +29,10 @@ import (
 )
 
 const RequestHistorySize = 100
+
+type Hashable interface {
+	Hash() (string, error)
+}
 
 type HandleFunc func(any) (any, *httperr.Error)
 
@@ -41,14 +44,11 @@ type Completion struct {
 
 type TrailingDelayQueue struct {
 	mutex    sync.Mutex
-	ticker   *time.Ticker
 	handle   HandleFunc
 	delay    time.Duration
 	shutdown chan struct{}
-	item     any        // current item to be processed, if not nil
-	lastTime time.Time  // last submit time
-	uid      string     // unique item processing ID
-	store    *lru.Cache // map uid:process result
+	timers   map[string]*time.Timer // map hash:timer
+	store    *lru.Cache             // map hash:processing result
 }
 
 func NewTrailingDelayQueue(handle HandleFunc, delay time.Duration) *TrailingDelayQueue {
@@ -56,7 +56,7 @@ func NewTrailingDelayQueue(handle HandleFunc, delay time.Duration) *TrailingDela
 		delay:    delay,
 		handle:   handle,
 		shutdown: make(chan struct{}),
-		ticker:   time.NewTicker(delay),
+		timers:   make(map[string]*time.Timer),
 	}
 	q.store, _ = lru.New(RequestHistorySize)
 
@@ -66,73 +66,74 @@ func NewTrailingDelayQueue(handle HandleFunc, delay time.Duration) *TrailingDela
 }
 
 func (q *TrailingDelayQueue) run() {
-	defer q.ticker.Stop()
-	for {
-		select {
-		case <-q.shutdown:
-			klog.V(4).Infof("queue shutdown")
-			return
-		case <-q.ticker.C:
-			var item any
-			var uid string
-			q.mutex.Lock()
-			if time.Since(q.lastTime) > q.delay && q.item != nil {
-				item = q.item
-				uid = q.uid
-				q.item = nil
-				q.uid = ""
-			}
-			q.mutex.Unlock()
-
-			if item != nil {
-				res := &Completion{}
-				if data, err := q.handle(item); err != nil {
-					res.Status = err.Code()
-					res.Message = err.Error()
-					klog.Errorf("HTTP %d: %s", res.Status, res.Message)
-				} else {
-					res.Ret = data
-					res.Status = http.StatusOK
-					klog.Info("HTTP 200")
-				}
-
-				q.mutex.Lock()
-				q.store.Add(uid, res)
-				q.mutex.Unlock()
-			}
-		}
+	<-q.shutdown
+	klog.V(4).Infof("queue shutdown")
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	for _, timer := range q.timers {
+		timer.Stop()
 	}
 }
 
-func (q *TrailingDelayQueue) Submit(item any) string {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
+func (q *TrailingDelayQueue) Submit(item Hashable) (string, error) {
 	klog.Infof("Submit request; delay processing by %s", q.delay.String())
-	q.item = item
-	q.lastTime = time.Now()
-	if len(q.uid) == 0 {
-		q.uid = uuid.New().String()
-		res := &Completion{
-			Status:  http.StatusAccepted,
-			Message: fmt.Sprintf("request ID %s has not completed yet", q.uid),
-		}
-		q.store.Add(q.uid, res)
+
+	hash, err := item.Hash()
+	if err != nil {
+		return "", fmt.Errorf("failed to hash request: %v", err)
 	}
 
-	return q.uid
-}
-
-func (q *TrailingDelayQueue) Get(uid string) *Completion {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	if res, ok := q.store.Get(uid); ok {
+	entry := &Completion{
+		Status:  http.StatusAccepted,
+		Message: fmt.Sprintf("request ID %s has been created", hash),
+	}
+
+	// if the timer for the request exists, stop it
+	if timer, ok := q.timers[hash]; ok {
+		timer.Stop()
+	}
+
+	q.timers[hash] = time.AfterFunc(q.delay, func() {
+		klog.Infof("Processing request ID %s", hash)
+		// process the request
+		data, err := q.handle(item)
+
+		// update the status and results
+		q.mutex.Lock()
+		defer q.mutex.Unlock()
+		// update the status only there was no later request for the same hash
+		if currEntry, ok := q.store.Get(hash); ok && currEntry == entry {
+			if err != nil {
+				entry.Status = err.Code()
+				entry.Message = err.Error()
+				klog.Errorf("HTTP %d: %s", entry.Status, entry.Message)
+			} else {
+				entry.Ret = data
+				entry.Status = http.StatusOK
+				klog.Info("HTTP 200")
+			}
+			q.store.Add(hash, entry)
+		}
+		delete(q.timers, hash)
+	})
+	q.store.Add(hash, entry)
+
+	return hash, nil
+}
+
+func (q *TrailingDelayQueue) Get(hash string) *Completion {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	if res, ok := q.store.Get(hash); ok {
 		return res.(*Completion)
 	}
 
 	return &Completion{
-		Message: fmt.Sprintf("request ID %s not found", uid),
+		Message: fmt.Sprintf("request ID %s not found", hash),
 		Status:  http.StatusNotFound,
 	}
 }

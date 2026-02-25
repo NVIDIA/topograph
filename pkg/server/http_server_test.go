@@ -225,6 +225,15 @@ func TestServerLocal(t *testing.T) {
 			payload:  slurmTreePayload,
 			expected: slurmTreeConfig,
 		},
+		{
+			name:     "Case 8: mock request for topology with invalid UID",
+			endpoint: "topology",
+			payload:  "invalid-uid",
+			expected: "request ID invalid-uid not found\n",
+			metrics: []string{
+				`topograph_http_request_duration_seconds_count\{from=".+",method="GET",path="/v1/topology",proto="HTTP/1\.1",status="404"\} 1`,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -236,6 +245,8 @@ func TestServerLocal(t *testing.T) {
 				testHealthz(t, baseURL, tc.expected, tc.metrics)
 			case "generate":
 				testGenerate(t, baseURL, fmt.Sprintf(tc.payload, tc.provider), tc.expected, tc.metrics)
+			case "topology":
+				testTopology(t, baseURL, tc.payload, tc.expected, http.StatusNotFound, tc.metrics)
 			default:
 				t.Errorf("unsupported endpoint %s", tc.endpoint)
 			}
@@ -306,6 +317,19 @@ func testGenerate(t *testing.T, baseURL, payload, expected string, metrics []str
 	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
+
+	checkMetrics(t, baseURL, metrics)
+}
+
+func testTopology(t *testing.T, baseURL, uid, expected string, expectedResponse int, metrics []string) {
+	resp, err := http.Get(baseURL + "/v1/topology?uid=" + uid)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, expectedResponse, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, expected, string(body))
 
 	checkMetrics(t, baseURL, metrics)
 }
