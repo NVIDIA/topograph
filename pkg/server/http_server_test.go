@@ -190,6 +190,7 @@ func TestServerLocal(t *testing.T) {
 				`topograph_request_duration_seconds_count\{engine="slurm",provider="test",status="200"\} 1`,
 				`topograph_http_request_duration_seconds_count\{from=".+",method="POST",path="/v1/generate",proto="HTTP/1\.1",status="202"\} 1`,
 				`topograph_http_request_duration_seconds_count\{from=".+",method="GET",path="/v1/topology",proto="HTTP/1\.1",status="200"\} 1`,
+				`topograph_http_request_duration_seconds_count\{from=".+",method="POST",path="/v1/lookup",proto="HTTP/1\.1",status="200"\} 1`,
 			},
 		},
 		{
@@ -202,6 +203,7 @@ func TestServerLocal(t *testing.T) {
 				`topograph_request_duration_seconds_count\{engine="slurm",provider="aws-sim",status="200"\} 1`,
 				`topograph_http_request_duration_seconds_count\{from=".+",method="POST",path="/v1/generate",proto="HTTP/1\.1",status="202"\} 2`,
 				`topograph_http_request_duration_seconds_count\{from=".+",method="GET",path="/v1/topology",proto="HTTP/1\.1",status="200"\} 2`,
+				`topograph_http_request_duration_seconds_count\{from=".+",method="POST",path="/v1/lookup",proto="HTTP/1\.1",status="200"\} 2`,
 			},
 		},
 		{
@@ -318,6 +320,9 @@ func testGenerate(t *testing.T, baseURL, payload, expected string, metrics []str
 	require.NoError(t, err)
 	require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
 
+	// Check lookup endpoint
+	testLookup(t, baseURL, payload, expected, http.StatusOK)
+
 	checkMetrics(t, baseURL, metrics)
 }
 
@@ -332,6 +337,17 @@ func testTopology(t *testing.T, baseURL, uid, expected string, expectedResponse 
 	require.Equal(t, expected, string(body))
 
 	checkMetrics(t, baseURL, metrics)
+}
+
+func testLookup(t *testing.T, baseURL, payload, expected string, expectedResponse int) {
+	resp, err := http.Post(baseURL+"/v1/lookup", "application/json", bytes.NewBuffer([]byte(payload)))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, expectedResponse, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
 }
 
 func checkMetrics(t *testing.T, baseURL string, metrics []string) {
