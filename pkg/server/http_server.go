@@ -95,6 +95,7 @@ func initHttpServer(ctx context.Context, cfg *config.Config) *HttpServer {
 
 	mux.HandleFunc("/v1/generate", generate)
 	mux.HandleFunc("/v1/topology", getresult)
+	mux.HandleFunc("/v1/lookup", lookup)
 	mux.HandleFunc("/healthz", healthz)
 	mux.Handle("/metrics", promhttp.Handler())
 
@@ -240,6 +241,10 @@ func getresult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writeResultResponse(uid, w)
+}
+
+func writeResultResponse(uid string, w http.ResponseWriter) {
 	res := srv.async.queue.Get(uid)
 
 	switch res.Status {
@@ -258,4 +263,19 @@ func httpError(w http.ResponseWriter, provider, engine, msg string, code int, du
 	metrics.AddTopologyRequest(provider, engine, code, duration)
 	http.Error(w, msg, code)
 	return nil
+}
+
+func lookup(w http.ResponseWriter, r *http.Request) {
+	tr := readRequest(w, r)
+	if tr == nil {
+		return
+	}
+
+	hash, err := tr.Hash()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeResultResponse(hash, w)
 }
