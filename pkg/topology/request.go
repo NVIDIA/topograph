@@ -17,9 +17,9 @@
 package topology
 
 import (
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"sort"
 	"strings"
 )
@@ -154,12 +154,13 @@ func (p *Request) Hash() (string, error) {
 	return GetHash(dataToHash)
 }
 
-func GetHash(data any) (string, error) {
-	jsonData, err := json.Marshal(data)
+func GetHash(obj any) (string, error) {
+	data, err := json.Marshal(obj)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request for hashing: %v", err)
 	}
 
-	hash := md5.Sum(jsonData)
-	return fmt.Sprintf("%x", hash), nil
+	h := fnv.New64a()
+	h.Write(data)
+	return fmt.Sprintf("%x", h.Sum64()), nil
 }
