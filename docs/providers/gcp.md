@@ -69,3 +69,21 @@ For more information about IAM roles and how to grant permissions, refer to the 
 * [Manage access to projects, folders, and organizations](https://cloud.google.com/iam/docs/granting-changing-revoking-access)
 * [Grant a role using the Google Cloud console](https://cloud.google.com/iam/docs/grant-role-console)
 * [Grant a role using gcloud](https://cloud.google.com/sdk/gcloud/reference/projects/add-iam-policy-binding)
+
+## Setting Project ID
+
+When calling the GCP API, the project ID is provided to specify the scope of the request.
+By default, when using ADC, the project ID is fetched from the service account key.
+When running on a GCP compute node, the project ID is extracted from the node metadata.
+
+You can override the project ID by setting `project_id` provider parameter in the topology request payload:
+```
+{
+  "provider": {
+    "name": "gcp",
+    "params": {
+      "project_id": "your-project-id"
+    }
+  }
+}
+```

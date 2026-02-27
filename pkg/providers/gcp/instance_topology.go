@@ -37,15 +37,10 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get client: %v", err))
 	}
 
-	projectID, err := client.ProjectID(ctx)
-	if err != nil {
-		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get project ID: %v", err))
-	}
-
 	topo := topology.NewClusterTopology()
 
 	for _, ci := range cis {
-		if httpErr := p.generateRegionInstanceTopology(ctx, client, projectID, topo, &ci); httpErr != nil {
+		if httpErr := p.generateRegionInstanceTopology(ctx, client, topo, &ci); httpErr != nil {
 			return nil, httpErr
 		}
 	}
@@ -53,14 +48,14 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	return topo, nil
 }
 
-func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, projectID string, topo *topology.ClusterTopology, ci *topology.ComputeInstances) *httperr.Error {
+func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, client Client, topo *topology.ClusterTopology, ci *topology.ComputeInstances) *httperr.Error {
 	if len(ci.Region) == 0 {
 		return httperr.NewError(http.StatusBadRequest, "must specify region")
 	}
-	klog.InfoS("Getting instance topology", "region", ci.Region, "project", projectID)
+	klog.InfoS("Getting instance topology", "region", ci.Region)
 
 	req := computepb.ListInstancesRequest{
-		Project:    projectID,
+		Project:    client.ProjectID(),
 		Zone:       ci.Region,
 		MaxResults: client.PageSize(),
 	}

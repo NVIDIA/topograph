@@ -18,7 +18,10 @@ package gcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
 	"time"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -44,13 +47,14 @@ type InstanceIterator interface {
 }
 
 type Client interface {
-	ProjectID(ctx context.Context) (string, error)
+	ProjectID() string
 	Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string)
 	PageSize() *uint32
 }
 
 type gcpClient struct {
 	instanceClient *compute.InstancesClient
+	projectID      string
 	pageSize       *uint32
 }
 
@@ -58,8 +62,8 @@ func (c *gcpClient) PageSize() *uint32 {
 	return c.pageSize
 }
 
-func (c *gcpClient) ProjectID(ctx context.Context) (string, error) {
-	return metadata.ProjectIDWithContext(ctx)
+func (c *gcpClient) ProjectID() string {
+	return c.projectID
 }
 
 func (c *gcpClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string) {
@@ -74,6 +78,10 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
+	projectID, err := getProjectID(ctx, config.Params)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
 	clientFactory := func(pageSize *int) (Client, error) {
 		instanceClient, err := compute.NewInstancesRESTClient(ctx)
 		if err != nil {
@@ -82,11 +90,49 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 
 		return &gcpClient{
 			instanceClient: instanceClient,
+			projectID:      projectID,
 			pageSize:       castPageSize(pageSize),
 		}, nil
 	}
 
 	return New(clientFactory), nil
+}
+
+func getProjectID(ctx context.Context, params map[string]any) (string, error) {
+	// check project ID in params
+	if v, ok := params["project_id"]; ok {
+		if projectID, ok := v.(string); ok {
+			return projectID, nil
+		}
+		return "", fmt.Errorf("project_id in provider parameters must be a string")
+	}
+
+	// if GOOGLE_APPLICATION_CREDENTIALS env var is set, get project ID from there
+	if filePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); len(filePath) != 0 {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return "", fmt.Errorf("GOOGLE_APPLICATION_CREDENTIALS is not a file: %v", err)
+		}
+
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read GOOGLE_APPLICATION_CREDENTIALS: %v", err)
+		}
+
+		var creds map[string]string
+		if err := json.Unmarshal(data, &creds); err != nil {
+			return "", fmt.Errorf("failed to parse GOOGLE_APPLICATION_CREDENTIALS: %v", err)
+		}
+
+		projectID, ok := creds["project_id"]
+		if !ok {
+			return "", fmt.Errorf("missing project_id in GOOGLE_APPLICATION_CREDENTIALS")
+		}
+
+		return projectID, nil
+	}
+
+	// otherwise get it from node metadata
+	return metadata.ProjectIDWithContext(ctx)
 }
 
 func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
