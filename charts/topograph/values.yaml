@@ -45,11 +45,11 @@ config:
   # Optional secret with API credentials
   # credentialsSecretName:
 
-topologyNodeLabels:
-  accelerator: network.topology.nvidia.com/accelerator
-  leaf: network.topology.nvidia.com/leaf
-  spine: network.topology.nvidia.com/spine
-  core: network.topology.nvidia.com/core
+#topologyNodeLabels:
+#  accelerator: network.topology.nvidia.com/accelerator
+#  leaf: network.topology.nvidia.com/leaf
+#  spine: network.topology.nvidia.com/spine
+#  core: network.topology.nvidia.com/core
 
 podAnnotations: {}
 podLabels: {}
