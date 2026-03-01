@@ -38,7 +38,6 @@ const (
 
 	errNone = iota
 	errClientFactory
-	errProjectID
 	errInstances
 )
 
@@ -73,12 +72,8 @@ func (c *simClient) PageSize() *uint32 {
 	return c.pageSize
 }
 
-func (c *simClient) ProjectID(ctx context.Context) (string, error) {
-	if c.apiErr == errProjectID {
-		return "", providers.ErrAPIError
-	}
-
-	return "", nil
+func (c *simClient) ProjectID() string {
+	return ""
 }
 
 func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesRequest, opts ...gax.CallOption) (InstanceIterator, string) {
