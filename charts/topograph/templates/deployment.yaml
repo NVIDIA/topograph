@@ -38,10 +38,9 @@ spec:
             - /usr/local/bin/topograph
           args:
             - -v={{ .Values.verbosity }}
-            - -k8s-topology-key-accelerator={{ .Values.topologyNodeLabels.accelerator }}
-            - -k8s-topology-key-leaf={{ .Values.topologyNodeLabels.leaf }}
-            - -k8s-topology-key-spine={{ .Values.topologyNodeLabels.spine }}
-            - -k8s-topology-key-core={{ .Values.topologyNodeLabels.core }}
+            {{- range $key, $value := .Values.topologyNodeLabels }}
+            - -k8s-topology-key-{{ $key }}={{ $value }}
+            {{- end }}
           env:
             - name: NODE_DATA_BROKER_NAME
               value: {{ printf "%s-%s" .Release.Name "node-data-broker" | trunc 63 | trimSuffix "-" }}
