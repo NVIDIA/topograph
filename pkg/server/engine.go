@@ -135,7 +135,7 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *httperr.Error) {
 	return eng.GenerateOutput(ctx, root, tr.Engine.Params)
 }
 
-func checkCredentials(payloadCreds, cfgCreds map[string]string) map[string]string {
+func checkCredentials(payloadCreds, cfgCreds map[string]any) map[string]any {
 	if len(payloadCreds) != 0 {
 		return payloadCreds
 	}

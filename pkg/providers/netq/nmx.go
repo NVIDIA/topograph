@@ -30,7 +30,7 @@ type ComputeNode struct {
 }
 
 func (p *Provider) getNvlDomains(ctx context.Context) (topology.DomainMap, *httperr.Error) {
-	auth := p.cred.user + ":" + p.cred.passwd
+	auth := p.creds.user + ":" + p.creds.passwd
 	authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 	headers := map[string]string{"Authorization": authHeader}
 

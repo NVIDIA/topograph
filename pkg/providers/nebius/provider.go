@@ -76,14 +76,17 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	}
 
 	// if project ID is not passed in credentials, get it from file
-	projectID, ok := config.Creds[authProjectID]
-	if !ok {
-		var err error
+	projectID, err := providers.StringFromMap(authProjectID, config.Creds, false)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
+	}
+	if len(projectID) == 0 {
 		klog.Info("Project ID is not in credentials; getting from file")
 		if projectID, err = getParentID(); err != nil {
 			return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to get project ID: %v", err))
 		}
 	}
+
 	klog.Infof("Project ID %s", projectID)
 
 	instanceService := sdk.Services().Compute().V1().Instance()
@@ -98,19 +101,21 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	return New(clientFactory), nil
 }
 
-func getAuthOption(creds map[string]string) (gosdk.Option, *httperr.Error) {
+func getAuthOption(creds map[string]any) (gosdk.Option, *httperr.Error) {
 	if len(creds) != 0 {
 		klog.Info("Authentication with provided credentials")
 
-		var serviceAccountID, publicKeyID, privateKey string
-		if serviceAccountID = creds[authServiceAccountID]; len(serviceAccountID) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("credentials error: missing %s", authServiceAccountID))
+		serviceAccountID, err := providers.StringFromMap(authServiceAccountID, creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		if publicKeyID = creds[authPublicKeyID]; len(publicKeyID) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("credentials error: missing %s", authPublicKeyID))
+		publicKeyID, err := providers.StringFromMap(authPublicKeyID, creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		if privateKey = creds[authPrivateKey]; len(privateKey) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("credentials error: missing %s", authPrivateKey))
+		privateKey, err := providers.StringFromMap(authPrivateKey, creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
 
 		return gosdk.WithCredentials(
@@ -135,7 +140,7 @@ func getAuthOption(creds map[string]string) (gosdk.Option, *httperr.Error) {
 	return nil, httperr.NewError(http.StatusBadRequest, "missing authentication credentials")
 }
 
-func getSDK(ctx context.Context, creds map[string]string) (*gosdk.SDK, *httperr.Error) {
+func getSDK(ctx context.Context, creds map[string]any) (*gosdk.SDK, *httperr.Error) {
 	opt, httpErr := getAuthOption(creds)
 	if httpErr != nil {
 		return nil, httpErr

@@ -116,26 +116,33 @@ func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider
 	return NewAPI(clientFactory), nil
 }
 
-func getConfigurationProvider(creds map[string]string) (common.ConfigurationProvider, *httperr.Error) {
+func getConfigurationProvider(creds map[string]any) (common.ConfigurationProvider, *httperr.Error) {
 	if len(creds) != 0 {
-		var tenancyID, userID, region, fingerprint, privateKey, passphrase string
 		klog.Info("Using provided credentials")
-		if tenancyID = creds[authTenancyID]; len(tenancyID) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing tenancyId")
+		tenancyID, err := providers.StringFromMap(authTenancyID, creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		if userID = creds[authUserID]; len(userID) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing userId")
+		userID, err := providers.StringFromMap(authUserID, creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		if region = creds[authRegion]; len(region) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing region")
+		region, err := providers.StringFromMap(authRegion, creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		if fingerprint = creds[authFingerprint]; len(fingerprint) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing fingerprint")
+		fingerprint, err := providers.StringFromMap(authFingerprint, creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		if privateKey = creds[authPrivateKey]; len(privateKey) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing privateKey")
+		privateKey, err := providers.StringFromMap(authPrivateKey, creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		passphrase = creds[authPassphrase]
+		passphrase, err := providers.StringFromMap(authPassphrase, creds, false)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
+		}
 
 		return common.NewRawConfigurationProvider(tenancyID, userID, region, fingerprint, privateKey, &passphrase), nil
 	}

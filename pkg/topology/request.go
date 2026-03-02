@@ -31,9 +31,9 @@ type Request struct {
 }
 
 type Provider struct {
-	Name   string            `json:"name"`
-	Creds  map[string]string `json:"creds"` // access credentials
-	Params map[string]any    `json:"params"`
+	Name   string         `json:"name"`
+	Creds  map[string]any `json:"creds"` // access credentials
+	Params map[string]any `json:"params"`
 }
 
 type Engine struct {

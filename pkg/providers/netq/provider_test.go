@@ -34,7 +34,7 @@ func TestLoader(t *testing.T) {
 					"apiUrl": "url",
 				},
 			},
-			err: "username not provided",
+			err: "missing 'username'",
 		},
 		{
 			name: "Case 3: missing password",
@@ -42,11 +42,11 @@ func TestLoader(t *testing.T) {
 				Params: map[string]any{
 					"apiUrl": "url",
 				},
-				Creds: map[string]string{
+				Creds: map[string]any{
 					"username": "user",
 				},
 			},
-			err: "password not provided",
+			err: "missing 'password'",
 		},
 		{
 			name: "Case 4: valid input",
@@ -54,7 +54,7 @@ func TestLoader(t *testing.T) {
 				Params: map[string]any{
 					"apiUrl": "url",
 				},
-				Creds: map[string]string{
+				Creds: map[string]any{
 					"username": "user",
 					"password": "pwd",
 				},

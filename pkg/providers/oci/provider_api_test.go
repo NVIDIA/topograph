@@ -40,50 +40,50 @@ func TestGetConfigurationProvider(t *testing.T) {
 	tenant, user, region, fingerprint, key, dummy := "tenant", "user", "region", "12345", "key", ""
 	testCases := []struct {
 		name     string
-		creds    map[string]string
+		creds    map[string]any
 		provider common.ConfigurationProvider
 		err      string
 	}{
 		{
-			name:  "Case 1: missing tenancyId",
-			creds: map[string]string{"dummy": dummy},
-			err:   "credentials error: missing tenancyId",
+			name:  "Case 1: invalid tenancyId",
+			creds: map[string]any{"tenancyId": false},
+			err:   "credentials error: 'tenancyId' must be a string",
 		},
 		{
 			name:  "Case 2: missing userId",
-			creds: map[string]string{"tenancyId": tenant},
-			err:   "credentials error: missing userId",
+			creds: map[string]any{"tenancyId": tenant},
+			err:   "credentials error: missing 'userId'",
 		},
 		{
 			name: "Case 3: missing region",
-			creds: map[string]string{
+			creds: map[string]any{
 				"tenancyId": tenant,
 				"userId":    user,
 			},
-			err: "credentials error: missing region",
+			err: "credentials error: missing 'region'",
 		},
 		{
 			name: "Case 4: missing fingerprint",
-			creds: map[string]string{
+			creds: map[string]any{
 				"tenancyId": tenant,
 				"userId":    user,
 				"region":    region,
 			},
-			err: "credentials error: missing fingerprint",
+			err: "credentials error: missing 'fingerprint'",
 		},
 		{
 			name: "Case 5: missing privateKey",
-			creds: map[string]string{
+			creds: map[string]any{
 				"tenancyId":   tenant,
 				"userId":      user,
 				"region":      region,
 				"fingerprint": fingerprint,
 			},
-			err: "credentials error: missing privateKey",
+			err: "credentials error: missing 'privateKey'",
 		},
 		{
 			name: "Case 6: valid",
-			creds: map[string]string{
+			creds: map[string]any{
 				"tenancyId":   tenant,
 				"userId":      user,
 				"region":      region,

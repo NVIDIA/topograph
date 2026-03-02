@@ -99,18 +99,24 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *htt
 	return New(clientFactory), nil
 }
 
-func getCredentials(ctx context.Context, creds map[string]string) (*Credentials, *httperr.Error) {
+func getCredentials(ctx context.Context, creds map[string]any) (*Credentials, *httperr.Error) {
 	var accessKeyID, secretAccessKey, sessionToken string
 
 	if len(creds) != 0 {
+		var err error
 		klog.Infof("Using provided AWS credentials")
-		if accessKeyID = creds["accessKeyId"]; len(accessKeyID) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing accessKeyId")
+		accessKeyID, err = providers.StringFromMap("accessKeyId", creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		if secretAccessKey = creds["secretAccessKey"]; len(secretAccessKey) == 0 {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing secretAccessKey")
+		secretAccessKey, err = providers.StringFromMap("secretAccessKey", creds, true)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		sessionToken = creds["token"]
+		sessionToken, err = providers.StringFromMap("token", creds, false)
+		if err != nil {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
+		}
 	} else if len(os.Getenv("AWS_ACCESS_KEY_ID")) != 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) != 0 {
 		klog.Infof("Using shell AWS credentials")
 		accessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")

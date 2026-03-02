@@ -58,7 +58,7 @@ type Premises struct {
 
 func (p *Provider) getNetworkTree(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	// login to NetQ server
-	payload := []byte(fmt.Sprintf(`{"username":%q, "password":%q}`, p.cred.user, p.cred.passwd))
+	payload := []byte(fmt.Sprintf(`{"username":%q, "password":%q}`, p.creds.user, p.creds.passwd))
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/json",
