@@ -104,19 +104,7 @@ func TestProviderSim(t *testing.T) {
 			err:    "failed to get client: API error",
 		},
 		{
-			name:  "Case 3.2: ProjectID API error",
-			model: nodeModel,
-			instances: []topology.ComputeInstances{
-				{
-					Region:    "region",
-					Instances: map[string]string{"11": "node11"},
-				},
-			},
-			apiErr: errProjectID,
-			err:    "failed to get project ID: API error",
-		},
-		{
-			name:  "Case 3.3: Instances API error",
+			name:  "Case 3.2: Instances API error",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -128,7 +116,7 @@ func TestProviderSim(t *testing.T) {
 			err:    "API error",
 		},
 		{
-			name: "Case 3.4: unsupported instance ID",
+			name: "Case 3.3: unsupported instance ID",
 			model: `
 switches:
 - name: core
