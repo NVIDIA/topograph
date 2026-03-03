@@ -18,15 +18,26 @@ jobs:
       - name: Package Helm chart
         run: |
           mkdir -p packaged
+          helm lint charts/topograph
           helm package charts/topograph --destination packaged
+
+      - name: Fetch existing Helm repo index
+        run: |
+          git fetch origin gh-pages || true
+          git checkout origin/gh-pages -- index.yaml || true
 
       - name: Generate Helm repo index
         run: |
-          helm repo index packaged --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          if [ -f index.yaml ]; then
+            helm repo index packaged --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} --merge index.yaml
+          else
+            helm repo index packaged --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          fi
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./packaged
           publish_branch: gh-pages
+          keep_files: true
