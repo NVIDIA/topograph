@@ -1,3 +1,4 @@
+{{- if .Values.serviceAccount.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -34,3 +35,4 @@ roleRef:
   kind: ClusterRole
   name: {{ include "topograph.serviceAccountName" . }}
   apiGroup: ""
+{{- end }}

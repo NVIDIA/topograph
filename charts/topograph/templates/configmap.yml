@@ -10,6 +10,6 @@ data:
       port: {{ .Values.global.service.port }}
       ssl: false
     requestAggregationDelay: {{ .Values.config.requestAggregationDelay }}
-    {{- if .Values.config.credentialsSecretName }}
+    {{- if .Values.config.credentialsSecret }}
     credentialsPath: /etc/topograph/credentials/credentials.yaml
     {{- end }}

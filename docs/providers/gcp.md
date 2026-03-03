@@ -44,7 +44,7 @@ kubectl create secret generic <secret-name> --from-file=credentials.yaml=<path/t
 
 ### 5. Configure Helm values
 
-In your Helm values file, set `config.credentialsSecretName` to the name of the
+In your Helm values file, set `config.credentialsSecret` to the name of the
 created secret. This instructs the Helm chart to set the
 `GOOGLE_APPLICATION_CREDENTIALS` environment variable for Topograph.
 
@@ -52,7 +52,7 @@ Example:
 
 ```yaml
 config:
-  credentialsSecretName: gcp-compute-client-key
+  credentialsSecret: gcp-compute-client-key
 ```
 
 ## Authentication When Running on GCP
