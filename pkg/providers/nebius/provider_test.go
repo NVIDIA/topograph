@@ -15,31 +15,31 @@ import (
 func TestGetAuthOption(t *testing.T) {
 	testCases := []struct {
 		name  string
-		creds map[string]string
+		creds map[string]any
 		env   bool
 		err   string
 	}{
 		{
 			name:  "Case 1.1: no serviceAccountID in creds",
-			creds: map[string]string{"a": "b"},
-			err:   "credentials error: missing serviceAccountId",
+			creds: map[string]any{"a": "b"},
+			err:   "credentials error: missing 'serviceAccountId'",
 		},
 		{
 			name:  "Case 1.2: no publicKeyID in creds",
-			creds: map[string]string{"serviceAccountId": "service-account"},
-			err:   "credentials error: missing publicKeyId",
+			creds: map[string]any{"serviceAccountId": "service-account"},
+			err:   "credentials error: missing 'publicKeyId'",
 		},
 		{
 			name: "Case 1.3: no privateKey in creds",
-			creds: map[string]string{
+			creds: map[string]any{
 				"serviceAccountId": "service-account",
 				"publicKeyId":      "data",
 			},
-			err: "credentials error: missing privateKey",
+			err: "credentials error: missing 'privateKey'",
 		},
 		{
 			name: "Case 1.4: valid creds",
-			creds: map[string]string{
+			creds: map[string]any{
 				"serviceAccountId": "service-account",
 				"publicKeyId":      "id",
 				"privateKey":       "key",

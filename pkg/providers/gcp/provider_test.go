@@ -39,21 +39,26 @@ func TestGetProjectID(t *testing.T) {
 			name:    "Case 3: invalid project_id in params",
 			params:  map[string]any{"project_id": false},
 			content: []byte(`{"project_id": "test-project"}`),
-			err:     "project_id in provider parameters must be a string",
+			err:     "error in topology request parameters: 'project_id' must be a string",
 		},
 		{
-			name: "Case 4: invalid credentials file path",
+			name:    "Case 4: invalid project_id in cert keys",
+			content: []byte(`{"project_id": false}`),
+			err:     "error in GOOGLE_APPLICATION_CREDENTIALS: 'project_id' must be a string",
+		},
+		{
+			name: "Case 5: invalid credentials file path",
 			err:  "failed to read GOOGLE_APPLICATION_CREDENTIALS /does/not/exist: open /does/not/exist: no such file or directory",
 		},
 		{
-			name:    "Case 5: invalid content",
+			name:    "Case 6: invalid content",
 			content: []byte("{invalid-json"),
 			err:     "failed to parse GOOGLE_APPLICATION_CREDENTIALS",
 		},
 		{
-			name:    "Case 6: missing project_id",
+			name:    "Case 7: missing project_id",
 			content: []byte(`{"key": "val"}`),
-			err:     "missing project_id in GOOGLE_APPLICATION_CREDENTIALS",
+			err:     "error in GOOGLE_APPLICATION_CREDENTIALS: missing 'project_id'",
 		},
 	}
 

@@ -28,6 +28,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
+	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -100,35 +101,38 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 
 func getProjectID(ctx context.Context, params map[string]any) (string, error) {
 	// check project ID in params
-	if v, ok := params["project_id"]; ok {
-		if projectID, ok := v.(string); ok {
-			return projectID, nil
-		}
-		return "", fmt.Errorf("project_id in provider parameters must be a string")
+	projectID, err := providers.StringFromMap("project_id", params, false)
+	if err != nil {
+		return "", fmt.Errorf("error in topology request parameters: %v", err)
+	}
+	if len(projectID) != 0 {
+		klog.Infof("Getting project_id from topology request: %s", projectID)
+		return projectID, nil
 	}
 
 	// if GOOGLE_APPLICATION_CREDENTIALS env var is set, get project ID from there
 	if filePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); len(filePath) != 0 {
 		data, err := os.ReadFile(filePath)
-
 		if err != nil {
 			return "", fmt.Errorf("failed to read GOOGLE_APPLICATION_CREDENTIALS %s: %v", filePath, err)
 		}
 
-		var creds map[string]string
-		if err := json.Unmarshal(data, &creds); err != nil {
+		var creds map[string]any
+		if err = json.Unmarshal(data, &creds); err != nil {
 			return "", fmt.Errorf("failed to parse GOOGLE_APPLICATION_CREDENTIALS %s: %v", filePath, err)
 		}
 
-		projectID, ok := creds["project_id"]
-		if !ok {
-			return "", fmt.Errorf("missing project_id in GOOGLE_APPLICATION_CREDENTIALS %s", filePath)
+		projectID, err = providers.StringFromMap("project_id", creds, true)
+		if err != nil {
+			return "", fmt.Errorf("error in GOOGLE_APPLICATION_CREDENTIALS: %v", err)
 		}
 
+		klog.Infof("Getting project_id from GOOGLE_APPLICATION_CREDENTIALS: %s", projectID)
 		return projectID, nil
 	}
 
 	// otherwise get it from node metadata
+	klog.Info("Getting project_id from node metadata")
 	return metadata.ProjectIDWithContext(ctx)
 }
 

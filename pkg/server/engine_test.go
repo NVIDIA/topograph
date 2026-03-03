@@ -29,14 +29,14 @@ import (
 )
 
 func TestCheckCredentials(t *testing.T) {
-	credPayload := map[string]string{"key1": "val1"}
-	credConfig := map[string]string{"key2": "val2"}
+	credPayload := map[string]any{"key1": "val1"}
+	credConfig := map[string]any{"key2": "val2"}
 
 	testCases := []struct {
 		name     string
-		payload  map[string]string
-		config   map[string]string
-		expected map[string]string
+		payload  map[string]any
+		config   map[string]any
+		expected map[string]any
 	}{
 		{
 			name:     "Case 1: payload only",

@@ -22,7 +22,7 @@ const NAME = "netq"
 
 type Provider struct {
 	params *ProviderParams
-	cred   *Credentials
+	creds  *Credentials
 }
 
 type ProviderParams struct {
@@ -44,26 +44,26 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	cred, err := getCred(config.Creds)
+	creds, err := getCreds(config.Creds)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	return &Provider{
 		params: params,
-		cred:   cred,
+		creds:  creds,
 	}, nil
 }
 
-func getCred(cred map[string]string) (*Credentials, error) {
-	user, ok := cred["username"]
-	if !ok {
-		return nil, fmt.Errorf("username not provided")
+func getCreds(creds map[string]any) (*Credentials, error) {
+	user, err := providers.StringFromMap("username", creds, true)
+	if err != nil {
+		return nil, err
 	}
 
-	passwd, ok := cred["password"]
-	if !ok {
-		return nil, fmt.Errorf("password not provided")
+	passwd, err := providers.StringFromMap("password", creds, true)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Credentials{user: user, passwd: passwd}, nil

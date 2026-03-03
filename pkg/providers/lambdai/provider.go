@@ -111,24 +111,24 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
-	workspaceID, ok := config.Creds[authWorkspaceID]
-	if !ok {
-		return nil, httperr.NewError(http.StatusBadRequest, "missing workspace ID")
+	workspaceID, err := providers.StringFromMap(authWorkspaceID, config.Creds, true)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 	}
-	token, ok := config.Creds[authToken]
-	if !ok {
-		return nil, httperr.NewError(http.StatusBadRequest, "missing bearer token")
+	token, err := providers.StringFromMap(authToken, config.Creds, true)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 	}
-	baseURL, ok := config.Params[apiBaseURL]
-	if !ok {
-		return nil, httperr.NewError(http.StatusBadRequest, "missing API URL")
+	baseURL, err := providers.StringFromMap(apiBaseURL, config.Params, true)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
 	}
 
 	clientFactory := func(pageSize *int) (Client, error) {
 		return &lambdaiClient{
 			workspaceID: workspaceID,
 			bearerToken: token,
-			baseURL:     baseURL.(string),
+			baseURL:     baseURL,
 			pageSize:    getPageSize(pageSize),
 		}, nil
 	}

@@ -98,7 +98,7 @@ func TestConfig(t *testing.T) {
 			CaCert: caCert.Name(),
 		},
 		CredsPath:   &credsPath,
-		Credentials: map[string]string{"accessKeyId": "id", "secretAccessKey": "key"},
+		Credentials: map[string]any{"accessKeyId": "id", "secretAccessKey": "key"},
 		Env: map[string]string{
 			"SLURM_CONF": "/etc/slurm/config.yaml",
 			"PATH":       "/a/b/c",

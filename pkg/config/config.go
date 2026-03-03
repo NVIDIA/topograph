@@ -18,7 +18,6 @@ package config
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -41,7 +40,7 @@ type Config struct {
 	Env                     map[string]string `yaml:"env"`
 
 	// derived
-	Credentials map[string]string
+	Credentials map[string]any
 }
 
 type Endpoint struct {
@@ -139,13 +138,7 @@ func (cfg *Config) readCredentials() error {
 		return err
 	}
 
-	file, err := os.Open(*cfg.CredsPath)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = file.Close() }()
-
-	data, err := io.ReadAll(file)
+	data, err := os.ReadFile(*cfg.CredsPath)
 	if err != nil {
 		return err
 	}

@@ -38,7 +38,7 @@ type Provider interface {
 }
 
 type Config struct {
-	Creds  map[string]string
+	Creds  map[string]any
 	Params map[string]any
 }
 type NamedLoader = component.NamedLoader[Provider, Config]
@@ -114,4 +114,18 @@ func ReadFile(path string) (string, error) {
 	}
 
 	return string(data), nil
+}
+
+func StringFromMap(key string, m map[string]any, must bool) (string, error) {
+	v, ok := m[key]
+	if !ok || v == nil {
+		if must {
+			return "", fmt.Errorf("missing '%s'", key)
+		}
+		return "", nil
+	}
+	if str, ok := v.(string); ok {
+		return str, nil
+	}
+	return "", fmt.Errorf("'%s' must be a string", key)
 }

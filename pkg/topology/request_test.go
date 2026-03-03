@@ -100,7 +100,7 @@ func TestPayload(t *testing.T) {
 			payload: &Request{
 				Provider: Provider{
 					Name: "aws",
-					Creds: map[string]string{
+					Creds: map[string]any{
 						"accessKeyId":     "id",
 						"secretAccessKey": "secret",
 					},

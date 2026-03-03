@@ -28,24 +28,34 @@ func TestGetCredentials(t *testing.T) {
 	ctx := context.Background()
 	testCases := []struct {
 		name  string
-		creds map[string]string
+		creds map[string]any
 		env   map[string]string
 		ret   *Credentials
 		err   string
 	}{
 		{
 			name:  "Case 1: missing accessKeyId",
-			creds: map[string]string{"secretAccessKey": "secret"},
-			err:   "credentials error: missing accessKeyId",
+			creds: map[string]any{"secretAccessKey": "secret"},
+			err:   "credentials error: missing 'accessKeyId'",
 		},
 		{
 			name:  "Case 2: missing secretAccessKey",
-			creds: map[string]string{"accessKeyId": "id"},
-			err:   "credentials error: missing secretAccessKey",
+			creds: map[string]any{"accessKeyId": "id"},
+			err:   "credentials error: missing 'secretAccessKey'",
 		},
 		{
-			name:  "Case 3: valid provided creds",
-			creds: map[string]string{"accessKeyId": "id", "secretAccessKey": "secret"},
+			name:  "Case 3: invalid secretAccessKey",
+			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": false},
+			err:   "credentials error: 'secretAccessKey' must be a string",
+		},
+		{
+			name:  "Case 4: invalid token",
+			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": "secret", "token": false},
+			err:   "credentials error: 'token' must be a string",
+		},
+		{
+			name:  "Case 5: valid provided creds",
+			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": "secret"},
 			ret: &Credentials{
 				AccessKeyId:     "id",
 				SecretAccessKey: "secret",
