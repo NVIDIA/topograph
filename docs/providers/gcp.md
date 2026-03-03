@@ -70,7 +70,7 @@ config:
   credentialsSecret: gcp-compute-client-key
 ```
 
-## Authentication Using GCP Worload Identity Federation
+## Authentication Using GCP Workload Identity Federation (EKS)
 
 When running Topograph in Kubernetes cluster, one supported authentication method is to use
 a **GCP Workload Identity Federation** with **Application Default Credentials (ADC)**.
@@ -97,7 +97,7 @@ export ATTRIBUTE_MAPPING="google.subject=assertion.sub"
 
 ## GCP Service Account (GSA) details
 export GSA_NAME="compute-client"
-export GSA_DESC-"Topograph API client"
+export GSA_DESC="Topograph API client"
 export GSA_PROJECT="<name of the GCP project where the GSA is created>" # could be same as $GCP_PROJECT or different
 export GSA_ROLE="roles/compute.viewer"
 export GSA_EMAIL=$GSA_NAME@$GSA_PROJECT.iam.gserviceaccount.com
@@ -105,14 +105,14 @@ export GSA_EMAIL=$GSA_NAME@$GSA_PROJECT.iam.gserviceaccount.com
 ## Kubernetes Service Account (KSA) details
 export NAMESPACE="<namespace name where topograph will be deployed>"
 export KSA_NAME="<kubernetes service account name for topograph>"
-export CRED_SECRET_NAME="<kubernetes secret name for GCP credentials>"
+export CRED_CONFIG_MAP="<kubernetes config map name for GCP credentials>"
 ```
 
 ### 2. Create a GCP service account (GSA)
 Create a GCP Service Account (if it doesn't exist already).
 
 ```bash
-gcloud iam service-accounts create $GSA_NAME --project $GSA_PROJECT --display-name=$GSA_DESC
+gcloud iam service-accounts create $GSA_NAME --project $GSA_PROJECT --display-name="$GSA_DESC"
 ```
 
 ### 3. Grant minimum required permissions
@@ -128,15 +128,17 @@ gcloud projects add-iam-policy-binding $GCP_PROJECT \
 ### 4. Create a GCP Workload Identity Pool
 
 ```bash
-gcloud iam workload-identity-pools create $POOL_ID \
+gcloud iam workload-identity-pools create $WORKLOAD_POOL_ID \
+    --project=$GCP_PROJECT \
     --location="global" \
-    --description="$POOL_DESC" \
-    --display-name="$POOL_NAME" 
+    --description="$WORKLOAD_POOL_DESC" \
+    --display-name="$WORKLOAD_POOL_NAME" 
 ```
 
 ### 5. Create a GCP Workload Identity Provider
 ```bash
-gcloud iam workload-identity-pools providers create-oidc \  $WORKLOAD_PROVIDER_ID \
+gcloud iam workload-identity-pools providers create-oidc $WORKLOAD_PROVIDER_ID \
+ --project=$GCP_PROJECT \
  --location="global" \
  --workload-identity-pool="$WORKLOAD_POOL_ID" \
  --issuer-uri="$OIDC_ISSUER" \
@@ -147,7 +149,7 @@ gcloud iam workload-identity-pools providers create-oidc \  $WORKLOAD_PROVIDER_I
 ```bash
 gcloud iam service-accounts add-iam-policy-binding $GSA_EMAIL \
   --member="principal://iam.googleapis.com/projects/$GCP_PROJECT_NUMBER/locations/global/workloadIdentityPools/$WORKLOAD_POOL_ID/subject/system:serviceaccount:$NAMESPACE:$KSA_NAME" \
-    --role=roles/iam.workloadIdentityUser
+  --role=roles/iam.workloadIdentityUser
 ```
 
 ### 7. Create credential configuration file 
@@ -157,21 +159,21 @@ gcloud iam workload-identity-pools create-cred-config \
     --service-account=$GSA_EMAIL \
     --credential-source-file=/var/run/service-account/token \
     --credential-source-type=text \
-    --output-file=credential-configuration.json
+    --output-file=credentials-config.json
 ```
 
-### 8. Create a Kubernetes Secret 
-Create a k8s secret from the output of the previous command.
+### 8. Create a Kubernetes Config Map 
+Create a k8s config map from the output of the previous command.
 
 ```bash
-kubectl create secret generic $CRED_SECRET_NAME --from-file=credential-configuration.json
+kubectl create configmap $CRED_CONFIG_MAP --from-file=credentials-config.json
 ```
 
 ### 9. Configure Helm values
 
 In the Helm values file for the deployment, set the following parameters :
-* `global.provider.params.serviceAccountKeysSecret` to the name of the created secret in step 8.
-* `global.provider.params.identityFederationAudience` to the `audience` attribute in the `credential-configuration.json` created in step 7.
+* `global.provider.params.workloadIdentityFederation.credentialsConfigmap` to the name of the created config map in step 8.
+* `global.provider.params.workloadIdentityFederation.audience` to the `audience` attribute in the `credentials-config.json` created in step 7.
 
 This instructs the Helm chart to set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for Topograph.
 
@@ -181,12 +183,13 @@ Example:
 global:
   provider:
     params:
-      credentialsSecretName: gcp-compute-client-key
-      identityFederationAudience: "https://iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/my-pool/providers/my-workload-provider"
+      workloadIdentityFederation:
+        credentialsConfigmap: gcp-credentials-config
+        audience: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/my-pool/providers/my-workload-provider"
 ```
 For more information about setting Google Workload Identity Federation, refer to the following documentation:
 
-* [GCP Workload Identity Federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-kubernetes)
+* [GCP Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation-with-kubernetes)
 
 ## Setting Project ID
 
