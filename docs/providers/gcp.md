@@ -7,6 +7,21 @@ underlying compute node.
 
 Access to the Compute Engine API must be authorized.
 
+## Authentication When Running on GCP
+
+If Topograph is running on a **GCP compute service**, you can authenticate without service account keys.
+
+Attach or use a service account that grants the
+`compute.instances.list` permission on the target project and zone.
+A common example is the `roles/compute.viewer` role.
+
+For more information about IAM roles and how to grant permissions, refer to the following documentation:
+
+* [Roles overview](https://cloud.google.com/iam/docs/roles-overview)
+* [Manage access to projects, folders, and organizations](https://cloud.google.com/iam/docs/granting-changing-revoking-access)
+* [Grant a role using the Google Cloud console](https://cloud.google.com/iam/docs/grant-role-console)
+* [Grant a role using gcloud](https://cloud.google.com/sdk/gcloud/reference/projects/add-iam-policy-binding)
+
 ## Authentication Using a Service Account (ADC)
 
 When running Topograph outside of GCP, one supported authentication method is to use
@@ -55,20 +70,123 @@ config:
   credentialsSecret: gcp-compute-client-key
 ```
 
-## Authentication When Running on GCP
+## Authentication Using GCP Worload Identity Federation
 
-If Topograph is running on a **GCP compute service**, you can authenticate without service account keys.
+When running Topograph in Kubernetes cluster, one supported authentication method is to use
+a **GCP Workload Identity Federation** with **Application Default Credentials (ADC)**.
 
-Attach or use a service account that grants the
-`compute.instances.list` permission on the target project and zone.
-A common example is the `roles/compute.viewer` role.
+### 1. Identify the values for the parameters
 
-For more information about IAM roles and how to grant permissions, refer to the following documentation:
+Identify the values specific to the setup, and replace the env variables with the corresponding values.
 
-* [Roles overview](https://cloud.google.com/iam/docs/roles-overview)
-* [Manage access to projects, folders, and organizations](https://cloud.google.com/iam/docs/granting-changing-revoking-access)
-* [Grant a role using the Google Cloud console](https://cloud.google.com/iam/docs/grant-role-console)
-* [Grant a role using gcloud](https://cloud.google.com/sdk/gcloud/reference/projects/add-iam-policy-binding)
+```bash
+## EKS
+export EKS_CLUSTER="<name of eks cluster>"
+export AWS_REGION="<aws region>"
+export OIDC_ISSUER=$(aws eks describe-cluster --name "$EKS_CLUSTER" --region "$AWS_REGION" --query "cluster.identity.oidc.issuer" --output text)
+
+## GCP
+export GCP_PROJECT="<name of the GCP project>"
+export GCP_PROJECT_NUMBER="<id number of the GCP project>"
+export WORKLOAD_POOL_ID="eks-pool"
+export WORKLOAD_POOL_NAME="AWS EKS Workload Identity Pool"
+export WORKLOAD_POOL_DESC="AWS EKS Workload Identity Pool"
+export WORKLOAD_PROVIDER_ID="eks-workload-provider"
+export ATTRIBUTE_MAPPING="google.subject=assertion.sub"
+#assertion.sub contains system:serviceaccount:NAMESPACE:KSA_NAME 
+
+## GCP Service Account (GSA) details
+export GSA_NAME="compute-client"
+export GSA_DESC-"Topograph API client"
+export GSA_PROJECT="<name of the GCP project where the GSA is created>" # could be same as $GCP_PROJECT or different
+export GSA_ROLE="roles/compute.viewer"
+export GSA_EMAIL=$GSA_NAME@$GSA_PROJECT.iam.gserviceaccount.com
+
+## Kubernetes Service Account (KSA) details
+export NAMESPACE="<namespace name where topograph will be deployed>"
+export KSA_NAME="<kubernetes service account name for topograph>"
+export CRED_SECRET_NAME="<kubernetes secret name for GCP credentials>"
+```
+
+### 2. Create a GCP service account (GSA)
+Create a GCP Service Account (if it doesn't exist already).
+
+```bash
+gcloud iam service-accounts create $GSA_NAME --project $GSA_PROJECT --display-name=$GSA_DESC
+```
+
+### 3. Grant minimum required permissions
+
+Grant the GSA read-only access to Compute Engine resources:
+
+```bash
+gcloud projects add-iam-policy-binding $GCP_PROJECT \
+  --member="serviceAccount:$GSA_EMAIL" \
+  --role=$GSA_ROLE
+```
+
+### 4. Create a GCP Workload Identity Pool
+
+```bash
+gcloud iam workload-identity-pools create $POOL_ID \
+    --location="global" \
+    --description="$POOL_DESC" \
+    --display-name="$POOL_NAME" 
+```
+
+### 5. Create a GCP Workload Identity Provider
+```bash
+gcloud iam workload-identity-pools providers create-oidc \  $WORKLOAD_PROVIDER_ID \
+ --location="global" \
+ --workload-identity-pool="$WORKLOAD_POOL_ID" \
+ --issuer-uri="$OIDC_ISSUER" \
+ --attribute-mapping="$ATTRIBUTE_MAPPING"
+```
+
+### 6. Grant Kubernetes Service Account (KSA) permission to impersonate GCP Service Account (GSA)
+```bash
+gcloud iam service-accounts add-iam-policy-binding $GSA_EMAIL \
+  --member="principal://iam.googleapis.com/projects/$GCP_PROJECT_NUMBER/locations/global/workloadIdentityPools/$WORKLOAD_POOL_ID/subject/system:serviceaccount:$NAMESPACE:$KSA_NAME" \
+    --role=roles/iam.workloadIdentityUser
+```
+
+### 7. Create credential configuration file 
+```bash
+gcloud iam workload-identity-pools create-cred-config \
+    projects/$GCP_PROJECT_NUMBER/locations/global/workloadIdentityPools/$WORKLOAD_POOL_ID/providers/$WORKLOAD_PROVIDER_ID \
+    --service-account=$GSA_EMAIL \
+    --credential-source-file=/var/run/service-account/token \
+    --credential-source-type=text \
+    --output-file=credential-configuration.json
+```
+
+### 8. Create a Kubernetes Secret 
+Create a k8s secret from the output of the previous command.
+
+```bash
+kubectl create secret generic $CRED_SECRET_NAME --from-file=credential-configuration.json
+```
+
+### 9. Configure Helm values
+
+In the Helm values file for the deployment, set the following parameters :
+* `global.provider.params.serviceAccountKeysSecret` to the name of the created secret in step 8.
+* `global.provider.params.identityFederationAudience` to the `audience` attribute in the `credential-configuration.json` created in step 7.
+
+This instructs the Helm chart to set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for Topograph.
+
+Example:
+
+```yaml
+global:
+  provider:
+    params:
+      credentialsSecretName: gcp-compute-client-key
+      identityFederationAudience: "https://iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/my-pool/providers/my-workload-provider"
+```
+For more information about setting Google Workload Identity Federation, refer to the following documentation:
+
+* [GCP Workload Identity Federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-kubernetes)
 
 ## Setting Project ID
 
