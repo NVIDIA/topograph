@@ -43,7 +43,7 @@ env: {}
 config:
   requestAggregationDelay: 15s
   # Optional secret with API credentials
-  # credentialsSecretName:
+  # credentialsSecret:
 
 #topologyNodeLabels:
 #  accelerator: network.topology.nvidia.com/accelerator
