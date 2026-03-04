@@ -34,7 +34,7 @@ const (
 	authTokenPath        = "/mnt/cloud-metadata/token"
 	authTokenEnvVar      = "IAM_TOKEN"
 
-	defaultPageSize int = 200
+	defaultPageSize  int    = 200
 	userAgentProduct string = "nvidia-topograph"
 )
 
