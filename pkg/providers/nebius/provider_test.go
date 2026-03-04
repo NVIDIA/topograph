@@ -70,3 +70,33 @@ func TestGetAuthOption(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUserAgentPrefix(t *testing.T) {
+	testCases := []struct {
+		name    string
+		version string
+		want    string
+	}{
+		{
+			name:    "empty version",
+			version: "",
+			want:    userAgentProduct,
+		},
+		{
+			name:    "whitespace version",
+			version: "   ",
+			want:    userAgentProduct,
+		},
+		{
+			name:    "non-empty version",
+			version: "main",
+			want:    "nvidia-topograph/main",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, getUserAgentPrefix(tc.version))
+		})
+	}
+}

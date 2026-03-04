@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/nebius/gosdk"
 	"github.com/nebius/gosdk/auth"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
+	"github.com/NVIDIA/topograph/internal/version"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -33,6 +35,7 @@ const (
 	authTokenEnvVar      = "IAM_TOKEN"
 
 	defaultPageSize int = 200
+	userAgentProduct string = "nvidia-topograph"
 )
 
 type Client interface {
@@ -146,12 +149,19 @@ func getSDK(ctx context.Context, creds map[string]any) (*gosdk.SDK, *httperr.Err
 		return nil, httpErr
 	}
 
-	sdk, err := gosdk.New(ctx, opt)
+	sdk, err := gosdk.New(ctx, opt, gosdk.WithUserAgentPrefix(getUserAgentPrefix(version.Version)))
 	if err != nil {
 		return nil, httperr.NewError(http.StatusUnauthorized, fmt.Sprintf("failed to create gosdk: %v", err))
 	}
 
 	return sdk, nil
+}
+
+func getUserAgentPrefix(versionValue string) string {
+	if strings.TrimSpace(versionValue) == "" {
+		return userAgentProduct
+	}
+	return userAgentProduct + "/" + versionValue
 }
 
 func getPageSize(sz *int) int {

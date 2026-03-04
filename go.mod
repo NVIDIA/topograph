@@ -14,14 +14,14 @@ require (
 	github.com/googleapis/gax-go/v2 v2.15.0
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/nebius/gosdk v0.0.0-20250925083101-fd7444ff5a96
+	github.com/nebius/gosdk v0.2.0
 	github.com/oklog/run v1.1.0
 	github.com/oracle/oci-go-sdk/v65 v65.101.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/api v0.247.0
 	google.golang.org/grpc v1.75.1
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.34.0
 	k8s.io/apimachinery v0.34.0
@@ -31,7 +31,7 @@ require (
 )
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.9-20250912141014-52f32327d4b0.1 // indirect
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1 // indirect
 	cloud.google.com/go/auth v0.16.4 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18 // indirect
