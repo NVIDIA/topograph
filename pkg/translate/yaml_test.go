@@ -149,11 +149,11 @@ func TestMixedYamlTopology(t *testing.T) {
 			},
 			"topo2": {
 				Plugin: topology.TopologyTree,
-				Nodes:  []string{"Node[104,105]", "Node[201,205]", "Node[401-403]"},
+				Nodes:  []string{"Node[104,105]", "Node[201,205-207]", "Node[401-403]"},
 			},
 			"topo3": {
 				Plugin: topology.TopologyBlock,
-				Nodes:  []string{"Node[104,105]"},
+				Nodes:  []string{"Node[104-105,107-108]"},
 			},
 			"topo4": {
 				Plugin:     topology.TopologyBlock,
