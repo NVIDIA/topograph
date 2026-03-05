@@ -83,8 +83,8 @@ func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
 	//   ---     ---     ---     ---
 	//   I14\    I21\    I31\    I41\
 	//   I15-B1  I22-B2  I32-B3  I42-B4
-	//   I16/    I25/     I33/   I43/
-	//   ---     ---      ---    ---
+	//   I16/    I25/    I33/    I43/
+	//   ---     ---     ---     ---
 	//
 	instance2node := map[string]string{
 		"I14": "Node104", "I15": "Node105", "I16": "Node106",

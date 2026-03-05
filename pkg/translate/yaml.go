@@ -60,10 +60,7 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer) *httperr.Error {
 		topoSpec := nt.config.Topologies[topoName]
 		switch topoSpec.Plugin {
 		case topology.TopologyTree:
-			tu, err := nt.getTreeTopologyUnit(topoName, topoSpec)
-			if err != nil {
-				return httperr.NewError(http.StatusBadGateway, err.Error())
-			}
+			tu := nt.getTreeTopologyUnit(topoName, topoSpec)
 			topologies = append(topologies, tu)
 		case topology.TopologyBlock:
 			tu := nt.getBlockTopologyUnit(topoName, topoSpec)
@@ -103,11 +100,11 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 	for _, nodeName := range nodeNames {
 		info, ok := nt.nodeInfo[nodeName]
 		if !ok {
-			klog.Warningf("Missing node data for node %q", nodeName)
+			klog.Warningf("Omitting node %q from partition topology %q: missing node data", nodeName, topoName)
 			continue
 		}
 		if info.blockIndx == nil {
-			klog.Warningf("Missing block index for node %q", nodeName)
+			klog.Warningf("Omitting node %q from partition topology %q: missing block index", nodeName, topoName)
 			continue
 		}
 		indx := *info.blockIndx
@@ -152,7 +149,7 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 	}
 }
 
-func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, error) {
+func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {
 	tu := &TopologyUnit{
 		Name:    topoName,
 		Default: topoSpec.ClusterDefault,
@@ -166,11 +163,12 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 	nodeSelector := newSelector(nodeNames)
 	nodeIDs := make([]string, 0, len(nodeNames))
 	for _, nodeName := range nodeNames {
-		info, ok := nt.nodeInfo[nodeName]
-		if !ok {
-			return nil, fmt.Errorf("missing instance ID for node %q", nodeName)
+		if info, ok := nt.nodeInfo[nodeName]; !ok {
+			klog.Warningf("Omitting node %q from partition topology %q: missing instance ID", nodeName, topoName)
+			delete(nodeSelector, nodeName)
+		} else {
+			nodeIDs = append(nodeIDs, info.instanceID)
 		}
-		nodeIDs = append(nodeIDs, info.instanceID)
 	}
 	// get partial tree for switches
 	tree := nt.getPartitionTree(nodeIDs)
@@ -213,7 +211,7 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 		queue = append(queue, connects...)
 	}
 
-	return tu, nil
+	return tu
 }
 
 func (nt *NetworkTopology) getPartitionTree(nodes []string) map[string][]string {
