@@ -83,5 +83,15 @@ func mainInternal(c string) error {
 	// Controller
 	g.Add(controller.Start, controller.Stop)
 
+	//Register profiling endpoinds if enabled
+	//if cfg.EnableProfiling {
+	profilingPort := cfg.ProfilingPort
+	if profilingPort == 0 {
+		profilingPort = node_observer.DefaultProfilingPort
+	}
+	profilingServer := node_observer.NewProfilingServer(profilingPort)
+	g.Add(profilingServer.Start, profilingServer.Stop)
+	//}
+
 	return g.Run()
 }
