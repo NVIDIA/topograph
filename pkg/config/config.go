@@ -38,6 +38,7 @@ type Config struct {
 	CredsPath               *string           `yaml:"credentialsPath,omitempty"`
 	FwdSvcURL               *string           `yaml:"forwardServiceUrl,omitempty"`
 	Env                     map[string]string `yaml:"env"`
+	EnableProfiling         bool              `yaml:"enableProfiling,omitempty"`
 
 	// derived
 	Credentials map[string]any

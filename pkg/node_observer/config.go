@@ -26,12 +26,16 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const DefaultProfilingPort = 49021
+
 type Config struct {
 	GenerateTopologyURL string            `yaml:"generateTopologyUrl"`
 	Trigger             Trigger           `yaml:"trigger"`
 	Provider            topology.Provider `yaml:"provider"`
 	Engine              topology.Engine   `yaml:"engine"`
 	Params              map[string]any    `yaml:"params"`
+	EnableProfiling     bool              `yaml:"enableProfiling,omitempty"`
+	ProfilingPort       int               `yaml:"profilingPort,omitempty"`
 }
 
 type Trigger struct {
