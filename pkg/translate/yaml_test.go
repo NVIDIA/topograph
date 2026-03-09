@@ -15,7 +15,7 @@ import (
 
 func TestTreeYamlTopology(t *testing.T) {
 	expected := `- topology: topo1
-  clusterDefault: false
+  cluster_default: false
   tree:
     switches:
         - switch: S1
@@ -23,7 +23,7 @@ func TestTreeYamlTopology(t *testing.T) {
         - switch: S2
           nodes: Node[201,205]
 - topology: topo2
-  clusterDefault: true
+  cluster_default: true
   tree:
     switches:
         - switch: S1
@@ -54,7 +54,7 @@ func TestTreeYamlTopology(t *testing.T) {
 
 func TestBlockYamlTopology(t *testing.T) {
 	expected := `- topology: topo1
-  clusterDefault: true
+  cluster_default: true
   block:
     blockSizes:
         - 2
@@ -62,7 +62,7 @@ func TestBlockYamlTopology(t *testing.T) {
         - block: block1
           nodes: Node[104-105]
 - topology: topo2
-  clusterDefault: false
+  cluster_default: false
   block:
     blockSizes:
         - 2
@@ -93,7 +93,7 @@ func TestBlockYamlTopology(t *testing.T) {
 
 func TestMixedYamlTopology(t *testing.T) {
 	expected := `- topology: topo1
-  clusterDefault: false
+  cluster_default: false
   tree:
     switches:
         - switch: IB2
@@ -103,7 +103,7 @@ func TestMixedYamlTopology(t *testing.T) {
         - switch: S3
           nodes: Node[201,205]
 - topology: topo2
-  clusterDefault: false
+  cluster_default: false
   tree:
     switches:
         - switch: IB1
@@ -121,7 +121,7 @@ func TestMixedYamlTopology(t *testing.T) {
         - switch: S3
           nodes: Node[201,205]
 - topology: topo3
-  clusterDefault: false
+  cluster_default: false
   block:
     blockSizes:
         - 2
@@ -129,7 +129,7 @@ func TestMixedYamlTopology(t *testing.T) {
         - block: block1
           nodes: Node[104-105]
 - topology: topo4
-  clusterDefault: false
+  cluster_default: false
   block:
     blockSizes:
         - 2
@@ -137,7 +137,7 @@ func TestMixedYamlTopology(t *testing.T) {
         - block: block1
           nodes: Node[301-303]
 - topology: topo5
-  clusterDefault: true
+  cluster_default: true
   flat: true
 `
 	v, _ := GetBlockWithMultiIBTestSet()
@@ -175,7 +175,7 @@ func TestMixedYamlTopology(t *testing.T) {
 
 func TestBlockOnlyYamlTopology(t *testing.T) {
 	expected := `- topology: topo1
-  clusterDefault: true
+  cluster_default: true
   block:
     blockSizes:
         - 2
@@ -183,7 +183,7 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
         - block: block1
           nodes: Node[104-105]
 - topology: topo2
-  clusterDefault: false
+  cluster_default: false
   block:
     blockSizes:
         - 2
