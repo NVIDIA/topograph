@@ -21,7 +21,7 @@ import (
 
 type TopologyUnit struct {
 	Name    string     `yaml:"topology"`
-	Default bool       `yaml:"clusterDefault"`
+	Default bool       `yaml:"cluster_default"`
 	Flat    bool       `yaml:"flat,omitempty"`
 	Tree    *TreeTopo  `yaml:"tree,omitempty"`
 	Block   *BlockTopo `yaml:"block,omitempty"`
