@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -98,6 +99,16 @@ func initHttpServer(ctx context.Context, cfg *config.Config) *HttpServer {
 	mux.HandleFunc("/v1/lookup", lookup)
 	mux.HandleFunc("/healthz", healthz)
 	mux.Handle("/metrics", promhttp.Handler())
+
+	// Register pprof handlers for performance profiling
+	//if cfg.EnableProfiling {
+	klog.Infof("Enabling pprof profiling endpoints")
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	//}
 
 	return &HttpServer{
 		ctx: ctx,
