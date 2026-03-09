@@ -39,6 +39,7 @@ const NAME = "aws"
 
 type baseProvider struct {
 	clientFactory ClientFactory
+	trimTiers     int
 }
 
 type EC2Client interface {
@@ -71,9 +72,14 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *httperr.Error) {
-	creds, err := getCredentials(ctx, cfg.Creds)
+	creds, httpErr := getCredentials(ctx, cfg.Creds)
+	if httpErr != nil {
+		return nil, httpErr
+	}
+
+	trimTiers, err := providers.GetTrimTiers(cfg.Params)
 	if err != nil {
-		return nil, err
+		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
 	}
 
 	clientFactory := func(region string, pageSize *int) (*Client, error) {
@@ -96,7 +102,7 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *htt
 		}, nil
 	}
 
-	return New(clientFactory), nil
+	return New(clientFactory, trimTiers), nil
 }
 
 func getCredentials(ctx context.Context, creds map[string]any) (*Credentials, *httperr.Error) {
@@ -167,16 +173,19 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 
 	klog.Infof("Extracted topology for %d instances", topo.Len())
 
-	return topo.ToThreeTierGraph(NAME, instances, false), nil
+	return topo.ToThreeTierGraph(NAME, instances, p.trimTiers, false), nil
 }
 
 type Provider struct {
 	baseProvider
 }
 
-func New(clientFactory ClientFactory) *Provider {
+func New(clientFactory ClientFactory, trimTiers int) *Provider {
 	return &Provider{
-		baseProvider: baseProvider{clientFactory: clientFactory},
+		baseProvider: baseProvider{
+			clientFactory: clientFactory,
+			trimTiers:     trimTiers,
+		},
 	}
 }
 

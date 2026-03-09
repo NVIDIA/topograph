@@ -67,7 +67,9 @@ func TestPayload(t *testing.T) {
       "accessKeyId": "id",
       "secretAccessKey": "secret"
     },
-	"params": {}
+	"params": {
+	  "trimTiers": 2
+	}
   },
   "engine": {
     "name": "slurm",
@@ -104,7 +106,7 @@ func TestPayload(t *testing.T) {
 						"accessKeyId":     "id",
 						"secretAccessKey": "secret",
 					},
-					Params: map[string]any{},
+					Params: map[string]any{"trimTiers": float64(2)},
 				},
 				Engine: Engine{
 					Name: "slurm",
@@ -136,7 +138,7 @@ func TestPayload(t *testing.T) {
 			print: `TopologyRequest:
   Provider: aws
   Credentials: [accessKeyId:*** secretAccessKey:***]
-  Parameters: []
+  Parameters: [trimTiers:2]
   Engine: slurm
   Parameters: [block_sizes:30,120 plugin:topology/block reconfigure:true]
   Nodes: region1: [instance1:node1 instance2:node2 instance3:node3] region2: [instance4:node4 instance5:node5 instance6:node6]

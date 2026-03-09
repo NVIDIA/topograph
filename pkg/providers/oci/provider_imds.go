@@ -38,8 +38,12 @@ func NamedLoaderIMDS() (string, providers.Loader) {
 	return NAME_IMDS, LoaderIMDS
 }
 
-func LoaderIMDS(_ context.Context, _ providers.Config) (providers.Provider, *httperr.Error) {
-	return &imdsProvider{}, nil
+func LoaderIMDS(_ context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
+	trimTiers, err := providers.GetTrimTiers(config.Params)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
+	}
+	return &imdsProvider{baseProvider: baseProvider{trimTiers: trimTiers}}, nil
 }
 
 func (p *imdsProvider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
@@ -48,7 +52,7 @@ func (p *imdsProvider) GenerateTopologyConfig(ctx context.Context, _ *int, insta
 		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, true), nil
+	return topo.ToThreeTierGraph(NAME, instances, p.trimTiers, true), nil
 }
 
 func (p *imdsProvider) generateInstanceTopology(ctx context.Context, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {

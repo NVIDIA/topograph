@@ -28,6 +28,7 @@ var ErrAPIError = errors.New("API error")
 type SimulationParams struct {
 	ModelFileName string `mapstructure:"modelFileName"`
 	APIError      int    `mapstructure:"api_error"`
+	TrimTiers     int    `mapstructure:"trimTiers"`
 }
 
 func GetSimulationParams(params map[string]any) (*SimulationParams, error) {

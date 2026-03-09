@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetAuthOption(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name  string
 		creds map[string]any
 		env   bool
@@ -55,15 +55,15 @@ func TestGetAuthOption(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			if tc.env {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.env {
 				os.Setenv(authTokenEnvVar, "data")
 				defer os.Unsetenv(authTokenEnvVar)
 			}
-			_, err := getAuthOption(tc.creds)
-			if len(tc.err) != 0 {
-				require.EqualError(t, err, tc.err)
+			_, err := getAuthOption(tt.creds)
+			if len(tt.err) != 0 {
+				require.EqualError(t, err, tt.err)
 			} else {
 				require.Nil(t, err)
 			}
@@ -72,31 +72,31 @@ func TestGetAuthOption(t *testing.T) {
 }
 
 func TestGetUserAgentPrefix(t *testing.T) {
-	testCases := []struct {
-		name    string
-		version string
-		want    string
+	tests := []struct {
+		name     string
+		version  string
+		expected string
 	}{
 		{
-			name:    "empty version",
-			version: "",
-			want:    userAgentProduct,
+			name:     "Case 1: empty version",
+			version:  "",
+			expected: userAgentProduct,
 		},
 		{
-			name:    "whitespace version",
-			version: "   ",
-			want:    userAgentProduct,
+			name:     "Case 2: whitespace version",
+			version:  "   ",
+			expected: userAgentProduct,
 		},
 		{
-			name:    "non-empty version",
-			version: "main",
-			want:    "nvidia-topograph/main",
+			name:     "Case 3: non-empty version",
+			version:  "main",
+			expected: "nvidia-topograph/main",
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, getUserAgentPrefix(tc.version))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, getUserAgentPrefix(tt.version))
 		})
 	}
 }

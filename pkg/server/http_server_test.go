@@ -93,6 +93,45 @@ SwitchName=sw14 Nodes=n-[1401-1402]
 SwitchName=no-topology Nodes=n-CPU
 `
 
+	slurmTrimmedTreePayload = `
+{
+  "provider": {
+    "name": "%s",
+    "params": {
+      "modelFileName": "../../tests/models/medium.yaml",
+	  "trimTiers": 1
+    }
+  },
+  "engine": {
+    "name": "slurm"
+  },
+  "nodes": [
+    {
+      "region": "R1",
+      "instances": {
+        "1101": "n-1101",
+        "1102": "n-1102",
+        "1201": "n-1201",
+        "1202": "n-1202",
+        "1301": "n-1301",
+        "1302": "n-1302",
+        "1401": "n-1401",
+        "1402": "n-1402",
+        "1500": "n-CPU"
+      }
+    }
+  ]
+}
+`
+	slurmTrimmedTreeConfig = `SwitchName=sw21 Switches=sw[11-12]
+SwitchName=sw22 Switches=sw[13-14]
+SwitchName=sw11 Nodes=n-[1101-1102]
+SwitchName=sw12 Nodes=n-[1201-1202]
+SwitchName=sw13 Nodes=n-[1301-1302]
+SwitchName=sw14 Nodes=n-[1401-1402]
+SwitchName=no-topology Nodes=n-CPU
+`
+
 	slurmBlockPayload = `
 {
   "provider": {
@@ -240,14 +279,21 @@ func TestServerLocal(t *testing.T) {
 			expected: slurmTreeConfig,
 		},
 		{
-			name:     "Case 7: mock Lambda request for tree topology",
+			name:     "Case 7: mock GCP request for trimmed tree topology",
+			endpoint: "generate",
+			provider: "gcp-sim",
+			payload:  slurmTrimmedTreePayload,
+			expected: slurmTrimmedTreeConfig,
+		},
+		{
+			name:     "Case 8: mock Lambda request for tree topology",
 			endpoint: "generate",
 			provider: "lambdai-sim",
 			payload:  slurmTreePayload,
 			expected: slurmTreeConfig,
 		},
 		{
-			name:     "Case 8: mock request for topology with invalid UID",
+			name:     "Case 9: mock request for topology with invalid UID",
 			endpoint: "topology",
 			payload:  "invalid-uid",
 			expected: "request ID invalid-uid not found\n",

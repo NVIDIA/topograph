@@ -39,12 +39,12 @@ func TestGetProjectID(t *testing.T) {
 			name:    "Case 3: invalid project_id in params",
 			params:  map[string]any{"project_id": false},
 			content: []byte(`{"project_id": "test-project"}`),
-			err:     "error in topology request parameters: 'project_id' must be a string",
+			err:     "error in topology request parameters: 'project_id' must be of type string",
 		},
 		{
 			name:    "Case 4: invalid project_id in cert keys",
 			content: []byte(`{"project_id": false}`),
-			err:     "error in GOOGLE_APPLICATION_CREDENTIALS: 'project_id' must be a string",
+			err:     "error in GOOGLE_APPLICATION_CREDENTIALS: 'project_id' must be of type string",
 		},
 		{
 			name: "Case 5: invalid credentials file path",

@@ -90,7 +90,7 @@ func (c *ClusterTopology) Len() int {
 	return len(c.Instances)
 }
 
-func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstances, normalize bool) *Vertex {
+func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstances, trimTiers int, normalize bool) *Vertex {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
 		maps.Copy(i2n, ci.Instances)
@@ -123,7 +123,8 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 		}
 
 		swNames := [3]string{inst.LeafName, inst.SpineName, inst.CoreName}
-		for i, swID := range []string{inst.LeafID, inst.SpineID, inst.CoreID} {
+
+		for i, swID := range trimmedTiers(inst, trimTiers) {
 			if len(swID) == 0 {
 				continue
 			}
@@ -224,4 +225,13 @@ func (c *ClusterTopology) Normalize() {
 		}
 		c.Instances[i].CoreName = name
 	}
+}
+
+func trimmedTiers(inst *InstanceTopology, trimTiers int) []string {
+	tiers := []string{inst.LeafID, inst.SpineID, inst.CoreID}
+	n := len(tiers)
+	for i := 0; i < trimTiers && i < n; i++ {
+		tiers[n-i-1] = ""
+	}
+	return tiers
 }

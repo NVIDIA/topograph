@@ -138,7 +138,7 @@ func TestToThreeTierGraphNoNorm(t *testing.T) {
 		Vertices: map[string]*Vertex{TopologyTree: v0, TopologyBlock: blocks},
 	}
 
-	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, false)
+	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, 0, false)
 	require.Equal(t, expected, graph)
 }
 
@@ -208,7 +208,7 @@ func TestToThreeTierGraphNorm(t *testing.T) {
 		Vertices: map[string]*Vertex{TopologyTree: v0, TopologyBlock: blocks},
 	}
 
-	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, true)
+	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, 0, true)
 	require.Equal(t, expected, graph)
 
 	inst0 := "Instance:i-001 Leaf:nn-11111111 (switch.1.1) Spine:nn-55555555 (switch.2.1) Core:nn-77777777 (switch.3.1) Accelerator:acc-111111"
@@ -216,4 +216,71 @@ func TestToThreeTierGraphNorm(t *testing.T) {
 
 	inst2 := "Instance:i-003 Leaf:nn-33333333 (switch.1.3) Spine:nn-66666666 (switch.2.2) Core:nn-77777777 (switch.3.1)"
 	require.Equal(t, inst2, topo.Instances[2].String())
+}
+
+func TestTrimTiers(t *testing.T) {
+	tests := []struct {
+		name      string
+		trimTiers int
+		in        InstanceTopology
+		out       []string
+	}{
+		{
+			name:      "Case 1: trim none",
+			trimTiers: 0,
+			in: InstanceTopology{
+				CoreID:  "core1",
+				SpineID: "spine1",
+				LeafID:  "leaf1",
+			},
+			out: []string{"leaf1", "spine1", "core1"},
+		},
+		{
+			name:      "Case 2: trim 1 tier",
+			trimTiers: 1,
+			in: InstanceTopology{
+				CoreID:  "core1",
+				SpineID: "spine1",
+				LeafID:  "leaf1",
+			},
+			out: []string{"leaf1", "spine1", ""},
+		},
+		{
+			name:      "Case 3: trim 2 tiers",
+			trimTiers: 2,
+			in: InstanceTopology{
+				CoreID:  "core1",
+				SpineID: "spine1",
+				LeafID:  "leaf1",
+			},
+			out: []string{"leaf1", "", ""},
+		},
+		{
+			name:      "Case 4: trim all tiers",
+			trimTiers: 3,
+			in: InstanceTopology{
+				CoreID:  "core1",
+				SpineID: "spine1",
+				LeafID:  "leaf1",
+			},
+			out: []string{"", "", ""},
+		},
+		{
+			name:      "Case 5: trim more than available",
+			trimTiers: 10,
+			in: InstanceTopology{
+				CoreID:  "core1",
+				SpineID: "spine1",
+				LeafID:  "leaf1",
+			},
+			out: []string{"", "", ""},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inst := tt.in
+			require.Equal(t, tt.out, trimmedTiers(&inst, tt.trimTiers))
+		})
+	}
 }

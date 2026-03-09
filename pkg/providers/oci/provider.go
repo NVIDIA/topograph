@@ -21,6 +21,7 @@ import (
 )
 
 type baseProvider struct {
+	trimTiers int
 }
 
 // Engine support

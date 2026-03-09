@@ -27,11 +27,18 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	pb "github.com/NVIDIA/topograph/pkg/protos"
+	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	klog.Infof("Forwarding request to %s", url)
+
+	trimTiers, err := providers.GetTrimTiers(tr.Provider.Params)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
+	}
+
 	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to connect to %s: %v", url, err))
@@ -63,7 +70,7 @@ func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis [
 		}
 	}
 
-	return topo.ToThreeTierGraph(tr.Provider.Name, cis, false), nil
+	return topo.ToThreeTierGraph(tr.Provider.Name, cis, trimTiers, false), nil
 }
 
 func convert(inst *pb.Instance) *topology.InstanceTopology {
