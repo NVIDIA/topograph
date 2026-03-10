@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"strings"
@@ -134,6 +135,24 @@ BlockName=block011 Nodes=n-[6101-6108]
 # block012=nvl-6-2
 BlockName=block012 Nodes=n-[6201-6208]
 BlockSizes=8,16,32
+`
+	testPayload = `
+{
+  "provider": {
+    "name": "test",
+    "params": {
+      "modelFileName": "large.yaml",
+      "providerParam01": "test"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "engineParam01": 2
+    }
+  }
+}
 `
 )
 
@@ -468,4 +487,155 @@ func stringToLineMap(str string) map[string]struct{} {
 	}
 
 	return m
+}
+
+func readRequestTest(t *testing.T, payload string, provider, engine string, providerParams, engineParams map[string]any) {
+	r := &http.Request{
+		Method: http.MethodPost,
+		Body:   io.NopCloser(bytes.NewBuffer([]byte(payload))),
+	}
+
+	w := httptest.NewRecorder()
+
+	req := readRequest(w, r)
+	require.NotNil(t, req)
+	require.Equal(t, provider, req.Provider.Name)
+	require.Equal(t, engine, req.Engine.Name)
+	require.Equal(t, providerParams, req.Provider.Params)
+	require.Equal(t, engineParams, req.Engine.Params)
+}
+
+func TestReadRequest(t *testing.T) {
+	srv = &HttpServer{
+		cfg: &config.Config{
+			Provider: "test",
+			ProviderParams: map[string]any{
+				"providerParam01": 1,
+			},
+			Engine: "slurm",
+			EngineParams: map[string]any{
+				"engineParam01": "test",
+			},
+		},
+	}
+	testCases := []struct {
+		name           string
+		payload        string
+		provider       string
+		engine         string
+		providerParams map[string]any
+		engineParams   map[string]any
+	}{
+		{
+			name:     "Test readRequest with an empty Payload",
+			payload:  "",
+			provider: "test",
+			engine:   "slurm",
+			providerParams: map[string]any{
+				"providerParam01": 1,
+			},
+			engineParams: map[string]any{
+				"engineParam01": "test",
+			},
+		},
+		{
+			name:     "Test readRequest with Simple Slurm Payload",
+			payload:  fmt.Sprintf(simpleSlurmPayload, "test"),
+			provider: "test",
+			engine:   "slurm",
+			providerParams: map[string]any{
+				"providerParam01": 1,
+			},
+			engineParams: map[string]any{
+				"engineParam01": "test",
+			},
+		},
+		{
+			// This test checks that the provider and engine params specified in the payload take precedence over the ones in the config
+			// for overlapping keys, while non-overlapping keys from the config are still included in the final params.
+			name:     "Test readRequest with Overlapping Keys in Payload and Config",
+			payload:  testPayload,
+			provider: "test",
+			engine:   "slurm",
+			providerParams: map[string]any{
+				"modelFileName":   "large.yaml",
+				"providerParam01": "test",
+			},
+			engineParams: map[string]any{
+				"plugin":        "topology/block",
+				"engineParam01": float64(2), // note that JSON unmarshaling converts numbers to float64
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			readRequestTest(t, tc.payload, tc.provider, tc.engine, tc.providerParams, tc.engineParams)
+		})
+	}
+}
+
+func readInvalidRequest(t *testing.T, payload, msg string) {
+	r := &http.Request{
+		Method: http.MethodPost,
+		Body:   io.NopCloser(bytes.NewBuffer([]byte(payload))),
+	}
+	w := httptest.NewRecorder()
+
+	req := readRequest(w, r)
+	require.Nil(t, req)
+	require.Equal(t, http.StatusBadRequest, w.Result().StatusCode)
+	require.Equal(t, msg, w.Body.String())
+}
+
+func TestReadInvalidRequest(t *testing.T) {
+
+	srv = &HttpServer{
+		cfg: &config.Config{},
+	}
+	testCases := []struct {
+		name    string
+		payload string
+		message string
+	}{
+		{
+			name:    "Test validate with an empty provider",
+			payload: "",
+			message: "no provider given for topology request\n",
+		},
+		{
+			name: "Test validate with an empty engine",
+			payload: `{
+				"provider": {
+					"name": "test"
+				}
+			}`,
+			message: "no engine given for topology request\n",
+		},
+		{
+			name: "Test validate with an invalid provider",
+			payload: `{
+				"provider": {
+					"name": "mytestprovider"
+				}
+			}`,
+			message: "unsupported provider mytestprovider\n",
+		},
+		{
+			name: "Test validate with an invalid engine",
+			payload: `{
+				"provider": {
+					"name": "test"
+				},
+				"engine": {
+					"name": "mytestengine"
+				}
+			}`,
+			message: "unsupported engine mytestengine\n",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			readInvalidRequest(t, tc.payload, tc.message)
+		})
+	}
 }
