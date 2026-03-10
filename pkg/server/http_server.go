@@ -185,6 +185,25 @@ func readRequest(w http.ResponseWriter, r *http.Request) *topology.Request {
 		tr.Engine.Name = srv.cfg.Engine
 	}
 
+	// Add provider and engine params with ones specified in the config, if they are not already set in the payload
+	for k, v := range srv.cfg.ProviderParams {
+		if tr.Provider.Params == nil {
+			tr.Provider.Params = make(map[string]any)
+		}
+		if _, exists := tr.Provider.Params[k]; !exists {
+			tr.Provider.Params[k] = v
+		}
+	}
+
+	for k, v := range srv.cfg.EngineParams {
+		if tr.Engine.Params == nil {
+			tr.Engine.Params = make(map[string]any)
+		}
+		if _, exists := tr.Engine.Params[k]; !exists {
+			tr.Engine.Params[k] = v
+		}
+	}
+
 	klog.Info(tr.String())
 
 	if err = validate(tr); err != nil {

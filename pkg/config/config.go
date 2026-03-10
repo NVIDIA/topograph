@@ -32,7 +32,9 @@ type Config struct {
 	HTTP                    Endpoint          `yaml:"http"`
 	RequestAggregationDelay time.Duration     `yaml:"requestAggregationDelay"`
 	Provider                string            `yaml:"provider,omitempty"`
+	ProviderParams          map[string]any    `yaml:"providerParams,omitempty"`
 	Engine                  string            `yaml:"engine,omitempty"`
+	EngineParams            map[string]any    `yaml:"engineParams,omitempty"`
 	PageSize                *int              `yaml:"pageSize,omitempty"`
 	SSL                     *SSL              `yaml:"ssl,omitempty"`
 	CredsPath               *string           `yaml:"credentialsPath,omitempty"`
