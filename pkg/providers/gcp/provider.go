@@ -39,6 +39,7 @@ const NAME = "gcp"
 
 type baseProvider struct {
 	clientFactory ClientFactory
+	trimTiers     int
 }
 
 type ClientFactory func(pageSize *int) (Client, error)
@@ -83,6 +84,10 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
+	trimTiers, err := providers.GetTrimTiers(config.Params)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
+	}
 	clientFactory := func(pageSize *int) (Client, error) {
 		instanceClient, err := compute.NewInstancesRESTClient(ctx)
 		if err != nil {
@@ -96,7 +101,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 		}, nil
 	}
 
-	return New(clientFactory), nil
+	return New(clientFactory, trimTiers), nil
 }
 
 func getProjectID(ctx context.Context, params map[string]any) (string, error) {
@@ -142,16 +147,19 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, false), nil
+	return topo.ToThreeTierGraph(NAME, instances, p.trimTiers, false), nil
 }
 
 type Provider struct {
 	baseProvider
 }
 
-func New(clientFactory ClientFactory) *Provider {
+func New(clientFactory ClientFactory, trimTiers int) *Provider {
 	return &Provider{
-		baseProvider: baseProvider{clientFactory: clientFactory},
+		baseProvider: baseProvider{
+			clientFactory: clientFactory,
+			trimTiers:     trimTiers,
+		},
 	}
 }
 

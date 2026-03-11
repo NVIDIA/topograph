@@ -46,12 +46,12 @@ func TestGetCredentials(t *testing.T) {
 		{
 			name:  "Case 3: invalid secretAccessKey",
 			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": false},
-			err:   "credentials error: 'secretAccessKey' must be a string",
+			err:   "credentials error: 'secretAccessKey' must be of type string",
 		},
 		{
 			name:  "Case 4: invalid token",
 			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": "secret", "token": false},
-			err:   "credentials error: 'token' must be a string",
+			err:   "credentials error: 'token' must be of type string",
 		},
 		{
 			name:  "Case 5: valid provided creds",

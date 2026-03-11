@@ -47,7 +47,7 @@ func TestGetConfigurationProvider(t *testing.T) {
 		{
 			name:  "Case 1: invalid tenancyId",
 			creds: map[string]any{"tenancyId": false},
-			err:   "credentials error: 'tenancyId' must be a string",
+			err:   "credentials error: 'tenancyId' must be of type string",
 		},
 		{
 			name:  "Case 2: missing userId",

@@ -116,16 +116,48 @@ func ReadFile(path string) (string, error) {
 	return string(data), nil
 }
 
-func StringFromMap(key string, m map[string]any, must bool) (string, error) {
+func FromMap[T any](key string, m map[string]any, must bool) (T, error) {
+	var zero T
+
 	v, ok := m[key]
 	if !ok || v == nil {
 		if must {
-			return "", fmt.Errorf("missing '%s'", key)
+			return zero, fmt.Errorf("missing '%s'", key)
 		}
-		return "", nil
+		return zero, nil
 	}
-	if str, ok := v.(string); ok {
-		return str, nil
+
+	if val, ok := v.(T); ok {
+		return val, nil
 	}
-	return "", fmt.Errorf("'%s' must be a string", key)
+
+	return zero, fmt.Errorf("'%s' must be of type %T", key, zero)
+}
+
+func StringFromMap(key string, m map[string]any, must bool) (string, error) {
+	return FromMap[string](key, m, must)
+}
+
+func GetTrimTiers(params map[string]any) (int, error) {
+	v, ok := params[topology.KeyTrimTiers]
+	if !ok || v == nil {
+		return 0, nil
+	}
+
+	var trimTiers int
+	switch val := v.(type) {
+	case int:
+		trimTiers = val
+	case float64:
+		trimTiers = int(val)
+	default:
+		return 0, fmt.Errorf("invalid '%s' value '%v': unsupported type %T", topology.KeyTrimTiers, v, v)
+	}
+
+	// support up to 2 trimmed tiers: core and spine
+	if trimTiers < 0 || trimTiers > 2 {
+		return 0, fmt.Errorf("invalid '%s' value '%v': must be an integer between 0 and 2", topology.KeyTrimTiers, v)
+	}
+
+	return trimTiers, nil
 }

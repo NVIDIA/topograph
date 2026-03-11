@@ -183,16 +183,19 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, *
 		}, nil
 	}
 
-	return NewSim(clientFactory), nil
+	return NewSim(clientFactory, p.TrimTiers), nil
 }
 
 type simProvider struct {
 	baseProvider
 }
 
-func NewSim(clientFactory ClientFactory) *simProvider {
+func NewSim(clientFactory ClientFactory, trimTiers int) *simProvider {
 	return &simProvider{
-		baseProvider: baseProvider{clientFactory: clientFactory},
+		baseProvider: baseProvider{
+			clientFactory: clientFactory,
+			trimTiers:     trimTiers,
+		},
 	}
 }
 

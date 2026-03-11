@@ -88,6 +88,11 @@ func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider
 		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("unable to get tenancy OCID from config: %v", err))
 	}
 
+	trimTiers, err := providers.GetTrimTiers(config.Params)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
+	}
+
 	clientFactory := func(region string, pageSize *int) (Client, error) {
 		identityClient, err := identity.NewIdentityClientWithConfigurationProvider(provider)
 		if err != nil {
@@ -113,7 +118,7 @@ func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider
 		}, nil
 	}
 
-	return NewAPI(clientFactory), nil
+	return NewAPI(clientFactory, trimTiers), nil
 }
 
 func getConfigurationProvider(creds map[string]any) (common.ConfigurationProvider, *httperr.Error) {
@@ -163,8 +168,11 @@ func getConfigurationProvider(creds map[string]any) (common.ConfigurationProvide
 	return configProvider, nil
 }
 
-func NewAPI(clientFactory ClientFactory) *apiProvider {
-	return &apiProvider{clientFactory: clientFactory}
+func NewAPI(clientFactory ClientFactory, trimTiers int) *apiProvider {
+	return &apiProvider{
+		baseProvider:  baseProvider{trimTiers: trimTiers},
+		clientFactory: clientFactory,
+	}
 }
 
 func (p *apiProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
@@ -173,7 +181,7 @@ func (p *apiProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int,
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, true), nil
+	return topo.ToThreeTierGraph(NAME, instances, p.trimTiers, true), nil
 }
 
 func (p *apiProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {

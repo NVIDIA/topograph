@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestLoader(t *testing.T) {
@@ -66,6 +67,20 @@ func TestLoader(t *testing.T) {
 				},
 			},
 			err: "parameters error: missing 'url'",
+		},
+		{
+			name: "Case 5: invalid trimTiers",
+			config: providers.Config{
+				Creds: map[string]any{
+					authWorkspaceID: "workspace-123",
+					authToken:       "token-abc",
+				},
+				Params: map[string]any{
+					apiBaseURL:            "https://api.example.com",
+					topology.KeyTrimTiers: false,
+				},
+			},
+			err: "parameters error: invalid 'trimTiers' value 'false': unsupported type bool",
 		},
 	}
 
