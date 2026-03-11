@@ -191,7 +191,6 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
         - block: block1
           nodes: Node[301,303]
 `
-
 	v, _ := GetBlockWithMultiIBTestSet()
 	delete(v.Vertices, topology.TopologyTree)
 
@@ -211,6 +210,69 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
 	nt, _ := NewNetworkTopology(v, cfg)
 	buf := &bytes.Buffer{}
 	err := nt.Generate(buf)
+	require.Nil(t, err)
+	require.Equal(t, expected, buf.String())
+}
+
+func TestEmptyPartitionTopology(t *testing.T) {
+	expected := `- topology: topo1
+  cluster_default: false
+  tree:
+    switches:
+        - switch: IB2
+          children: S1
+        - switch: S1
+          children: S3
+        - switch: S3
+          nodes: Node[201,205]
+- topology: topo2
+  cluster_default: false
+  flat: true
+- topology: topo3
+  cluster_default: false
+  block:
+    blockSizes:
+        - 2
+    blocks:
+        - block: block1
+          nodes: Node[104-105]
+- topology: topo4
+  cluster_default: false
+  flat: true
+- topology: topo5
+  cluster_default: true
+  flat: true
+`
+	v, _ := GetBlockWithMultiIBTestSet()
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo1": {
+				Plugin: topology.TopologyTree,
+				Nodes:  []string{"Node[201,205]"},
+			},
+			"topo2": {
+				Plugin: topology.TopologyTree,
+				Nodes:  []string{"NodeIsDown"},
+			},
+			"topo3": {
+				Plugin: topology.TopologyBlock,
+				Nodes:  []string{"Node[104-105,107-108]"},
+			},
+			"topo4": {
+				Plugin:     topology.TopologyBlock,
+				Nodes:      []string{"NodeIsDown"},
+				BlockSizes: []int{2},
+			},
+			"topo5": {
+				Plugin:         topology.TopologyFlat,
+				ClusterDefault: true,
+			},
+		},
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.Nil(t, err)
+	buf := &bytes.Buffer{}
+	err = nt.Generate(buf)
 	require.Nil(t, err)
 	require.Equal(t, expected, buf.String())
 }
