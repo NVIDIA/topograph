@@ -119,43 +119,44 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 		}
 	}
 
-	// sort blockInfo by block index
-	bInfos := make([]*blockInfo, 0, len(blockMap))
-	for _, bInfo := range blockMap {
-		bInfos = append(bInfos, bInfo)
-	}
-	sort.Slice(bInfos, func(i, j int) bool {
-		return bInfos[i].indx < bInfos[j].indx
-	})
-
-	// populate block topology units ordered by block indices
-	blocks := make([]*Block, 0, len(bInfos))
-	for indx, bInfo := range bInfos {
-		blocks = append(blocks, &Block{
-			Name:  fmt.Sprintf("block%d", indx+1),
-			Nodes: strings.Join(cluset.Compact(bInfo.nodes), ","),
-		})
-	}
-
-	blockSizes := getBlockSize(bInfos, topoSpec.BlockSizes, false)
-
-	return &TopologyUnit{
+	tu := &TopologyUnit{
 		Name:    topoName,
 		Default: topoSpec.ClusterDefault,
-		Block: &BlockTopo{
-			BlockSizes: blockSizes,
-			Blocks:     blocks,
-		},
 	}
+
+	if nBlocks := len(blockMap); nBlocks == 0 {
+		tu.Flat = true
+	} else {
+		// sort blockInfo by block index
+		bInfos := make([]*blockInfo, 0, len(blockMap))
+		for _, bInfo := range blockMap {
+			bInfos = append(bInfos, bInfo)
+		}
+		sort.Slice(bInfos, func(i, j int) bool {
+			return bInfos[i].indx < bInfos[j].indx
+		})
+
+		// populate block topology units ordered by block indices
+		blocks := make([]*Block, 0, len(bInfos))
+		for indx, bInfo := range bInfos {
+			blocks = append(blocks, &Block{
+				Name:  fmt.Sprintf("block%d", indx+1),
+				Nodes: strings.Join(cluset.Compact(bInfo.nodes), ","),
+			})
+		}
+
+		tu.Block = &BlockTopo{
+			BlockSizes: getBlockSize(bInfos, topoSpec.BlockSizes, false),
+			Blocks:     blocks,
+		}
+	}
+	return tu
 }
 
 func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {
 	tu := &TopologyUnit{
 		Name:    topoName,
 		Default: topoSpec.ClusterDefault,
-		Tree: &TreeTopo{
-			Switches: []*Switch{},
-		},
 	}
 
 	// get participating node name and corresponding instance IDs
@@ -172,45 +173,50 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 	}
 	// get partial tree for switches
 	tree := nt.getPartitionTree(nodeIDs)
-	queue := []string{""}
-	for len(queue) > 0 {
-		switchID := queue[0]
-		queue = queue[1:]
-		connects, ok := tree[switchID]
-		if !ok {
-			// ignore the leaves (nodes)
-			continue
-		}
-		if len(switchID) != 0 {
-			v := nt.vertices[switchID]
-			sw := &Switch{Name: v.ID}
-			childen := []string{}
-			leaves := []string{}
-			switchSelector := newSelector(connects)
-			for _, w := range v.Vertices {
-				if len(w.Vertices) == 0 {
-					if nodeSelector[w.Name] {
-						leaves = append(leaves, w.Name)
-					}
-				} else {
-					if switchSelector[w.ID] {
-						childen = append(childen, w.ID)
-					}
-				}
-			}
-			if len(childen) != 0 || len(leaves) != 0 {
-				if len(childen) != 0 {
-					sw.Children = strings.Join(cluset.Compact(childen), ",")
-				}
-				if len(leaves) != 0 {
-					sw.Nodes = strings.Join(cluset.Compact(leaves), ",")
-				}
-				tu.Tree.Switches = append(tu.Tree.Switches, sw)
-			}
-		}
-		queue = append(queue, connects...)
-	}
+	if len(tree) == 0 {
+		tu.Flat = true
+	} else {
+		tu.Tree = &TreeTopo{Switches: []*Switch{}}
 
+		queue := []string{""}
+		for len(queue) > 0 {
+			switchID := queue[0]
+			queue = queue[1:]
+			connects, ok := tree[switchID]
+			if !ok {
+				// ignore the leaves (nodes)
+				continue
+			}
+			if len(switchID) != 0 {
+				v := nt.vertices[switchID]
+				sw := &Switch{Name: v.ID}
+				childen := []string{}
+				leaves := []string{}
+				switchSelector := newSelector(connects)
+				for _, w := range v.Vertices {
+					if len(w.Vertices) == 0 {
+						if nodeSelector[w.Name] {
+							leaves = append(leaves, w.Name)
+						}
+					} else {
+						if switchSelector[w.ID] {
+							childen = append(childen, w.ID)
+						}
+					}
+				}
+				if len(childen) != 0 || len(leaves) != 0 {
+					if len(childen) != 0 {
+						sw.Children = strings.Join(cluset.Compact(childen), ",")
+					}
+					if len(leaves) != 0 {
+						sw.Nodes = strings.Join(cluset.Compact(leaves), ",")
+					}
+					tu.Tree.Switches = append(tu.Tree.Switches, sw)
+				}
+			}
+			queue = append(queue, connects...)
+		}
+	}
 	return tu
 }
 
