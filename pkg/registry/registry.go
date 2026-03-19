@@ -31,6 +31,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/netq"
+	"github.com/NVIDIA/topograph/pkg/providers/nscale"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 	provider_test "github.com/NVIDIA/topograph/pkg/providers/test"
 )
@@ -51,6 +52,8 @@ var Providers = providers.NewRegistry(
 	netq.NamedLoader,
 	lambdai.NamedLoader,
 	lambdai.NamedLoaderSim,
+	nscale.NamedLoader,
+	nscale.NamedLoaderSim,
 	provider_test.NamedLoader,
 )
 
