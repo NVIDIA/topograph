@@ -125,6 +125,8 @@ func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) ([]byte, *http
 	for {
 		attempt++
 		resp, body, err := DoRequest(f, insecureSkipVerify)
+		// TODO: remove the line below after troubleshooting is completed
+		klog.Infof("BODY: %s", string(body))
 		if err == nil || attempt == maxRetries || !ShouldRetry(err.Code()) {
 			return body, err
 		}
