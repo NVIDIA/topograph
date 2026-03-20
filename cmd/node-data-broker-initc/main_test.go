@@ -25,8 +25,61 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestGetExtras(t *testing.T) {
+	tests := []struct {
+		name   string
+		sets   []string
+		extras map[string]string
+		err    string
+	}{
+		{
+			name:   "Case 1: empty input",
+			sets:   []string{},
+			extras: map[string]string{},
+		},
+		{
+			name:   "Case 2: single valid key=value",
+			sets:   []string{"a=b"},
+			extras: map[string]string{"a": "b"},
+		},
+		{
+			name:   "Case 3: multiple valid key=value",
+			sets:   []string{"a=b", "c=d"},
+			extras: map[string]string{"a": "b", "c": "d"},
+		},
+		{
+			name: "Case 4: invalid format",
+			sets: []string{"foo"},
+			err:  `invalid value "foo" for '--set': expected format '<key>=<value>'`,
+		},
+		{
+			name: "Case 5: empty key",
+			sets: []string{"=bar"},
+			err:  `invalid value "=bar" for '--set': key/value cannot be empty`,
+		},
+		{
+			name: "Case 6: empty value",
+			sets: []string{"foo="},
+			err:  `invalid value "foo=" for '--set': key/value cannot be empty`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			extras, err := getExtras(tt.sets)
+			if len(tt.err) != 0 {
+				require.EqualError(t, err, tt.err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.extras, extras)
+			}
+		})
+	}
+}
+
 func TestGetAnnotations(t *testing.T) {
-	testCases := []struct {
+	ctx := context.TODO()
+	tests := []struct {
 		name     string
 		provider string
 		err      string
@@ -36,22 +89,22 @@ func TestGetAnnotations(t *testing.T) {
 			err:  "must set provider",
 		},
 		{
-			name:     "Case 1: invalid provider",
+			name:     "Case 2: invalid provider",
 			provider: "invalid",
 			err:      `unsupported provider "invalid"`,
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := getAnnotations(context.TODO(), nil, nil, tc.provider, "")
-			require.EqualError(t, err, tc.err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := getAnnotations(ctx, nil, nil, tt.provider, "", nil)
+			require.EqualError(t, err, tt.err)
 		})
 	}
 }
 
 func TestMergeNodeAnnotations(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
 		name string
 		node *corev1.Node
 		in   map[string]string
@@ -81,10 +134,10 @@ func TestMergeNodeAnnotations(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			mergeNodeAnnotations(tc.node, tc.in)
-			require.Equal(t, tc.out, tc.node.Annotations)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mergeNodeAnnotations(tt.node, tt.in)
+			require.Equal(t, tt.out, tt.node.Annotations)
 		})
 	}
 }
