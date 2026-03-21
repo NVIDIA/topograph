@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"strings"
 
+	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -41,11 +43,14 @@ import (
 func main() {
 	var provider string
 	var ver bool
-	flag.StringVar(&provider, "provider", "", "API provider")
-	flag.BoolVar(&ver, "version", false, "show the version")
+	var sets []string
+	pflag.StringVar(&provider, "provider", "", "API provider")
+	pflag.BoolVar(&ver, "version", false, "show the version")
+	pflag.StringArrayVar(&sets, "set", []string{}, "extra key=value parameters")
 
 	klog.InitFlags(nil)
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 	defer klog.Flush()
 
 	if ver {
@@ -53,15 +58,19 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := mainInternal(provider); err != nil {
+	if err := mainInternal(provider, sets); err != nil {
 		klog.Error(err.Error())
 		os.Exit(1)
 	}
 }
 
-func mainInternal(provider string) error {
-	ctx := context.TODO()
-	nodeName := os.Getenv("NODE_NAME")
+func mainInternal(provider string, sets []string) error {
+	klog.InfoS("Starting node-data-broker", "provider", provider, "extras", sets)
+
+	extras, err := getExtras(sets)
+	if err != nil {
+		return err
+	}
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -73,7 +82,10 @@ func mainInternal(provider string) error {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	annotations, err := getAnnotations(ctx, clientset, config, provider, nodeName)
+	ctx := context.TODO()
+	nodeName := os.Getenv("NODE_NAME")
+
+	annotations, err := getAnnotations(ctx, clientset, config, provider, nodeName, extras)
 	if err != nil {
 		return err
 	}
@@ -94,7 +106,25 @@ func mainInternal(provider string) error {
 	return nil
 }
 
-func getAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, provider, nodeName string) (map[string]string, error) {
+func getExtras(sets []string) (map[string]string, error) {
+	extras := make(map[string]string)
+	for _, kv := range sets {
+		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) == 2 {
+			key, val := parts[0], parts[1]
+			if len(key) == 0 || len(val) == 0 {
+				return nil, fmt.Errorf("invalid value %q for '--set': key/value cannot be empty", kv)
+			}
+			extras[key] = val
+		} else {
+			return nil, fmt.Errorf("invalid value %q for '--set': expected format '<key>=<value>'", kv)
+		}
+	}
+
+	return extras, nil
+}
+
+func getAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, provider, nodeName string, extras map[string]string) (map[string]string, error) {
 	switch provider {
 	case aws.NAME:
 		return aws.GetNodeAnnotations(ctx)
@@ -107,7 +137,7 @@ func getAnnotations(ctx context.Context, client *kubernetes.Clientset, config *r
 	case dra.NAME:
 		return dra.GetNodeAnnotations(ctx, nodeName)
 	case infiniband.NAME_K8S:
-		return infiniband.GetNodeAnnotations(ctx, client, config, nodeName)
+		return infiniband.GetNodeAnnotations(ctx, client, config, nodeName, extras)
 	case "":
 		return nil, fmt.Errorf("must set provider")
 	default:

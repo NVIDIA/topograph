@@ -5,7 +5,6 @@
 image:
   repository: curlimages/curl
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
   tag: 8.13.0
 
 enabled: true
@@ -16,11 +15,13 @@ command:
   - /dev/null
 
 initc:
-  enabled: false
+  enabled: true
   image:
     repository: ghcr.io/nvidia/topograph
     pullPolicy: IfNotPresent
     tag: main
+  extraArgs:
+  #  - key=val
 
 imagePullSecrets: []
 nameOverride: ""

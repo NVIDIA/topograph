@@ -21,6 +21,14 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const (
+	gpuOperatorNamespaceArg  = "gpu-operator-namespace"
+	devicePluginDaemonSetArg = "device-plugin-daemonset"
+
+	defaultGpuOperatorNamespace  = "gpu-operator"
+	defaultDevicePluginDaemonSet = "nvidia-device-plugin-daemonset"
+)
+
 type IBNetDiscoverK8S struct {
 	config *rest.Config
 	client *kubernetes.Clientset
@@ -48,27 +56,40 @@ func (h *IBNetDiscoverK8S) Run(ctx context.Context, node string) (*bytes.Buffer,
 	return k8s.ExecInPod(ctx, h.client, h.config, pods.Items[0].Name, dataBrokerNamespace, []string{"ibnetdiscover"})
 }
 
-func GetClusterID(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, hostname string) (string, error) {
-	// TODO: parametrize gpu-operator namespace/name
-	pods, err := k8s.GetDaemonSetPods(ctx, client, "nvidia-device-plugin-daemonset", "gpu-operator", hostname)
+func GetClusterID(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, hostname string, overrides map[string]string) (string, error) {
+	ds, namespace := getDevicePluginInfo(overrides)
+
+	pods, err := k8s.GetDaemonSetPods(ctx, client, ds, namespace, hostname)
 	if err != nil {
 		return "", err
 	}
 
 	switch len(pods.Items) {
 	case 0:
-		klog.Infof("no nvidia-device-plugin-daemonset in %s node", hostname)
+		klog.Infof("no %s on %s node", ds, hostname)
 		return "", nil
 	case 1:
 		cmd := []string{"sh", "-c", cmdClusterID}
-		buf, err := k8s.ExecInPod(ctx, client, config, pods.Items[0].Name, "gpu-operator", cmd)
+		buf, err := k8s.ExecInPod(ctx, client, config, pods.Items[0].Name, namespace, cmd)
 		if err != nil {
 			return "", err
 		}
 		return parseClusterID(buf.String())
 	default:
-		return "", fmt.Errorf("expected 1 nvidia-device-plugin-daemonset pod, got %d", len(pods.Items))
+		return "", fmt.Errorf("expected 1 %s pod, got %d", ds, len(pods.Items))
 	}
+}
+
+func getDevicePluginInfo(overrides map[string]string) (daemonset string, namespace string) {
+	var ok bool
+	if daemonset, ok = overrides[devicePluginDaemonSetArg]; !ok {
+		daemonset = defaultDevicePluginDaemonSet
+	}
+	if namespace, ok = overrides[gpuOperatorNamespaceArg]; !ok {
+		namespace = defaultGpuOperatorNamespace
+	}
+
+	return
 }
 
 func parseClusterID(txt string) (string, error) {
@@ -102,13 +123,13 @@ func parseClusterID(txt string) (string, error) {
 	return clusterUUID + "." + cliqueId, nil
 }
 
-func GetNodeAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, hostname string) (map[string]string, error) {
+func GetNodeAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, hostname string, overrides map[string]string) (map[string]string, error) {
 	annotations := map[string]string{
 		topology.KeyNodeInstance: hostname,
 		topology.KeyNodeRegion:   "local",
 	}
 
-	if clusterID, err := GetClusterID(ctx, client, config, hostname); err != nil {
+	if clusterID, err := GetClusterID(ctx, client, config, hostname, overrides); err != nil {
 		klog.Warningf("No clusterID for node %s: %v", hostname, err)
 	} else {
 		annotations[topology.KeyNodeClusterID] = clusterID

@@ -29,8 +29,11 @@ spec:
           command:
             - /usr/local/bin/node-data-broker-initc
           args:
-            - -provider={{ .Values.global.provider.name }}
+            - --provider={{ .Values.global.provider.name }}
             - -v={{ .Values.verbosity }}
+            {{- range .Values.initc.extraArgs }}
+            - --set={{ . }}
+            {{- end }}
           env:
             - name: NODE_NAME
               valueFrom:

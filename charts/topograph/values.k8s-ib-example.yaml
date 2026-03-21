@@ -4,10 +4,8 @@
 
 global:
   provider:
-    # name: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test".
     name: infiniband-k8s
   engine:
-    # name: "k8s" or "slinky"
     name: k8s
 
 node-observer:
@@ -21,6 +19,10 @@ node-data-broker:
     repository: ghcr.io/nvidia/topograph/ib
     pullPolicy: IfNotPresent
     tag: main
+  initc:
+    extraArgs:
+    - gpu-operator-namespace=gpu-operator
+    - device-plugin-daemonset=nvidia-device-plugin-daemonset
   securityContext:
     privileged: true
   nodeSelector:
