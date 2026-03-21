@@ -19,7 +19,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/nvidia/topograph
   tag: main
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
@@ -124,26 +124,3 @@ serviceMonitor:
   path: /metrics
   interval: 15s
   scheme: http
-
-node-observer:
-  image:
-    repository: ghcr.io/nvidia/topograph
-    tag: main
-    pullPolicy: Always
-  verbosity: 3
-  topograph:
-    trigger:
-      nodeSelector: {}
-
-node-data-broker:
-  image:
-    repository: curlimages/curl
-    pullPolicy: IfNotPresent
-    tag: 8.13.0
-  initc:
-    enabled: true
-    image:
-      repository: ghcr.io/nvidia/topograph
-      tag: main
-      pullPolicy: Always
-  verbosity: 3
