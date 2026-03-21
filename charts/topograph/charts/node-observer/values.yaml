@@ -30,8 +30,8 @@ verbosity: 3
 topograph:
   # Initiate topology request based on changes in selected nodes and pods
   trigger:
-    nodeSelector: {}
-    podSelector: {}
+#    nodeSelector: {}
+#    podSelector: {}
 
 podAnnotations: {}
 podLabels: {}
