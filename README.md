@@ -61,7 +61,7 @@ http:
   ssl: false
 
 # provider: the provider that topograph will use (optional)
-# Valid options include "aws", "oci", "gcp", "nebius", "netq", "dra", "infiniband-k8s", "infiniband-bm" or "test".
+# Valid options include "aws", "oci", "gcp", "nebius", "nscale", "netq", "dra", "infiniband-k8s", "infiniband-bm" or "test".
 # Can be overridden if the provider is specified in a topology request to topograph
 provider: test
 
@@ -111,9 +111,10 @@ Topograph operates with two primary concepts: `provider` and `engine`. A `provid
 Currently supported providers:
 
 - [AWS](./docs/providers/aws.md)
-- OCI
+- [OCI](./docs/providers/oci.md)
 - [GCP](./docs/providers/gcp.md)
 - [Nebius](./docs/providers/nebius.md)
+- Nscale
 - NetQ
 - DRA
 - InfiniBand
@@ -139,7 +140,7 @@ Topograph offers three endpoints for interacting with the service. Below are the
 - **Description:** This endpoint is used to request a new cluster topology.
 - **Payload:** The payload is a JSON object that includes the following fields:
 
-  - **provider name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will be override the provider set in the topograph config.
+  - **provider name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will be override the provider set in the topograph config.
   - **provider credentials**: (optional) A key-value map with provider-specific parameters for authentication.
   - **provider parameters**: (optional) A key-value map with parameters that are used for provider simulation with toposim.
     - **generateResponseCode**: (optional) An integer parameter that specifies the response code for the generate request. Supported by Providers = [test]. Valid values [202,4xx-6xx]. Default value = 202.
