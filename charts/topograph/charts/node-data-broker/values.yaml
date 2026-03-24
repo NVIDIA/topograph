@@ -19,7 +19,7 @@ initc:
   image:
     repository: ghcr.io/nvidia/topograph
     pullPolicy: IfNotPresent
-    tag: main
+    tag: v0.3.0
   extraArgs:
   #  - key=val
 

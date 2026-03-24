@@ -18,7 +18,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/nvidia/topograph
-  tag: main
+  tag: v0.3.0
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
