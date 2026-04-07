@@ -87,7 +87,7 @@ func getBlockSize(blocks []*blockInfo, requestedBlockSizes []int, useFake bool) 
 	return outputbs
 }
 
-func (nt *NetworkTopology) toBlockTopology(wr io.Writer) *httperr.Error {
+func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *httperr.Error {
 	var fnc *fakeNodeConfig
 	if len(nt.config.FakeNodePool) != 0 {
 		fnc = getFakeNodeConfig(nt.config.FakeNodePool)
@@ -113,7 +113,13 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer) *httperr.Error {
 			outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
 		}
 
-		if _, err := fmt.Fprintf(wr, "%sBlockName=%s Nodes=%s\n", comment, bInfo.id, outputNodeNames); err != nil {
+		var err error
+		if skeletonOnly {
+			_, err = fmt.Fprintf(wr, "%sBlockName=%s\n", comment, bInfo.id)
+		} else {
+			_, err = fmt.Fprintf(wr, "%sBlockName=%s Nodes=%s\n", comment, bInfo.id, outputNodeNames)
+		}
+		if err != nil {
 			return httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 	}

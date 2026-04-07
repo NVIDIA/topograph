@@ -51,6 +51,7 @@ type nodeInfo struct {
 	instanceID string
 	blockID    string
 	blockIndx  *int
+	switchName string
 }
 
 func (cfg *Config) Validate(root *topology.Vertex) error {
@@ -118,6 +119,7 @@ func (nt *NetworkTopology) initTree(root *topology.Vertex) {
 		return
 	}
 
+	parentMap := make(map[string]string)
 	queue := []*topology.Vertex{tree}
 	for len(queue) > 0 {
 		v := queue[0]
@@ -127,11 +129,20 @@ func (nt *NetworkTopology) initTree(root *topology.Vertex) {
 			nt.tree[v.ID] = []string{}
 			nt.vertices[v.ID] = v
 			if len(v.Vertices) == 0 {
-				nt.nodeInfo[v.Name] = &nodeInfo{instanceID: v.ID}
-				klog.V(4).InfoS("initTree: adding nodeInfo", "name", v.Name, "instanceID", v.ID)
+				switchId, switchName := parentMap[v.ID], ""
+				if switchVertex, ok := nt.vertices[switchId]; ok {
+					switchName = switchVertex.Name
+				}
+				if len(switchName) == 0 {
+					switchName = switchId
+				}
+
+				nt.nodeInfo[v.Name] = &nodeInfo{instanceID: v.ID, switchName: switchName}
+				klog.V(4).InfoS("initTree: adding nodeInfo", "name", v.Name, "instanceID", v.ID, "switch", switchName)
 			}
 		}
 		for id, w := range v.Vertices {
+			parentMap[w.ID] = v.ID
 			nt.tree[v.ID] = append(nt.tree[v.ID], id)
 			queue = append(queue, w)
 		}
@@ -246,12 +257,46 @@ func (nt *NetworkTopology) markBlockNodes(block *topology.Vertex, indx int) *blo
 }
 
 func (nt *NetworkTopology) Generate(wr io.Writer) *httperr.Error {
+	_, err := nt.GenerateTopologyConfig(wr, false)
+	return err
+}
+
+func (nt *NetworkTopology) GenerateTopologyConfig(wr io.Writer, skeletonOnly bool) ([]*TopologyUnit, *httperr.Error) {
+	topologies, httpErr := nt.GetTopologies()
+	if httpErr != nil {
+		return topologies, httpErr
+	}
+
 	if len(nt.config.Topologies) != 0 {
-		return nt.toYamlTopology(wr)
+		return topologies, nt.toYamlTopology(wr, topologies, skeletonOnly)
 	} else {
 		if nt.config.Plugin == topology.TopologyBlock {
-			return nt.toBlockTopology(wr)
+			return topologies, nt.toBlockTopology(wr, skeletonOnly)
 		}
-		return nt.toTreeTopology(wr)
+		return topologies, nt.toTreeTopology(wr, skeletonOnly)
+	}
+}
+
+func (nt *NetworkTopology) GetNodeTopologySpec(node string, topologies []*TopologyUnit) (string, *httperr.Error) {
+
+	if _, exists := nt.nodeInfo[node]; !exists {
+		return "", nil
+	}
+
+	if len(nt.config.Topologies) != 0 {
+		return getTopologySpec(node, topologies)
+	} else {
+		nodeInfo, ok := nt.nodeInfo[node]
+		if !ok {
+			return "", nil
+		}
+		switch nt.config.Plugin {
+		case topology.TopologyBlock:
+			return fmt.Sprintf("default:%s", nodeInfo.blockID), nil
+		case topology.TopologyTree:
+			return fmt.Sprintf("default:%s", nodeInfo.switchName), nil
+		default:
+			return "", nil
+		}
 	}
 }
