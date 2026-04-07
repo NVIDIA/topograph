@@ -131,7 +131,7 @@ BlockSizes=1,2
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			err := tc.nt.toBlockTopology(&buf)
+			err := tc.nt.toBlockTopology(&buf, false)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {

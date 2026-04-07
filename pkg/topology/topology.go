@@ -50,6 +50,10 @@ const (
 	KeyConfigMapPlugin            = "topograph.nvidia.com/plugin"
 	KeyConfigMapBlockSizes        = "topograph.nvidia.com/block-sizes"
 	KeyConfigMapNamespace         = "topograph.nvidia.com/slurm-namespace"
+
+	//Slinky specific annotations and labels
+	KeySlinkyTopologySpec = "topology.slinky.slurm.net/spec"
+	KeySlurmNodeName      = "slurm.node.name"
 )
 
 // Vertex is a tree node, representing a compute node or a network switch, where

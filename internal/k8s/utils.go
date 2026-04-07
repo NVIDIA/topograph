@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-func GetNodes(ctx context.Context, client *kubernetes.Clientset, opt *metav1.ListOptions) (*corev1.NodeList, error) {
+func GetNodes(ctx context.Context, client kubernetes.Interface, opt *metav1.ListOptions) (*corev1.NodeList, error) {
 	if opt == nil {
 		opt = &metav1.ListOptions{}
 	}
@@ -32,7 +32,7 @@ func GetNodes(ctx context.Context, client *kubernetes.Clientset, opt *metav1.Lis
 	return nodes, nil
 }
 
-func GetPodsByLabels(ctx context.Context, client *kubernetes.Clientset, namespace string, l map[string]string) (*corev1.PodList, error) {
+func GetPodsByLabels(ctx context.Context, client kubernetes.Interface, namespace string, l map[string]string) (*corev1.PodList, error) {
 	opt := metav1.ListOptions{LabelSelector: labels.SelectorFromSet(l).String()}
 	return client.CoreV1().Pods(namespace).List(ctx, opt)
 }
@@ -62,7 +62,7 @@ func GetDaemonSetPods(ctx context.Context, client *kubernetes.Clientset, name, n
 	return client.CoreV1().Pods(namespace).List(ctx, opt)
 }
 
-func ExecInPod(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, name, namespace string, cmd []string) (*bytes.Buffer, error) {
+func ExecInPod(ctx context.Context, client kubernetes.Interface, config *rest.Config, name, namespace string, cmd []string) (*bytes.Buffer, error) {
 	execOpts := &corev1.PodExecOptions{
 		Command: cmd,
 		Stdin:   false,

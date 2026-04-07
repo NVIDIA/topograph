@@ -17,7 +17,7 @@ import (
 )
 
 // toTreeTopology generates SLURM cluster topology config in "topology/tree" format
-func (nt *NetworkTopology) toTreeTopology(wr io.Writer) *httperr.Error {
+func (nt *NetworkTopology) toTreeTopology(wr io.Writer, skeletonOnly bool) *httperr.Error {
 	queue := []string{""}
 	for len(queue) > 0 {
 		id := queue[0]
@@ -26,7 +26,7 @@ func (nt *NetworkTopology) toTreeTopology(wr io.Writer) *httperr.Error {
 		if !ok {
 			return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("missing vertex with ID %q", id))
 		}
-		if err := writeVertex(wr, v); err != nil {
+		if err := writeVertex(wr, v, skeletonOnly); err != nil {
 			return httperr.NewError(http.StatusInternalServerError, err.Error())
 		}
 		queue = append(queue, nt.tree[id]...)
@@ -34,7 +34,7 @@ func (nt *NetworkTopology) toTreeTopology(wr io.Writer) *httperr.Error {
 	return nil
 }
 
-func writeVertex(wr io.Writer, v *topology.Vertex) error {
+func writeVertex(wr io.Writer, v *topology.Vertex, skeletonOnly bool) error {
 	if len(v.ID) == 0 {
 		return nil
 	}
@@ -68,7 +68,7 @@ func writeVertex(wr io.Writer, v *topology.Vertex) error {
 		}
 	}
 
-	if len(nodes) != 0 {
+	if !skeletonOnly && len(nodes) != 0 {
 		_, err := fmt.Fprintf(wr, "%sSwitchName=%s Nodes=%s\n", comment, name, strings.Join(cluset.Compact(nodes), ","))
 		if err != nil {
 			return err
