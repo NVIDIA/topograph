@@ -657,3 +657,123 @@ func getBlockWithDiffNumNodeTestSet() (*topology.Vertex, map[string]string) {
 	}
 	return root, instance2node
 }
+
+func TestGetNodeTopologySpecInTopologyYaml(t *testing.T) {
+	node201Id := "Node201"
+	node104Id := "Node104"
+	node205Id := "Node205"
+	node999Id := "Node999"
+	expectedNode201Spec := `topo1:S3`
+	expectedNode104Spec := `topo3:block1`
+	expectedNode205Spec := `topo1:S3,topo3:block2`
+	expectedNode999Spec := ``
+
+	v, _ := GetBlockWithMultiIBTestSet()
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo1": {
+				Plugin: topology.TopologyTree,
+				Nodes:  []string{"Node[201,205]"},
+			},
+			"topo2": {
+				Plugin: topology.TopologyTree,
+				Nodes:  []string{"NodeIsDown"},
+			},
+			"topo3": {
+				Plugin: topology.TopologyBlock,
+				Nodes:  []string{"Node[104-105,107-108,205]"},
+			},
+			"topo4": {
+				Plugin:     topology.TopologyBlock,
+				Nodes:      []string{"NodeIsDown"},
+				BlockSizes: []int{2},
+			},
+			"topo5": {
+				Plugin:         topology.TopologyFlat,
+				ClusterDefault: true,
+			},
+		},
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.Nil(t, err)
+	topologies, err := nt.GetTopologies()
+	require.Nil(t, err)
+
+	spec, err := nt.GetNodeTopologySpec(node201Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode201Spec, spec)
+
+	spec, err = nt.GetNodeTopologySpec(node104Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode104Spec, spec)
+
+	spec, err = nt.GetNodeTopologySpec(node205Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode205Spec, spec)
+
+	spec, err = nt.GetNodeTopologySpec(node999Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode999Spec, spec)
+}
+
+func TestGetNodeTopologySpecInTreeTopologyConf(t *testing.T) {
+	node201Id := "Node201"
+	node305Id := "Node305"
+	node999Id := "Node999"
+	expectedNode201Spec := `default:S2`
+	expectedNode305Spec := `default:S3`
+	expectedNode99Spec := ``
+
+	v, _ := GetTreeTestSet(false)
+	cfg := &Config{
+		Plugin: topology.TopologyTree,
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.Nil(t, err)
+	topologies, err := nt.GetTopologies()
+	require.Nil(t, err)
+	require.Len(t, topologies, 0)
+
+	spec, err := nt.GetNodeTopologySpec(node201Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode201Spec, spec)
+
+	spec, err = nt.GetNodeTopologySpec(node305Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode305Spec, spec)
+
+	spec, err = nt.GetNodeTopologySpec(node999Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode99Spec, spec)
+}
+
+func TestGetNodeTopologySpecInBlockTopologyConf(t *testing.T) {
+	node105Id := "Node105"
+	node205Id := "Node205"
+	node999Id := "Node999"
+	expectedNode105Spec := `default:B1`
+	expectedNode205Spec := `default:B2`
+	expectedNode99Spec := ``
+
+	v, _ := getBlockTestSet()
+	cfg := &Config{
+		Plugin: topology.TopologyBlock,
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.Nil(t, err)
+	topologies, err := nt.GetTopologies()
+	require.Nil(t, err)
+	require.Len(t, topologies, 0)
+
+	spec, err := nt.GetNodeTopologySpec(node105Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode105Spec, spec)
+
+	spec, err = nt.GetNodeTopologySpec(node205Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode205Spec, spec)
+
+	spec, err = nt.GetNodeTopologySpec(node999Id, topologies)
+	require.Nil(t, err)
+	require.Equal(t, expectedNode99Spec, spec)
+}

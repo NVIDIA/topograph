@@ -31,6 +31,21 @@ func TestTreeYamlTopology(t *testing.T) {
         - switch: S3
           nodes: Node[304-305]
 `
+	expectedSkeleton := `- topology: topo1
+  cluster_default: false
+  tree:
+    switches:
+        - switch: S1
+          children: S2
+        - switch: S2
+- topology: topo2
+  cluster_default: true
+  tree:
+    switches:
+        - switch: S1
+          children: S3
+        - switch: S3
+`
 	v, _ := GetTreeTestSet(false)
 	cfg := &Config{
 		Topologies: map[string]*TopologySpec{
@@ -50,6 +65,11 @@ func TestTreeYamlTopology(t *testing.T) {
 	err := nt.Generate(buf)
 	require.Nil(t, err)
 	require.Equal(t, expected, buf.String())
+
+	buf = &bytes.Buffer{}
+	_, err = nt.GenerateTopologyConfig(buf, true)
+	require.Nil(t, err)
+	require.Equal(t, expectedSkeleton, buf.String())
 }
 
 func TestBlockYamlTopology(t *testing.T) {
@@ -70,6 +90,22 @@ func TestBlockYamlTopology(t *testing.T) {
         - block: block1
           nodes: Node[301,303]
 `
+	expectedSkeleton := `- topology: topo1
+  cluster_default: true
+  block:
+    blockSizes:
+        - 2
+    blocks:
+        - block: block1
+- topology: topo2
+  cluster_default: false
+  block:
+    blockSizes:
+        - 2
+    blocks:
+        - block: block1
+`
+
 	v, _ := GetBlockWithMultiIBTestSet()
 	cfg := &Config{
 		Topologies: map[string]*TopologySpec{
@@ -89,6 +125,11 @@ func TestBlockYamlTopology(t *testing.T) {
 	err := nt.Generate(buf)
 	require.Nil(t, err)
 	require.Equal(t, expected, buf.String())
+
+	buf = &bytes.Buffer{}
+	_, err = nt.GenerateTopologyConfig(buf, true)
+	require.Nil(t, err)
+	require.Equal(t, expectedSkeleton, buf.String())
 }
 
 func TestMixedYamlTopology(t *testing.T) {
@@ -243,6 +284,33 @@ func TestEmptyPartitionTopology(t *testing.T) {
   cluster_default: true
   flat: true
 `
+	expectedSkeleton := `- topology: topo1
+  cluster_default: false
+  tree:
+    switches:
+        - switch: IB2
+          children: S1
+        - switch: S1
+          children: S3
+        - switch: S3
+- topology: topo2
+  cluster_default: false
+  flat: true
+- topology: topo3
+  cluster_default: false
+  block:
+    blockSizes:
+        - 2
+    blocks:
+        - block: block1
+- topology: topo4
+  cluster_default: false
+  flat: true
+- topology: topo5
+  cluster_default: true
+  flat: true
+`
+
 	v, _ := GetBlockWithMultiIBTestSet()
 	cfg := &Config{
 		Topologies: map[string]*TopologySpec{
@@ -275,4 +343,9 @@ func TestEmptyPartitionTopology(t *testing.T) {
 	err = nt.Generate(buf)
 	require.Nil(t, err)
 	require.Equal(t, expected, buf.String())
+
+	buf = &bytes.Buffer{}
+	_, err = nt.GenerateTopologyConfig(buf, true)
+	require.Nil(t, err)
+	require.Equal(t, expectedSkeleton, buf.String())
 }
