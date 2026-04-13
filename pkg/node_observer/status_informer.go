@@ -7,6 +7,7 @@ package node_observer
 
 import (
 	"context"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,9 +15,9 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/httpreq"
 	"github.com/NVIDIA/topograph/internal/k8s"
 )
@@ -24,19 +25,27 @@ import (
 type StatusInformer struct {
 	ctx         context.Context
 	client      kubernetes.Interface
-	reqFunc     httpreq.RequestFunc
 	nodeFactory informers.SharedInformerFactory
 	podFactory  informers.SharedInformerFactory
-	queue       workqueue.TypedRateLimitingInterface[any]
+	reqFunc     httpreq.RequestFunc
+	reqExecFunc func(httpreq.RequestFunc, bool) ([]byte, *httperr.Error)
+	retryDelay  time.Duration
+	timer       *time.Timer
+	queue       chan struct{}
+	stopCh      chan struct{}
 }
 
-func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
+func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, retryDelay time.Duration, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
 	klog.InfoS("Configuring status informer", "trigger", trigger)
 
 	statusInformer := &StatusInformer{
-		ctx:     ctx,
-		client:  client,
-		reqFunc: reqFunc,
+		ctx:         ctx,
+		client:      client,
+		retryDelay:  retryDelay,
+		reqFunc:     reqFunc,
+		reqExecFunc: httpreq.DoRequestWithRetries,
+		queue:       make(chan struct{}, 1),
+		stopCh:      make(chan struct{}),
 	}
 
 	if len(trigger.NodeSelector) != 0 {
@@ -66,8 +75,6 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 func (s *StatusInformer) Start() error {
 	klog.Info("Starting status informer")
 
-	s.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
-
 	if err := s.startNodeInformer(); err != nil {
 		return err
 	}
@@ -76,10 +83,7 @@ func (s *StatusInformer) Start() error {
 		return err
 	}
 
-	go func() {
-		for s.processEvent() {
-		}
-	}()
+	go s.run()
 
 	return nil
 }
@@ -92,9 +96,7 @@ func (s *StatusInformer) Stop(_ error) {
 	if s.podFactory != nil {
 		s.podFactory.Shutdown()
 	}
-	if s.queue != nil {
-		s.queue.ShutDown()
-	}
+	close(s.stopCh)
 }
 
 func (s *StatusInformer) startNodeInformer() error {
@@ -104,7 +106,7 @@ func (s *StatusInformer) startNodeInformer() error {
 			AddFunc: func(obj any) {
 				if node, ok := obj.(*corev1.Node); ok {
 					klog.V(4).Infof("Informer added node %s", node.Name)
-					s.queue.Add(struct{}{})
+					s.sendRequest()
 				}
 			},
 			//UpdateFunc: func(_, obj any) {} // TODO: clarify the change in node that would require topology update
@@ -112,11 +114,11 @@ func (s *StatusInformer) startNodeInformer() error {
 				switch v := obj.(type) {
 				case *corev1.Node:
 					klog.V(4).Infof("Informer deleted node %s", v.Name)
-					s.queue.Add(struct{}{})
+					s.sendRequest()
 				case cache.DeletedFinalStateUnknown:
 					if node, ok := v.Obj.(*corev1.Node); ok {
 						klog.V(4).Infof("Informer deleted node %s", node.Name)
-						s.queue.Add(struct{}{})
+						s.sendRequest()
 					}
 				}
 			},
@@ -138,7 +140,7 @@ func (s *StatusInformer) startPodInformer() error {
 				if pod, ok := obj.(*corev1.Pod); ok {
 					if k8s.IsPodReady(pod) {
 						klog.V(4).Infof("Informer added pod %s/%s", pod.Namespace, pod.Name)
-						s.queue.Add(struct{}{})
+						s.sendRequest()
 					}
 				}
 			},
@@ -153,18 +155,18 @@ func (s *StatusInformer) startPodInformer() error {
 				}
 				if k8s.IsPodReady(oldPod) != k8s.IsPodReady(newPod) {
 					klog.V(4).Infof("Informer updated pod %s/%s", newPod.Namespace, newPod.Name)
-					s.queue.Add(struct{}{})
+					s.sendRequest()
 				}
 			},
 			DeleteFunc: func(obj any) {
 				switch v := obj.(type) {
 				case *corev1.Pod:
 					klog.V(4).Infof("Informer deleted pod %s/%s", v.Namespace, v.Name)
-					s.queue.Add(struct{}{})
+					s.sendRequest()
 				case cache.DeletedFinalStateUnknown:
 					if pod, ok := v.Obj.(*corev1.Pod); ok {
 						klog.V(4).Infof("Informer deleted pod %s/%s", pod.Namespace, pod.Name)
-						s.queue.Add(struct{}{})
+						s.sendRequest()
 					}
 				}
 			},
@@ -178,17 +180,54 @@ func (s *StatusInformer) startPodInformer() error {
 	return nil
 }
 
-func (s *StatusInformer) processEvent() bool {
-	item, shutdown := s.queue.Get()
-	if shutdown {
-		return false
+func (s *StatusInformer) sendRequest() {
+	select {
+	case s.queue <- struct{}{}:
+	default:
+		// Drop if already queued (prevents flooding)
 	}
-	defer s.queue.Done(item)
+}
 
-	_, err := httpreq.DoRequestWithRetries(s.reqFunc, false)
-	if err != nil {
-		klog.Errorf("failed to send HTTP request: %v", err)
+func (s *StatusInformer) run() {
+	for {
+		select {
+		case <-s.stopCh:
+			return
+
+		case <-s.queue:
+			// Cancel any pending retry
+			if s.timer != nil {
+				s.timer.Stop()
+				s.timer = nil
+			}
+			s.process()
+
+		case <-func() <-chan time.Time {
+			if s.timer != nil {
+				return s.timer.C
+			}
+			return nil
+		}():
+			s.process()
+		}
 	}
-	s.queue.Forget(item)
-	return true
+}
+
+func (s *StatusInformer) process() {
+	if _, err := s.reqExecFunc(s.reqFunc, false); err != nil {
+		klog.Errorf("failed to send HTTP request; retrying in %s: %v", s.retryDelay, err)
+
+		// Reset retry timer
+		if s.timer != nil {
+			s.timer.Stop()
+		}
+		s.timer = time.NewTimer(s.retryDelay)
+		return
+	}
+
+	// clear retry timer
+	if s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
+	}
 }

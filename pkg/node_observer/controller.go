@@ -44,7 +44,7 @@ func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config
 	}
 
 	f := httpreq.GetRequestFunc(ctx, http.MethodPost, headers, nil, data, cfg.GenerateTopologyURL)
-	statusInformer, err := NewStatusInformer(ctx, client, &cfg.Trigger, f)
+	statusInformer, err := NewStatusInformer(ctx, client, &cfg.Trigger, cfg.RetryDelay.Duration, f)
 	if err != nil {
 		return nil, err
 	}
