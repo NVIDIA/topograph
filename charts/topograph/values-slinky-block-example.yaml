@@ -22,6 +22,7 @@ global:
       block_sizes: 4
       topologyConfigPath: topology.conf
       topologyConfigmapName: slurm-config
+      reportingMode: staticNodes
 
 nodeSelector:
   dedicated: user-workload

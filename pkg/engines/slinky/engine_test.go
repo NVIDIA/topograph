@@ -17,15 +17,25 @@
 package slinky
 
 import (
+	"context"
+	"fmt"
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
+	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 func TestGetParameters(t *testing.T) {
@@ -93,6 +103,7 @@ func TestGetParameters(t *testing.T) {
 				PodSelector:   labelSelector,
 				ConfigPath:    "path",
 				ConfigMapName: "name",
+				ReportingMode: "staticNodes",
 				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
@@ -117,6 +128,7 @@ func TestGetParameters(t *testing.T) {
 				NodeSelector:  nodeSelector,
 				ConfigPath:    "path",
 				ConfigMapName: "name",
+				ReportingMode: "staticNodes",
 				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
 				nodeListOpt:   &metav1.ListOptions{LabelSelector: "key=value"},
 			},
@@ -154,12 +166,22 @@ func TestGetComputeInstances(t *testing.T) {
 		{
 			name:  "Case 1: instance error",
 			nodes: &corev1.NodeList{Items: []corev1.Node{node1, nodeErr1}},
-			err:   `missing "topograph.nvidia.com/instance" annotation in node err1`,
+			cis: []topology.ComputeInstances{
+				{
+					Region:    "r1",
+					Instances: map[string]string{"i1": "node1"},
+				},
+			},
 		},
 		{
 			name:  "Case 2: region error",
 			nodes: &corev1.NodeList{Items: []corev1.Node{nodeErr2, node2}},
-			err:   `missing "topograph.nvidia.com/region" annotation in node err2`,
+			cis: []topology.ComputeInstances{
+				{
+					Region:    "r1",
+					Instances: map[string]string{"i2": "node2"},
+				},
+			},
 		},
 		{
 			name:  "Case 3: valid input",
@@ -305,6 +327,263 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 			if tc.wantBlock {
 				require.Equal(t, tc.params.BlockSizes, tree.Metadata[topology.KeyBlockSizes])
 			}
+		})
+	}
+}
+
+const (
+	//medium.yaml - tree topology skeleton
+	mediumTreeTopologyYamlSkeleton = `- topology: topo-0
+  cluster_default: false
+  tree:
+    switches:
+        - switch: sw3
+          children: sw[21-22]
+        - switch: sw21
+          children: sw[11-12]
+        - switch: sw22
+          children: sw[13-14]
+        - switch: sw11
+        - switch: sw12
+        - switch: sw13
+        - switch: sw14
+`
+
+	//medium.yaml - block topology skeleton
+	mediumBlockTopologyYamlSkeleton = `- topology: topo-0
+  cluster_default: false
+  block:
+    blockSizes:
+        - 2
+        - 4
+        - 8
+    blocks:
+        - block: block1
+        - block: block2
+        - block: block3
+        - block: block4
+`
+	//medium.yaml - tree topology skeleton
+	mediumCombinedTopologyYamlSkeleton = `- topology: topo-0
+  cluster_default: false
+  tree:
+    switches:
+        - switch: sw3
+          children: sw[21-22]
+        - switch: sw21
+          children: sw[11-12]
+        - switch: sw22
+          children: sw[13-14]
+        - switch: sw11
+        - switch: sw12
+        - switch: sw13
+        - switch: sw14
+- topology: topo-1
+  cluster_default: false
+  block:
+    blockSizes:
+        - 2
+        - 4
+        - 8
+    blocks:
+        - block: block1
+        - block: block2
+        - block: block3
+        - block: block4
+`
+)
+
+func TestGenerateDynamicNodesOutput(t *testing.T) {
+
+	fakeSuccessClient := func(slurmNames []string, createConfigMap bool) *fake.Clientset {
+		client := fake.NewSimpleClientset()
+		for i, slurmName := range slurmNames {
+			// Add nodes
+			node1 := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("k8s-node-%d", i),
+				},
+				Spec:   corev1.NodeSpec{},
+				Status: corev1.NodeStatus{},
+			}
+			_, err := client.CoreV1().Nodes().Create(context.Background(), node1, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			// Add pods
+			pod1 := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("k8s-pod-%d", i),
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app":             "slinky",
+						"slurm.node.name": slurmName,
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: fmt.Sprintf("k8s-node-%d", i),
+					Containers: []corev1.Container{
+						{Name: "test", Image: "test"},
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.PodReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			_, err = client.CoreV1().Pods("test-ns").Create(context.Background(), pod1, metav1.CreateOptions{})
+			require.NoError(t, err)
+		}
+		// Add config map
+		if createConfigMap {
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "slurm-config",
+					Namespace: "test-ns",
+				},
+				Data: map[string]string{
+					"topology.yaml": "existing: topology",
+				},
+			}
+			_, err := client.CoreV1().ConfigMaps("test-ns").Create(context.Background(), cm, metav1.CreateOptions{})
+			require.NoError(t, err)
+		}
+
+		return client
+	}
+
+	testCases := []struct {
+		name               string
+		k8sClient          func([]string, bool) *fake.Clientset
+		createConfigMap    bool
+		topologyFile       string
+		topologyConfig     []string
+		slurmName          []string
+		expectTopologyYaml string
+		expectTopologySpec []string
+		expectError        bool
+		errorMsg           string
+	}{
+		{
+			name:               "successful dynamic nodes for tree topology",
+			k8sClient:          fakeSuccessClient,
+			createConfigMap:    true,
+			topologyFile:       "medium.yaml",
+			topologyConfig:     []string{topology.TopologyTree},
+			slurmName:          []string{"1101", "1402"},
+			expectTopologyYaml: mediumTreeTopologyYamlSkeleton,
+			expectTopologySpec: []string{"topo-0:sw11", "topo-0:sw14"},
+			expectError:        false,
+		},
+		{
+			name:               "successful dynamic nodes for block topology",
+			k8sClient:          fakeSuccessClient,
+			createConfigMap:    true,
+			topologyFile:       "medium.yaml",
+			topologyConfig:     []string{topology.TopologyBlock},
+			slurmName:          []string{"1101", "1301"},
+			expectTopologyYaml: mediumBlockTopologyYamlSkeleton,
+			expectTopologySpec: []string{"topo-0:block1", "topo-0:block3"},
+			expectError:        false,
+		},
+		{
+			name:               "successful dynamic nodes for combined topology",
+			k8sClient:          fakeSuccessClient,
+			createConfigMap:    false,
+			topologyFile:       "medium.yaml",
+			topologyConfig:     []string{topology.TopologyTree, topology.TopologyBlock},
+			slurmName:          []string{"1101", "1302"},
+			expectTopologyYaml: mediumCombinedTopologyYamlSkeleton,
+			expectTopologySpec: []string{"topo-0:sw11,topo-1:block1", "topo-0:sw13,topo-1:block3"},
+			expectError:        false,
+		},
+		{
+			name: "error getting nodes",
+			k8sClient: func([]string, bool) *fake.Clientset {
+				client := fake.NewSimpleClientset()
+				client.PrependReactor("list", "nodes", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.NewInternalError(fmt.Errorf("failed to list nodes"))
+				})
+				return client
+			},
+			topologyFile:   "medium.yaml",
+			topologyConfig: []string{topology.TopologyTree},
+			expectError:    true,
+			errorMsg:       "failed to list node in the cluster",
+		},
+		{
+			name: "error getting config map",
+			k8sClient: func([]string, bool) *fake.Clientset {
+				client := fake.NewSimpleClientset()
+				client.PrependReactor("get", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.NewInternalError(fmt.Errorf("failed to get config map"))
+				})
+				return client
+			},
+			topologyFile:   "medium.yaml",
+			topologyConfig: []string{topology.TopologyTree},
+			expectError:    true,
+			errorMsg:       "failed to get config map",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := tc.k8sClient(tc.slurmName, tc.createConfigMap)
+			params := &Params{
+				Namespace:     "test-ns",
+				ConfigMapName: "slurm-config",
+				ConfigPath:    "topology.yaml",
+				podListOpt:    &metav1.ListOptions{LabelSelector: "app=slinky"},
+				nodeListOpt:   &metav1.ListOptions{},
+			}
+			engine := &SlinkyEngine{
+				client: client,
+				params: params,
+			}
+
+			//Get the topology tree, and topology config for the test
+			model, err := models.NewModelFromFile(tc.topologyFile)
+			require.NoError(t, err)
+			topo, inst2Node := model.ToGraph()
+			nodes := slices.Collect(maps.Keys(inst2Node))
+			topologyConfig := &translate.Config{
+				Topologies: make(map[string]*translate.TopologySpec),
+			}
+			for i, topo := range tc.topologyConfig {
+				topologyConfig.Topologies[fmt.Sprintf("topo-%d", i)] = &translate.TopologySpec{Plugin: topo, Nodes: nodes}
+			}
+
+			nt, err := translate.NewNetworkTopology(topo, topologyConfig)
+			require.NoError(t, err)
+
+			result, httpErr := engine.generateDynamicNodesOutput(context.Background(), nt)
+
+			if tc.expectError {
+				require.Error(t, httpErr)
+				if tc.errorMsg != "" {
+					require.Contains(t, httpErr.Error(), tc.errorMsg)
+				}
+				return
+			}
+			require.Nil(t, httpErr)
+
+			cm, err := client.CoreV1().ConfigMaps(params.Namespace).Get(context.Background(), params.ConfigMapName, metav1.GetOptions{})
+			require.NoError(t, err)
+			require.Equal(t, tc.expectTopologyYaml, cm.Data[params.ConfigPath])
+
+			for i, topoSpec := range tc.expectTopologySpec {
+				updatedNode, err := client.CoreV1().Nodes().Get(context.Background(), fmt.Sprintf("k8s-node-%d", i), metav1.GetOptions{})
+				require.NoError(t, err)
+				requireAnnotation(t, updatedNode.Annotations, topology.KeySlinkyTopologySpec, topoSpec)
+				require.Equal(t, []byte("OK\n"), result)
+			}
+
 		})
 	}
 }

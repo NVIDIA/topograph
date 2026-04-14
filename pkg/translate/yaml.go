@@ -6,9 +6,11 @@
 package translate
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 
@@ -47,8 +49,37 @@ type Block struct {
 	Nodes string `yaml:"nodes,omitempty"`
 }
 
-// toYamlTopology generates SLURM cluster topology config in YAML format
-func (nt *NetworkTopology) toYamlTopology(wr io.Writer) *httperr.Error {
+func copySkeleton(topologies []*TopologyUnit) []*TopologyUnit {
+	replicas := make([]*TopologyUnit, len(topologies))
+	for i, tu := range topologies {
+		replica := *tu
+		replicas[i] = &replica
+		if tu.Tree != nil {
+			replica.Tree = &TreeTopo{}
+			for _, sw := range tu.Tree.Switches {
+				replica.Tree.Switches = append(replica.Tree.Switches, &Switch{
+					Name:     sw.Name,
+					Children: sw.Children,
+				})
+			}
+		}
+
+		if tu.Block != nil {
+			replica.Block = &BlockTopo{
+				BlockSizes: append([]int(nil), tu.Block.BlockSizes...),
+			}
+			for _, b := range tu.Block.Blocks {
+				replica.Block.Blocks = append(replica.Block.Blocks, &Block{
+					Name: b.Name,
+				})
+			}
+		}
+	}
+	return replicas
+}
+
+// GetTopologies returns a list of TopologyUnit for all topologies defined in the config, ordered by topology name.
+func (nt *NetworkTopology) GetTopologies() ([]*TopologyUnit, *httperr.Error) {
 	topoNames := make([]string, 0, len(nt.config.Topologies))
 	for topoName := range nt.config.Topologies {
 		topoNames = append(topoNames, topoName)
@@ -72,16 +103,23 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer) *httperr.Error {
 				Default: topoSpec.ClusterDefault,
 			})
 		default:
-			return httperr.NewError(http.StatusBadRequest, fmt.Sprintf("unsupported topology plugin %q", topoSpec.Plugin))
+			return topologies, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("unsupported topology plugin %q", topoSpec.Plugin))
 		}
 	}
 
-	// sort for consistency
-	sort.Slice(topologies, func(i, j int) bool {
-		return topologies[i].Name < topologies[j].Name
-	})
+	return topologies, nil
+}
 
-	data, err := yaml.Marshal(topologies)
+// toYamlTopology generates SLURM cluster topology config in YAML format
+func (nt *NetworkTopology) toYamlTopology(wr io.Writer, topologies []*TopologyUnit, skeletonOnly bool) *httperr.Error {
+
+	//Copy only the skeleton (topology structure without node names) if skeletonOnly is true,
+	srcForGeneration := topologies
+	if skeletonOnly {
+		srcForGeneration = copySkeleton(topologies)
+	}
+
+	data, err := yaml.Marshal(srcForGeneration)
 	if err != nil {
 		return httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
@@ -275,4 +313,44 @@ func newSelector(slice []string) selector {
 		s[v] = true
 	}
 	return s
+}
+
+func getTopologySpec(node string, topologies []*TopologyUnit) (string, *httperr.Error) {
+
+	buf := &bytes.Buffer{}
+	for _, tu := range topologies {
+		parent := ""
+		if tu.Tree != nil {
+			for _, sw := range tu.Tree.Switches {
+				nodes := cluset.ExpandList(sw.Nodes)
+				if slices.Contains(nodes, node) {
+					parent = sw.Name
+					break
+				}
+			}
+		} else if tu.Block != nil {
+			for _, b := range tu.Block.Blocks {
+				nodes := cluset.ExpandList(b.Nodes)
+				if slices.Contains(nodes, node) {
+					parent = b.Name
+					break
+				}
+			}
+		}
+
+		if len(parent) == 0 {
+			continue
+		}
+
+		if buf.Len() != 0 {
+			if _, err := fmt.Fprint(buf, ","); err != nil {
+				return "", httperr.NewError(http.StatusInternalServerError, err.Error())
+			}
+		}
+
+		if _, err := fmt.Fprintf(buf, "%s:%s", tu.Name, parent); err != nil {
+			return "", httperr.NewError(http.StatusInternalServerError, err.Error())
+		}
+	}
+	return buf.String(), nil
 }
