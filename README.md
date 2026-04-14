@@ -111,18 +111,33 @@ Topograph operates with two primary concepts: `provider` and `engine`. A `provid
 Currently supported providers:
 
 - [AWS](./docs/providers/aws.md)
-- OCI
+- [OCI](./docs/providers/oci.md)
 - [GCP](./docs/providers/gcp.md)
 - [Nebius](./docs/providers/nebius.md)
-- NetQ
-- DRA
-- InfiniBand
+- [NetQ](./docs/providers/netq.md)
+- [DRA](./docs/providers/dra.md) — reads `nvidia.com/gpu.clique` labels set by the NVIDIA GPU operator DRA driver
+- [InfiniBand (bare-metal)](./docs/providers/infiniband.md)
+- [InfiniBand (Kubernetes)](./docs/providers/infiniband.md)
 
 Currently supported engines:
 
 - [SLURM](./docs/engines/slurm.md)
 - [Kubernetes](./docs/engines/k8s.md)
 - [SLURM-on-Kubernetes (Slinky)](./docs/engines/slinky.md)
+
+### Choosing a Provider
+
+| Scenario | Recommended provider |
+|---|---|
+| Cloud cluster (AWS, GCP, OCI, Nebius) | Use the matching CSP provider |
+| Spectrum-X fabric | [NetQ](./docs/providers/netq.md) |
+| Multi-Node NVLink (MNNVL), infrastructure visibility | [NetQ](./docs/providers/netq.md) |
+| MNNVL on Kubernetes (scheduling) | [DRA](./docs/providers/dra.md) |
+| InfiniBand fabric, NetQ deployed | [NetQ](./docs/providers/netq.md) |
+| InfiniBand fabric, no NetQ, bare-metal / Slurm | [InfiniBand (bare-metal)](./docs/providers/infiniband.md) |
+| InfiniBand fabric, no NetQ, Kubernetes | [InfiniBand (Kubernetes)](./docs/providers/infiniband.md) |
+
+For MNNVL environments, NetQ and DRA operate at different layers and can coexist: NetQ provides infrastructure-level visibility into the NVLink fabric while DRA feeds topology directly to Kubernetes schedulers via `nvidia.com/gpu.clique` node labels.
 
 ## Using Topograph
 
