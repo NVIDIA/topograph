@@ -100,10 +100,10 @@ After triggering topology generation, inspect the node labels applied by Topogra
 kubectl get nodes -o json | jq '.items[].metadata.labels | with_entries(select(.key | startswith("network.topology.nvidia.com")))'
 ```
 
-If topology generation returns a `502` error, check that the expected nodes have the `nvidia.com/gpu.clique` label:
+If topology generation returns a `502` error, check that the expected nodes have the `nvidia.com/gpu.clique` label and the `topograph.nvidia.com/region` / `topograph.nvidia.com/instance` annotations (the latter two are set by Topograph itself during topology discovery):
 
 ```bash
-kubectl get nodes -o json | jq '.items[].metadata.labels["nvidia.com/gpu.clique"]'
+kubectl get nodes -o json | jq '.items[] | {name: .metadata.name, clique: .metadata.labels["nvidia.com/gpu.clique"], region: .metadata.annotations["topograph.nvidia.com/region"], instance: .metadata.annotations["topograph.nvidia.com/instance"]}'
 ```
 
 See the [Kubernetes engine documentation](../engines/k8s.md) for details on the label schema.

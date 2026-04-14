@@ -116,8 +116,8 @@ Currently supported providers:
 - [Nebius](./docs/providers/nebius.md)
 - [NetQ](./docs/providers/netq.md)
 - [DRA](./docs/providers/dra.md) — reads `nvidia.com/gpu.clique` labels set by the NVIDIA GPU operator DRA driver
-- [InfiniBand (bare-metal)](./docs/providers/infiniband.md)
-- [InfiniBand (Kubernetes)](./docs/providers/infiniband.md)
+- [InfiniBand (bare-metal)](./docs/providers/infiniband.md#infiniband-bm-bare-metal)
+- [InfiniBand (Kubernetes)](./docs/providers/infiniband.md#infiniband-k8s-kubernetes)
 
 Currently supported engines:
 
