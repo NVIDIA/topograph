@@ -24,6 +24,35 @@ For example, if a node belongs to NVLink domain `nvl1` and connects to switch `s
 
 <p align="center"><img src="../assets/topograph-k8s.png" width="600" alt="Design"></p>
 
+### Relationship to the kubelet Topology Manager
+
+Kubernetes includes a [Topology Manager](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/) (GA since Kubernetes 1.27) that aligns CPU, GPU, and NIC allocations to the same NUMA domain *within a single node*, reducing memory access latency for a Pod's containers. These two features are complementary and address different scopes:
+
+| | Topograph (`k8s` engine) | kubelet Topology Manager |
+|---|---|---|
+| **Scope** | Inter-node (cluster-wide) | Intra-node (single node) |
+| **What it does** | Discovers the physical network fabric and publishes it as node labels | Aligns CPU/device allocations to the same NUMA domain within a node |
+| **Consumed by** | Topology-aware schedulers (KAI Scheduler, Kueue TAS) for multi-node placement | The kubelet itself, when binding containers to hardware resources |
+
+Both can be active simultaneously. Topology Manager optimizes resource allocation within a node; Topograph labels tell the scheduler which nodes belong together on the network.
+
+```mermaid
+graph TB
+    subgraph topo_scope["Topograph — inter-node scope"]
+        fabric["Physical Network Fabric\n(NVLink domains · IB/Ethernet switches)"]
+        topograph["Topograph\n(queries CSP/fabric APIs)"]
+        labels["Kubernetes Node Labels\n(network.topology.nvidia.com/*)"]
+        scheduler["Topology-Aware Scheduler\n(KAI Scheduler · Kueue TAS)"]
+        fabric --> topograph --> labels --> scheduler
+    end
+
+    subgraph kubelet_scope["kubelet — intra-node scope"]
+        tm["Topology Manager\n(NUMA alignment within a node)"]
+    end
+
+    scheduler -. "schedules Pods onto nodes;\nTopology Manager handles\nresource alignment inside each node" .-> tm
+```
+
 ## Use of Topograph
 
 While there is currently no fully network-aware scheduler capable of optimally placing groups of pods based on network considerations, Topograph serves as a stepping stone toward developing such a scheduler.
