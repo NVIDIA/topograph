@@ -56,35 +56,6 @@ The Engine translates this internal representation into the format expected by t
 - The Provider receives notifications and invokes CSP API to retrieve topology-related information.
 - The Engine converts the topology information into the format expected by the user cluster (e.g., SLURM or Kubernetes).
 
-## How Topograph Fits in the Kubernetes Topology Stack
-
-Kubernetes uses the word "topology" in several distinct contexts. Topograph occupies the inter-node layer:
-
-| | Topograph | [kubelet Topology Manager](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/) |
-|---|---|---|
-| **Scope** | Inter-node (cluster-wide) | Intra-node (single node) |
-| **What it does** | Discovers the physical network fabric (NVLink domains, switch hierarchy) and publishes it as node labels | Aligns CPU, GPU, and NIC allocations to the same NUMA domain within a node to reduce memory access latency |
-| **Consumed by** | Topology-aware schedulers (KAI Scheduler, Kueue TAS) making multi-node placement decisions | The kubelet itself, when binding a Pod's containers to hardware resources |
-
-The two are complementary and can be active simultaneously. Topology Manager optimizes resource allocation *within* a node; Topograph informs the scheduler about *which nodes* belong together on the network.
-
-```mermaid
-graph TB
-    subgraph topo_scope["Topograph — inter-node scope"]
-        fabric["Physical Network Fabric\n(NVLink domains · IB/Ethernet switches)"]
-        topograph["Topograph\n(queries CSP/fabric APIs)"]
-        labels["Kubernetes Node Labels\n(network.topology.nvidia.com/*)"]
-        scheduler["Topology-Aware Scheduler\n(KAI Scheduler · Kueue TAS)"]
-        fabric --> topograph --> labels --> scheduler
-    end
-
-    subgraph kubelet_scope["kubelet — intra-node scope"]
-        tm["Topology Manager\n(NUMA alignment within a node)"]
-    end
-
-    scheduler -. "schedules Pods onto nodes;\nTopology Manager handles\nresource alignment inside each node" .-> tm
-```
-
 ## Configuration
 
 Topograph accepts its configuration file path using the `-c` command-line parameter. The configuration file is a YAML document. A sample configuration file is located at [config/topograph-config.yaml](config/topograph-config.yaml).
