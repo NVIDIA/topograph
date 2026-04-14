@@ -19,6 +19,7 @@ package node_observer
 import (
 	"fmt"
 	"os"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -26,12 +27,14 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const defaultRetryDelay = 5 * time.Minute
+
 type Config struct {
 	GenerateTopologyURL string            `yaml:"generateTopologyUrl"`
 	Trigger             Trigger           `yaml:"trigger"`
 	Provider            topology.Provider `yaml:"provider"`
 	Engine              topology.Engine   `yaml:"engine"`
-	Params              map[string]any    `yaml:"params"`
+	RetryDelay          metav1.Duration   `yaml:"retryDelay"`
 }
 
 type Trigger struct {
@@ -59,5 +62,8 @@ func NewConfigFromFile(fname string) (*Config, error) {
 		return nil, fmt.Errorf("must specify nodeSelector and/or podSelector in trigger")
 	}
 
+	if cfg.RetryDelay.Duration == 0 {
+		cfg.RetryDelay.Duration = defaultRetryDelay
+	}
 	return cfg, nil
 }

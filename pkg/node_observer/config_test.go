@@ -19,7 +19,9 @@ package node_observer
 import (
 	"os"
 	"testing"
+	"time"
 
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -50,21 +52,22 @@ func TestNewConfigFromFile(t *testing.T) {
 			name: "Case 4: missing trigger",
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
-params:
-  topologyConfigPath: topology.conf
-  topologyConfigmapName: topology-config
-  namespace: default
 `,
 			err: "must specify nodeSelector and/or podSelector in trigger",
 		},
 		{
-			name: "Case 5: valid",
+			name: "Case 5: valid with default retry delay",
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
-params:
-  topologyConfigPath: topology.conf
-  topologyConfigmapName: topology-config
-  namespace: default
+provider:
+  name: test
+engine:
+  name: test
+  params:
+    namespace: default
+    plugin: topology/tree
+    topologyConfigPath: topology.conf
+    topologyConfigmapName: slurm-config
 trigger:
   nodeSelector:
     a: b
@@ -81,10 +84,15 @@ trigger:
 `,
 			cfg: &Config{
 				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
-				Params: map[string]any{
-					"topologyConfigPath":    "topology.conf",
-					"topologyConfigmapName": "topology-config",
-					"namespace":             "default",
+				Provider:            topology.Provider{Name: "test"},
+				Engine: topology.Engine{
+					Name: "test",
+					Params: map[string]any{
+						"namespace":             "default",
+						"plugin":                "topology/tree",
+						"topologyConfigPath":    "topology.conf",
+						"topologyConfigmapName": "slurm-config",
+					},
 				},
 				Trigger: Trigger{
 					NodeSelector: map[string]string{"a": "b", "c": "d"},
@@ -99,6 +107,63 @@ trigger:
 						},
 					},
 				},
+				RetryDelay: metav1.Duration{Duration: defaultRetryDelay},
+			},
+		},
+		{
+			name: "Case 6: valid with configured retry delay",
+			data: `
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+provider:
+  name: test
+engine:
+  name: test
+  params:
+    namespace: default
+    plugin: topology/tree
+    topologyConfigPath: topology.conf
+    topologyConfigmapName: slurm-config
+retryDelay: 10m
+trigger:
+  nodeSelector:
+    a: b
+    c: d
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: compute
+    matchExpressions:
+      - key: tier
+        operator: In
+        values:
+          - frontend
+          - backend
+`,
+			cfg: &Config{
+				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
+				Provider:            topology.Provider{Name: "test"},
+				Engine: topology.Engine{
+					Name: "test",
+					Params: map[string]any{
+						"namespace":             "default",
+						"plugin":                "topology/tree",
+						"topologyConfigPath":    "topology.conf",
+						"topologyConfigmapName": "slurm-config",
+					},
+				},
+				Trigger: Trigger{
+					NodeSelector: map[string]string{"a": "b", "c": "d"},
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app.kubernetes.io/component": "compute"},
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "tier",
+								Operator: "In",
+								Values:   []string{"frontend", "backend"},
+							},
+						},
+					},
+				},
+				RetryDelay: metav1.Duration{Duration: 10 * time.Minute},
 			},
 		},
 	}
