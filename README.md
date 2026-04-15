@@ -6,7 +6,19 @@
 ![Codecov](https://codecov.io/gh/NVIDIA/topograph/branch/main/graph/badge.svg)
 ![Static Badge](https://img.shields.io/badge/license-Apache_2.0-green)
 
-Topograph is a component designed to expose the underlying physical network topology of a cluster to enable a workload manager make network-topology aware scheduling decisions.
+Topograph is a component that discovers the physical network topology of a cluster and exposes it to schedulers, enabling topology-aware scheduling decisions. It abstracts multiple topology sources and translates them into the format required by each scheduler.
+
+## Motivation and Problem Statement
+
+At scale, workload placement becomes as important as resource allocation. Where a job runs can have a significant impact on its performance. For example, a distributed training job that spans nodes on opposite sides of a data center fabric incurs additional latency during every gradient synchronization. Similarly, a disaggregated inference pipeline that ignores NVLink locality may fail to utilize the full interconnect bandwidth available. In both cases, overlooking the underlying network topology leads to inefficient execution.
+
+The physical network topology of a cluster plays a critical role in determining application performance. Modern GPU clusters are typically built on multi-tier network fabrics, where communication costs vary depending on node placement. Nodes connected to the same leaf switch can communicate with lower latency and higher bandwidth than nodes separated by multiple network hops. On advanced systems such as GB200/GB300 NVL72, groups of nodes share a high-speed NVLink fabric, forming a locality domain that significantly outperforms even the fastest Ethernet or InfiniBand connections.
+
+To make optimal placement decisions, schedulers must be aware of this topology. However, topology information is often fragmented across multiple sources, including cloud provider APIs, fabric management systems, and low-level system tools. Each source exposes data through different interfaces and formats. At the same time, workload managers, such as Slurm, Kubernetes, or Slurm-on-Kubernetes deployments like Slinky, require this information in their own specific formats.
+
+Topograph addresses this challenge. It discovers the physical network topology of a cluster and exposes it to schedulers in a form they can consume. By abstracting over diverse topology sources and translating them into the required output formats, Topograph transforms what would otherwise be a manual, environment-specific process into a unified and extensible pipeline.
+
+## Architecture
 
 Topograph consists of five major components:
 
@@ -18,11 +30,9 @@ Topograph consists of five major components:
 
 <p align="center"><img src="docs/assets/design.png" width="600" alt="Design"></p>
 
-## Components
-
 ### 1. API Server
 
-The API Server handles and validates topology requests. It listens for network topology configuration requests on a specific port. When a request is received, the server triggers the Provider to initiate topology discovery.
+The API Server receives topology generation requests and returns results asynchronously. Requests are aggregated over a configurable delay window so that a burst of node changes (common during cluster scaling events) produces a single topology update rather than a storm.
 
 ### 2. Node Observer
 
