@@ -1,0 +1,6 @@
+enabled: true
+additional_trustees: # optional, unused by most teams
+  - dmitsh
+  - ravisoundar
+auto_sync_draft: false
+auto_sync_ready: true
