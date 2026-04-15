@@ -477,7 +477,7 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 			topologyConfig:     []string{topology.TopologyTree},
 			slurmName:          []string{"1101", "1402"},
 			expectTopologyYaml: mediumTreeTopologyYamlSkeleton,
-			expectTopologySpec: []string{"topo-0:sw11", "topo-0:sw14"},
+			expectTopologySpec: []string{"topo-0:sw3:sw21:sw11", "topo-0:sw3:sw22:sw14"},
 			expectError:        false,
 		},
 		{
@@ -499,7 +499,7 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 			topologyConfig:     []string{topology.TopologyTree, topology.TopologyBlock},
 			slurmName:          []string{"1101", "1302"},
 			expectTopologyYaml: mediumCombinedTopologyYamlSkeleton,
-			expectTopologySpec: []string{"topo-0:sw11,topo-1:block1", "topo-0:sw13,topo-1:block3"},
+			expectTopologySpec: []string{"topo-0:sw3:sw21:sw11,topo-1:block1", "topo-0:sw3:sw22:sw13,topo-1:block3"},
 			expectError:        false,
 		},
 		{

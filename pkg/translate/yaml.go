@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"sort"
 	"strings"
 
@@ -30,7 +29,8 @@ type TopologyUnit struct {
 }
 
 type TreeTopo struct {
-	Switches []*Switch `yaml:"switches"`
+	Switches []*Switch           `yaml:"switches"`
+	parents  map[string][]string `yaml:"-"`
 }
 
 type Switch struct {
@@ -40,8 +40,9 @@ type Switch struct {
 }
 
 type BlockTopo struct {
-	BlockSizes []int    `yaml:"blockSizes"`
-	Blocks     []*Block `yaml:"blocks"`
+	BlockSizes []int             `yaml:"blockSizes"`
+	Blocks     []*Block          `yaml:"blocks"`
+	parents    map[string]string `yaml:"-"`
 }
 
 type Block struct {
@@ -176,16 +177,23 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 
 		// populate block topology units ordered by block indices
 		blocks := make([]*Block, 0, len(bInfos))
+		parents := make(map[string]string)
 		for indx, bInfo := range bInfos {
+			blockName := fmt.Sprintf("block%d", indx+1)
 			blocks = append(blocks, &Block{
-				Name:  fmt.Sprintf("block%d", indx+1),
+				Name:  blockName,
 				Nodes: strings.Join(cluset.Compact(bInfo.nodes), ","),
 			})
+
+			for _, nodeName := range bInfo.nodes {
+				parents[nodeName] = blockName
+			}
 		}
 
 		tu.Block = &BlockTopo{
 			BlockSizes: getBlockSize(bInfos, topoSpec.BlockSizes, false),
 			Blocks:     blocks,
+			parents:    parents,
 		}
 	}
 	return tu
@@ -214,7 +222,7 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 	if len(tree) == 0 {
 		tu.Flat = true
 	} else {
-		tu.Tree = &TreeTopo{Switches: []*Switch{}}
+		tu.Tree = &TreeTopo{Switches: []*Switch{}, parents: make(map[string][]string)}
 
 		queue := []string{""}
 		for len(queue) > 0 {
@@ -232,7 +240,9 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 				leaves := []string{}
 				switchSelector := newSelector(connects)
 				for _, w := range v.Vertices {
+					key := w.ID
 					if len(w.Vertices) == 0 {
+						key = w.Name
 						if nodeSelector[w.Name] {
 							leaves = append(leaves, w.Name)
 						}
@@ -241,6 +251,9 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 							childen = append(childen, w.ID)
 						}
 					}
+					// record parent switch for each child for later use in generating topology spec for each node
+					tu.Tree.parents[key] = append([]string{}, tu.Tree.parents[v.ID]...)
+					tu.Tree.parents[key] = append(tu.Tree.parents[key], v.ID)
 				}
 				if len(childen) != 0 || len(leaves) != 0 {
 					if len(childen) != 0 {
@@ -321,20 +334,12 @@ func getTopologySpec(node string, topologies []*TopologyUnit) (string, *httperr.
 	for _, tu := range topologies {
 		parent := ""
 		if tu.Tree != nil {
-			for _, sw := range tu.Tree.Switches {
-				nodes := cluset.ExpandList(sw.Nodes)
-				if slices.Contains(nodes, node) {
-					parent = sw.Name
-					break
-				}
+			if switches, exists := tu.Tree.parents[node]; exists {
+				parent = strings.Join(switches, ":")
 			}
 		} else if tu.Block != nil {
-			for _, b := range tu.Block.Blocks {
-				nodes := cluset.ExpandList(b.Nodes)
-				if slices.Contains(nodes, node) {
-					parent = b.Name
-					break
-				}
+			if block, exists := tu.Block.parents[node]; exists {
+				parent = block
 			}
 		}
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/agrea/ptr"
 	"k8s.io/klog/v2"
@@ -51,7 +52,7 @@ type nodeInfo struct {
 	instanceID string
 	blockID    string
 	blockIndx  *int
-	switchName string
+	switches   []string
 }
 
 func (cfg *Config) Validate(root *topology.Vertex) error {
@@ -119,7 +120,7 @@ func (nt *NetworkTopology) initTree(root *topology.Vertex) {
 		return
 	}
 
-	parentMap := make(map[string]string)
+	parentMap := make(map[string][]string)
 	queue := []*topology.Vertex{tree}
 	for len(queue) > 0 {
 		v := queue[0]
@@ -129,20 +130,15 @@ func (nt *NetworkTopology) initTree(root *topology.Vertex) {
 			nt.tree[v.ID] = []string{}
 			nt.vertices[v.ID] = v
 			if len(v.Vertices) == 0 {
-				switchId, switchName := parentMap[v.ID], ""
-				if switchVertex, ok := nt.vertices[switchId]; ok {
-					switchName = switchVertex.Name
-				}
-				if len(switchName) == 0 {
-					switchName = switchId
-				}
-
-				nt.nodeInfo[v.Name] = &nodeInfo{instanceID: v.ID, switchName: switchName}
-				klog.V(4).InfoS("initTree: adding nodeInfo", "name", v.Name, "instanceID", v.ID, "switch", switchName)
+				nt.nodeInfo[v.Name] = &nodeInfo{instanceID: v.ID, switches: parentMap[v.ID]}
+				klog.V(4).InfoS("initTree: adding nodeInfo", "name", v.Name, "instanceID", v.ID, "switches", parentMap[v.ID])
 			}
 		}
 		for id, w := range v.Vertices {
-			parentMap[w.ID] = v.ID
+			if len(v.ID) != 0 {
+				parentMap[w.ID] = append([]string{}, parentMap[v.ID]...)
+				parentMap[w.ID] = append(parentMap[w.ID], v.ID)
+			}
 			nt.tree[v.ID] = append(nt.tree[v.ID], id)
 			queue = append(queue, w)
 		}
@@ -294,7 +290,7 @@ func (nt *NetworkTopology) GetNodeTopologySpec(node string, topologies []*Topolo
 		case topology.TopologyBlock:
 			return fmt.Sprintf("default:%s", nodeInfo.blockID), nil
 		case topology.TopologyTree:
-			return fmt.Sprintf("default:%s", nodeInfo.switchName), nil
+			return fmt.Sprintf("default:%s", strings.Join(nodeInfo.switches, ":")), nil
 		default:
 			return "", nil
 		}
