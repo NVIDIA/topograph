@@ -81,7 +81,7 @@ In this setup, the `<script>` would contain the curl command to call the endpoin
 curl -s -X POST -H "Content-Type: application/json" -d @payload.json http://localhost:49021/v1/generate
 ```
 
-We provide the [create-topology-update-script.sh](../scripts/create-topology-update-script.sh) script, which performs the steps outlined above: it creates the topology update script and registers it with the strigger.
+We provide `scripts/create-topology-update-script.sh` in the repository, which performs the steps outlined above: it creates the topology update script and registers it with the strigger.
 
 The script accepts the following parameters:
 - **provider name** (aws, oci, gcp, nebius, netq, infiniband-bm)
