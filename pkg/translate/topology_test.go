@@ -663,9 +663,9 @@ func TestGetNodeTopologySpecInTopologyYaml(t *testing.T) {
 	node104Id := "Node104"
 	node205Id := "Node205"
 	node999Id := "Node999"
-	expectedNode201Spec := `topo1:S3`
+	expectedNode201Spec := `topo1:IB2:S1:S3`
 	expectedNode104Spec := `topo3:block1`
-	expectedNode205Spec := `topo1:S3,topo3:block2`
+	expectedNode205Spec := `topo1:IB2:S1:S3,topo3:block2`
 	expectedNode999Spec := ``
 
 	v, _ := GetBlockWithMultiIBTestSet()
@@ -720,8 +720,8 @@ func TestGetNodeTopologySpecInTreeTopologyConf(t *testing.T) {
 	node201Id := "Node201"
 	node305Id := "Node305"
 	node999Id := "Node999"
-	expectedNode201Spec := `default:S2`
-	expectedNode305Spec := `default:S3`
+	expectedNode201Spec := `default:S1:S2`
+	expectedNode305Spec := `default:S1:S3`
 	expectedNode99Spec := ``
 
 	v, _ := GetTreeTestSet(false)
