@@ -25,10 +25,14 @@ Not all providers produce both topology types:
 | `gcp` | No | Yes |
 | `oci` | No | Yes |
 | `nebius` | No | Yes |
-| `netq` | Yes (NVLink domain) | Yes (Spectrum-X switch hierarchy) |
-| `dra` | Yes (`nvidia.com/gpu.clique`) | No |
-| `infiniband-bm` | Yes (NVLink clique) | Yes (IB switch hierarchy) |
-| `infiniband-k8s` | Yes (NVLink clique) | Yes (IB switch hierarchy) |
+| `netq` | Yes (NMX `DomainUUID`) | Yes (Spectrum-X switch hierarchy) |
+| `dra` | Yes (reads `nvidia.com/gpu.clique`) | No |
+| `infiniband-bm` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
+| `infiniband-k8s` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
+
+**Relationship to `nvidia.com/gpu.clique`**: The GPU Operator device plugin sets `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs. The `infiniband-bm` and `infiniband-k8s` providers derive their `accelerator` value from the same `ClusterUUID.CliqueId` hardware identifiers, so the values are directly comparable. The `netq` provider uses a `DomainUUID` from the NMX management API — a different identifier that refers to the same physical domain but cannot be compared as a string.
+
+On non-MNNVL systems (e.g., DGX B200, B300), `nvidia.com/gpu.clique` is not set at all — the device plugin's IMEX labeler requires `GPU_FABRIC_STATE_COMPLETED`, which non-MNNVL GPUs do not reach. On these systems, Topograph with an InfiniBand provider is the only source of network topology for scheduling decisions.
 
 ### Label value behavior
 
@@ -56,6 +60,7 @@ When Topograph is not deployed, the labels commonly available for topology-aware
 | `cloud.google.com/gce-topology-block` | GCP | GCP topology block |
 | `cloud.google.com/gce-topology-subblock` | GCP | GCP topology sub-block |
 | `cloud.google.com/gce-topology-host` | GCP | GCP host |
+| `nvidia.com/gpu.clique` | NVIDIA GPU Operator (device plugin) | NVLink clique ID — set only on MNNVL-capable nodes (e.g., GB200 NVL72); not present on non-MNNVL systems |
 | `nvidia.com/cuda.driver-version.full` | NVIDIA GPU Operator (GFD) | Full CUDA driver version |
 | `nvidia.com/cuda.runtime-version.full` | NVIDIA GPU Operator (GFD) | Full CUDA runtime version |
 
