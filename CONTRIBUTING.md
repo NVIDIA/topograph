@@ -59,3 +59,12 @@ You must use your real name (sorry, no pseudonyms or anonymous contributions).
 
 If you set your `user.name` and `user.email` using git config, you can sign
 your commit automatically with `git commit -s`.
+
+## Community
+
+Community discussion happens on the [Kubernetes Slack](https://slack.k8s.io/):
+
+- [#topology-aware-scheduling](https://kubernetes.slack.com/archives/C012XSGFZQE) — topology-aware scheduling across the ecosystem
+- [#gpu-nvidia](https://kubernetes.slack.com/archives/C09N46EFJR0) — NVIDIA GPU support on Kubernetes
+
+For the project's current direction and a list of areas where contributions are especially welcome, see the pinned **Roadmap & Focus Areas** issue on the [issue tracker](https://github.com/NVIDIA/topograph/issues).

@@ -22,6 +22,10 @@ Topology discovery scope is determined by the NetQ server and the premises acces
 | Traditional IB fabric, NetQ deployed | NetQ |
 | Traditional IB fabric, no NetQ | `infiniband-bm` or `infiniband-k8s` |
 
+## Observed vs. Intended Topology
+
+The NetQ provider reports what the fabric actually looks like right now, not what configuration files say it should look like. Because NetQ exposes live telemetry, Topograph can observe link states below the hard-failure threshold — degraded links that are still technically up but impacting performance. That signal is invisible to `ibnetdiscover`-based discovery and unreported by any cloud placement API. At scale, where nodes cycle continuously and link degradation is a constant background rate, this observed-topology view is substantively different from the static view that hand-maintained labels or placement snapshots provide.
+
 ## Output
 
 The NetQ provider produces the same topology representation as the InfiniBand providers, consumed by whichever engine you configure:

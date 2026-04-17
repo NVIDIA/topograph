@@ -2,6 +2,8 @@
 
 Topograph provides two variations of InfiniBand provider. Both discover the IB fabric switch tree using `ibnetdiscover`, which is useful for any cluster — CPU-only, mixed, or GPU-accelerated — where topology-aware scheduling across an InfiniBand fabric improves workload performance. NVLink domain discovery is an additional capability that applies only to nodes with NVLink-connected NVIDIA GPUs.
 
+**Why automate IB discovery?** Hand-maintaining IB topology — a static `topology.conf` or a set of hand-applied node labels — is feasible at ~32 nodes with a stable network and a careful operator. It does not scale. At 1,000 nodes with InfiniBand fabric churn, NVLink partitions shifting with tenant allocation, and a constant background rate of link degradation and node cycling, manual maintenance becomes the dominant source of scheduling misplacement. Topograph keeps topology data current as the cluster changes, removing that burden.
+
 The choice of which to use depends on the specifics of the deployment environment:
 
 - Use **`infiniband-bm`** for bare-metal clusters (e.g. Slurm)
