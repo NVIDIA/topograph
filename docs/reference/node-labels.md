@@ -104,5 +104,3 @@ transformers:
 ```
 
 These labels are only populated on nodes where Topograph has completed a topology discovery pass. On nodes without Topograph, the labels are absent and the Metadata Augmentor will skip them.
-
-See [NVSentinel issue #120](https://github.com/NVIDIA/NVSentinel/issues/120) for the original discussion that prompted this documentation.
