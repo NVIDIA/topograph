@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2026, NVIDIA CORPORATION.
 # Reports relevant environment information useful for diagnosing and
 # debugging Topograph issues.
 # Usage:
