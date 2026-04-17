@@ -2,6 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 navigation:
+  - section: Getting Started
+    contents:
+      - page: Overview
+        path: overview.md
+
+  - section: Architecture
+    contents:
+      - page: Architecture
+        path: architecture.md
+      - page: Config and API
+        path: api.md
+
   - section: Providers
     contents:
       - page: AWS

@@ -1,0 +1,158 @@
+# Configuration and API
+
+## Configuration
+
+Topograph accepts its configuration file path using the `-c` command-line parameter. The configuration file is a YAML document. A sample configuration file is located at `config/topograph-config.yaml`.
+
+The configuration file supports the following parameters:
+
+```yaml
+# serving topograph endpoint
+http:
+  # port: specifies the port on which the API server will listen (required).
+  port: 49021
+  # ssl: enables HTTPS protocol if set to `true` (optional).
+  ssl: false
+
+# provider: the provider that topograph will use (optional)
+# Valid options include "aws", "oci", "gcp", "nebius", "netq", "dra", "infiniband-k8s", "infiniband-bm" or "test".
+# Can be overridden if the provider is specified in a topology request to topograph
+provider: test
+
+# engine: the engine that topograph will use (optional)
+# Valid options include "slurm", "k8s", or "slinky".
+# Can be overridden if the engine is specified in a topology request to topograph
+engine: slurm
+
+# requestAggregationDelay: defines the delay before processing a request (required).
+# Topograph aggregates multiple sequential requests within this delay into a single request,
+# processing only if no new requests arrive during the specified duration.
+requestAggregationDelay: 15s
+
+# forwardServiceUrl: specifies the URL of an external gRPC service
+# to which requests are forwarded (optional).
+# This can be useful for testing or integration with external systems.
+# See protos/topology.proto for details.
+# forwardServiceUrl:
+
+# pageSize: sets the page size for topology requests against a CSP API (optional).
+pageSize: 100
+
+# ssl: specifies the paths to the TLS certificate, private key,
+# and CA certificate (required if `http.ssl=true`).
+ssl:
+  cert: /etc/topograph/ssl/server-cert.pem
+  key: /etc/topograph/ssl/server-key.pem
+  ca_cert: /etc/topograph/ssl/ca-cert.pem
+# credentialsPath: specifies the path to a YAML file containing API credentials (optional).
+# When using credentials in Kubernetes-based engines ("k8s" or "slinky"),
+# the secret file must be named `credentials.yaml`. For example:
+# `kubectl create secret generic <secret-name> --from-file=credentials.yaml=<path to credentials>`
+# For more details about credential configuration, refer to the docs/providers section.
+# credentialsPath:
+
+# env: environment variable names and values to inject into Topograph's shell (optional).
+# The `PATH` variable, if provided, will append the specified value to the existing `PATH`.
+# env:
+#  SLURM_CONF: /etc/slurm/slurm.conf
+#  PATH:
+```
+
+## API
+
+Topograph exposes three endpoints for interacting with the service. Below are the details of each endpoint:
+
+### 1. Health Endpoint
+
+- **URL:** `http://<server>:<port>/healthz`
+- **Description:** This endpoint verifies the service status. It returns a "200 OK" HTTP response if the service is operational.
+
+### 2. Topology Request Endpoint
+
+- **URL:** `http://<server>:<port>/v1/generate`
+- **Description:** This endpoint is used to request a new cluster topology.
+- **Payload:** The payload is a JSON object that includes the following fields:
+
+  - **provider name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will be override the provider set in the topograph config.
+  - **provider credentials**: (optional) A key-value map with provider-specific parameters for authentication.
+  - **provider parameters**: (optional) A key-value map with parameters that are used for provider simulation with toposim.
+    - **generateResponseCode**: (optional) An integer parameter that specifies the response code for the generate request. Supported by Providers = [test]. Valid values [202,4xx-6xx]. Default value = 202.
+    - **topologyResponseCode**: (optional) An integer parameter that specifies the response code for the topology request. Supported by Providers = [test]. Valid values [200,202,4xx-6xx]. Default value = 200.  
+    - **modelFileName**: (optional) A string parameter that specifies the name of the model file to use for simulating topology. Supported by Providers = [test].
+    - **errorMessage**: (optional) A string parameter that specifies the message to be returned with error responses. Supported by Providers = [test].  
+  - **engine name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, or `slinky`. This parameter will override the engine set in the topograph config.
+  - **engine parameters**: (optional) A key-value map with engine-specific parameters.
+    - **slurm parameters**:
+      - **topologyConfigPath**: (optional) A string specifying the file path for the topology configuration. If omitted, the topology config content is returned in the HTTP response.
+      - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
+      - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
+      - **reconfigure**: (optional) If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`
+    - **slinky parameters**:
+      - **namespace**: A string specifying namespace where SLURM cluster is running.
+      - **podSelector**: A standard Kubernetes label selector for pods running SLURM nodes.
+      - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
+      - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
+      - **topologyConfigPath**: A string specifying the key for the topology config in the ConfigMap.
+      - **topologyConfigmapName**: A string specifying the name of the ConfigMap containing the topology config.
+  - **nodes**: (optional) An array of regions mapping instance IDs to node names.
+
+  Example:
+
+```json
+{
+  "provider": {
+    "name": "aws",
+    "creds": {
+      "accessKeyId": "id",
+      "secretAccessKey": "secret"
+    },
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "block_sizes": "30,120"
+    }
+  },
+  "nodes": [
+    {
+      "region": "region1",
+      "instances": {
+        "instance1": "node1",
+        "instance2": "node2",
+        "instance3": "node3"
+      }
+    },
+    {
+      "region": "region2",
+      "instances": {
+        "instance4": "node4",
+        "instance5": "node5",
+        "instance6": "node6"
+      }
+    }
+  ]
+}
+```
+
+- **Response:** This endpoint immediately returns a "202 Accepted" status with a unique request ID if the request is valid. If not, it returns an appropriate error code.
+
+### 3. Topology Result Endpoint
+
+- **URL:** `http://<server>:<port>/v1/topology`
+- **Description:** This endpoint retrieves the result of a topology request.
+- **URL Query Parameters:**
+  - **uid**: Specifies the request ID returned by the topology request endpoint.
+- **Response:** Depending on the request's execution stage, this endpoint can return:
+  - "200 OK" - The request has completed successfully.
+  - "202 Accepted" - The request is still in progress and has not completed yet.
+  - "404 Not Found" - The specified request ID does not exist.
+  - Other error responses encountered by Topograph during request execution.
+
+Example usage:
+
+```bash
+id=$(curl -s -X POST -H "Content-Type: application/json" -d @payload.json http://localhost:49021/v1/generate)
+
+curl -s "http://localhost:49021/v1/topology?uid=$id"
+```
