@@ -62,6 +62,10 @@ vet:
 lint:
 	$(LINTER_BIN) run --new-from-rev "HEAD~$(git rev-list master.. --count)" ./...
 
+.PHONY: qualify
+qualify: fmt vet lint test
+	@echo "All quality checks passed."
+
 .PHONY: mod
 mod:
 	go mod tidy
