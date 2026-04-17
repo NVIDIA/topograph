@@ -22,7 +22,7 @@ For example, if a node belongs to NVLink domain `nvl1` and connects to switch `s
   network.topology.nvidia.com/core: s3
 ```
 
-<p align="center"><img src="../assets/topograph-k8s.png" width="600" alt="Design"></p>
+<p align="center"><img src="../assets/topograph-k8s.png" width="600" alt="Design" /></p>
 
 ### Relationship to the kubelet Topology Manager
 
