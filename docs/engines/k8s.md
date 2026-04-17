@@ -141,9 +141,11 @@ By default, `global.service.type: ClusterIP` and `ingress.enabled: false`. This 
 - Cluster operators can reach the API via port-forward for debugging:
 
 ```bash
-kubectl -n <namespace> port-forward svc/topograph 49021:49021
+kubectl -n <namespace> port-forward svc/<release>-topograph 49021:49021
 curl http://localhost:49021/healthz
 ```
+
+The Service name is `<release>-topograph` by default (rendered from the chart's `fullname` template); substitute your Helm release name and the namespace you deployed it into.
 
 This is the recommended pattern for production deployments where Topograph is consumed only by in-cluster callers.
 
@@ -186,14 +188,14 @@ This creates a `monitoring.coreos.com/v1` `ServiceMonitor` selecting the Topogra
 
 ### NetworkPolicy
 
-The chart does not ship a `NetworkPolicy` template at this time. For clusters that enforce NetworkPolicy, a recommended starting point allows ingress to port `49021` only from the Topograph namespace and from the Prometheus scraper namespace (when `serviceMonitor.enabled: true`), and denies all other ingress:
+The chart does not ship a `NetworkPolicy` template at this time. For clusters that enforce NetworkPolicy, a recommended starting point allows ingress to port `49021` only from the Topograph namespace and from the Prometheus scraper namespace (when `serviceMonitor.enabled: true`), and denies all other ingress. Replace `<topograph-namespace>` with the namespace you deployed the chart into and `<prometheus-namespace>` with the namespace running your Prometheus instance:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: topograph
-  namespace: topograph
+  namespace: <topograph-namespace>
 spec:
   podSelector:
     matchLabels:
@@ -203,14 +205,14 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: topograph
+              kubernetes.io/metadata.name: <topograph-namespace>
       ports:
         - protocol: TCP
           port: 49021
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: monitoring
+              kubernetes.io/metadata.name: <prometheus-namespace>
       ports:
         - protocol: TCP
           port: 49021
