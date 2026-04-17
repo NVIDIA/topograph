@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright (c) 2023, NVIDIA CORPORATION.
 # Reports relevant environment information useful for diagnosing and
-# debugging __PROJECT__ issues.
+# debugging Topograph issues.
 # Usage:
 # "./print_env.sh" - prints to stdout
 # "./print_env.sh > env.txt" - prints to file "env.txt"
