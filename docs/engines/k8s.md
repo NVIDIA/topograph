@@ -115,7 +115,108 @@ global:
   engine: "k8s"
 ```
 
+## Exposing the Topograph API
 
+The Topograph API server listens on port `49021` by default. The Helm chart always creates a Kubernetes `Service`; how that Service is exposed depends on your deployment topology and access requirements.
+
+**The API server does not implement built-in authentication.** Access controls are always applied at a network layer (`NetworkPolicy`, service mesh, ingress auth, etc.). Deployments that expose the API outside the cluster must add an authentication layer in front of it.
+
+### Access pattern matrix
+
+| Pattern | When to use | Auth story |
+|---|---|---|
+| `ClusterIP` + `kubectl port-forward` (default) | Local debugging, one-off calls | kubeconfig-based — the user needs K8s API access |
+| `ClusterIP` + in-cluster callers | Node Observer calling the API server; downstream schedulers consume node labels directly (no API call needed) | Cluster-internal; lock down with `NetworkPolicy` |
+| `NodePort` / `LoadBalancer` | External access without Ingress — simple, but lacks hostname routing and TLS without extra setup | Expect to add an L7 auth layer in front |
+| Traditional `Ingress` (`networking.k8s.io/v1`) | Most common production pattern — works with nginx-ingress, Traefik, cloud-managed ingress | Add via ingress auth annotations, oauth2-proxy, or mesh |
+
+Gateway API (`HTTPRoute`) support is not yet implemented in the chart — follow the repository issues for status.
+
+### Default: ClusterIP
+
+By default, `global.service.type: ClusterIP` and `ingress.enabled: false`. This means:
+
+- The API is not exposed outside the cluster
+- In-cluster components (Node Observer, Node Data Broker) reach the API via the Service DNS name `<release>.<namespace>.svc.cluster.local:49021`
+- Cluster operators can reach the API via port-forward for debugging:
+
+```bash
+kubectl -n <namespace> port-forward svc/topograph 49021:49021
+curl http://localhost:49021/healthz
+```
+
+This is the recommended pattern for production deployments where Topograph is consumed only by in-cluster callers.
+
+### Exposing via Ingress
+
+Enable the bundled Ingress template:
+
+```yaml
+# values.yaml
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: topograph.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - topograph.example.com
+      secretName: topograph-tls
+```
+
+Authentication must be added at the Ingress or mesh layer. Common patterns:
+
+- nginx-ingress `nginx.ingress.kubernetes.io/auth-url` + oauth2-proxy
+- Istio `RequestAuthentication` + `AuthorizationPolicy`
+- mTLS termination at the ingress with client certificate validation
+
+### Metrics endpoint
+
+The `/metrics` endpoint exposes Prometheus metrics on the same port. Enable the bundled `ServiceMonitor` for Prometheus Operator scraping:
+
+```yaml
+serviceMonitor:
+  enabled: true
+```
+
+This creates a `monitoring.coreos.com/v1` `ServiceMonitor` selecting the Topograph Service.
+
+### NetworkPolicy
+
+The chart does not ship a `NetworkPolicy` template at this time. For clusters that enforce NetworkPolicy, a recommended starting point allows ingress to port `49021` only from the Topograph namespace and from the Prometheus scraper namespace (when `serviceMonitor.enabled: true`), and denies all other ingress:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: topograph
+  namespace: topograph
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: topograph
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: topograph
+      ports:
+        - protocol: TCP
+          port: 49021
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 49021
+```
+
+Apply alongside the chart. A bundled template is under consideration.
 
 ## Validation and Testing
 TBD
