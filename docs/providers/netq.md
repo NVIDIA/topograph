@@ -108,7 +108,7 @@ The provider makes two independent API calls and combines their results:
 
 **NVLink domains (topology/block):**
 1. Fetches compute node records via `GET nmx/v1/compute-nodes` using Basic auth — the `nmx` path reflects the NetQ NVLink Management API, previously known as NMX-M
-2. Groups nodes by `DomainUUID` to build the NVLink domain map
+2. Groups nodes by `DomainUUID` to build the NVLink domain map. The `DomainUUID` is a NetQ/NMX identifier and differs in format from the `ClusterUUID.CliqueId` value used by `nvidia.com/gpu.clique` and the InfiniBand provider — both identify the same physical NVLink domain, but the values are not directly comparable as strings.
 
 NVLink domain discovery is best-effort — if it fails, Topograph logs a warning and returns the switch tree only. Multi-premises environments are supported: Topograph iterates over all accessible premises and merges their topology graphs.
 

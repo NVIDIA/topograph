@@ -53,6 +53,17 @@ graph TB
     scheduler -. "schedules Pods onto nodes;\nTopology Manager handles\nresource alignment inside each node" .-> tm
 ```
 
+### Relationship to `nvidia.com/gpu.clique`
+
+The GPU Operator device plugin sets `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs (e.g., GB200 NVL72). This label identifies the NVLink clique a node belongs to and can be used as a topology key for Pod placement.
+
+Topograph's `network.topology.nvidia.com/accelerator` label and `nvidia.com/gpu.clique` are complementary:
+
+- On **MNNVL systems**: the InfiniBand provider's `accelerator` value is derived from the same `ClusterUUID.CliqueId` hardware identifiers as `gpu.clique`. The two labels carry the same value and can be correlated.
+- On **non-MNNVL systems** (e.g., DGX B200, B300): `nvidia.com/gpu.clique` is not set — the device plugin requires the GPU fabric to reach `GPU_FABRIC_STATE_COMPLETED`, which non-MNNVL GPUs do not reach. Topograph with an InfiniBand provider is the only source of network topology labels on these clusters.
+
+In addition to NVLink domain membership, Topograph provides the IB switch hierarchy (`leaf`, `spine`, `core`) — giving schedulers both dimensions of topology simultaneously.
+
 ## Use of Topograph
 
 While there is currently no fully network-aware scheduler capable of optimally placing groups of pods based on network considerations, Topograph serves as a stepping stone toward developing such a scheduler.
@@ -99,6 +110,10 @@ Since the default Kubernetes scheduler places one pod at a time, the placement m
 the first pod is placed. As a result, each scheduling decision might not be globally optimal.
 However, by aligning pod placement with network-aware labels, we can significantly improve inter-pod
 communication efficiency within the limitations of the scheduler.
+
+### Mixed Workload Considerations
+
+Topology labels are most valuable when nodes in a topology domain are available for topology-sensitive workloads together. Mixed clusters running both distributed training and topology-insensitive workloads (single-GPU inference, CPU services) present a scheduling challenge: topology-insensitive Pods will consume nodes that could otherwise form complete leaf-switch groups or NVLink domains, forcing training jobs to communicate across additional hops. Schedulers that honor topology labels — such as [KAI Scheduler](https://github.com/NVIDIA/KAI-Scheduler) and Kueue with Topology-Aware Scheduling — can minimize this fragmentation, but only when topology information is available. Topograph's labels are a prerequisite for making these decisions.
 
 ## Configuration
 Topograph is deployed as a standard Kubernetes application using a [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
