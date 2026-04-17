@@ -4,20 +4,13 @@
 name: Go
 
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-    branches:
-      - main
   push:
     branches:
-      - main
+      - "pull-request/[0-9]+"
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: linux-amd64-cpu8
     steps:
     - uses: actions/checkout@v5
 
@@ -42,7 +35,7 @@ jobs:
         test -z "$(go fmt ./...)"
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: linux-amd64-cpu8
     steps:
     - uses: actions/checkout@v5
 
@@ -63,7 +56,7 @@ jobs:
         verbose: true
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: linux-amd64-cpu8
     steps:
     - uses: actions/checkout@v5
 
