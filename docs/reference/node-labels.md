@@ -36,7 +36,7 @@ On non-MNNVL systems (e.g., DGX B200, B300), `nvidia.com/gpu.clique` is not set 
 
 ### Label value behavior
 
-Label values are used as-is when they are 63 characters or shorter (the Kubernetes label value limit). Values longer than 63 characters are replaced with their **FNV-64a hash** (hex-encoded) to stay within the limit. This means two nodes with the same long switch identifier will carry the same hash value — locality is preserved, but the original identifier is not recoverable from the label alone.
+Label values are used as-is when they are 63 characters or shorter (the Kubernetes label value limit). Values longer than 63 characters are replaced with their **FNV-64a hash** rendered as an `x`-prefixed lowercase hex string (e.g., `x3e4f1a2b3c4d5e6f`) to stay within the limit. This means two nodes with the same long switch identifier will carry the same hash value — locality is preserved, but the original identifier is not recoverable from the label alone.
 
 ### Configuring label keys
 
