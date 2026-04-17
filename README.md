@@ -151,6 +151,8 @@ Currently supported engines:
 
 For MNNVL environments, NetQ and DRA operate at different layers and can coexist: NetQ provides infrastructure-level visibility into the NVLink fabric while DRA feeds topology directly to Kubernetes schedulers via `nvidia.com/gpu.clique` node labels.
 
+For non-MNNVL GPU clusters (such as DGX B200 or B300 SuperPODs), `nvidia.com/gpu.clique` is not set — Topograph with an InfiniBand provider is the only source of network topology for scheduling decisions on these systems.
+
 ## Using Topograph
 
 Topograph offers three endpoints for interacting with the service. Below are the details of each endpoint:

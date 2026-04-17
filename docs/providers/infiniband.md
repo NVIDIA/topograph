@@ -45,7 +45,7 @@ See the engine documentation (`docs/engines/`) for details on each output format
 ### How It Works
 
 1. Runs `sudo ibnetdiscover` via `pdsh` on one node per IB fabric segment to map the full switch tree
-2. On NVIDIA GPU nodes: runs `nvidia-smi -q | grep "ClusterUUID\|CliqueId" | sort -u` via `pdsh` across all nodes to collect NVLink clique IDs
+2. On NVIDIA GPU nodes: runs `nvidia-smi -q | grep "ClusterUUID\|CliqueId" | sort -u` via `pdsh` across all nodes to collect NVLink clique IDs. The resulting `accelerator` label value is `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems.
 3. Combines the switch tree and any NVLink clique data into the topology graph
 
 ### Configuration
@@ -84,7 +84,7 @@ For the Slurm engine, verify the generated `topology.conf` reflects the expected
 ### How It Works
 
 1. Runs `ibnetdiscover` by exec-ing into a node-data-broker pod on each node to map the switch tree
-2. On NVIDIA GPU nodes: reads NVLink clique IDs from the `topograph.nvidia.com/cluster-id` node annotations set by the node-data-broker
+2. On NVIDIA GPU nodes: reads NVLink clique IDs from the `topograph.nvidia.com/cluster-id` node annotations set by the node-data-broker. The resulting `accelerator` label value is `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems.
 3. Combines the switch tree and any NVLink clique data into the topology graph
 
 ### Configuration
