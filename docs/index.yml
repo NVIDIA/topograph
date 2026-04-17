@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+navigation:
+  - section: Providers
+    contents:
+      - page: AWS
+        path: providers/aws.md
+      - page: GCP
+        path: providers/gcp.md
+      - page: OCI
+        path: providers/oci.md
+      - page: Nebius
+        path: providers/nebius.md
+      - page: InfiniBand
+        path: providers/infiniband.md
+      - page: NetQ
+        path: providers/netq.md
+      - page: DRA
+        path: providers/dra.md
+
+  - section: Engines
+    contents:
+      - page: SLURM
+        path: engines/slurm.md
+      - page: Kubernetes
+        path: engines/k8s.md
+      - page: Slinky
+        path: engines/slinky.md

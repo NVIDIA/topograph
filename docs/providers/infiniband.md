@@ -28,7 +28,7 @@ Both variants produce the same topology representation, and are in turn consumed
 - **Kubernetes engine** (`engine: k8s`) — applies `network.topology.nvidia.com/` labels to nodes reflecting their position in the switch hierarchy and (where applicable) their NVLink domain
 - **Slinky engine** (`engine: slinky`) — writes topology data to a Kubernetes ConfigMap for Slurm-on-Kubernetes deployments
 
-See the [engine documentation](../engines/) for details on each output format.
+See the engine documentation (`docs/engines/`) for details on each output format.
 
 ---
 

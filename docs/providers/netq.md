@@ -30,7 +30,7 @@ The NetQ provider produces the same topology representation as the InfiniBand pr
 - **Kubernetes engine** (`engine: k8s`) — applies `network.topology.nvidia.com/` labels to nodes
 - **Slinky engine** (`engine: slinky`) — writes topology data to a Kubernetes ConfigMap
 
-See the [engine documentation](../engines/) for details on each output format.
+See the engine documentation (`docs/engines/`) for details on each output format.
 
 ## Prerequisites
 
