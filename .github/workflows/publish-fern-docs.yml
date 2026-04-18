@@ -26,8 +26,6 @@ name: Publish Fern Docs
 
 on:
   push:
-    branches:
-      - main
     paths:
       - 'docs/**'
       - 'fern/**'
@@ -44,7 +42,7 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: linux-amd64-cpu8
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5

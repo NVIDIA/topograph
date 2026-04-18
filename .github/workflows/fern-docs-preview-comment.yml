@@ -36,7 +36,7 @@ permissions:
 
 jobs:
   preview:
-    runs-on: ubuntu-latest
+    runs-on: linux-amd64-cpu8
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Download fern sources and metadata
