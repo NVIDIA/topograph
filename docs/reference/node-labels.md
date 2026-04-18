@@ -22,7 +22,9 @@ Not all providers produce both topology types:
 | Provider | Block (`accelerator`) | Tree (`leaf`/`spine`/`core`) |
 |---|---|---|
 | `aws` | Yes (CapacityBlockId) | Yes |
+| `cw` | No | Yes (IB switch hierarchy) |
 | `gcp` | No | Yes |
+| `lambdai` | Yes (`NVLink.DomainID.CliqueID`) | Yes |
 | `oci` | No | Yes |
 | `nebius` | No | Yes |
 | `netq` | Yes (NMX `DomainUUID`) | Yes (Spectrum-X switch hierarchy) |
