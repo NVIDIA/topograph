@@ -4,7 +4,7 @@ Topograph enriches Kubernetes nodes with labels and annotations that describe th
 
 ## Labels
 
-Labels are set by the [Kubernetes engine](../engines.md) (`engine: k8s`) and the [Slinky engine](../engines.md) (`engine: slinky`). They are intended for use by workload schedulers (e.g. KAI Scheduler, gang-scheduling plugins, topology-aware bin-packers) and observability tools to reason about network locality.
+Labels are set by the [Kubernetes engine](../engines/k8s.md) (`engine: k8s`) and the [Slinky engine](../engines/slinky.md) (`engine: slinky`). They are intended for use by workload schedulers (e.g. KAI Scheduler, gang-scheduling plugins, topology-aware bin-packers) and observability tools to reason about network locality.
 
 ### Default label keys
 
@@ -22,7 +22,7 @@ Not all providers produce both topology types:
 | Provider | Block (`accelerator`) | Tree (`leaf`/`spine`/`core`) |
 |---|---|---|
 | `aws` | Yes (CapacityBlockId) | Yes |
-| `cw` | No | Yes (IB switch hierarchy) |
+| `cw` | No | No (vertex structure is incompatible with the Kubernetes and Slinky engines — the provider returns a bare tree root that is not wrapped under `topology.TopologyTree`, so neither labeler processes its output; tracked separately) |
 | `gcp` | No | Yes |
 | `lambdai` | Yes (`NVLink.DomainID.CliqueID`) | Yes |
 | `oci` | No | Yes |
