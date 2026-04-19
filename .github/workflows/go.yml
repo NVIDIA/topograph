@@ -17,12 +17,12 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24.7'
+        go-version: '1.25.9'
 
     - name: Lint
-      uses: golangci/golangci-lint-action@v6
+      uses: golangci/golangci-lint-action@v9
       with:
-        version: v1.64.2
+        version: v2.4.0
         args: -v --timeout 5m
         skip-cache: true
 
@@ -42,7 +42,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24.7'
+        go-version: '1.25.9'
 
     - name: Test
       run: go test -v -coverpkg=./... -coverprofile=coverage.out -covermode=atomic ./...
@@ -63,7 +63,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24.7'
+        go-version: '1.25.9'
 
     - name: Install Protoc
       run: |

@@ -215,7 +215,7 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 	swVertexMap := make(map[string]*topology.Vertex)
 	swRootMap := make(map[string]bool)
 	blockVertexMap := make(map[string]*topology.Vertex)
-	var block_topology bool = false
+	block_topology := false
 
 	// Create all the vertices for each node
 	for k, v := range model.Nodes {

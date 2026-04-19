@@ -71,14 +71,14 @@ func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *e
 		client.nextTokens = make(map[string]string)
 
 		// Sets the maximum number of results to return per output
-		var maxResults int = DEFAULT_MAX_RESULTS
+		maxResults := DEFAULT_MAX_RESULTS
 		if params.MaxResults != nil {
 			maxResults = int(*params.MaxResults)
 		}
 
 		// Creates the list of instances whose topology is requested
 		var firstToken string
-		var instanceIdx int = 0
+		var instanceIdx int
 		for instanceIdx < len(instanceIds) {
 			// Only collect a list up to params.MaxResults
 			var instances []types.InstanceTopology
@@ -128,8 +128,7 @@ func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *e
 			client.outputs[token] = instances
 			instanceIdx += i
 			if instanceIdx < len(instanceIds) {
-				var nextToken string = strconv.Itoa(instanceIdx)
-				client.nextTokens[token] = nextToken
+				client.nextTokens[token] = strconv.Itoa(instanceIdx)
 			}
 		}
 

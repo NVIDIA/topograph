@@ -65,7 +65,7 @@ These structures propagate across every provider and engine. Changing them in a 
 
 ### Prerequisites
 
-- **Go 1.24.7** (see `go.mod`) — newer minor versions are fine; older will not build
+- **Go 1.25.9** (see `go.mod`) — newer minor versions are fine; older will not build
 - **make**
 - **golangci-lint** — `brew install golangci-lint` or via `go install`
 - **docker** — only for container image builds and the IB variant
