@@ -1,0 +1,27 @@
+{{- if .Values.tests.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "topograph.fullname" . }}-test-healthz"
+  labels:
+    {{- include "topograph.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  {{- with .Values.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  containers:
+    - name: healthz
+      image: "{{ .Values.tests.image.repository | default .Values.image.repository }}:{{ .Values.tests.image.tag | default .Values.image.tag }}"
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -eu
+          wget -q -O /dev/null -T 10 \
+            "http://{{ include "topograph.fullname" . }}:{{ .Values.global.service.port }}/healthz"
+{{- end }}

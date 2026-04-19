@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "topograph Helm chart values",
+  "description": "Schema for the topograph chart's values.yaml. Validates the most error-prone fields (provider and engine enums, replicaCount, image.pullPolicy, service settings, verbosity). Per-provider credential-field requirements are documented in docs/providers/<name>.md rather than enforced here, because the credential field sets vary with upstream provider changes and are better kept in prose.",
+  "type": "object",
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Topology-discovery provider. Must match a registered provider in pkg/registry/registry.go.",
+              "enum": [
+                "aws",
+                "aws-sim",
+                "cw",
+                "dra",
+                "gcp",
+                "gcp-sim",
+                "infiniband-bm",
+                "infiniband-k8s",
+                "lambdai",
+                "lambdai-sim",
+                "nebius",
+                "netq",
+                "oci",
+                "oci-imds",
+                "oci-sim",
+                "test"
+              ]
+            }
+          },
+          "required": ["name"]
+        },
+        "engine": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Scheduler-output engine. Must match a registered engine in pkg/registry/registry.go.",
+              "enum": ["k8s", "slinky", "slurm"]
+            }
+          },
+          "required": ["name"]
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      }
+    },
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["IfNotPresent", "Always", "Never"]
+        }
+      }
+    },
+    "imagePullSecrets": { "type": "array" },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "automount": { "type": "boolean" },
+        "annotations": { "type": "object" },
+        "name": { "type": "string" }
+      }
+    },
+    "verbosity": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "env": { "type": "object" },
+    "config": { "type": "object" },
+    "topologyNodeLabels": { "type": "object" },
+    "podAnnotations": { "type": "object" },
+    "podLabels": { "type": "object" },
+    "podSecurityContext": { "type": "object" },
+    "securityContext": { "type": "object" },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": { "type": "object" },
+        "hosts": { "type": "array" },
+        "tls": { "type": "array" }
+      }
+    },
+    "gatewayAPI": {
+      "type": "object",
+      "description": "Gateway API (gateway.networking.k8s.io/v1) access. Mutually exclusive with ingress.enabled. The chart does not author Gateway or GatewayClass resources.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "parentRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "namespace": { "type": "string" },
+              "sectionName": { "type": "string" },
+              "group": { "type": "string" },
+              "kind": { "type": "string" },
+              "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            },
+            "required": ["name"]
+          }
+        },
+        "hostnames": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rules": { "type": "array" },
+        "annotations": { "type": "object" }
+      }
+    },
+    "resources": { "type": "object" },
+    "volumes": { "type": "array" },
+    "volumeMounts": { "type": "array" },
+    "livenessProbe": { "type": "object" },
+    "readinessProbe": { "type": "object" },
+    "nodeSelector": { "type": "object" },
+    "tolerations": { "type": "array" },
+    "affinity": { "type": "object" },
+    "serviceMonitor": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "namespace": { "type": "string" },
+        "port": { "type": "string" },
+        "path": { "type": "string" },
+        "interval": { "type": "string" },
+        "scheme": {
+          "type": "string",
+          "enum": ["http", "https"]
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
