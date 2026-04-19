@@ -14,8 +14,12 @@ spec:
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+  securityContext:
+    {{- toYaml .Values.podSecurityContext | nindent 4 }}
   containers:
     - name: healthz
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
       image: "{{ .Values.tests.image.repository | default .Values.image.repository }}:{{ .Values.tests.image.tag | default .Values.image.tag }}"
       imagePullPolicy: {{ .Values.image.pullPolicy }}
       command: ["sh", "-c"]
