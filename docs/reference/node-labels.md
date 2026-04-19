@@ -44,6 +44,10 @@ Label values are used as-is when they are 63 characters or shorter (the Kubernet
 
 The default `network.topology.nvidia.com/` prefix is configurable via the Helm `topologyNodeLabels` value. If you need to map topograph's topology layers to a custom label schema, override the keys at deploy time. The label _values_ (topology identifiers) are always derived from the provider's topology discovery and cannot be configured.
 
+### Relationship to upstream standardization (KEP-4962)
+
+An active Kubernetes Enhancement Proposal (KEP), [KEP-4962: Standardizing the Representation of Cluster Network Topology](https://github.com/kubernetes/enhancements/issues/4962) ([draft in PR #4965](https://github.com/kubernetes/enhancements/pull/4965)), advocates reserved label keys under the `topology.kubernetes.io/` namespace for a standardized representation of cluster network topology. The KEP is pre-GA and still under upstream review. Topograph's current `network.topology.nvidia.com/*` keys predate any potential upstream standard and are presently vendor-scoped — the KEP's framing allows vendor prefixes and standard labels to coexist rather than replace one another. If KEP-4962 reaches GA with stable keys, Topograph will evaluate aligning or providing both; for now, the `network.topology.nvidia.com/*` keys remain authoritative for Topograph-deployed clusters.
+
 ## Without Topograph
 
 When Topograph is not deployed, the labels commonly available for topology-aware scheduling are:

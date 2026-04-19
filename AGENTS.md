@@ -240,7 +240,9 @@ Every PR should be evaluated for documentation impact before pre-push qualificat
 |---|---|
 | New / changed / removed provider | `docs/providers/<name>.md` + `docs/overview.md` provider list + "Choosing a Provider" scenario table |
 | New / changed / removed engine | `docs/engines/<engine>.md` |
+| New / changed chart template (Ingress, HTTPRoute, NetworkPolicy, ServiceMonitor, etc.) | `docs/engines/k8s.md` "Exposing the Topograph API" section |
 | New / changed chart values schema | `charts/topograph/values.yaml` comments, `NOTES.txt` output, and any docs that reference the values |
+| New / changed label or annotation key | `docs/reference/node-labels.md` |
 | New / changed API endpoint, request parameter, or response field | `docs/api.md` |
 | New / changed config schema (`topograph-config.yaml` fields, defaults, validation) | `docs/api.md` |
 | New invariant or "do not change without discussion" surface | `AGENTS.md` + `.claude/CLAUDE.md` in the same PR |
