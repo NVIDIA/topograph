@@ -285,7 +285,7 @@ func (nt *NetworkTopology) findRequiredNodes(leaves map[string]bool) map[string]
 
 	var dfs func(node string) bool
 	dfs = func(node string) bool {
-		keep := false
+		var keep bool
 		if leaves[node] {
 			keep = true
 		}

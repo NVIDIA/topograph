@@ -79,7 +79,7 @@ func TestConfig(t *testing.T) {
 	_, err = creds.WriteString(credentials)
 	require.NoError(t, err)
 
-	_, err = file.WriteString(fmt.Sprintf(configTemplate, cert.Name(), key.Name(), caCert.Name(), creds.Name()))
+	_, err = fmt.Fprintf(file, configTemplate, cert.Name(), key.Name(), caCert.Name(), creds.Name())
 	require.NoError(t, err)
 
 	cfg, err := NewFromFile(file.Name())

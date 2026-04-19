@@ -288,10 +288,10 @@ func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, name
 		maps.Copy(cm.Data, data)
 
 		// Apply annotations to existing ConfigMap
-		if cm.ObjectMeta.Annotations == nil {
-			cm.ObjectMeta.Annotations = make(map[string]string)
+		if cm.Annotations == nil {
+			cm.Annotations = make(map[string]string)
 		}
-		maps.Copy(cm.ObjectMeta.Annotations, annotations)
+		maps.Copy(cm.Annotations, annotations)
 
 		_, err = cmClient.Update(ctx, cm, metav1.UpdateOptions{})
 	} else if errors.IsNotFound(err) {
