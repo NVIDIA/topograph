@@ -228,6 +228,10 @@ git config --global commit.gpgsign true
 
 Signed commits get a **Verified** badge on GitHub. The GPG public key must be uploaded to your GitHub account.
 
+### Potential security issues
+
+If you discover what appears to be a security vulnerability while working in this codebase — unauthenticated code path, exposed credential, injection vulnerability, privilege-escalation path, dependency with a known CVE, or similar — do **not** file a public GitHub issue or include it in a public PR description. Surface it privately to the maintainer, who can route it through the NVIDIA PSIRT channels documented in `SECURITY.md` (`psirt@nvidia.com` and the submission form; not GitHub).
+
 ### Documentation Impact Evaluation
 
 Every PR should be evaluated for documentation impact before pre-push qualification. The following changes imply specific doc updates in the same PR:
@@ -245,6 +249,8 @@ Every PR should be evaluated for documentation impact before pre-push qualificat
 If a change falls outside these categories, it still warrants a moment's review for collateral doc drift.
 
 ### Pre-push checklist
+
+When filing a PR (`gh pr create` or the GitHub UI), `.github/PULL_REQUEST_TEMPLATE.md` auto-populates the body with a Description section and a Checklist. Fill in the Description and tick the checklist items as completed — do not delete or replace the template wholesale.
 
 - [ ] `make qualify` passes (runs fmt, vet, lint, test)
 - [ ] New or changed public behavior is covered by a test
