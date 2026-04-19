@@ -236,4 +236,63 @@ spec:
 Apply alongside the chart. A bundled template is under consideration.
 
 ## Validation and Testing
-TBD
+
+The Helm chart ships two layers of validation for operators.
+
+### Schema-backed values validation at install time
+
+`charts/topograph/values.schema.json` is a JSON Schema that Helm enforces during `helm template` and `helm install`. Misspelled provider names, wrong engine enums, out-of-range replica counts, bad pull policies, invalid service port numbers, and malformed `serviceMonitor` / `tests` / `ingress` shapes are rejected with a clear `at '/field/path': <explanation>` error before any template rendering happens. For example, `--set global.provider.name=bogus` produces:
+
+```
+Error: values don't meet the specifications of the schema(s) in the following chart(s):
+topograph:
+- at '/global/provider/name': value must be one of 'aws', 'aws-sim', 'cw', 'dra', 'gcp', 'gcp-sim', 'infiniband-bm', 'infiniband-k8s', 'lambdai', 'lambdai-sim', 'nebius', 'netq', 'oci', 'oci-imds', 'oci-sim', 'test'
+```
+
+The schema is deliberately narrow: per-provider credential requirements are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because credential field sets evolve with upstream provider changes.
+
+### `helm test` hooks
+
+The chart ships two `helm test` hook pods (`charts/topograph/templates/tests/`) that probe the running Topograph API via its in-cluster Service after install:
+
+- **`test-healthz`** — `GET /healthz`; expects HTTP 200 (liveness check).
+- **`test-metrics`** — `GET /metrics`; expects HTTP 200 and the `topograph_version` Prometheus metric present in the response body (topograph-specific identity check; distinguishes topograph from any other service that might return 200).
+
+Run the suite after installation:
+
+```bash
+helm install topograph oci://ghcr.io/nvidia/topograph/topograph \
+  --namespace topograph --create-namespace
+helm test topograph --namespace topograph
+```
+
+Expected output:
+
+```
+TEST SUITE:     topograph-test-healthz
+Phase:          Succeeded
+TEST SUITE:     topograph-test-metrics
+Phase:          Succeeded
+```
+
+Both pods clean themselves up on success (`helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded`). On failure the pods persist so operators can inspect logs via `kubectl logs -n <ns> <pod-name>`; the next `helm test` invocation replaces the prior pods.
+
+**Air-gapped environments.** The test pods reuse the main topograph image by default — they invoke `busybox wget` from the Alpine-based `ghcr.io/nvidia/topograph` image already pulled by the Deployment. No additional image pull is required by `helm test`, so the suite works in environments where only mirrored images are reachable. Operators running a topograph image variant without `busybox wget` (notably the ubuntu-based IB variant built from `Dockerfile.ib`) can either override the test image:
+
+```yaml
+tests:
+  image:
+    repository: my-registry.internal/wget
+    tag: v1.0.0
+```
+
+or disable the test hooks entirely:
+
+```yaml
+tests:
+  enabled: false
+```
+
+### Chart README
+
+For installation, prerequisites, values reference, and configuration examples, see [`charts/topograph/README.md`](../../charts/topograph/README.md) — also surfaced via `helm show readme oci://ghcr.io/nvidia/topograph/topograph`.

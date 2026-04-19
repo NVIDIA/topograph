@@ -22,6 +22,8 @@ Topograph is configured using a configuration file stored in a ConfigMap and mou
 In addition, when sending a topology request, the request payload includes additional parameters.
 The parameters for the configuration file and topology request are defined in the `global` section of the Helm values file, as shown below:
 
+> **Shared with the Kubernetes engine:** because the Topograph API server runs as a Kubernetes workload regardless of the engine, anything about the chart's deployment surface — values-schema validation, `helm test` hooks, Prometheus `ServiceMonitor`, `NetworkPolicy` guidance, the chart's `README.md`, and access patterns (ClusterIP port-forward, Ingress) — is shared with the Kubernetes engine and documented authoritatively in [`engines/k8s.md`](./k8s.md#validation-and-testing) and [`engines/k8s.md#exposing-the-topograph-api`](./k8s.md#exposing-the-topograph-api). Those sections apply equally to Slinky deployments.
+
 ```yaml
 global:
   # provider – name of the cloud provider or on-prem environment.
