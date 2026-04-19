@@ -81,6 +81,55 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
+# Gateway API (gateway.networking.k8s.io/v1) access to the Topograph API.
+# Mutually exclusive with `ingress.enabled` -- the chart refuses to render if
+# both are set to true (see templates/_validation.tpl). The default rendered
+# HTTPRoute uses only standard gateway.networking.k8s.io/v1 fields with no
+# implementation-specific annotations, so it is portable across any
+# conformant Gateway API implementation (kgateway, Cilium, Istio, Envoy
+# Gateway, Nginx Gateway Fabric, etc.).
+#
+# The chart does NOT author `Gateway` or `GatewayClass` resources -- those
+# are platform-owned. Reference an existing Gateway via `parentRefs`. An
+# operator who needs to pin implementation behavior does so by pointing
+# `parentRefs` at a Gateway that itself names a specific `GatewayClass`.
+#
+# Implementation-specific extensions (e.g., kgateway `TrafficPolicy` +
+# ExtAuth for authentication, Istio `RequestAuthentication`, Nginx Gateway
+# Fabric policies, Cilium L7 policies) typically attach to the `HTTPRoute`
+# via separate resources, not via chart-level annotations. See
+# `values.k8s-gateway-api-example.yaml` for a realistic kgateway example.
+gatewayAPI:
+  enabled: false
+  # References to existing Gateway resources this HTTPRoute attaches to.
+  # Cross-namespace references require a ReferenceGrant in the Gateway's
+  # namespace.
+  parentRefs: []
+  #  - name: example-gateway
+  #    namespace: gateway-system      # optional
+  #    sectionName: https              # optional listener name on the Gateway
+  # Hostnames this HTTPRoute matches. Leave empty to accept any hostname
+  # routed to the parent Gateway's listener.
+  hostnames: []
+  #  - topograph.example.com
+  # Optional override for the default routing rule. By default the chart
+  # emits a single catch-all rule routing all requests to the Topograph
+  # Service (which handles /v1/generate, /v1/topology, /healthz, and
+  # /metrics on a single port). Set this to provide multiple rules or
+  # path-based matching.
+  rules: []
+  #  - matches:
+  #      - path:
+  #          type: PathPrefix
+  #          value: /v1/
+  #    backendRefs:
+  #      - name: <release-fullname>
+  #        port: <service port>
+  # Annotations applied to the HTTPRoute resource. Most implementation
+  # extensions attach via separate resources rather than annotations;
+  # this is here primarily for standard annotations (e.g., monitoring).
+  annotations: {}
+
 resources:
   limits:
     cpu: 400m

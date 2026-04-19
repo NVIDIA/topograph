@@ -177,6 +177,8 @@ Engines are much rarer (three exist: slurm, k8s, slinky). Follow the same regist
 | Modify an AGENTS.md-described surface (new Makefile target, top-level directory, chart template, invariant) without updating `AGENTS.md` + `.claude/CLAUDE.md` in the same PR | Drift between the code and its agent-facing description; the next contributor / agent reads stale guidance |
 | Skip DCO sign-off to "fix later" | The DCO bot will block the PR; rebase with `--signoff` is always available |
 | Use plain `error` at the provider interface boundary | Must be `*httperr.Error` so the API server returns the correct HTTP status |
+| Enable both `ingress.enabled` and `gatewayAPI.enabled` in the same Helm release | Mutually exclusive; deploying both routing resources against the same Service is almost always a misconfiguration. Enforced by `charts/topograph/templates/_validation.tpl`. |
+| Add implementation-specific annotations, CRDs, or extensions to `charts/topograph/templates/httproute.yaml` | The default `HTTPRoute` must use only standard `gateway.networking.k8s.io/v1` fields so it renders and functions against any conformant Gateway API implementation. Implementation-specific examples (kgateway `TrafficPolicy`, etc.) belong in `values.k8s-gateway-api-example.yaml` as separate attached resources, not in the chart's default template. |
 
 ### Label and annotation reference
 
