@@ -1,5 +1,19 @@
 1. Get the application URL by running these commands:
-{{- if .Values.ingress.enabled }}
+{{- if .Values.gatewayAPI.enabled }}
+{{- if .Values.gatewayAPI.hostnames }}
+{{- range $host := .Values.gatewayAPI.hostnames }}
+  http://{{ $host }}/
+{{- end }}
+  NOTE: The above URL(s) resolve to the Gateway referenced by parentRefs.
+        The Gateway is platform-owned; confirm the operator has provisioned
+        it and (if needed) published its listener address in DNS.
+{{- else }}
+  NOTE: Gateway API HTTPRoute is rendered but no hostnames are set.
+        The route will accept any hostname routed to the parent Gateway's
+        listener. Resolve the Gateway address with:
+          kubectl get gateway -A
+{{- end }}
+{{- else if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
   {{- range .paths }}
   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}

@@ -1,0 +1,45 @@
+{{- if .Values.gatewayAPI.enabled }}
+{{- /*
+  Note on Gateway API CRD prerequisites:
+
+  A chart-side `.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1"`
+  check is intentionally omitted here. Helm populates `.Capabilities`
+  against the cluster only at install time, not during `helm template`,
+  so such a check would false-positive on every template preview.
+
+  Operators running `helm install` on a cluster without the Gateway API
+  CRDs will get a clear Kubernetes-native error of the form
+  `no matches for kind "HTTPRoute" in version "gateway.networking.k8s.io/v1"`,
+  which is sufficient. Prerequisites are documented in values.yaml and
+  docs/engines/k8s.md.
+*/ -}}
+{{- $fullName := include "topograph.fullname" . -}}
+{{- $svcPort := .Values.global.service.port -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "topograph.labels" . | nindent 4 }}
+  {{- with .Values.gatewayAPI.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.gatewayAPI.parentRefs }}
+  parentRefs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.gatewayAPI.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- if .Values.gatewayAPI.rules }}
+    {{- toYaml .Values.gatewayAPI.rules | nindent 4 }}
+    {{- else }}
+    - backendRefs:
+        - name: {{ $fullName }}
+          port: {{ $svcPort }}
+    {{- end }}
+{{- end }}

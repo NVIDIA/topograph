@@ -111,6 +111,34 @@
         "tls": { "type": "array" }
       }
     },
+    "gatewayAPI": {
+      "type": "object",
+      "description": "Gateway API (gateway.networking.k8s.io/v1) access. Mutually exclusive with ingress.enabled. The chart does not author Gateway or GatewayClass resources.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "parentRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "namespace": { "type": "string" },
+              "sectionName": { "type": "string" },
+              "group": { "type": "string" },
+              "kind": { "type": "string" },
+              "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            },
+            "required": ["name"]
+          }
+        },
+        "hostnames": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rules": { "type": "array" },
+        "annotations": { "type": "object" }
+      }
+    },
     "resources": { "type": "object" },
     "volumes": { "type": "array" },
     "volumeMounts": { "type": "array" },
