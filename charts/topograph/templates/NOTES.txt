@@ -1,8 +1,9 @@
 1. Get the application URL by running these commands:
 {{- if .Values.gatewayAPI.enabled }}
 {{- if .Values.gatewayAPI.hostnames }}
+{{- $scheme := .Values.gatewayAPI.scheme | default "http" }}
 {{- range $host := .Values.gatewayAPI.hostnames }}
-  http://{{ $host }}/
+  {{ $scheme }}://{{ $host }}/
 {{- end }}
   NOTE: The above URL(s) resolve to the Gateway referenced by parentRefs.
         The Gateway is platform-owned; confirm the operator has provisioned

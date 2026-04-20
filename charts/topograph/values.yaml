@@ -129,6 +129,14 @@ gatewayAPI:
   # extensions attach via separate resources rather than annotations;
   # this is here primarily for standard annotations (e.g., monitoring).
   annotations: {}
+  # URL scheme surfaced in NOTES.txt for the hostname-based access URL.
+  # Gateway TLS is configured on the Gateway's listener (platform-owned),
+  # so the chart cannot auto-detect whether the parent Gateway terminates
+  # TLS. Operators whose Gateway attaches this HTTPRoute to an HTTPS
+  # listener should set this to "https" so the install NOTES show the
+  # correct URL. No effect on the rendered HTTPRoute itself -- this is
+  # presentation-only.
+  scheme: http
 
 resources:
   limits:

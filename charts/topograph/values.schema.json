@@ -137,7 +137,12 @@
           "items": { "type": "string" }
         },
         "rules": { "type": "array" },
-        "annotations": { "type": "object" }
+        "annotations": { "type": "object" },
+        "scheme": {
+          "type": "string",
+          "enum": ["http", "https"],
+          "description": "URL scheme surfaced in NOTES.txt for the hostname-based access URL. Presentation-only; does not affect the rendered HTTPRoute. Set to 'https' when the parent Gateway terminates TLS on the listener this HTTPRoute attaches to."
+        }
       }
     },
     "resources": { "type": "object" },
