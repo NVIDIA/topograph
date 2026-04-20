@@ -8,7 +8,7 @@ Topograph consists of five major components:
 4. **Provider**
 5. **Engine**
 
-<p align="center"><img src="assets/design.png" width="600" alt="Design"></p>
+<p align="center"><img src="assets/design.png" width="600" alt="Design" /></p>
 
 ## Components
 
