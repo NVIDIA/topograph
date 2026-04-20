@@ -54,6 +54,15 @@ jobs:
       - name: Install Fern CLI
         run: npm install -g fern-api@$(jq -r .version fern/fern.config.json)
 
+      - name: Check MDX safety
+        run: |
+          BAD=$(grep -rn '<img\b[^>]*[^/]>' docs/ --include="*.md" || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::Non-self-closing <img> tags found (MDX requires <img ... />):"
+            echo "$BAD"
+            exit 1
+          fi
+
       - name: Fern check
         run: fern check
 
