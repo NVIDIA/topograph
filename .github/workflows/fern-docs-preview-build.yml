@@ -15,9 +15,12 @@
 
 # Workflow 1 of 2 for Fern doc previews.
 #
-# Collects the fern/ sources and PR metadata from the (possibly untrusted) PR
-# branch and uploads them as an artifact. No secrets are used here, so this is
-# safe to run on fork PRs via the regular pull_request trigger.
+# Collects the fern/ sources and PR metadata from the PR branch and uploads
+# them as an artifact. No secrets are used here.
+#
+# Triggers on push to pull-request/<n> branches (NVIDIA copy-PR-bot pattern).
+# On push events github.head_ref and github.event.pull_request.number are
+# empty — PR number and branch name are extracted from github.ref_name instead.
 #
 # The companion workflow (fern-docs-preview-comment.yml) picks up the artifact,
 # builds the preview with DOCS_FERN_TOKEN, and posts the PR comment.
@@ -47,14 +50,12 @@ jobs:
 
       - name: Save PR metadata
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_REF: ${{ github.head_ref }}
-          BASE_REF: ${{ github.base_ref }}
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
           mkdir -p preview-metadata
-          echo "$PR_NUMBER" > preview-metadata/pr_number
-          echo "$HEAD_REF" > preview-metadata/head_ref
-          git diff --name-only "origin/${BASE_REF}...HEAD" -- '*.md' > preview-metadata/changed_md_files 2>/dev/null || true
+          echo "${BRANCH_NAME#pull-request/}" > preview-metadata/pr_number
+          echo "$BRANCH_NAME" > preview-metadata/head_ref
+          git diff --name-only "origin/main...HEAD" -- '*.md' > preview-metadata/changed_md_files 2>/dev/null || true
 
       - name: Upload fern sources and metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
