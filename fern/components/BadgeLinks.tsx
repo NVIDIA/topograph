@@ -1,4 +1,9 @@
 /**
+ * SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Badge links for GitHub, License, PyPI, etc.
  * Uses a flex wrapper to display badges horizontally and hides Fern's
  * external-link icon that otherwise stacks under each badge image.
