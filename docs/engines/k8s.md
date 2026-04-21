@@ -144,8 +144,7 @@ The Topograph API server listens on port `49021` by default. The Helm chart alwa
 | `ClusterIP` + in-cluster callers | Node Observer calling the API server; downstream schedulers consume node labels directly (no API call needed) | Cluster-internal; lock down with `NetworkPolicy` |
 | `NodePort` / `LoadBalancer` | External access without Ingress — simple, but lacks hostname routing and TLS without extra setup | Expect to add an L7 auth layer in front |
 | Traditional `Ingress` (`networking.k8s.io/v1`) | Most common production pattern — works with nginx-ingress, Traefik, cloud-managed ingress | Add via ingress auth annotations, oauth2-proxy, or mesh |
-
-Gateway API (`HTTPRoute`) support is not yet implemented in the chart — follow the repository issues for status.
+| Gateway API (`gateway.networking.k8s.io/v1` `HTTPRoute`) | Newer clusters running a Gateway API implementation (kgateway, Cilium, Istio, Envoy Gateway, Nginx Gateway Fabric, etc.); role-oriented separation between platform-owned `Gateway` and workload-owned `HTTPRoute`; cross-namespace routing via `ReferenceGrant` | Attach implementation-specific policy (kgateway `TrafficPolicy`, Istio `RequestAuthentication`, Envoy Gateway `SecurityPolicy`, Nginx Gateway Fabric `ClientSettingsPolicy`, Cilium L7) to the rendered `HTTPRoute` via `targetRefs` |
 
 ### Default: ClusterIP
 
@@ -189,6 +188,54 @@ Authentication must be added at the Ingress or mesh layer. Common patterns:
 - nginx-ingress `nginx.ingress.kubernetes.io/auth-url` + oauth2-proxy
 - Istio `RequestAuthentication` + `AuthorizationPolicy`
 - mTLS termination at the ingress with client certificate validation
+
+### Exposing via Gateway API (`HTTPRoute`)
+
+The chart ships an optional `HTTPRoute` template (`charts/topograph/templates/httproute.yaml`) that attaches to an existing platform-owned `Gateway`. Enable with:
+
+```yaml
+# values.yaml
+gatewayAPI:
+  enabled: true
+  parentRefs:
+    - name: topograph-gateway
+      namespace: gateway-system
+  hostnames:
+    - topograph.example.com
+```
+
+**Mutually exclusive with `ingress.enabled`.** The chart refuses to render if both are enabled — deploying both routing resources against the same Service is almost always a misconfiguration.
+
+A complete example values file is provided at `charts/topograph/values.k8s-gateway-api-example.yaml`.
+
+**Prerequisites** (operator responsibility, outside this chart):
+
+1. **Gateway API CRDs installed** in the cluster — standard channel `gateway.networking.k8s.io/v1`. The chart fails cleanly with a clear error if they are absent.
+2. **A Gateway API implementation running** — kgateway, Cilium, Istio, Envoy Gateway, Nginx Gateway Fabric, or any other conformant implementation. The chart's `HTTPRoute` uses only standard `gateway.networking.k8s.io/v1` fields with no implementation-specific annotations, so it is portable across any of them.
+3. **A `Gateway` resource provisioned** with a listener this `HTTPRoute` can attach to. The chart does **not** author `Gateway` or `GatewayClass` resources — both are platform-owned.
+4. **A `ReferenceGrant`** in the Gateway's namespace if it lives in a different namespace from the release, per Gateway API cross-namespace attachment rules.
+
+**Default routing.** If `gatewayAPI.rules` is empty, the chart emits a single catch-all rule routing all requests to the Topograph Service (which serves `/v1/generate`, `/v1/topology`, `/healthz`, and `/metrics` on a single port). Override `gatewayAPI.rules` to provide path-specific matching — for example, to expose only `/v1/`:
+
+```yaml
+gatewayAPI:
+  enabled: true
+  parentRefs:
+    - name: topograph-gateway
+      namespace: gateway-system
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1/
+      backendRefs:
+        - name: topograph
+          port: 49021
+```
+
+**Authentication.** Topograph's binary has no built-in authentication on `/v1/generate`. When exposing the API externally, enforce authentication at the Gateway layer via the implementation's policy mechanism (kgateway `TrafficPolicy` + ExtAuth, Istio `RequestAuthentication`, Envoy Gateway `SecurityPolicy`, Nginx Gateway Fabric `ClientSettingsPolicy`, Cilium L7). These attach to the rendered `HTTPRoute` via `targetRefs` (or equivalent) as separate resources — no chart changes required. See `values.k8s-gateway-api-example.yaml` for a concrete kgateway example.
+
+**GRPCRoute, TLSRoute, BackendTLSPolicy** are not supported in this chart. Topograph's API is HTTP-only; TLS termination (when needed) happens at the Gateway listener.
 
 ### Metrics endpoint
 

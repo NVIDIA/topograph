@@ -1,0 +1,107 @@
+# Example: expose the Topograph API via Gateway API (HTTPRoute).
+#
+# Prerequisites in the cluster (operator responsibility, outside this chart):
+#   1. Gateway API CRDs installed (gateway.networking.k8s.io/v1).
+#   2. A Gateway API implementation running (kgateway, Cilium, Istio, Envoy
+#      Gateway, Nginx Gateway Fabric, etc.). This chart's HTTPRoute uses only
+#      standard gateway.networking.k8s.io/v1 fields and is portable across
+#      any conformant implementation.
+#   3. A Gateway resource provisioned with a listener this HTTPRoute can
+#      attach to. Gateway authoring is NOT a topograph concern; it is
+#      platform-owned.
+#   4. If the Gateway lives in a different namespace from this release, a
+#      ReferenceGrant in the Gateway's namespace permitting attachment from
+#      the release namespace.
+#
+# This example uses kgateway-style resource names in the platform-owned
+# Gateway. For other implementations the Gateway side of the configuration
+# differs, but the topograph-side values below are identical.
+
+global:
+  provider:
+    name: test
+  engine:
+    name: k8s
+
+# Disable the legacy Ingress -- mutually exclusive with Gateway API in this chart.
+ingress:
+  enabled: false
+
+gatewayAPI:
+  enabled: true
+
+  # Attach the HTTPRoute to an existing Gateway. Replace with the name and
+  # namespace of the Gateway your platform operator has provisioned.
+  parentRefs:
+    - name: topograph-gateway
+      namespace: gateway-system
+      # Optional: pin to a specific listener on the Gateway, e.g. "https".
+      # sectionName: https
+
+  # Hostnames this route matches. Must be a subset of hostnames declared on
+  # the Gateway's listener(s). Remove the list to accept any hostname routed
+  # to the parent listener.
+  hostnames:
+    - topograph.example.com
+
+  # Leaving `rules` empty uses the chart's default: a single catch-all rule
+  # routing all requests to the topograph Service (which serves /v1/generate,
+  # /v1/topology, /healthz, and /metrics on a single port). To restrict to
+  # the public API only, override with path-prefix matching:
+  #
+  # rules:
+  #   - matches:
+  #       - path:
+  #           type: PathPrefix
+  #           value: /v1/
+  #     backendRefs:
+  #       - name: topograph
+  #         port: 49021
+  #   - matches:
+  #       - path:
+  #           type: PathPrefix
+  #           value: /healthz
+  #     backendRefs:
+  #       - name: topograph
+  #         port: 49021
+  rules: []
+
+  # The chart does not apply implementation-specific annotations to the
+  # HTTPRoute by default. If your platform uses annotation-based extensions,
+  # add them here.
+  annotations: {}
+
+# ---------------------------------------------------------------------------
+# Attaching authentication at the Gateway layer
+# ---------------------------------------------------------------------------
+#
+# Topograph's binary has no built-in authentication on /v1/generate. When
+# exposing the API externally, enforce authentication at the Gateway via the
+# implementation-specific policy mechanism. These are NOT topograph-chart
+# concerns -- apply them as separate resources in the platform layer.
+#
+# Example for kgateway (CNCF, Envoy-based) -- TrafficPolicy + ExtAuth,
+# attached to the HTTPRoute this chart renders:
+#
+#   apiVersion: gateway.kgateway.dev/v1alpha1
+#   kind: TrafficPolicy
+#   metadata:
+#     name: topograph-auth
+#     namespace: <release-namespace>
+#   spec:
+#     targetRefs:
+#       - group: gateway.networking.k8s.io
+#         kind: HTTPRoute
+#         name: topograph    # matches {{ include "topograph.fullname" . }}
+#     extAuth:
+#       extensionRef:
+#         name: my-oidc-extauth
+#
+# Equivalent patterns for other implementations:
+#   - Istio: RequestAuthentication + AuthorizationPolicy
+#   - Nginx Gateway Fabric: BasicAuth / JWTPolicy / ClientSettingsPolicy
+#   - Envoy Gateway: SecurityPolicy (JWT / OIDC / ExtAuth)
+#   - Cilium: CiliumNetworkPolicy at L7
+#
+# All attach to the HTTPRoute via `targetRefs` or equivalent; none require
+# changes to this chart.
