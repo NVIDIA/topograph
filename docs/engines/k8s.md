@@ -206,7 +206,7 @@ gatewayAPI:
 
 **Mutually exclusive with `ingress.enabled`.** The chart refuses to render if both are enabled — deploying both routing resources against the same Service is almost always a misconfiguration.
 
-A complete example values file is provided at `charts/topograph/values.k8s-gateway-api-example.yaml`.
+A complete example values file is provided at `charts/topograph/values.k8s.gateway-api-example.yaml`.
 
 **Prerequisites** (operator responsibility, outside this chart):
 
@@ -233,7 +233,7 @@ gatewayAPI:
           port: 49021
 ```
 
-**Authentication.** Topograph's binary has no built-in authentication on `/v1/generate`. When exposing the API externally, enforce authentication at the Gateway layer via the implementation's policy mechanism (kgateway `TrafficPolicy` + ExtAuth, Istio `RequestAuthentication`, Envoy Gateway `SecurityPolicy`, Nginx Gateway Fabric `ClientSettingsPolicy`, Cilium L7). These attach to the rendered `HTTPRoute` via `targetRefs` (or equivalent) as separate resources — no chart changes required. See `values.k8s-gateway-api-example.yaml` for a concrete kgateway example.
+**Authentication.** Topograph's binary has no built-in authentication on `/v1/generate`. When exposing the API externally, enforce authentication at the Gateway layer via the implementation's policy mechanism (kgateway `TrafficPolicy` + ExtAuth, Istio `RequestAuthentication`, Envoy Gateway `SecurityPolicy`, Nginx Gateway Fabric `ClientSettingsPolicy`, Cilium L7). These attach to the rendered `HTTPRoute` via `targetRefs` (or equivalent) as separate resources — no chart changes required. See `values.k8s.gateway-api-example.yaml` for a concrete kgateway example.
 
 **GRPCRoute, TLSRoute, BackendTLSPolicy** are not supported in this chart. Topograph's API is HTTP-only; TLS termination (when needed) happens at the Gateway listener.
 

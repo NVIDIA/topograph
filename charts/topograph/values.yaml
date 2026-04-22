@@ -98,7 +98,7 @@ ingress:
 # ExtAuth for authentication, Istio `RequestAuthentication`, Nginx Gateway
 # Fabric policies, Cilium L7 policies) typically attach to the `HTTPRoute`
 # via separate resources, not via chart-level annotations. See
-# `values.k8s-gateway-api-example.yaml` for a realistic kgateway example.
+# `values.k8s.gateway-api-example.yaml` for a realistic kgateway example.
 gatewayAPI:
   enabled: false
   # References to existing Gateway resources this HTTPRoute attaches to.

@@ -5,7 +5,7 @@
 {{- end }}
 
 {{- if and .Values.gatewayAPI.enabled (not .Values.gatewayAPI.parentRefs) }}
-  {{- fail "gatewayAPI.enabled=true requires at least one entry in gatewayAPI.parentRefs referencing the existing Gateway resource this HTTPRoute should attach to. See charts/topograph/values.k8s-gateway-api-example.yaml for a complete example." }}
+  {{- fail "gatewayAPI.enabled=true requires at least one entry in gatewayAPI.parentRefs referencing the existing Gateway resource this HTTPRoute should attach to. See charts/topograph/values.k8s.gateway-api-example.yaml for a complete example." }}
 {{- end }}
 
 {{- if eq .Values.global.provider.name "gcp" }}

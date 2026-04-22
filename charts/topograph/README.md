@@ -48,11 +48,11 @@ global:
 
 For the full list of values and their defaults, see [`values.yaml`](./values.yaml). Example values files for specific deployment patterns:
 
-- [`values.k8s-ib-example.yaml`](./values.k8s-ib-example.yaml) — InfiniBand provider on Kubernetes
-- [`values.k8s-gcp-service-account-example.yaml`](./values.k8s-gcp-service-account-example.yaml) — GCP provider with a service account key mounted from a Secret
-- [`values.k8s-gcp-federated-workload-identity-example.yaml`](./values.k8s-gcp-federated-workload-identity-example.yaml) — GCP provider using Workload Identity Federation
-- [`values.k8s-gateway-api-example.yaml`](./values.k8s-gateway-api-example.yaml) — exposing the Topograph API via Gateway API (`HTTPRoute`) instead of `Ingress`
-- [`values-slinky-tree-example.yaml`](./values-slinky-tree-example.yaml), [`values-slinky-block-example.yaml`](./values-slinky-block-example.yaml), [`values-slinky-partition-example.yaml`](./values-slinky-partition-example.yaml) — Slinky engine variants
+- [`values.k8s.ib-example.yaml`](./values.k8s.ib-example.yaml) — InfiniBand provider on Kubernetes
+- [`values.k8s.gcp-service-account-example.yaml`](./values.k8s.gcp-service-account-example.yaml) — GCP provider with a service account key mounted from a Secret
+- [`values.k8s.gcp-federated-workload-identity-example.yaml`](./values.k8s.gcp-federated-workload-identity-example.yaml) — GCP provider using Workload Identity Federation
+- [`values.k8s.gateway-api-example.yaml`](./values.k8s.gateway-api-example.yaml) — exposing the Topograph API via Gateway API (`HTTPRoute`) instead of `Ingress`
+- [`values.slinky.tree-example.yaml`](./values.slinky.tree-example.yaml), [`values.slinky.block-example.yaml`](./values.slinky.block-example.yaml), [`values.slinky.partition-example.yaml`](./values.slinky.partition-example.yaml) — Slinky engine variants
 
 ### Values validation
 
