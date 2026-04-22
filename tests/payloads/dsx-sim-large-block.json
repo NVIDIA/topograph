@@ -1,0 +1,15 @@
+{
+  "provider": {
+    "name": "dsx-sim",
+    "params": {
+      "modelFileName": "tests/models/nvl72.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "topologyConfigPath": "topology.conf"
+    }
+  }
+}
