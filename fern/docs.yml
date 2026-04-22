@@ -13,14 +13,12 @@ products:
     slug: /
     path: ../docs/index.yml
     versions:
-      - display-name: dev
+      - display-name: v0.3.0
         path: ../docs/index.yml
 
 redirects:
   - source: "/topograph/index.html"
     destination: "/topograph/"
-  - source: "/topograph/dev/index.html"
-    destination: "/topograph/dev/"
 
 footer: ./components/CustomFooter.tsx
 

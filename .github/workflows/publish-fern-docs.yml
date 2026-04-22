@@ -60,9 +60,14 @@ jobs:
           FERN_TOKEN: ${{ secrets.DOCS_FERN_TOKEN }}
         working-directory: ./fern
         run: |
-          OUTPUT=$(fern generate --docs 2>&1)
-          echo "$OUTPUT"
-          URL=$(echo "$OUTPUT" | grep -oP 'Published docs to \K.*(?= \()')
+          # Stream fern's output to both the Actions log (via tee) and a temp
+          # file for URL extraction. The prior shape `OUTPUT=$(fern ... 2>&1)`
+          # swallowed fern's error output on failure because `bash -e` would
+          # abort on fern's non-zero exit before the subsequent `echo "$OUTPUT"`
+          # ran, leaving failed publishes with no diagnostic in the log.
+          set -o pipefail
+          fern generate --docs 2>&1 | tee /tmp/fern-output.log
+          URL=$(grep -oP 'Published docs to \K.*(?= \()' /tmp/fern-output.log || true)
           if [ -n "$URL" ]; then
             echo "### Published: [$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"
           fi

@@ -39,3 +39,8 @@ navigation:
         path: engines/k8s.md
       - page: Slinky
         path: engines/slinky.md
+
+  - section: Reference
+    contents:
+      - page: Node Labels and Annotations
+        path: reference/node-labels.md
