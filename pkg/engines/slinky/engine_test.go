@@ -91,7 +91,36 @@ func TestGetParameters(t *testing.T) {
 			err: `"BAD" is not a valid label selector operator`,
 		},
 		{
-			name: "Case 5: minimal valid input",
+			name: "Case 5: nil topology",
+			params: map[string]any{
+				topology.KeyNamespace:         "namespace",
+				topology.KeyPodSelector:       podSelector,
+				topology.KeyTopoConfigPath:    "path",
+				topology.KeyTopoConfigmapName: "name",
+				topology.KeyTopologies:        map[string]any{"topo": nil},
+			},
+			err: `topology "topo": nil entry`,
+		},
+		{
+			name: "Case 6: invalid topology",
+			params: map[string]any{
+				topology.KeyNamespace:         "namespace",
+				topology.KeyPodSelector:       podSelector,
+				topology.KeyTopoConfigPath:    "path",
+				topology.KeyTopoConfigmapName: "name",
+				topology.KeyTopologies: map[string]any{
+					"topo": map[string]any{
+						"plugin":      topology.TopologyBlock,
+						"blockSizes":  []int{16, 32},
+						"nodes":       []string{"node1", "node2"},
+						"podSelector": podSelector,
+					},
+				},
+			},
+			err: `topology "topo": cannot set both nodes and podSelector`,
+		},
+		{
+			name: "Case 7: minimal valid input",
 			params: map[string]any{
 				topology.KeyNamespace:         "namespace",
 				topology.KeyPodSelector:       podSelector,
@@ -108,7 +137,7 @@ func TestGetParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 6: complete valid input",
+			name: "Case 8: cluster-wide valid parameters",
 			params: map[string]any{
 				topology.KeyNamespace:         "namespace",
 				topology.KeyPodSelector:       podSelector,
@@ -131,6 +160,52 @@ func TestGetParameters(t *testing.T) {
 				ReportingMode: "staticNodes",
 				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
 				nodeListOpt:   &metav1.ListOptions{LabelSelector: "key=value"},
+			},
+		},
+		{
+			name: "Case 9: per-partition valid parameters",
+			params: map[string]any{
+				topology.KeyNamespace:         "namespace",
+				topology.KeyPodSelector:       podSelector,
+				topology.KeyNodeSelector:      nodeSelector,
+				topology.KeyTopoConfigPath:    "path",
+				topology.KeyTopoConfigmapName: "name",
+				topology.KeyTopologies: map[string]any{
+					"topo1": map[string]any{
+						"plugin":     topology.TopologyBlock,
+						"blockSizes": []int{16, 32},
+						"nodes":      []string{"node1", "node2"},
+					},
+					"topo2": map[string]any{
+						topology.KeyPlugin: topology.TopologyTree,
+						"podSelector":      podSelector,
+					},
+				},
+			},
+			ret: &Params{
+				Namespace:     "namespace",
+				PodSelector:   labelSelector,
+				NodeSelector:  nodeSelector,
+				ConfigPath:    "path",
+				ConfigMapName: "name",
+				ReportingMode: "staticNodes",
+				Topologies: map[string]*Topology{
+					"topo1": {
+						Topology: slurm.Topology{
+							Plugin:     topology.TopologyBlock,
+							BlockSizes: []int{16, 32},
+							Nodes:      []string{"node1", "node2"},
+						},
+					},
+					"topo2": {
+						Topology: slurm.Topology{
+							Plugin: topology.TopologyTree,
+						},
+						PodSelector: labelSelector,
+					},
+				},
+				podListOpt:  &metav1.ListOptions{LabelSelector: "key=value"},
+				nodeListOpt: &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
 	}
@@ -353,7 +428,7 @@ const (
 	mediumBlockTopologyYamlSkeleton = `- topology: topo-0
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
         - 4
         - 8
@@ -381,7 +456,7 @@ const (
 - topology: topo-1
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
         - 4
         - 8
@@ -586,4 +661,90 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 
 		})
 	}
+}
+
+func TestResolveTopologies(t *testing.T) {
+	makePod := func(name, slurmName, partition string, ready bool) *corev1.Pod {
+		status := corev1.ConditionTrue
+		if !ready {
+			status = corev1.ConditionFalse
+		}
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "test-ns",
+				Labels: map[string]string{
+					"partition":               partition,
+					topology.KeySlurmNodeName: slurmName,
+				},
+			},
+			Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "c", Image: "i"}}},
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				Conditions: []corev1.PodCondition{
+					{Type: corev1.PodReady, Status: status},
+				},
+			},
+		}
+	}
+
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+	for _, p := range []*corev1.Pod{
+		makePod("p1", "node1", "a", true),
+		makePod("p2", "node2", "a", true),
+		makePod("p3", "node3", "a", false), // not ready, must be skipped
+		makePod("p4", "node4", "b", true),
+	} {
+		_, err := client.CoreV1().Pods("test-ns").Create(ctx, p, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	selA := metav1.LabelSelector{MatchLabels: map[string]string{"partition": "a"}}
+	selB := metav1.LabelSelector{MatchLabels: map[string]string{"partition": "b"}}
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace: "test-ns",
+			Topologies: map[string]*Topology{
+				"byNodes":     {Topology: slurm.Topology{Plugin: topology.TopologyTree, Nodes: []string{"n1", "n2"}}},
+				"bySelectorA": {Topology: slurm.Topology{Plugin: topology.TopologyBlock}, PodSelector: selA},
+				"bySelectorB": {Topology: slurm.Topology{Plugin: topology.TopologyTree}, PodSelector: selB},
+				"fallback":    {Topology: slurm.Topology{Plugin: topology.TopologyFlat, Partition: "scontrol-partition"}},
+			},
+		},
+	}
+
+	got, err := eng.resolveTopologies(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 4)
+
+	require.Equal(t, []string{"n1", "n2"}, got["byNodes"].Nodes)
+	require.ElementsMatch(t, []string{"node1", "node2"}, got["bySelectorA"].Nodes)
+	require.Equal(t, []string{"node4"}, got["bySelectorB"].Nodes)
+	// fallback entry: Nodes empty so slurm.GetTranslateConfig falls back to the finder
+	require.Empty(t, got["fallback"].Nodes)
+	require.Equal(t, "scontrol-partition", got["fallback"].Partition)
+}
+
+func TestGetParametersTopologyValidation(t *testing.T) {
+	params := map[string]any{
+		topology.KeyNamespace:         "test-ns",
+		topology.KeyPodSelector:       map[string]any{"matchLabels": map[string]string{"app": "slurm"}},
+		topology.KeyTopoConfigPath:    "topology.conf",
+		topology.KeyTopoConfigmapName: "slurm-config",
+		"topologies": map[string]any{
+			"bad": map[string]any{
+				"plugin": topology.TopologyTree,
+				"nodes":  []string{"n1"},
+				"podSelector": map[string]any{
+					"matchLabels": map[string]string{"partition": "a"},
+				},
+			},
+		},
+	}
+
+	_, err := getParameters(params)
+	require.ErrorContains(t, err, `cannot set both nodes and podSelector`)
 }

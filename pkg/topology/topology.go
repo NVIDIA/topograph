@@ -28,6 +28,7 @@ const (
 	KeyNamespace         = "namespace"
 	KeyPodSelector       = "podSelector"
 	KeyNodeSelector      = "nodeSelector"
+	KeyTopologies        = "topologies"
 	KeyTopoConfigPath    = "topologyConfigPath"
 	KeyTopoConfigmapName = "topologyConfigmapName"
 	KeyBlockSizes        = "block_sizes"

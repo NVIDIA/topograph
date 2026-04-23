@@ -219,24 +219,24 @@ func TestGetParams(t *testing.T) {
 				BaseParams: BaseParams{
 					Plugin:           "123",
 					FakeNodesEnabled: true,
-					Topologies: map[string]*Topology{
-						"topo1": {
-							Plugin:     "topology/block",
-							BlockSizes: []int{2, 4},
+				},
+				Topologies: map[string]*Topology{
+					"topo1": {
+						Plugin:     "topology/block",
+						BlockSizes: []int{2, 4},
+					},
+					"topo2": {
+						Plugin:     "topology/block",
+						BlockSizes: []int{8, 16},
+						Nodes: []string{
+							"n1",
+							"n2",
+							"n3",
 						},
-						"topo2": {
-							Plugin:     "topology/block",
-							BlockSizes: []int{8, 16},
-							Nodes: []string{
-								"n1",
-								"n2",
-								"n3",
-							},
-						},
-						"topo3": {
-							Plugin:  "topology/flat",
-							Default: true,
-						},
+					},
+					"topo3": {
+						Plugin:  "topology/flat",
+						Default: true,
 					},
 				},
 			},
@@ -264,10 +264,11 @@ func TestGetParams(t *testing.T) {
 func TestGetTranslateConfig(t *testing.T) {
 	ctx := context.TODO()
 	testCases := []struct {
-		name   string
-		params *BaseParams
-		cfg    *translate.Config
-		err    string
+		name       string
+		params     *BaseParams
+		topologies map[string]*Topology
+		cfg        *translate.Config
+		err        string
 	}{
 		{
 			name: "Case 1: minimal input",
@@ -314,32 +315,30 @@ func TestGetTranslateConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 5: with invalid partition topology",
-			params: &BaseParams{
-				Topologies: map[string]*Topology{
-					"topo1": {
-						Plugin: topology.TopologyBlock,
-						Nodes:  []string{"node[001-100]"},
-					},
-					"topo2": {
-						Plugin: topology.TopologyTree,
-					},
+			name:   "Case 5: with invalid partition topology",
+			params: &BaseParams{},
+			topologies: map[string]*Topology{
+				"topo1": {
+					Plugin: topology.TopologyBlock,
+					Nodes:  []string{"node[001-100]"},
+				},
+				"topo2": {
+					Plugin: topology.TopologyTree,
 				},
 			},
 			err: "missing partition name",
 		},
 		{
-			name: "Case 6: with valid partition topology",
-			params: &BaseParams{
-				Topologies: map[string]*Topology{
-					"default": {
-						Plugin:  topology.TopologyFlat,
-						Default: true,
-					},
-					"topo": {
-						Plugin: topology.TopologyBlock,
-						Nodes:  []string{"node[001-100]"},
-					},
+			name:   "Case 6: with valid partition topology",
+			params: &BaseParams{},
+			topologies: map[string]*Topology{
+				"default": {
+					Plugin:  topology.TopologyFlat,
+					Default: true,
+				},
+				"topo": {
+					Plugin: topology.TopologyBlock,
+					Nodes:  []string{"node[001-100]"},
 				},
 			},
 			cfg: &translate.Config{
@@ -359,7 +358,7 @@ func TestGetTranslateConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := GetTranslateConfig(ctx, tc.params, nil)
+			cfg, err := GetTranslateConfig(ctx, tc.params, tc.topologies, nil)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {

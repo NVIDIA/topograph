@@ -41,6 +41,41 @@ global:
     topologyConfigPath: topology.conf                # Key in the ConfigMap for the topology config
 ```
 
+### Per-partition topologies
+
+When per-partition topologies are configured, each entry may declare how its node membership is resolved:
+
+| Field | Behavior |
+|---|---|
+| `nodes` | Explicit SLURM node list. Takes precedence over `podSelector`. |
+| `podSelector` | Kubernetes `LabelSelector` matching the slurmd pods in the partition. The engine lists pods in the engine's `namespace`, filters to `Ready` pods, and reads each pod's SLURM name from the `slurm.node.name` label (falling back to `pod.spec.hostname`). |
+| _neither_ | The engine falls back to running `scontrol show partition <name>` inside a login pod (legacy behavior). |
+
+`nodes` and `podSelector` are mutually exclusive on the same entry; configuring both returns a validation error at engine load time.
+
+```yaml
+global:
+  engineParams:
+    namespace: ns-slinky
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: compute
+    topologies:
+      gpu-partition:
+        plugin: topology/block
+        blockSizes: [8, 16]
+        podSelector:                                   # partition membership by pod labels
+          matchLabels:
+            app.kubernetes.io/component: compute
+            slurm.partition: gpu
+      cpu-partition:
+        plugin: topology/tree
+        nodes: ["cpu-[001-032]"]                       # explicit list
+      default:
+        plugin: topology/flat
+        clusterDefault: true                           # no podSelector, no nodes → scontrol fallback
+```
+
 ## ConfigMap Annotations
 
 Slinky automatically adds metadata annotations to managed ConfigMaps for improved observability:
