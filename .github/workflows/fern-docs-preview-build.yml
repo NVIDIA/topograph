@@ -15,8 +15,11 @@
 
 # Workflow 1 of 2 for Fern doc previews.
 #
-# Collects the fern/ sources and PR metadata from the PR branch and uploads
-# them as an artifact. No secrets are used here.
+# Collects the fern/ and docs/ sources plus PR metadata from the PR branch and
+# uploads them as an artifact. Both directories are needed because
+# fern/docs.yml references ../docs/index.yml; omitting docs/ causes
+# `fern generate --docs` to fail in the companion workflow. No secrets are
+# used here.
 #
 # Triggers on push to pull-request/<n> branches (NVIDIA copy-PR-bot pattern).
 # On push events github.head_ref and github.event.pull_request.number are
@@ -63,5 +66,6 @@ jobs:
           name: fern-preview
           path: |
             fern/
+            docs/
             preview-metadata/
           retention-days: 1
