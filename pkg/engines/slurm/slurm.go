@@ -59,11 +59,12 @@ type BaseParams struct {
 }
 
 type Topology struct {
-	Partition  string   `mapstructure:"partition"`
-	Plugin     string   `mapstructure:"plugin"`
-	BlockSizes []int    `mapstructure:"blockSizes"`
-	Nodes      []string `mapstructure:"nodes"`
-	Default    bool     `mapstructure:"clusterDefault"`
+	Partition  string                 `mapstructure:"partition"`
+	Plugin     string                 `mapstructure:"plugin"`
+	BlockSizes []int                  `mapstructure:"blockSizes"`
+	Nodes      []string               `mapstructure:"nodes"`
+	Default    bool                   `mapstructure:"clusterDefault"`
+	Other      map[string]interface{} `mapstructure:",remain"`
 }
 
 type Params struct {

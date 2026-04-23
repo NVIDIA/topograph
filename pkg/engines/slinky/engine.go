@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,6 +57,7 @@ type SlinkyEngine struct {
 
 type Params struct {
 	slurm.BaseParams `mapstructure:",squash"`
+
 	// Namespace specifies the namespace where Slinky cluster is deployed
 	Namespace string `mapstructure:"namespace"`
 	// PodSelector specifies slurmd pods
@@ -155,18 +158,22 @@ func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Envi
 }
 
 func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*corev1.NodeList, map[string]string, *httperr.Error) {
-	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
+	return getMatchingNodes(ctx, eng.client, eng.params.Namespace, eng.params.nodeListOpt, eng.params.podListOpt)
+}
+
+func getMatchingNodes(ctx context.Context, client kubernetes.Interface, namespace string, nodeListOpt *metav1.ListOptions, podListOpt *metav1.ListOptions) (*corev1.NodeList, map[string]string, *httperr.Error) {
+	nodes, err := k8s.GetNodes(ctx, client, nodeListOpt)
 	if err != nil {
 		return nil, nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	pods, err := eng.client.CoreV1().Pods(eng.params.Namespace).List(ctx, *eng.params.podListOpt)
+	pods, err := client.CoreV1().Pods(namespace).List(ctx, *podListOpt)
 	if err != nil {
 		return nil, nil, httperr.NewError(http.StatusBadGateway,
 			fmt.Sprintf("failed to list SLURM pods in the cluster: %v", err))
 	}
 
-	klog.V(4).Infof("Found %d pods in %q namespace with selector %q", len(pods.Items), eng.params.Namespace, eng.params.podListOpt.LabelSelector)
+	klog.V(4).Infof("Found %d pods in %q namespace with selector %q", len(pods.Items), namespace, podListOpt.LabelSelector)
 
 	// map k8s host name to SLURM host name
 	nodeMap := make(map[string]string)
@@ -323,6 +330,45 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 	namespace, ok := params[0].(string)
 	if !ok {
 		return "", fmt.Errorf("getPartitionNodes expects a string parameter")
+	}
+
+	var podSelector metav1.LabelSelector
+	//Get the topology name for the partition
+	topoName := partition
+	for name, topo := range eng.params.Topologies {
+		if topo.Partition == partition {
+			topoName = name
+			break
+		}
+	}
+
+	topo, exists := eng.params.Topologies[topoName]
+	if exists {
+		//decode the pod selector from the other map
+		podSelectorConfig, ok := topo.Other["podSelector"]
+		if ok {
+			err := config.Decode(podSelectorConfig, &podSelector)
+			if err != nil {
+				return "", fmt.Errorf("failed to decode pod selector: %v", err)
+			}
+		}
+	}
+	if podSelector.MatchLabels != nil || len(podSelector.MatchExpressions) > 0 {
+		sel, err := metav1.LabelSelectorAsSelector(&podSelector)
+		if err != nil {
+			return "", fmt.Errorf("failed to convert pod selector to label selector: %v", err)
+		}
+		podListOpt := &metav1.ListOptions{
+			LabelSelector: sel.String(),
+		}
+		_, nodeMap, httpErr := getMatchingNodes(ctx, eng.client, namespace, eng.params.nodeListOpt, podListOpt)
+		if httpErr != nil {
+			return "", fmt.Errorf("failed to get matching nodes: %v", httpErr)
+		}
+
+		nodes := slices.Collect(maps.Values(nodeMap))
+		nodesStr := strings.Join(nodes, ",")
+		return fmt.Sprintf(" Nodes=%s", nodesStr), nil
 	}
 
 	labels := map[string]string{"app.kubernetes.io/component": "login"}

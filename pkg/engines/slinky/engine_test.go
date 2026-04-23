@@ -19,8 +19,6 @@ package slinky
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"testing"
 	"time"
 
@@ -35,7 +33,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/topology"
-	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 func TestGetParameters(t *testing.T) {
@@ -254,7 +251,8 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 		},
 		{
 			name: "with plugin only",
-			params: &Params{Namespace: "test-namespace",
+			params: &Params{
+				Namespace: "test-namespace",
 				BaseParams: slurm.BaseParams{
 					Plugin: topology.TopologyBlock,
 				},
@@ -340,12 +338,10 @@ const (
         - switch: sw3
           children: sw[21-22]
         - switch: sw21
-          children: sw[11-12]
+          children: sw11
         - switch: sw22
-          children: sw[13-14]
+          children: sw14
         - switch: sw11
-        - switch: sw12
-        - switch: sw13
         - switch: sw14
 `
 
@@ -353,15 +349,12 @@ const (
 	mediumBlockTopologyYamlSkeleton = `- topology: topo-0
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
+        - 1
         - 2
-        - 4
-        - 8
     blocks:
         - block: block1
         - block: block2
-        - block: block3
-        - block: block4
 `
 	//medium.yaml - tree topology skeleton
 	mediumCombinedTopologyYamlSkeleton = `- topology: topo-0
@@ -371,29 +364,43 @@ const (
         - switch: sw3
           children: sw[21-22]
         - switch: sw21
-          children: sw[11-12]
+          children: sw11
         - switch: sw22
-          children: sw[13-14]
+          children: sw13
         - switch: sw11
-        - switch: sw12
         - switch: sw13
-        - switch: sw14
 - topology: topo-1
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
+        - 1
         - 2
-        - 4
-        - 8
     blocks:
         - block: block1
         - block: block2
-        - block: block3
-        - block: block4
 `
 )
 
+// slurmTopologiesForDynamicTest builds per-partition slurm.Topology entries for BaseParams.Topologies.
+// Each entry includes podSelector under Other (seeRemain) for getPartitionNodes, matching engine decoding in getPartitionNodes.
+func slurmTopologiesForDynamicTest(plugins []string) map[string]*slurm.Topology {
+	podSel := map[string]any{"matchLabels": map[string]string{"app": "slinky"}}
+	out := make(map[string]*slurm.Topology, len(plugins))
+	for i, plugin := range plugins {
+		key := fmt.Sprintf("topo-%d", i)
+		out[key] = &slurm.Topology{
+			Plugin:    plugin,
+			Partition: key,
+			Other: map[string]interface{}{
+				"podSelector": podSel,
+			},
+		}
+	}
+	return out
+}
+
 func TestGenerateDynamicNodesOutput(t *testing.T) {
+	slinkyPodSel := metav1.LabelSelector{MatchLabels: map[string]string{"app": "slinky"}}
 
 	fakeSuccessClient := func(slurmNames []string, createConfigMap bool) *fake.Clientset {
 		client := fake.NewSimpleClientset()
@@ -488,7 +495,7 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 			topologyConfig:     []string{topology.TopologyBlock},
 			slurmName:          []string{"1101", "1301"},
 			expectTopologyYaml: mediumBlockTopologyYamlSkeleton,
-			expectTopologySpec: []string{"topo-0:block1", "topo-0:block3"},
+			expectTopologySpec: []string{"topo-0:block1", "topo-0:block2"},
 			expectError:        false,
 		},
 		{
@@ -499,7 +506,7 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 			topologyConfig:     []string{topology.TopologyTree, topology.TopologyBlock},
 			slurmName:          []string{"1101", "1302"},
 			expectTopologyYaml: mediumCombinedTopologyYamlSkeleton,
-			expectTopologySpec: []string{"topo-0:sw3:sw21:sw11,topo-1:block1", "topo-0:sw3:sw22:sw13,topo-1:block3"},
+			expectTopologySpec: []string{"topo-0:sw3:sw21:sw11,topo-1:block1", "topo-0:sw3:sw22:sw13,topo-1:block2"},
 			expectError:        false,
 		},
 		{
@@ -518,8 +525,8 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 		},
 		{
 			name: "error getting config map",
-			k8sClient: func([]string, bool) *fake.Clientset {
-				client := fake.NewSimpleClientset()
+			k8sClient: func(_ []string, _ bool) *fake.Clientset {
+				client := fakeSuccessClient([]string{"1101", "1402"}, true)
 				client.PrependReactor("get", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
 					return true, nil, errors.NewInternalError(fmt.Errorf("failed to get config map"))
 				})
@@ -535,34 +542,33 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			client := tc.k8sClient(tc.slurmName, tc.createConfigMap)
+
+			model, err := models.NewModelFromFile(tc.topologyFile)
+			require.NoError(t, err)
+			topo, _ := model.ToGraph()
+
+			podListSel, err := metav1.LabelSelectorAsSelector(&slinkyPodSel)
+			require.NoError(t, err)
+			podListOpt := &metav1.ListOptions{LabelSelector: podListSel.String()}
+
 			params := &Params{
 				Namespace:     "test-ns",
 				ConfigMapName: "slurm-config",
 				ConfigPath:    "topology.yaml",
-				podListOpt:    &metav1.ListOptions{LabelSelector: "app=slinky"},
+				PodSelector:   slinkyPodSel,
+				ReportingMode: ReportingModeDynamicNodes,
+				podListOpt:    podListOpt,
 				nodeListOpt:   &metav1.ListOptions{},
+				BaseParams: slurm.BaseParams{
+					Topologies: slurmTopologiesForDynamicTest(tc.topologyConfig),
+				},
 			}
 			engine := &SlinkyEngine{
 				client: client,
 				params: params,
 			}
 
-			//Get the topology tree, and topology config for the test
-			model, err := models.NewModelFromFile(tc.topologyFile)
-			require.NoError(t, err)
-			topo, inst2Node := model.ToGraph()
-			nodes := slices.Collect(maps.Keys(inst2Node))
-			topologyConfig := &translate.Config{
-				Topologies: make(map[string]*translate.TopologySpec),
-			}
-			for i, topo := range tc.topologyConfig {
-				topologyConfig.Topologies[fmt.Sprintf("topo-%d", i)] = &translate.TopologySpec{Plugin: topo, Nodes: nodes}
-			}
-
-			nt, err := translate.NewNetworkTopology(topo, topologyConfig)
-			require.NoError(t, err)
-
-			result, httpErr := engine.generateDynamicNodesOutput(context.Background(), nt)
+			result, httpErr := engine.GenerateOutput(context.Background(), topo, nil)
 
 			if tc.expectError {
 				require.Error(t, httpErr)

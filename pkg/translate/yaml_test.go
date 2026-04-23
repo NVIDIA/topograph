@@ -76,7 +76,7 @@ func TestBlockYamlTopology(t *testing.T) {
 	expected := `- topology: topo1
   cluster_default: true
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
@@ -84,7 +84,7 @@ func TestBlockYamlTopology(t *testing.T) {
 - topology: topo2
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
@@ -93,14 +93,14 @@ func TestBlockYamlTopology(t *testing.T) {
 	expectedSkeleton := `- topology: topo1
   cluster_default: true
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
 - topology: topo2
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
@@ -164,7 +164,7 @@ func TestMixedYamlTopology(t *testing.T) {
 - topology: topo3
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
@@ -172,7 +172,7 @@ func TestMixedYamlTopology(t *testing.T) {
 - topology: topo4
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
@@ -218,7 +218,7 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
 	expected := `- topology: topo1
   cluster_default: true
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
@@ -226,7 +226,7 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
 - topology: topo2
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
@@ -272,7 +272,7 @@ func TestEmptyPartitionTopology(t *testing.T) {
 - topology: topo3
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
@@ -299,7 +299,7 @@ func TestEmptyPartitionTopology(t *testing.T) {
 - topology: topo3
   cluster_default: false
   block:
-    blockSizes:
+    block_sizes:
         - 2
     blocks:
         - block: block1
