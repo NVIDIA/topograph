@@ -60,7 +60,7 @@ The GPU Operator device plugin sets `nvidia.com/gpu.clique` on nodes with Multi-
 Topograph's `network.topology.nvidia.com/accelerator` label and `nvidia.com/gpu.clique` are complementary:
 
 - On **MNNVL systems**: the InfiniBand provider's `accelerator` value is derived from the same `ClusterUUID.CliqueId` hardware identifiers as `gpu.clique`. The two labels carry the same value and can be correlated.
-- On **non-MNNVL systems** (e.g., DGX B200, B300): `nvidia.com/gpu.clique` is not set — the device plugin requires the GPU fabric to reach `GPU_FABRIC_STATE_COMPLETED`, which non-MNNVL GPUs do not reach. Topograph with an InfiniBand provider is the only source of network topology labels on these clusters.
+- On **non-MNNVL systems** (e.g., DGX B200, B300): `nvidia.com/gpu.clique` is not set (see the [node labels reference](../reference/node-labels.md) for the Fabric Manager init and `GPU_FABRIC_STATE_COMPLETED` details). Topograph with an InfiniBand provider is the only source of network topology labels on these clusters.
 
 In addition to NVLink domain membership, Topograph provides the IB switch hierarchy (`leaf`, `spine`, `core`) — giving schedulers both dimensions of topology simultaneously.
 
