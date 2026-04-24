@@ -67,10 +67,22 @@ type Params struct {
 	ConfigPath string `mapstructure:"topologyConfigPath"`
 	// ReportingMode specifies the mode for reporting nodes: staticNodes or dynamicNodes
 	ReportingMode string `mapstructure:"reportingMode"`
+	// Topologies specifies per-partition topology configuration
+	Topologies map[string]*Topology `mapstructure:"topologies,omitempty"`
 
 	// derived fields
 	podListOpt  *metav1.ListOptions
 	nodeListOpt *metav1.ListOptions
+}
+
+// Topology is the slinky-specific per-partition topology config.
+// It extends slurm.Topology with PodSelector, which selects the pods whose
+// hosts make up the partition. Exactly one of Nodes or PodSelector may be set;
+// if neither is set, the engine falls back to "scontrol show partition".
+type Topology struct {
+	slurm.Topology `mapstructure:",squash"`
+	// PodSelector selects the slurmd pods belonging to this partition.
+	PodSelector metav1.LabelSelector `mapstructure:"podSelector"`
 }
 
 func NamedLoader() (string, engines.Loader) {
@@ -141,7 +153,20 @@ func getParameters(params engines.Config) (*Params, error) {
 		}
 	}
 
+	for name, t := range p.Topologies {
+		if t == nil {
+			return nil, fmt.Errorf("topology %q: nil entry", name)
+		}
+		if len(t.Nodes) != 0 && !isEmptySelector(&t.PodSelector) {
+			return nil, fmt.Errorf("topology %q: cannot set both nodes and podSelector", name)
+		}
+	}
+
 	return p, nil
+}
+
+func isEmptySelector(sel *metav1.LabelSelector) bool {
+	return sel == nil || (len(sel.MatchLabels) == 0 && len(sel.MatchExpressions) == 0)
 }
 
 func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, *httperr.Error) {
@@ -242,11 +267,16 @@ func (eng *SlinkyEngine) generateConfigMapAnnotations() map[string]string {
 func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vertex, _ map[string]any) ([]byte, *httperr.Error) {
 	p := eng.params
 
+	resolvedTopologies, err := eng.resolveTopologies(ctx)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
+	}
+
 	topologyNodeFinder := &slurm.TopologyNodeFinder{
 		GetPartitionNodes: eng.getPartitionNodes,
 		Params:            []any{p.Namespace},
 	}
-	cfg, err := slurm.GetTranslateConfig(ctx, &p.BaseParams, topologyNodeFinder)
+	cfg, err := slurm.GetTranslateConfig(ctx, &p.BaseParams, resolvedTopologies, topologyNodeFinder)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
@@ -314,6 +344,62 @@ func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, name
 
 	klog.Infof("Successfully %sd configmap %s/%s", verb, namespace, name)
 	return nil
+}
+
+// resolveTopologies converts slinky.Topologies into slurm.Topology entries,
+// resolving per-partition pod selectors into concrete node lists. Entries
+// with explicit Nodes pass through; entries with neither Nodes nor PodSelector
+// are left with empty Nodes so slurm.GetTranslateConfig invokes the scontrol
+// fallback.
+func (eng *SlinkyEngine) resolveTopologies(ctx context.Context) (map[string]*slurm.Topology, error) {
+	if len(eng.params.Topologies) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]*slurm.Topology, len(eng.params.Topologies))
+	for name, t := range eng.params.Topologies {
+		st := t.Topology
+		if len(st.Nodes) == 0 && !isEmptySelector(&t.PodSelector) {
+			nodes, err := eng.listPartitionNodes(ctx, &t.PodSelector)
+			if err != nil {
+				return nil, fmt.Errorf("topology %q: %w", name, err)
+			}
+			st.Nodes = nodes
+		}
+		out[name] = &st
+	}
+	return out, nil
+}
+
+// listPartitionNodes lists pods in the engine's namespace matching sel and
+// returns the corresponding SLURM node names from the KeySlurmNodeName label
+// (falling back to pod.Spec.Hostname). Pods that are not Ready are skipped,
+// mirroring the main pod-listing path.
+func (eng *SlinkyEngine) listPartitionNodes(ctx context.Context, sel *metav1.LabelSelector) ([]string, error) {
+	s, err := metav1.LabelSelectorAsSelector(sel)
+	if err != nil {
+		return nil, err
+	}
+	pods, err := eng.client.CoreV1().Pods(eng.params.Namespace).List(ctx, metav1.ListOptions{LabelSelector: s.String()})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods with selector %q: %v", s.String(), err)
+	}
+	names := make([]string, 0, len(pods.Items))
+	for _, pod := range pods.Items {
+		if !k8s.IsPodReady(&pod) {
+			klog.Warningf("topology: skipped not Ready pod %s/%s (selector %s)", pod.Namespace, pod.Name, s.String())
+			continue
+		}
+		host, ok := pod.Labels[topology.KeySlurmNodeName]
+		if !ok {
+			host = pod.Spec.Hostname
+		}
+		if host == "" {
+			klog.Warningf("topology: cannot find Slurm hostname for pod %s/%s (selector %s)", pod.Namespace, pod.Name, s.String())
+			continue
+		}
+		names = append(names, host)
+	}
+	return names, nil
 }
 
 func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string, params []any) (string, error) {

@@ -51,11 +51,10 @@ const NAME = "slurm"
 type SlurmEngine struct{}
 
 type BaseParams struct {
-	Plugin           string               `mapstructure:"plugin"`
-	BlockSizes       string               `mapstructure:"block_sizes"`
-	FakeNodesEnabled bool                 `mapstructure:"fakeNodesEnabled"`
-	FakeNodePool     string               `mapstructure:"fake_node_pool"`
-	Topologies       map[string]*Topology `mapstructure:"topologies,omitempty"`
+	Plugin           string `mapstructure:"plugin"`
+	BlockSizes       string `mapstructure:"block_sizes"`
+	FakeNodesEnabled bool   `mapstructure:"fakeNodesEnabled"`
+	FakeNodePool     string `mapstructure:"fake_node_pool"`
 }
 
 type Topology struct {
@@ -68,8 +67,9 @@ type Topology struct {
 
 type Params struct {
 	BaseParams     `mapstructure:",squash"`
-	TopoConfigPath string `mapstructure:"topologyConfigPath"`
-	Reconfigure    bool   `mapstructure:"reconfigure"`
+	Topologies     map[string]*Topology `mapstructure:"topologies,omitempty"`
+	TopoConfigPath string               `mapstructure:"topologyConfigPath"`
+	Reconfigure    bool                 `mapstructure:"reconfigure"`
 }
 
 type TopologyNodeFinder struct {
@@ -262,7 +262,7 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 		params.Plugin = topology.TopologyTree
 	}
 
-	cfg, err := GetTranslateConfig(ctx, &params.BaseParams, &TopologyNodeFinder{GetPartitionNodes: getPartitionNodes})
+	cfg, err := GetTranslateConfig(ctx, &params.BaseParams, params.Topologies, &TopologyNodeFinder{GetPartitionNodes: getPartitionNodes})
 	if err != nil {
 		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
@@ -304,7 +304,7 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 	return []byte("OK\n"), nil
 }
 
-func GetTranslateConfig(ctx context.Context, params *BaseParams, f *TopologyNodeFinder) (*translate.Config, error) {
+func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[string]*Topology, f *TopologyNodeFinder) (*translate.Config, error) {
 	cfg := &translate.Config{
 		Plugin:     params.Plugin,
 		BlockSizes: getBlockSizes(params.BlockSizes),
@@ -326,9 +326,9 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, f *TopologyNode
 	}
 
 	// set per-partition topologies
-	if len(params.Topologies) != 0 {
+	if len(topologies) != 0 {
 		cfg.Topologies = make(map[string]*translate.TopologySpec)
-		for topo, sect := range params.Topologies {
+		for topo, sect := range topologies {
 			spec := &translate.TopologySpec{
 				Plugin:         sect.Plugin,
 				BlockSizes:     sect.BlockSizes,

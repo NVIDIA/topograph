@@ -40,7 +40,7 @@ type Switch struct {
 }
 
 type BlockTopo struct {
-	BlockSizes []int             `yaml:"blockSizes"`
+	BlockSizes []int             `yaml:"block_sizes"`
 	Blocks     []*Block          `yaml:"blocks"`
 	parents    map[string]string `yaml:"-"`
 }
