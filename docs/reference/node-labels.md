@@ -10,7 +10,7 @@ Labels are set by the [Kubernetes engine](../engines/k8s.md) (`engine: k8s`) and
 
 | Label key | Topology type | Semantics |
 |---|---|---|
-| `network.topology.nvidia.com/accelerator` | Block (`topology/block`) | NVLink domain (clique) ID — nodes that share the same NVLink fabric and can communicate at NVLink bandwidth |
+| `network.topology.nvidia.com/accelerator` | Block (`topology/block`) | Accelerated interconnect domain identifier — nodes that share the same value are in the same accelerated domain. Exact semantics are provider-dependent: for MNNVL-aware providers (DRA, InfiniBand, Lambda AI) the value is an NVL Partition identifier (Fabric-Manager-derived `<ClusterUUID>.<CliqueID>`, identifying a logical sub-domain within the physical NVL Domain); for the AWS provider it is the AWS CapacityBlockId (a reservation-scoped identifier co-extensive with an UltraServer — i.e., the NVL Domain — on P6e-GB200). See the provider matrix below. |
 | `network.topology.nvidia.com/leaf` | Tree (`topology/tree`) | Leaf switch identifier — top-of-rack or first-tier fabric switch |
 | `network.topology.nvidia.com/spine` | Tree (`topology/tree`) | Spine switch identifier — second-tier aggregation switch |
 | `network.topology.nvidia.com/core` | Tree (`topology/tree`) | Core switch identifier — third tier, present in large three-tier fabrics |
@@ -34,7 +34,28 @@ Not all providers produce both topology types:
 
 **Relationship to `nvidia.com/gpu.clique`**: The GPU Operator device plugin sets `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs. The `infiniband-bm` and `infiniband-k8s` providers derive their `accelerator` value from the same `ClusterUUID.CliqueId` hardware identifiers, so the values are directly comparable. The `netq` provider uses a `DomainUUID` from the NMX management API — a different identifier that refers to the same physical domain but cannot be compared as a string.
 
-On non-MNNVL systems (e.g., DGX B200, B300), `nvidia.com/gpu.clique` is not set at all — the device plugin's IMEX labeler requires `GPU_FABRIC_STATE_COMPLETED`, which non-MNNVL GPUs do not reach. On these systems, Topograph with an InfiniBand provider is the only source of network topology for scheduling decisions.
+[NVIDIA Fabric Manager](https://docs.nvidia.com/datacenter/tesla/fabric-manager-user-guide/) runs at node init on MNNVL-capable hardware, discovers the NVLink fabric across GPUs, and registers each GPU with [NVML](https://docs.nvidia.com/deploy/nvml-api/) (NVIDIA Management Library — a C API that exposes per-GPU state). The GPU Operator's IMEX labeler writes `nvidia.com/gpu.clique` only once NVML reports the node's fabric state as `GPU_FABRIC_STATE_COMPLETED` — meaning Fabric Manager finished initialization successfully and the node is part of an NVLink domain.
+
+On non-MNNVL systems (e.g., DGX B200, B300), the GPU fabric never reaches `GPU_FABRIC_STATE_COMPLETED`, so `nvidia.com/gpu.clique` is not set at all. On these systems, Topograph with an InfiniBand provider is the only source of network topology for scheduling decisions.
+
+### Choosing between `accelerator` and `nvidia.com/gpu.clique` for scheduling
+
+Workload schedulers consuming topology labels may need to choose between Topograph's `network.topology.nvidia.com/accelerator` and the NVIDIA GPU Operator's `nvidia.com/gpu.clique`. The right choice depends on the provider and the desired granularity:
+
+- **MNNVL hardware + Fabric Manager completed + NVL Partition granularity desired:** prefer `nvidia.com/gpu.clique`. On the AWS provider this is finer granularity than `accelerator` (which carries the CapacityBlockId, i.e., the NVL Domain). On DRA, InfiniBand, and Lambda AI providers the two labels carry the same value.
+- **MNNVL but Fabric Manager not yet completed, or non-MNNVL hardware:** `nvidia.com/gpu.clique` is absent. Use `network.topology.nvidia.com/accelerator`.
+- **Slurm clusters (no Kubernetes node labels):** neither label applies. Consumers read Slurm's `topology.conf` directly.
+
+**Caveats when preferring `nvidia.com/gpu.clique`:**
+
+- The label covers only placement within a single MNNVL domain (one GB200 NVL72 rack): NVL Partition via the full `<ClusterUUID>.<CliqueID>` value, NVL Domain via the `ClusterUUID` prefix. Locality beyond that scope is not reflected:
+    - **Same top-of-rack switch** (cross-rack within a first-tier fabric) — see Topograph's `leaf` label.
+    - **Same second-tier aggregation** (typically Scalable-Unit / pod-scale grouping above individual racks) — see Topograph's `spine` label.
+    - **Same third-tier aggregation** (present in large three-tier fabrics — typically cross-SU grouping in multi-SU SuperPOD deployments) — see Topograph's `core` label.
+
+  These labels are populated by the InfiniBand or NetQ providers regardless of whether `gpu.clique` is present, and are also relevant for mixed-workload fragmentation avoidance (see [`docs/engines/k8s.md` § Mixed Workload Considerations](../engines/k8s.md#mixed-workload-considerations)).
+- The label is refreshed by GPU Feature Discovery at its configured interval (the k8s-device-plugin default is 60s) rather than propagated instantly. Fabric-state changes in the window between refreshes are not yet reflected in the label.
+- Persistence of `ClusterUUID` / `CliqueID` across node reboots is administratively controlled via Fabric Manager's `FABRIC_MODE_RESTART` configuration (default: preserve partition configurations). Deployments that disable preservation may see identifiers change across restarts, which can invalidate scheduler state cached on those values.
 
 ### Label value behavior
 
@@ -57,7 +78,7 @@ When Topograph is not deployed, the labels commonly available for topology-aware
 | `topology.kubernetes.io/zone` | Cloud provider / kubelet | Availability zone or data center zone |
 | `topology.kubernetes.io/region` | Cloud provider / kubelet | Geographic region |
 | `node.kubernetes.io/instance-type` | Cloud provider | VM / instance SKU |
-| `topology.k8s.aws/capacity-block-id` | AWS Node Feature Discovery | AWS Capacity Block (NVLink domain) |
+| `topology.k8s.aws/capacity-block-id` | AWS Node Feature Discovery | AWS Capacity Block reservation ID. Per the [EC2 API reference for `InstanceTopology`](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceTopology.html), on UltraServer instances this "identifies instances within the UltraServer domain" — a reservation-scoped grouping, not an NVL Partition identifier. On P6e-GB200 it is co-extensive with one UltraServer (AWS requires reserving the UltraServer as a unit per the [EKS UltraServer guide](https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-nvidia-ultraserver.html)), so it aligns with the NVL Domain. AWS surfaces an explicit NVL Domain label, [`topology.k8s.aws/ultraserver-id`](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-eks-operate-console-ui-governance-tasks-scheduling.html), on SageMaker HyperPod-managed EKS clusters; on plain EKS or self-managed Kubernetes on P6e-GB200, AWS does not apply that label, and the NVL Domain must be derived from `nvidia.com/gpu.clique` (its `<ClusterUUID>.<CliqueID>` value encodes the NVL Domain as the ClusterUUID prefix). Topograph's AWS provider derives `network.topology.nvidia.com/accelerator` from the same `CapacityBlockId` attribute, so on AWS the two labels carry identical string values — Domain-scoped, not Partition-scoped. |
 | `topology.k8s.aws/network-node-layer-1` | AWS Node Feature Discovery | AWS network spine |
 | `topology.k8s.aws/network-node-layer-2` | AWS Node Feature Discovery | AWS network aggregation |
 | `topology.k8s.aws/network-node-layer-3` | AWS Node Feature Discovery | AWS network leaf |
@@ -66,7 +87,7 @@ When Topograph is not deployed, the labels commonly available for topology-aware
 | `cloud.google.com/gce-topology-block` | GCP | GCP topology block |
 | `cloud.google.com/gce-topology-subblock` | GCP | GCP topology sub-block |
 | `cloud.google.com/gce-topology-host` | GCP | GCP host |
-| `nvidia.com/gpu.clique` | NVIDIA GPU Operator (device plugin) | NVLink clique ID — set only on MNNVL-capable nodes (e.g., GB200 NVL72); not present on non-MNNVL systems |
+| `nvidia.com/gpu.clique` | NVIDIA GPU Operator (device plugin) | NVL Partition identifier, formatted `<ClusterUUID>.<CliqueID>`. The `ClusterUUID` prefix identifies the physical NVL Domain (e.g., one GB200 NVL72 rack); the `CliqueID` suffix identifies a Fabric-Manager-assigned logical sub-domain within it. Set only on MNNVL-capable nodes once Fabric Manager completes initialization and NVML reports `NVML_GPU_FABRIC_STATE_COMPLETED`; not present on non-MNNVL systems and may be absent on MNNVL nodes where Fabric Manager init has not completed. Multiple clique values can appear within a single NVL Domain (e.g., an x72 UltraServer split into two x36 halves). |
 | `nvidia.com/cuda.driver-version.full` | NVIDIA GPU Operator (GFD) | Full CUDA driver version |
 | `nvidia.com/cuda.runtime-version.full` | NVIDIA GPU Operator (GFD) | Full CUDA runtime version |
 
@@ -95,7 +116,11 @@ Additional annotations are set on topology ConfigMaps (used by the Slinky engine
 
 ## Integration with NVSentinel
 
-NVSentinel's Metadata Augmentor enriches GPU fault events with node labels from a configurable `allowedLabels` list (in `distros/kubernetes/nvsentinel/values.yaml`). To enable topology-aware blast-radius analysis — for example, determining whether a fault affects an entire NVLink domain or a rack — add Topograph's labels to `MetadataAugmentor.allowedLabels`:
+NVSentinel's Metadata Augmentor enriches health events with node labels from a configurable `allowedLabels` list. As of [NVSentinel #1226](https://github.com/NVIDIA/NVSentinel/pull/1226) (merged 2026-04-23; shipping in the next NVSentinel release), the four `network.topology.nvidia.com/*` labels are included in the default `allowedLabels` — so on clusters where Topograph is deployed, NVSentinel propagates topology into health event metadata automatically, with no operator configuration required. Downstream consumers — fault-quarantine CEL rules, remediation custom resources, dashboards, blast-radius analysis — can then reason about topological locality at NVL Partition, NVL Domain, or switch-hierarchy level.
+
+NVSentinel's Metadata Augmentor skips labels that aren't present on a node, so nodes without Topograph (or MNNVL-only labels on non-MNNVL hardware) behave cleanly — no configuration conditionals needed.
+
+Operators on earlier NVSentinel versions, or operators running a customized `allowedLabels` list, can add the Topograph labels explicitly in `distros/kubernetes/nvsentinel/values.yaml`:
 
 ```yaml
 transformers:
@@ -109,4 +134,4 @@ transformers:
       - "network.topology.nvidia.com/core"
 ```
 
-These labels are only populated on nodes where Topograph has completed a topology discovery pass. On nodes without Topograph, the labels are absent and the Metadata Augmentor will skip them.
+See NVSentinel's [`docs/INTEGRATIONS.md` § Topology Awareness (Topograph)](https://github.com/NVIDIA/NVSentinel/blob/main/docs/INTEGRATIONS.md#topology-awareness-topograph).
