@@ -76,7 +76,7 @@ Engine-specific install flags point the `slinky` engine at the Slinky deployment
   --set global.engineParams.topologyConfigPath=topology.conf
 ```
 
-The full engine-parameter shape (`podSelector`, `plugin`, `block_sizes`, per-partition topologies, …) is documented in the [chart README](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/README.md). Example values files for common Slinky scenarios ship in the chart directory:
+The full engine-parameter shape (`podSelector`, `plugin`, `blockSizes`, per-partition topologies, …) is documented in the [chart README](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/README.md). Example values files for common Slinky scenarios ship in the chart directory:
 
 - [`values.slinky.tree-example.yaml`](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/values.slinky.tree-example.yaml) — tree topology
 - [`values.slinky.block-example.yaml`](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/values.slinky.block-example.yaml) — block topology

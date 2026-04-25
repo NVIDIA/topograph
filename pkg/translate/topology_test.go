@@ -18,7 +18,6 @@ package translate
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -72,12 +71,6 @@ SwitchName=switch.2.2 Switches=switch.1.2
 SwitchName=switch.1.1 Nodes=node-1
 # switch.1.2=local-block-2
 SwitchName=switch.1.2 Nodes=node-2
-`
-
-	testBlockConfigFakeNodes = `BlockName=B2 Nodes=Node[104-105],fake100
-BlockName=B1 Nodes=Node202,fake[101-102]
-BlockName=B3 Nodes=Node205,fake[103-104]
-BlockSizes=3
 `
 )
 
@@ -280,34 +273,6 @@ func TestToBlockDFSIBTopology(t *testing.T) {
 	err := nt.Generate(buf)
 	require.Nil(t, err)
 	require.Equal(t, testBlockConfigDFS, buf.String())
-}
-
-func TestBlockFakeNodes(t *testing.T) {
-	// Test Fake node config
-	fakeNodeData := "fake[100-998]"
-	fnc := getFakeNodeConfig(fakeNodeData)
-
-	expectedFnc := &fakeNodeConfig{
-		nodes: []string{},
-		index: 0,
-	}
-	for i := 100; i <= 998; i++ {
-		expectedFnc.nodes = append(expectedFnc.nodes, fmt.Sprintf("fake%d", i))
-	}
-	require.Equal(t, expectedFnc, fnc)
-
-	// Test Fake node output
-	v, _ := getBlockWithDFSIBTestSet()
-	cfg := &Config{
-		Plugin:       topology.TopologyBlock,
-		FakeNodePool: fakeNodeData,
-		BlockSizes:   []int{3},
-	}
-	nt, _ := NewNetworkTopology(v, cfg)
-	buf := &bytes.Buffer{}
-	err := nt.Generate(buf)
-	require.Nil(t, err)
-	require.Equal(t, testBlockConfigFakeNodes, buf.String())
 }
 
 func TestToSlurmNameShortener(t *testing.T) {

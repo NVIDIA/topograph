@@ -9,7 +9,7 @@
     "name": "slurm",
     "params": {
       "plugin": "topology/block",
-      "block_sizes": "2,4"
+      "blockSizes": [2,4]
     }
   }
 }

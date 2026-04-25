@@ -191,7 +191,7 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 		}
 
 		tu.Block = &BlockTopo{
-			BlockSizes: getBlockSize(bInfos, topoSpec.BlockSizes, false),
+			BlockSizes: getBlockSizes(bInfos, topoSpec.BlockSizes),
 			Blocks:     blocks,
 			parents:    parents,
 		}

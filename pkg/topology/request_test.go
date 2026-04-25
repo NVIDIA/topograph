@@ -75,7 +75,7 @@ func TestPayload(t *testing.T) {
     "name": "slurm",
 	"params": {
 	  "plugin": "topology/block",
-	  "block_sizes": "30,120",
+	  "blockSizes": [30,120],
 	  "reconfigure": true
 	}
   },
@@ -112,7 +112,7 @@ func TestPayload(t *testing.T) {
 					Name: "slurm",
 					Params: map[string]any{
 						KeyPlugin:     TopologyBlock,
-						KeyBlockSizes: "30,120",
+						KeyBlockSizes: []any{float64(30), float64(120)},
 						"reconfigure": true,
 					},
 				},
@@ -140,7 +140,7 @@ func TestPayload(t *testing.T) {
   Credentials: [accessKeyId:*** secretAccessKey:***]
   Parameters: [trimTiers:2]
   Engine: slurm
-  Parameters: [block_sizes:30,120 plugin:topology/block reconfigure:true]
+  Parameters: [blockSizes:[30 120] plugin:topology/block reconfigure:true]
   Nodes: region1: [instance1:node1 instance2:node2 instance3:node3] region2: [instance4:node4 instance5:node5 instance6:node6]
 `,
 		},

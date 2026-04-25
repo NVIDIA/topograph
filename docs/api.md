@@ -85,13 +85,13 @@ Topograph exposes three endpoints for interacting with the service. Below are th
     - **slurm parameters**:
       - **topologyConfigPath**: (optional) A string specifying the file path for the topology configuration. If omitted, the topology config content is returned in the HTTP response.
       - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
-      - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
+      - **blockSizes**: (optional) A string specifying block size for `topology/block` plugin.
       - **reconfigure**: (optional) If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`
     - **slinky parameters**:
       - **namespace**: A string specifying namespace where SLURM cluster is running.
       - **podSelector**: A standard Kubernetes label selector for pods running SLURM nodes.
       - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
-      - **block_sizes**: (optional) A string specifying block size for `topology/block` plugin.
+      - **blockSizes**: (optional) A string specifying block size for `topology/block` plugin.
       - **topologyConfigPath**: A string specifying the key for the topology config in the ConfigMap.
       - **topologyConfigmapName**: A string specifying the name of the ConfigMap containing the topology config.
   - **nodes**: (optional) An array of regions mapping instance IDs to node names.
@@ -111,7 +111,7 @@ Topograph exposes three endpoints for interacting with the service. Below are th
     "name": "slurm",
     "params": {
       "plugin": "topology/block",
-      "block_sizes": "30,120"
+      "blockSizes": [30,120]
     }
   },
   "nodes": [

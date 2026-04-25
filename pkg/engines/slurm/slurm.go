@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -34,7 +33,6 @@ import (
 	"github.com/NVIDIA/topograph/internal/files"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/engines"
-	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
@@ -51,10 +49,8 @@ const NAME = "slurm"
 type SlurmEngine struct{}
 
 type BaseParams struct {
-	Plugin           string `mapstructure:"plugin"`
-	BlockSizes       string `mapstructure:"block_sizes"`
-	FakeNodesEnabled bool   `mapstructure:"fakeNodesEnabled"`
-	FakeNodePool     string `mapstructure:"fake_node_pool"`
+	Plugin     string `mapstructure:"plugin"`
+	BlockSizes []int  `mapstructure:"blockSizes"`
 }
 
 type Topology struct {
@@ -184,34 +180,6 @@ func GetNodeList(ctx context.Context) ([]string, error) {
 	return nodes, nil
 }
 
-func GetFakeNodes(ctx context.Context) (string, error) {
-	args := []string{"show", "partition", "fake"}
-	stdout, err := exec.Exec(ctx, "scontrol", args, nil)
-	if err != nil {
-		return "", err
-	}
-	out := stdout.String()
-	klog.V(4).Infof("stdout: %s", out)
-
-	return parseFakeNodes(out)
-}
-
-func parseFakeNodes(data string) (string, error) {
-	prefix := "Nodes="
-	scanner := bufio.NewScanner(strings.NewReader(data))
-	for scanner.Scan() {
-		if line := strings.TrimSpace(scanner.Text()); strings.HasPrefix(line, prefix) {
-			return line[len(prefix):], nil
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("failed to scan fake nodes partition: %v", err)
-	}
-
-	return "", fmt.Errorf("fake partition has no nodes")
-}
-
 func getPartitionNodes(ctx context.Context, partition string, _ []any) (string, error) {
 	args := []string{"show", "partition", partition}
 	stdout, err := exec.Exec(ctx, "scontrol", args, nil)
@@ -307,22 +275,7 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[string]*Topology, f *TopologyNodeFinder) (*translate.Config, error) {
 	cfg := &translate.Config{
 		Plugin:     params.Plugin,
-		BlockSizes: getBlockSizes(params.BlockSizes),
-	}
-
-	// set fake nodes
-	if params.Plugin == topology.TopologyBlock && params.FakeNodesEnabled {
-		var fakeNodes string
-		var err error
-		if len(params.FakeNodePool) > 0 {
-			fakeNodes = params.FakeNodePool
-		} else {
-			fakeNodes, err = GetFakeNodes(ctx)
-			if err != nil {
-				return nil, err
-			}
-		}
-		cfg.FakeNodePool = fakeNodes
+		BlockSizes: params.BlockSizes,
 	}
 
 	// set per-partition topologies
@@ -359,24 +312,6 @@ func getParams(params map[string]any) (*Params, error) {
 	var p Params
 	err := config.Decode(params, &p)
 	return &p, err
-}
-
-func getBlockSizes(str string) []int {
-	if len(str) == 0 {
-		return nil
-	}
-	parts := strings.Split(str, ",")
-	blockSizes := make([]int, 0, len(parts))
-	for _, part := range parts {
-		sz, err := strconv.Atoi(part)
-		if err != nil {
-			metrics.AddValidationError("BlockSize parsing error")
-			klog.Warningf("Failed to parse blockSize %v: %v. Ignoring admin blockSizes.", part, err)
-			return nil
-		}
-		blockSizes = append(blockSizes, sz)
-	}
-	return blockSizes
 }
 
 func reconfigure(ctx context.Context) error {
