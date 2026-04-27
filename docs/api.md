@@ -44,6 +44,7 @@ ssl:
   cert: /etc/topograph/ssl/server-cert.pem
   key: /etc/topograph/ssl/server-key.pem
   ca_cert: /etc/topograph/ssl/ca-cert.pem
+
 # credentialsPath: specifies the path to a YAML file containing API credentials (optional).
 # When using credentials in Kubernetes-based engines ("k8s" or "slinky"),
 # the secret file must be named `credentials.yaml`. For example:
@@ -64,37 +65,39 @@ Topograph exposes three endpoints for interacting with the service. Below are th
 
 ### 1. Health Endpoint
 
-- **URL:** `http://<server>:<port>/healthz`
-- **Description:** This endpoint verifies the service status. It returns a "200 OK" HTTP response if the service is operational.
+- **URL:** `GET http://<server>:<port>/healthz`
+- **Description:** This endpoint verifies the service status. It returns a "200 OK" HTTP response if the service is reachable.
 
 ### 2. Topology Request Endpoint
 
-- **URL:** `http://<server>:<port>/v1/generate`
+- **URL:** `POST http://<server>:<port>/v1/generate`
 - **Description:** This endpoint is used to request a new cluster topology.
-- **Payload:** The payload is a JSON object that includes the following fields:
+- **Payload:** The request body is a JSON object organized into three top-level sections:
 
-  - **provider name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will be override the provider set in the topograph config.
-  - **provider credentials**: (optional) A key-value map with provider-specific parameters for authentication.
-  - **provider parameters**: (optional) A key-value map with parameters that are used for provider simulation with toposim.
-    - **generateResponseCode**: (optional) An integer parameter that specifies the response code for the generate request. Supported by Providers = [test]. Valid values [202,4xx-6xx]. Default value = 202.
-    - **topologyResponseCode**: (optional) An integer parameter that specifies the response code for the topology request. Supported by Providers = [test]. Valid values [200,202,4xx-6xx]. Default value = 200.  
-    - **modelFileName**: (optional) A string parameter that specifies the name of the model file to use for simulating topology. Supported by Providers = [test].
-    - **errorMessage**: (optional) A string parameter that specifies the message to be returned with error responses. Supported by Providers = [test].  
-  - **engine name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, or `slinky`. This parameter will override the engine set in the topograph config.
-  - **engine parameters**: (optional) A key-value map with engine-specific parameters.
-    - **slurm parameters**:
-      - **topologyConfigPath**: (optional) A string specifying the file path for the topology configuration. If omitted, the topology config content is returned in the HTTP response.
-      - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
-      - **blockSizes**: (optional) A string specifying block size for `topology/block` plugin.
-      - **reconfigure**: (optional) If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`
-    - **slinky parameters**:
-      - **namespace**: A string specifying namespace where SLURM cluster is running.
-      - **podSelector**: A standard Kubernetes label selector for pods running SLURM nodes.
-      - **plugin**: (optional) A string specifying topology plugin: `topology/tree` (default) or `topology/block`.
-      - **blockSizes**: (optional) A string specifying block size for `topology/block` plugin.
-      - **topologyConfigPath**: A string specifying the key for the topology config in the ConfigMap.
-      - **topologyConfigmapName**: A string specifying the name of the ConfigMap containing the topology config.
-  - **nodes**: (optional) An array of regions mapping instance IDs to node names.
+  - **provider**: (optional) Selects the topology source and provides any provider-specific authentication or parameters.
+    - **name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will override the provider set in the topograph config.
+    - **creds**: (optional) A key-value map with provider-specific parameters for authentication.
+    - **params**: (optional) A key-value map with provider-specific parameters. The `test` provider uses these parameters for response simulation; for complete behavior and examples, see [Test Mode and Test Provider](./providers/test.md).
+  - **engine**: (optional) Selects the topology output and provides any engine-specific parameters.
+    - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, or `slinky`. This parameter will override the engine set in the topograph config.
+    - **params**: (optional) A key-value map with engine-specific parameters.
+      - **plugin**: (optional) Used in: [`slurm`, `slinky`]. A string specifying the cluster-wide topology plugin: `topology/tree` or `topology/block`. For `slurm`, this defaults to `topology/tree` when neither `plugin` nor `topologies` is set. Do not set `plugin` together with `topologies`.
+      - **blockSizes**: (optional) Used in: [`slurm`, `slinky`]. An array of block sizes for `topology/block`.
+      - **topologyConfigPath**: Used in: [`slurm`, `slinky`]. Optional for `slurm`; required for `slinky`. For `slurm`, a file path for the topology configuration; if omitted, the topology config content is returned in the HTTP response. For `slinky`, the key for the topology config in the ConfigMap.
+      - **topologies**: (optional) Used in: [`slurm`, `slinky`]. A map of named per-partition topology settings. Do not set top-level `plugin` together with `topologies`.
+        - **plugin**: Used in: [`slurm`, `slinky`]. A required string specifying the per-partition topology plugin: `topology/tree`, `topology/block`, or `topology/flat`.
+        - **blockSizes**: (optional) Used in: [`slurm`, `slinky`]. An array of block sizes for `topology/block`.
+        - **nodes**: (optional) Used in: [`slurm`, `slinky`]. An explicit list of SLURM nodes for this topology. If omitted, Topograph can discover membership from `podSelector` (`slinky` only) or `partition`.
+        - **partition**: (optional) Used in: [`slurm`, `slinky`]. A SLURM partition name used to discover nodes with `scontrol show partition` when `nodes` is not set. For `slinky`, this fallback is used only when the topology entry does not set `podSelector`.
+        - **podSelector**: (optional) Used in: [`slinky`]. A Kubernetes label selector for slurmd pods in this partition. `nodes` and `podSelector` are mutually exclusive on the same topology entry.
+        - **clusterDefault**: (optional) Used in: [`slurm`, `slinky`]. If `true`, marks this topology as the default for nodes not assigned to another topology; commonly used with `plugin: topology/flat`.
+      - **reconfigure**: (optional) Used in: [`slurm`]. If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`.
+      - **namespace**: Used in: [`slinky`]. The required namespace where the SLURM cluster is running.
+      - **podSelector**: Used in: [`slinky`]. A required Kubernetes label selector for pods running SLURM nodes.
+      - **nodeSelector**: (optional) Used in: [`k8s`, `slinky`]. A Kubernetes node label map that filters which nodes participate in topology generation.
+      - **topologyConfigmapName**: Used in: [`slinky`]. The required name of the ConfigMap containing the topology config.
+      - **reportingMode**: (optional) Used in: [`slinky`]. Node reporting mode: `staticNodes` (default) or `dynamicNodes`.
+  - **nodes**: (optional) Supplies the cluster nodes used for topology generation as an array of regions mapping instance IDs to node names.
 
   Example:
 
@@ -105,13 +108,13 @@ Topograph exposes three endpoints for interacting with the service. Below are th
     "creds": {
       "accessKeyId": "id",
       "secretAccessKey": "secret"
-    },
+    }
   },
   "engine": {
     "name": "slurm",
     "params": {
       "plugin": "topology/block",
-      "blockSizes": [30,120]
+      "blockSizes": [30, 120]
     }
   },
   "nodes": [
@@ -139,7 +142,7 @@ Topograph exposes three endpoints for interacting with the service. Below are th
 
 ### 3. Topology Result Endpoint
 
-- **URL:** `http://<server>:<port>/v1/topology`
+- **URL:** `GET http://<server>:<port>/v1/topology`
 - **Description:** This endpoint retrieves the result of a topology request.
 - **URL Query Parameters:**
   - **uid**: Specifies the request ID returned by the topology request endpoint.

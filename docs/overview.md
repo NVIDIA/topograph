@@ -41,6 +41,7 @@ Currently supported providers:
 - [DRA](./providers/dra.md) — reads `nvidia.com/gpu.clique` labels set by the NVIDIA GPU operator DRA driver
 - [InfiniBand (bare-metal)](./providers/infiniband.md#infiniband-bm-bare-metal)
 - [InfiniBand (Kubernetes)](./providers/infiniband.md#infiniband-k8s-kubernetes)
+- [Test](./providers/test.md) - simulates Topograph success, pending, and error responses for integration testing
 
 Currently supported engines:
 
@@ -59,6 +60,7 @@ Currently supported engines:
 | InfiniBand fabric, NetQ deployed | [NetQ](./providers/netq.md) |
 | InfiniBand fabric, no NetQ, bare-metal / Slurm | [InfiniBand (bare-metal)](./providers/infiniband.md) |
 | InfiniBand fabric, no NetQ, Kubernetes | [InfiniBand (Kubernetes)](./providers/infiniband.md) |
+| Client integration and regression testing | [Test](./providers/test.md) |
 
 For MNNVL environments, NetQ and DRA operate at different layers and can coexist: NetQ provides infrastructure-level visibility into the NVLink fabric while DRA feeds topology directly to Kubernetes schedulers via `nvidia.com/gpu.clique` node labels.
 
