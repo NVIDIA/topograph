@@ -1,0 +1,18 @@
+{
+  "provider": {
+    "name": "test",
+    "params": {
+        "generateResponseCode": 202,
+        "topologyResponseCode": 200,
+        "modelFileName": "large.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "blockSizes": [8,16,32],
+      "topologyConfigPath": "topology.conf"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "provider": {
+    "name": "test"
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "topologyConfigPath": "topology.conf"
+    }
+  }
+}

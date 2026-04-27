@@ -34,6 +34,8 @@ navigation:
         path: providers/netq.md
       - page: DRA
         path: providers/dra.md
+      - page: Test
+        path: providers/test.md
 
   - section: Engines
     contents:
