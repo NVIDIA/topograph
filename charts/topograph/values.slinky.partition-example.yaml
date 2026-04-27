@@ -44,7 +44,8 @@ global:
           clusterDefault: true
       topologyConfigPath: topology.conf
       topologyConfigmapName: slurm-config
-      reportingMode: dynamicNodes
+      useDynamicNodes: true
+      configUpdateMode: skeleton-only
 
 nodeSelector:
   dedicated: user-workload
