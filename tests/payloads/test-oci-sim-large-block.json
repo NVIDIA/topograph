@@ -9,7 +9,7 @@
     "name": "slurm",
     "params": {
       "plugin": "topology/block",
-      "block_sizes": "8,16,32",
+      "blockSizes": [8,16,32],
       "topologyConfigPath": "topology.conf"
     }
   }

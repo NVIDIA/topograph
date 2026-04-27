@@ -31,14 +31,14 @@ global:
   provider: aws
   engine: slinky
   engineParams:
-    namespace: ns-slinky                               # Namespace where Slinky is running
-    podSelector:                                      # Label selector for pods running SLURM nodes
+    namespace: ns-slinky                       # Namespace where Slinky is running
+    podSelector:                               # Label selector for pods running SLURM nodes
       matchLabels:
         app.kubernetes.io/component: compute
-    plugin: topology/block                             # Name of the topology plugin
-    block_sizes: 4                                     # (Optional) Block size for the block topology plugin
-    topologyConfigmapName: slurm-config              # Name of the ConfigMap containing the topology config
-    topologyConfigPath: topology.conf                # Key in the ConfigMap for the topology config
+    plugin: topology/block                     # Name of the topology plugin
+    blockSizes: [4]                            # (Optional) Block size for the block topology plugin
+    topologyConfigmapName: slurm-config        # Name of the ConfigMap containing the topology config
+    topologyConfigPath: topology.conf          # Key in the ConfigMap for the topology config
 ```
 
 ### Per-partition topologies
@@ -160,7 +160,7 @@ curl -X POST -H "Content-Type: application/json" \
         "topologyConfigPath": "topology.conf",
         "topologyConfigmapName": "slurm-config",
         "plugin": "topology/block",
-        "block_sizes": "8,16,32"
+        "blockSizes": [8,16,32]
       }
     }
   }' \

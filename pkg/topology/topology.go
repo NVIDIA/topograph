@@ -31,7 +31,7 @@ const (
 	KeyTopologies        = "topologies"
 	KeyTopoConfigPath    = "topologyConfigPath"
 	KeyTopoConfigmapName = "topologyConfigmapName"
-	KeyBlockSizes        = "block_sizes"
+	KeyBlockSizes        = "blockSizes"
 	KeyTrimTiers         = "trimTiers"
 
 	KeyPlugin     = "plugin"

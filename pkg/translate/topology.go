@@ -19,10 +19,9 @@ import (
 )
 
 type Config struct {
-	Plugin       string // topology plugin (cluster-wide)
-	BlockSizes   []int
-	FakeNodePool string
-	Topologies   map[string]*TopologySpec // per-partiton topology settings
+	Plugin     string // topology plugin (cluster-wide)
+	BlockSizes []int
+	Topologies map[string]*TopologySpec // per-partiton topology settings
 }
 
 // TopologySpec define topology for a partition

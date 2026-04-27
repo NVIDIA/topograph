@@ -83,45 +83,6 @@ func TestAggregateComputeInstances(t *testing.T) {
 	}
 }
 
-func TestParseFakeNodes(t *testing.T) {
-	testCases := []struct {
-		name string
-		in   string
-		out  string
-		err  string
-	}{
-		{
-			name: "Case 1: no nodes",
-			err:  "fake partition has no nodes",
-		},
-		{
-			name: "Case 2: valid input",
-			in: `PartitionName=fake
-   AllowQos=ALL
-   DefaultTime=NONE DisableRootJobs=NO ExclusiveUser=NO GraceTime=0 Hidden=NO
-   MaxNodes=UNLIMITED MaxTime=08:00:00 MinNodes=1 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED
-   Nodes=fake-[01-16]
-   OverTimeLimit=NONE PreemptMode=OFF
-   JobDefaults=(null)
-   DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED
-`,
-			out: "fake-[01-16]",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			out, err := parseFakeNodes(tc.in)
-			if len(tc.err) != 0 {
-				require.EqualError(t, err, tc.err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.out, out)
-			}
-		})
-	}
-}
-
 func TestParsePartitionNodes(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -197,7 +158,6 @@ func TestGetParams(t *testing.T) {
 			in: `
 {
   "plugin": "123",
-  "fakeNodesEnabled": true,
   "topologies": {
 	"topo1": {
 	  "plugin": "topology/block",
@@ -217,8 +177,7 @@ func TestGetParams(t *testing.T) {
 `,
 			params: &Params{
 				BaseParams: BaseParams{
-					Plugin:           "123",
-					FakeNodesEnabled: true,
+					Plugin: "123",
 				},
 				Topologies: map[string]*Topology{
 					"topo1": {
@@ -280,20 +239,10 @@ func TestGetTranslateConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 2: invalid blocksize",
+			name: "Case 2: valid blocksize",
 			params: &BaseParams{
 				Plugin:     topology.TopologyBlock,
-				BlockSizes: "bad",
-			},
-			cfg: &translate.Config{
-				Plugin: topology.TopologyBlock,
-			},
-		},
-		{
-			name: "Case 3: valid blocksize",
-			params: &BaseParams{
-				Plugin:     topology.TopologyBlock,
-				BlockSizes: "2,4,8",
+				BlockSizes: []int{2, 4, 8},
 			},
 			cfg: &translate.Config{
 				Plugin:     topology.TopologyBlock,
@@ -301,21 +250,7 @@ func TestGetTranslateConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 4: with fake nodes",
-			params: &BaseParams{
-				Plugin:           topology.TopologyBlock,
-				BlockSizes:       "2,4,8",
-				FakeNodesEnabled: true,
-				FakeNodePool:     "fake[001-100]",
-			},
-			cfg: &translate.Config{
-				Plugin:       topology.TopologyBlock,
-				BlockSizes:   []int{2, 4, 8},
-				FakeNodePool: "fake[001-100]",
-			},
-		},
-		{
-			name:   "Case 5: with invalid partition topology",
+			name:   "Case 3: with invalid partition topology",
 			params: &BaseParams{},
 			topologies: map[string]*Topology{
 				"topo1": {
@@ -329,7 +264,7 @@ func TestGetTranslateConfig(t *testing.T) {
 			err: "missing partition name",
 		},
 		{
-			name:   "Case 6: with valid partition topology",
+			name:   "Case 4: with valid partition topology",
 			params: &BaseParams{},
 			topologies: map[string]*Topology{
 				"default": {
@@ -394,7 +329,13 @@ SwitchName=S3 Nodes=Node[304-306]
 		{
 			name:   "Case 2: invalid blocksize",
 			vertex: v,
-			params: map[string]any{"block_sizes": "bad"},
+			params: map[string]any{"blockSizes": "bad"},
+			err:    "could not decode configuration: 1 error(s) decoding:\n\n* 'blockSizes': source data must be an array or slice, got string",
+			code:   http.StatusBadRequest,
+		},
+		{
+			name:   "Case 3: valid input",
+			vertex: v,
 			cfg:    cfg,
 		},
 	}

@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -258,7 +260,7 @@ func (eng *SlinkyEngine) generateConfigMapAnnotations() map[string]string {
 		annotations[topology.KeyConfigMapPlugin] = eng.params.Plugin
 	}
 	if len(eng.params.BlockSizes) != 0 {
-		annotations[topology.KeyConfigMapBlockSizes] = eng.params.BlockSizes
+		annotations[topology.KeyConfigMapBlockSizes] = intToStr(eng.params.BlockSizes)
 	}
 
 	return annotations
@@ -544,4 +546,12 @@ func (eng *SlinkyEngine) updateNodeAnnotation(ctx context.Context, node *corev1.
 	}
 
 	return nil
+}
+
+func intToStr(input []int) string {
+	strs := make([]string, len(input))
+	for i, n := range input {
+		strs[i] = strconv.Itoa(n)
+	}
+	return strings.Join(strs, ",")
 }

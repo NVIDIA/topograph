@@ -143,14 +143,14 @@ func TestGetParameters(t *testing.T) {
 				topology.KeyPodSelector:       podSelector,
 				topology.KeyNodeSelector:      nodeSelector,
 				topology.KeyPlugin:            topology.TopologyBlock,
-				topology.KeyBlockSizes:        "16",
+				topology.KeyBlockSizes:        []int{16},
 				topology.KeyTopoConfigPath:    "path",
 				topology.KeyTopoConfigmapName: "name",
 			},
 			ret: &Params{
 				BaseParams: slurm.BaseParams{
 					Plugin:     topology.TopologyBlock,
-					BlockSizes: "16",
+					BlockSizes: []int{16},
 				},
 				Namespace:     "namespace",
 				PodSelector:   labelSelector,
@@ -343,7 +343,7 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 			name: "with block sizes only",
 			params: &Params{
 				BaseParams: slurm.BaseParams{
-					BlockSizes: "8,16,32",
+					BlockSizes: []int{8, 16, 32},
 				},
 				Namespace:     "test-namespace",
 				PodSelector:   labelSelector,
@@ -357,7 +357,7 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 			params: &Params{
 				BaseParams: slurm.BaseParams{
 					Plugin:     topology.TopologyBlock,
-					BlockSizes: "8,16,32",
+					BlockSizes: []int{8, 16, 32},
 				},
 				Namespace:     "test-namespace",
 				PodSelector:   labelSelector,
@@ -388,19 +388,19 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 				require.NotContains(t, annotations, topology.KeyConfigMapPlugin)
 			}
 			if tc.wantBlock {
-				requireAnnotation(t, annotations, topology.KeyConfigMapBlockSizes, tc.params.BlockSizes)
+				requireAnnotation(t, annotations, topology.KeyConfigMapBlockSizes, intToStr(tc.params.BlockSizes))
 			} else {
 				require.NotContains(t, annotations, topology.KeyConfigMapBlockSizes)
 			}
 
 			// Metadata logic (simulate GenerateOutput)
 			tree := &topology.Vertex{Name: "root"}
-			setMetadata(tree, tc.params.Plugin, tc.params.BlockSizes)
+			setMetadata(tree, tc.params.Plugin, intToStr(tc.params.BlockSizes))
 			if tc.wantPlugin {
 				require.Equal(t, tc.params.Plugin, tree.Metadata[topology.KeyPlugin])
 			}
 			if tc.wantBlock {
-				require.Equal(t, tc.params.BlockSizes, tree.Metadata[topology.KeyBlockSizes])
+				require.Equal(t, intToStr(tc.params.BlockSizes), tree.Metadata[topology.KeyBlockSizes])
 			}
 		})
 	}

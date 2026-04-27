@@ -58,7 +58,7 @@ id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"param
 
 And if you want to view the block topology (with specified block sizes), use the command:
 ```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"params":{"modelFileName":"/usr/local/bin/tests/models/<cluster-model>.yaml"}},"engine":{"params":{"plugin":"topology/block", "block_sizes": "4,8"}}}' http://localhost:49021/v1/generate)
+id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"params":{"modelFileName":"/usr/local/bin/tests/models/<cluster-model>.yaml"}},"engine":{"params":{"plugin":"topology/block", "blockSizes": [4,8]}}}' http://localhost:49021/v1/generate)
 ```
 
 You can query the results of either topology request with:

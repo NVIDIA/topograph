@@ -19,7 +19,7 @@ global:
         matchLabels:
           app.kubernetes.io/component: compute
       plugin: topology/block
-      block_sizes: 4
+      blockSizes: [4]
       topologyConfigPath: topology.conf
       topologyConfigmapName: slurm-config
       reportingMode: staticNodes

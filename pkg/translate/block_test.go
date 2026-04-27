@@ -22,7 +22,7 @@ func TestBlockTopology(t *testing.T) {
 		err    string
 	}{
 		{
-			name: "a block without name",
+			name: "Case 1: a block without name",
 			nt: &NetworkTopology{
 				config: &Config{
 					BlockSizes: []int{2},
@@ -41,7 +41,7 @@ func TestBlockTopology(t *testing.T) {
 			}, "\n"),
 		},
 		{
-			name: "a block with name",
+			name: "Case 2: a block with name",
 			nt: &NetworkTopology{
 				config: &Config{
 					BlockSizes: []int{2},
@@ -60,54 +60,33 @@ BlockSizes=2
 `,
 		},
 		{
-			name: "fake nodes added to meet base block size",
-			nt: &NetworkTopology{
-				config: &Config{
-					BlockSizes:   []int{3},
-					FakeNodePool: "fake[1-6]",
-				},
-				blocks: []*blockInfo{
-					{
-						id:    "block001",
-						nodes: []string{"n1"},
-					},
-					{
-						id:    "block002",
-						nodes: []string{"n2"},
-					},
-				},
-			},
-			output: `BlockName=block001 Nodes=n1,fake[1-2]
-BlockName=block002 Nodes=n2,fake[3-4]
-BlockSizes=3
-`,
-		},
-		{
-			name: "not enough fake nodes to meet base block size",
-			nt: &NetworkTopology{
-				config: &Config{
-					BlockSizes:   []int{3},
-					FakeNodePool: "fake1",
-				},
-				blocks: []*blockInfo{
-					{
-						id:    "b1",
-						nodes: []string{"n1"},
-					},
-					{
-						id:    "b2",
-						nodes: []string{"n2"},
-					},
-				},
-			},
-			err: errNotEnoughFakeNodes.Error(),
-		},
-		{
-			name: "multiple blocks with mixed settings",
+			name: "Case 3: multiple blocks with mixed settings with blockSizes",
 			nt: &NetworkTopology{
 				config: &Config{
 					BlockSizes: []int{2, 4},
 				},
+				blocks: []*blockInfo{
+					{
+						id:    "b1",
+						nodes: []string{"n1", "n2"},
+					},
+					{
+						id:    "b2",
+						name:  "block2",
+						nodes: []string{"n3"},
+					},
+				},
+			},
+			output: `BlockName=b1 Nodes=n[1-2]
+# b2=block2
+BlockName=b2 Nodes=n3
+BlockSizes=2,4
+`,
+		},
+		{
+			name: "Case 4: multiple blocks with mixed settings without blockSizes",
+			nt: &NetworkTopology{
+				config: &Config{},
 				blocks: []*blockInfo{
 					{
 						id:    "b1",
@@ -142,16 +121,15 @@ BlockSizes=1,2
 	}
 }
 
-func TestGetBlockSize(t *testing.T) {
+func TestGetBlockSizes(t *testing.T) {
 	testCases := []struct {
 		name           string
 		blocks         map[string]int
 		blockSize      []int
-		useFake        bool
 		expectedOutput []int
 	}{
 		{
-			name: "Case 1: #nodes/block same, #blocks power of 2, admin !provided base block size",
+			name: "Case 1: #nodes/block same, #blocks power of 2, blockSizes not requested",
 			blocks: map[string]int{
 				"nvl1": 2,
 				"nvl2": 2,
@@ -159,7 +137,7 @@ func TestGetBlockSize(t *testing.T) {
 			expectedOutput: []int{2, 4},
 		},
 		{
-			name: "Case 2: #nodes/block different, #blocks power of 2, admin !provided base block size",
+			name: "Case 2: #nodes/block different, #blocks power of 2, blockSizes not requested",
 			blocks: map[string]int{
 				"nvl1": 2,
 				"nvl2": 3,
@@ -167,7 +145,7 @@ func TestGetBlockSize(t *testing.T) {
 			expectedOutput: []int{2, 4},
 		},
 		{
-			name: "Case 3: #nodes/block same, #blocks !power of 2, admin !provided base block size",
+			name: "Case 3: #nodes/block same, #blocks !power of 2, blockSizes not requested",
 			blocks: map[string]int{
 				"nvl1": 2,
 				"nvl2": 2,
@@ -176,7 +154,7 @@ func TestGetBlockSize(t *testing.T) {
 			expectedOutput: []int{2, 4},
 		},
 		{
-			name: "Case 4: #nodes/block same, #blocks power of 2, admin provided base block size",
+			name: "Case 4: #nodes/block same, #blocks power of 2, blockSizes requested",
 			blocks: map[string]int{
 				"nvl1": 2,
 				"nvl2": 2,
@@ -185,7 +163,7 @@ func TestGetBlockSize(t *testing.T) {
 			expectedOutput: []int{2},
 		},
 		{
-			name: "Case 5: #nodes/block different, #blocks power of 2, admin provided base block size",
+			name: "Case 5: #nodes/block different, #blocks power of 2, blockSizes requested",
 			blocks: map[string]int{
 				"nvl1": 2,
 				"nvl2": 3,
@@ -194,7 +172,7 @@ func TestGetBlockSize(t *testing.T) {
 			expectedOutput: []int{2},
 		},
 		{
-			name: "Case 6: #nodes/block same, #blocks !power of 2, admin provided base block size",
+			name: "Case 6: #nodes/block same, #blocks !power of 2, blockSizes requested",
 			blocks: map[string]int{
 				"nvl1": 2,
 				"nvl2": 2,
@@ -204,7 +182,7 @@ func TestGetBlockSize(t *testing.T) {
 			expectedOutput: []int{2},
 		},
 		{
-			name: "Case 7: #nodes/block same, #blocks power of 2, admin provided blocksizes",
+			name: "Case 7: #nodes/block same, #blocks power of 2, blockSizes requested",
 			blocks: map[string]int{
 				"nvl1": 3,
 				"nvl2": 3,
@@ -214,102 +192,11 @@ func TestGetBlockSize(t *testing.T) {
 			blockSize:      []int{3, 6, 12},
 			expectedOutput: []int{3, 6, 12},
 		},
-		{
-			name: "Case 8: #nodes/block different, #blocks power of 2, admin provided wrong base blocksize",
-			blocks: map[string]int{
-				"nvl1": 3,
-				"nvl2": 4,
-				"nvl3": 3,
-				"nvl4": 4,
-			},
-			blockSize:      []int{4},
-			expectedOutput: []int{3, 6, 12},
-		},
-		{
-			name: "Case 9: #nodes/block different, #blocks !power of 2, admin provided wrong blocksizes",
-			blocks: map[string]int{
-				"nvl1": 3,
-				"nvl2": 4,
-				"nvl3": 3,
-			},
-			blockSize:      []int{3, 4},
-			expectedOutput: []int{3, 6},
-		},
-		{
-			name: "Case 10: #nodes/block same, #blocks power of 2, admin provided larger base blocksize",
-			blocks: map[string]int{
-				"nvl1": 4,
-				"nvl2": 4,
-				"nvl3": 4,
-				"nvl4": 4,
-			},
-			blockSize:      []int{10},
-			expectedOutput: []int{4, 8, 16},
-		},
-		{
-			name: "Case 11: #nodes/block different, #blocks power of 2, admin provided smaller base blocksize",
-			blocks: map[string]int{
-				"nvl1": 3,
-				"nvl2": 4,
-				"nvl3": 3,
-				"nvl4": 4,
-			},
-			blockSize:      []int{2},
-			expectedOutput: []int{2},
-		},
-		{
-			name:    "Case 12: with fake nodes, #nodes = base block size, no requested block sizes",
-			useFake: true,
-			blocks: map[string]int{
-				"nvl1": 18,
-				"nvl2": 18,
-			},
-			expectedOutput: []int{18, 36},
-		},
-		{
-			name:    "Case 13: with fake nodes, mixed #nodes, no requested block sizes",
-			useFake: true,
-			blocks: map[string]int{
-				"nvl1": 12,
-				"nvl2": 18,
-			},
-			expectedOutput: []int{12, 24},
-		},
-		{
-			name:    "Case 14: with fake nodes, requested base block size > #nodes",
-			useFake: true,
-			blocks: map[string]int{
-				"nvl1": 12,
-				"nvl2": 12,
-			},
-			blockSize:      []int{18, 36},
-			expectedOutput: []int{18, 36},
-		},
-		{
-			name:    "Case 15: with fake nodes, requested base block size > #nodes",
-			useFake: true,
-			blocks: map[string]int{
-				"nvl1": 12,
-				"nvl2": 12,
-			},
-			blockSize:      []int{18},
-			expectedOutput: []int{18},
-		},
-		{
-			name:    "Case 16: with fake nodes, requested base block size < #nodes",
-			useFake: true,
-			blocks: map[string]int{
-				"nvl1": 18,
-				"nvl2": 18,
-			},
-			blockSize:      []int{15},
-			expectedOutput: []int{15},
-		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			blockSize := getBlockSize(populateBlockInfo(tc.blocks), tc.blockSize, tc.useFake)
+			blockSize := getBlockSizes(populateBlockInfo(tc.blocks), tc.blockSize)
 			require.Equal(t, tc.expectedOutput, blockSize)
 		})
 	}

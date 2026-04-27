@@ -12,11 +12,8 @@ import (
 	"net/http"
 	"strings"
 
-	"k8s.io/klog/v2"
-
 	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/httperr"
-	"github.com/NVIDIA/topograph/pkg/metrics"
 )
 
 func findMinDomainSize(blocks []*blockInfo) int {
@@ -30,54 +27,20 @@ func findMinDomainSize(blocks []*blockInfo) int {
 	return minDomainSize
 }
 
-// getBlockSize returns blocksize for each possible level.
-// Admin provided blocksize is validated and is overriden with default blocksizes if validation fails.
-func getBlockSize(blocks []*blockInfo, requestedBlockSizes []int, useFake bool) []int {
-	// get smallest domain size
-	var minDomainSize int
-	if useFake && len(requestedBlockSizes) != 0 {
-		minDomainSize = requestedBlockSizes[0]
-	} else {
-		minDomainSize = findMinDomainSize(blocks)
-	}
-	maxnumbs := int(math.Log2(float64(len(blocks))))
-	outputbs := []int{}
-
-	// validate requested block sizes
+// getBlockSizes returns the BlockSizes list for Slurm's block topology.
+// If requestedBlockSizes is non-empty it is returned unchanged. Otherwise the
+// result is [D, 2D, 4D, ..., 2^k*D], where D is the smallest block's node
+// count and k = floor(log2(N)) for N blocks: the base size matches the
+// smallest accelerator domain and each successive level doubles, up to the
+// largest power-of-two multiple that fits the block count.
+func getBlockSizes(blocks []*blockInfo, requestedBlockSizes []int) []int {
 	if len(requestedBlockSizes) != 0 {
-		// validate minimal block size
-		var candidate int
-		possiblebs := make(map[int]bool)
-		for i, bs := range requestedBlockSizes {
-			if i == 0 {
-				if bs <= 0 || bs > minDomainSize {
-					metrics.AddValidationError("bad admin blockSize")
-					klog.Warningf("Overriding admin blockSizes. Planning blockSize %v does not meet criteria, should be > 0 & <= %v.", bs, minDomainSize)
-					break
-				}
-				candidate = bs
-				// get possible blocksizes with the planningBS
-				for l := 0; l <= maxnumbs; l++ {
-					levelblocksize := int(math.Pow(2, float64(l))) * candidate
-					possiblebs[levelblocksize] = true
-				}
-			}
-
-			if _, exists := possiblebs[bs]; !exists {
-				metrics.AddValidationError("bad admin blockSize")
-				klog.Warningf("Overriding admin blockSizes. BlockSize %v should follow the pattern (2^n) * %v, with n <= %v", bs, candidate, maxnumbs)
-				break
-			}
-			outputbs = append(outputbs, bs)
-		}
-
-		if len(outputbs) == len(requestedBlockSizes) {
-			return outputbs
-		}
+		return requestedBlockSizes
 	}
-
-	// reset outputbs
-	outputbs = []int{minDomainSize}
+	// get smallest domain size
+	minDomainSize := findMinDomainSize(blocks)
+	outputbs := []int{minDomainSize}
+	maxnumbs := int(math.Log2(float64(len(blocks))))
 
 	for i := 1; i <= maxnumbs; i++ {
 		levelblocksize := int(math.Pow(2, float64(i))) * minDomainSize
@@ -88,15 +51,7 @@ func getBlockSize(blocks []*blockInfo, requestedBlockSizes []int, useFake bool) 
 }
 
 func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *httperr.Error {
-	var fnc *fakeNodeConfig
-	if len(nt.config.FakeNodePool) != 0 {
-		fnc = getFakeNodeConfig(nt.config.FakeNodePool)
-	}
-
-	finalBlockSizes := getBlockSize(nt.blocks, nt.config.BlockSizes, fnc != nil)
-	if fnc != nil {
-		fnc.baseBlockSize = finalBlockSizes[0]
-	}
+	blockSizes := getBlockSizes(nt.blocks, nt.config.BlockSizes)
 
 	for _, bInfo := range nt.blocks {
 		var comment string
@@ -105,13 +60,6 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *htt
 		}
 
 		outputNodeNames := strings.Join(cluset.Compact(bInfo.nodes), ",")
-		if fnc != nil && len(bInfo.nodes) < fnc.baseBlockSize {
-			fakeNodeNames, err := fnc.getFreeFakeNodes(fnc.baseBlockSize - len(bInfo.nodes))
-			if err != nil {
-				return httperr.NewError(http.StatusBadGateway, err.Error())
-			}
-			outputNodeNames = fmt.Sprintf("%s,%s", outputNodeNames, fakeNodeNames)
-		}
 
 		var err error
 		if skeletonOnly {
@@ -124,8 +72,8 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *htt
 		}
 	}
 
-	bss := make([]string, 0, len(finalBlockSizes))
-	for _, bs := range finalBlockSizes {
+	bss := make([]string, 0, len(blockSizes))
+	for _, bs := range blockSizes {
 		bss = append(bss, fmt.Sprintf("%d", bs))
 	}
 

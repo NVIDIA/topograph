@@ -144,7 +144,7 @@ SwitchName=no-topology Nodes=n-CPU
     "name": "slurm",
 	"params": {
       "plugin": "topology/block",
-      "block_sizes": "8,16,32"
+      "blockSizes": [8,16,32]
     }
   }
 }
