@@ -47,9 +47,10 @@ func Exec(ctx context.Context, exe string, args []string, env map[string]string)
 
 	err := cmd.Run()
 	if err != nil {
-		msg := stderr.String()
-		klog.ErrorS(err, "failed to execute command", "stdout", stdout.String(), "stderr", msg)
-		return nil, fmt.Errorf("%s failed: %s : %v", exe, msg, err)
+		strout := strings.ReplaceAll(stdout.String(), "\n", " ")
+		strerr := strings.ReplaceAll(stderr.String(), "\n", " ")
+		klog.ErrorS(err, "failed to execute command", "stdout", strout, "stderr", strerr)
+		return nil, fmt.Errorf("%s failed: %s : %v", exe, strerr, err)
 	}
 	return &stdout, nil
 }
