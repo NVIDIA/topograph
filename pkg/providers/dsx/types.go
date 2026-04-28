@@ -16,11 +16,16 @@
 
 package dsx
 
-import "context"
+import (
+	"context"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
+)
 
 // TopologyResponse is the DSX GET …/topology/…/nodes JSON body.
 type TopologyResponse struct {
-	Switches map[string]SwitchInfo `json:"switches"`
+	Switches      map[string]SwitchInfo `json:"switches"`
+	NextPageToken string                `json:"next_page_token,omitempty"`
 }
 
 // SwitchInfo describes one fabric switch and its children (switches and/or nodes).
@@ -37,7 +42,9 @@ type NodeInfo struct {
 
 type ClientFactory func() (Client, error)
 
-// Client retrieves topology from REST API endpoints.
+// Client retrieves topology from REST API endpoints. Implementations fetch all pages until
+// next_page_token is empty and return a single merged [TopologyResponse], plus the effective
+// compute instances for downstream graph building (see [effectiveComputeInstances]).
 type Client interface {
-	GetTopology(ctx context.Context, vpcID string, nodeIDs []string, pageSize int, pageToken string) (*TopologyResponse, error)
+	GetTopology(ctx context.Context, vpcID string, nodeIDs []string, cis []topology.ComputeInstances) (*TopologyResponse, []topology.ComputeInstances, error)
 }

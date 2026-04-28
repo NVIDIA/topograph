@@ -42,8 +42,9 @@ func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize *int, 
 	}
 
 	ps := pageSizeVal(pageSize, p.params)
+	ctx = contextWithDSXPageSize(ctx, ps)
 
-	response, apiErr := client.GetTopology(ctx, p.params.VpcID, nodeIDs, ps, "")
+	response, cisEff, apiErr := client.GetTopology(ctx, p.params.VpcID, nodeIDs, cis)
 	if apiErr != nil {
 		var hse *httpStatusError
 		if errors.As(apiErr, &hse) && hse.code >= 400 && hse.code < 500 {
@@ -51,8 +52,6 @@ func (p *Provider) generateInstanceTopology(ctx context.Context, pageSize *int, 
 		}
 		return nil, nil, httperr.NewError(http.StatusBadGateway, apiErr.Error())
 	}
-
-	cisEff := effectiveComputeInstances(response, cis)
 	topo := responseToClusterTopology(response, cisEff)
 	return topo, cisEff, nil
 }
@@ -83,12 +82,12 @@ func effectiveComputeInstances(response *TopologyResponse, cis []topology.Comput
 	if len(m) == 0 {
 		return cis
 	}
-	return []topology.ComputeInstances{{Region: "", Instances: m}}
+	return []topology.ComputeInstances{{Region: defaultRegion, Instances: m}}
 }
 
 // responseToClusterTopology maps switch/node API output to per-instance records for ToThreeTierGraph.
 func responseToClusterTopology(response *TopologyResponse, cis []topology.ComputeInstances) *topology.ClusterTopology {
-	want := allowedNodeKeys(cis)
+	want, idByNodeID := computeInstanceLookups(cis)
 
 	parentOf := make(map[string]string)
 	for swName, info := range response.Switches {
@@ -110,7 +109,7 @@ func responseToClusterTopology(response *TopologyResponse, cis []topology.Comput
 				coreID = parentOf[spineID]
 			}
 
-			instID := instanceIDForNode(n.NodeID, cis)
+			instID := idByNodeID[n.NodeID]
 			if instID == "" {
 				instID = n.NodeID
 			}
@@ -130,27 +129,21 @@ func responseToClusterTopology(response *TopologyResponse, cis []topology.Comput
 	return topo
 }
 
-func instanceIDForNode(nodeID string, cis []topology.ComputeInstances) string {
-	for _, ci := range cis {
-		for instID, name := range ci.Instances {
-			if name == nodeID || instID == nodeID {
-				return instID
-			}
-		}
-	}
-	return ""
-}
-
-func allowedNodeKeys(cis []topology.ComputeInstances) map[string]bool {
+// computeInstanceLookups returns accepted API node_id keys for filtering when cis is non-empty,
+// and node_id (hostname or instance id string) -> instance ID for [topology.ClusterTopology.ToThreeTierGraph].
+func computeInstanceLookups(cis []topology.ComputeInstances) (want map[string]bool, idByNodeID map[string]string) {
 	if len(cis) == 0 {
-		return nil
+		return nil, nil
 	}
-	m := make(map[string]bool)
+	want = make(map[string]bool)
+	idByNodeID = make(map[string]string)
 	for _, ci := range cis {
 		for instID, nodeName := range ci.Instances {
-			m[instID] = true
-			m[nodeName] = true
+			want[instID] = true
+			want[nodeName] = true
+			idByNodeID[nodeName] = instID
+			idByNodeID[instID] = instID
 		}
 	}
-	return m
+	return want, idByNodeID
 }

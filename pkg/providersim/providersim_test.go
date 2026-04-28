@@ -14,26 +14,31 @@
  * limitations under the License.
  */
 
-package sim
+package providersim
 
 import (
+	"net/http"
 	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestListenAndServeReturnsBoundAddr(t *testing.T) {
-	ls, err := ListenAndServe("127.0.0.1:0")
-	require.NoError(t, err)
-	require.NotEmpty(t, ls.Addr)
-	require.NotZero(t, ls.Port)
+func TestServerRegistersHandlersAndBaseURL(t *testing.T) {
+	stop := StartDefaultForTests(func(reg HandlerRegistry) {
+		reg.RegisterHandler("/ping", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}))
+	})
+	defer stop()
 
-	u, err := url.Parse(ls.GetURL())
+	u, err := url.Parse(Default().BaseURL())
 	require.NoError(t, err)
 	require.Equal(t, "http", u.Scheme)
-	require.Equal(t, ls.Addr, u.Host)
+	require.NotEmpty(t, u.Host)
 
-	require.NoError(t, ls.Close())
-	require.NoError(t, ls.Wait())
+	resp, err := http.Get(Default().BaseURL() + "/ping")
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 }

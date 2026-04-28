@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -34,9 +35,17 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/models"
+	"github.com/NVIDIA/topograph/pkg/providersim"
 	"github.com/NVIDIA/topograph/pkg/test"
 	"github.com/NVIDIA/topograph/pkg/toposim"
 )
+
+func TestMain(m *testing.M) {
+	stop := providersim.StartDefaultForTests(nil)
+	code := m.Run()
+	stop()
+	os.Exit(code)
+}
 
 const (
 	simpleSlurmPayload = `

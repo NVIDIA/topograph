@@ -79,7 +79,7 @@ func NewModelFromFile(fname string) (*Model, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %v", fname, err)
+		return nil, fmt.Errorf("failed to read %s: %w", fname, err)
 	}
 	return NewModelFromData(data, fname)
 }

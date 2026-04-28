@@ -21,39 +21,41 @@ import (
 	"errors"
 	"io/fs"
 	"net/http"
+	"os"
+	"strings"
 )
 
-// Server serves DSX topology simulation APIs by returning raw JSON from a filesystem path
-// (when [QueryParamFilePath] is absolute) or from embedded `responses/<stem>.json`.
-// The path segment `vpcs/{vpcID}` and any Authorization claims are ignored for file selection.
+// Server serves DSX topology simulation APIs by returning JSON from a filesystem path
+// (when [QueryParamFilePath] is absolute and constrained by [Server.AbsResponseRoot]) or by converting a YAML model from tests/models
+// (`filePath` basename stem.json / stem.yaml / stem) into DSX topology JSON.
+// The path segment `vpcs/{vpcID}` is ignored for file selection; Authorization must be a non-empty
+// Bearer token (value unused), matching the real API client.
 type Server struct {
-	embed fs.FS
+	// AbsResponseRoot limits absolute filePath query values to paths under this directory.
+	// When empty, absolute filePath is rejected (see [readResponseBytesAbsolute]). [NewServer] defaults this from the environment or [os.TempDir].
+	AbsResponseRoot string
 }
 
-// NewServer returns a server; pass [EmbeddedResponsesFS] for non-absolute filePath resolution.
-// embedFS may be nil to disable embedded responses (tests).
-func NewServer(embedFS fs.FS) *Server {
-	return &Server{embed: embedFS}
+// NewServer returns a server that resolves relative filePath values against embedded
+// tests/models/<stem>.yaml (see [readResponseBytes]). Absolute paths are confined under
+// [EnvAbsResponseRoot] when set, otherwise under the process temp directory ([os.TempDir]).
+func NewServer() *Server {
+	r := strings.TrimSpace(os.Getenv(EnvAbsResponseRoot))
+	if r == "" {
+		r = os.TempDir()
+	}
+	return &Server{AbsResponseRoot: r}
 }
 
 // Handler returns an http.Handler with the DSX sim routes registered.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/topology/nodes", http.HandlerFunc(s.handleNodesBearer))
-	mux.Handle("GET /v1/topology/vpcs/{vpcID}/nodes", http.HandlerFunc(s.handleNodesVPC))
+	mux.Handle("GET /v1/topology/nodes", http.HandlerFunc(s.handleTopologyNodes))
+	mux.Handle("GET /v1/topology/vpcs/{vpcID}/nodes", http.HandlerFunc(s.handleTopologyNodes))
 	return mux
 }
 
-func (s *Server) handleNodesVPC(w http.ResponseWriter, r *http.Request) {
-	fp, err := filePathFromRequest(r)
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	s.serveResponse(w, fp)
-}
-
-func (s *Server) handleNodesBearer(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTopologyNodes(w http.ResponseWriter, r *http.Request) {
 	if err := requireBearerScheme(r); err != nil {
 		writeJSONError(w, http.StatusUnauthorized, err.Error())
 		return
@@ -67,7 +69,7 @@ func (s *Server) handleNodesBearer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) serveResponse(w http.ResponseWriter, filePath string) {
-	b, err := readResponseBytes(s.embed, filePath)
+	b, err := readResponseBytes(s.AbsResponseRoot, filePath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			writeJSONError(w, http.StatusNotFound, "file not found")

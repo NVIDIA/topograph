@@ -86,20 +86,25 @@ func validateParams(p *Params) error {
 	if len(p.BearerToken) == 0 {
 		return fmt.Errorf("bearerToken not provided")
 	}
-	if len(p.VpcID) == 0 {
-		return fmt.Errorf("vpcId not provided")
-	}
 	return nil
 }
 
-// GetComputeInstances implements optional engine support when a request does not include node lists
-// (e.g. Slurm block topology). It reuses the same [Provider.generateInstanceTopology] path as [Provider.GenerateTopologyConfig].
-func (p *Provider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
-	_, cisEff, herr := p.generateInstanceTopology(ctx, nil, nil)
-	if herr != nil {
-		return nil, herr
+// Instances2NodeMap implements slurm.instanceMapper. DSX node IDs match Slurm node names.
+func (p *Provider) Instances2NodeMap(_ context.Context, nodes []string) (map[string]string, error) {
+	i2n := make(map[string]string, len(nodes))
+	for _, node := range nodes {
+		i2n[node] = node
 	}
-	return cisEff, nil
+	return i2n, nil
+}
+
+// GetInstancesRegions implements slurm.instanceMapper. DSX topology is scoped by vpcId in provider params; region is not modeled separately.
+func (p *Provider) GetInstancesRegions(_ context.Context, nodes []string) (map[string]string, error) {
+	res := make(map[string]string, len(nodes))
+	for _, node := range nodes {
+		res[node] = ""
+	}
+	return res, nil
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {

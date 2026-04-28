@@ -27,8 +27,8 @@ const QueryParamFilePath = "filePath"
 
 var errMissingFilePath = errors.New("missing filePath query parameter")
 
-// filePathFromRequest returns the raw filePath query value (trimmed). The path may be
-// relative to the server responses directory or absolute; see [readResponseBytes].
+// filePathFromRequest returns the raw filePath query value (trimmed). Relative values resolve to
+// embedded tests/models; absolute values are confined under [EnvAbsResponseRoot] or [os.TempDir] by default; see [readResponseBytes].
 func filePathFromRequest(r *http.Request) (string, error) {
 	raw := strings.TrimSpace(r.URL.Query().Get(QueryParamFilePath))
 	if raw == "" {

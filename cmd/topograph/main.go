@@ -29,6 +29,7 @@ import (
 	"github.com/NVIDIA/topograph/internal/version"
 	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/engines/k8s"
+	"github.com/NVIDIA/topograph/pkg/providersim"
 	"github.com/NVIDIA/topograph/pkg/server"
 )
 
@@ -80,6 +81,10 @@ func mainInternal(c string) error {
 	g.Add(run.SignalHandler(ctx, os.Interrupt, syscall.SIGTERM))
 	// HTTP endpoint
 	g.Add(server.GetRunGroup())
+
+	// Provider simulation HTTP Server
+	providersim.Init()
+	g.Add(providersim.GetRunGroup())
 
 	return g.Run()
 }

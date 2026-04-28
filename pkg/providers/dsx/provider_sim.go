@@ -20,10 +20,13 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/providers/dsx/sim"
+	"github.com/NVIDIA/topograph/pkg/providersim"
+	"github.com/NVIDIA/topograph/pkg/topology"
 
 	"k8s.io/klog/v2"
 )
@@ -48,24 +51,31 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 		trimTiers = p.TrimTiers
 	}
 
-	// Local HTTP server serves embedded responses/<stem>.json via filePath= (same routes as the real DSX apiClient).
-	// It is not stopped when the provider is constructed; it lives for the process lifetime (typical for dsx-sim).
-	ls, err := sim.ListenAndServe("127.0.0.1:0")
-	if err != nil {
-		return nil, httperr.NewError(http.StatusInternalServerError, "dsx-sim: "+err.Error())
+	sim.RegisterHTTP(NAME_SIM, providersim.Default())
+
+	// Local HTTP server is started by cmd/topograph via [providersim]; URL comes from the shared listener.
+	baseURL := providersim.Default().BaseURL()
+	if baseURL == "" {
+		return nil, httperr.NewError(http.StatusInternalServerError, "dsx-sim: provider simulation HTTP server is not listening yet")
 	}
 
 	stem := stemFromModelFileName(p.ModelFileName)
-	base, err := url.Parse(ls.GetURL())
+	base, err := url.Parse(baseURL)
 	if err != nil {
-		_ = ls.Close()
 		return nil, httperr.NewError(http.StatusInternalServerError, "dsx-sim: invalid listener URL: "+err.Error())
 	}
+	prefix := strings.Trim(NAME_SIM, "/")
+	switch {
+	case base.Path == "" || base.Path == "/":
+		base.Path = "/" + prefix
+	default:
+		base.Path = strings.TrimSuffix(base.Path, "/") + "/" + prefix
+	}
 	q := base.Query()
-	q.Set(sim.QueryParamFilePath, stem+".json")
+	q.Set(sim.QueryParamFilePath, stem+".yaml")
 	base.RawQuery = q.Encode()
 
-	klog.InfoS("DSX sim provider", "baseURL", base.String(), "response", stem+".json")
+	klog.InfoS("DSX sim provider", "baseURL", base.String(), "model", stem+".yaml")
 
 	params := &Params{
 		BaseURL:     base.String(),
@@ -83,18 +93,34 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 		}
 	}
 
-	return &Provider{
-		clientFactory: factory,
-		params:        params,
-		trimTiers:     trimTiers,
-		providerName:  NAME_SIM,
+	return &simProvider{
+		Provider: &Provider{
+			clientFactory: factory,
+			params:        params,
+			trimTiers:     trimTiers,
+			providerName:  NAME_SIM,
+		},
 	}, nil
+}
+
+// simProvider wraps [Provider] so dsx-sim can expose [simProvider.GetComputeInstances] for empty-node API requests without implementing it on the real DSX provider.
+type simProvider struct {
+	*Provider
+}
+
+// GetComputeInstances returns all instances from an unconstrained topology response (same path as [Provider.GenerateTopologyConfig] with no instances).
+func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
+	_, cisEff, herr := p.generateInstanceTopology(ctx, nil, nil)
+	if herr != nil {
+		return nil, herr
+	}
+	return cisEff, nil
 }
 
 // errTopologyClient implements [Client] and always fails GetTopology with [providers.ErrAPIError]
 // (simulation parameter api_error mapping to topology fetch failure).
 type errTopologyClient struct{}
 
-func (errTopologyClient) GetTopology(context.Context, string, []string, int, string) (*TopologyResponse, error) {
-	return nil, providers.ErrAPIError
+func (errTopologyClient) GetTopology(context.Context, string, []string, []topology.ComputeInstances) (*TopologyResponse, []topology.ComputeInstances, error) {
+	return nil, nil, providers.ErrAPIError
 }

@@ -19,6 +19,7 @@ package dsx
 import (
 	"context"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/agrea/ptr"
@@ -26,31 +27,39 @@ import (
 
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/providersim"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+func TestMain(m *testing.M) {
+	stop := providersim.StartDefaultForTests(nil)
+	code := m.Run()
+	stop()
+	os.Exit(code)
+}
+
 const (
 	smallTreeSlurmTree = `SwitchName=S1 Switches=S[2-3]
-SwitchName=S2 Nodes=I[21-22,25]
-SwitchName=S3 Nodes=I[34-36]
+SwitchName=S2 Nodes=n-I[21-22,25]
+SwitchName=S3 Nodes=n-I[34-36]
 `
 
 	smallTreeSlurmFiltered = `SwitchName=S1 Switches=S2
-SwitchName=S2 Nodes=n[21-22]
+SwitchName=S2 Nodes=n-I[21-22]
 `
 
-	smallTreeSlurmTrim2 = `SwitchName=S2 Nodes=I[21-22,25]
-SwitchName=S3 Nodes=I[34-36]
+	smallTreeSlurmTrim2 = `SwitchName=S2 Nodes=n-I[21-22,25]
+SwitchName=S3 Nodes=n-I[34-36]
 `
 
 	nvl72BlockSlurm = `# block001=nvl-1-1
-BlockName=block001 Nodes=[1101-1115]
+BlockName=block001 Nodes=n-[1101-1115]
 # block002=nvl-1-2
-BlockName=block002 Nodes=[1201-1215]
+BlockName=block002 Nodes=n-[1201-1215]
 # block003=nvl-2-1
-BlockName=block003 Nodes=[2101-2115]
+BlockName=block003 Nodes=n-[2101-2115]
 # block004=nvl-2-2
-BlockName=block004 Nodes=[2201-2218]
+BlockName=block004 Nodes=n-[2201-2218]
 BlockSizes=15,30,60
 `
 )
@@ -141,8 +150,8 @@ func TestProviderSim(t *testing.T) {
 				{
 					Region: "region",
 					Instances: map[string]string{
-						"I21": "n21",
-						"I22": "n22",
+						"I21": "n-I21",
+						"I22": "n-I22",
 					},
 				},
 			},

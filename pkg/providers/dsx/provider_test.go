@@ -49,8 +49,7 @@ func TestLoaderMissingVpcId(t *testing.T) {
 		Params: map[string]any{"baseUrl": "x", "bearerToken": "x"},
 		Creds:  map[string]any{},
 	})
-	require.NotNil(t, err)
-	require.Equal(t, http.StatusBadRequest, err.Code())
+	require.Nil(t, err)
 }
 
 func TestLoaderInvalidTrimTiers(t *testing.T) {
@@ -69,4 +68,18 @@ func TestLoaderWrongTrimTiers(t *testing.T) {
 	})
 	require.NotNil(t, err)
 	require.Equal(t, "invalid 'trimTiers' value '6': must be an integer between 0 and 2", err.Error())
+}
+
+func TestSlurmInstanceMapper(t *testing.T) {
+	ctx := context.Background()
+	p := &Provider{}
+	nodes := []string{"n1", "n2"}
+
+	i2n, err := p.Instances2NodeMap(ctx, nodes)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"n1": "n1", "n2": "n2"}, i2n)
+
+	regions, err := p.GetInstancesRegions(ctx, nodes)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"n1": "", "n2": ""}, regions)
 }

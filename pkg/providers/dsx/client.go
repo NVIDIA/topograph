@@ -28,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 // httpStatusError classifies non-2xx API responses for [Provider] to map to HTTP client errors.
@@ -39,6 +41,28 @@ type httpStatusError struct {
 func (e *httpStatusError) Error() string { return e.msg }
 
 const defaultHTTPTimeout = 120 * time.Second
+const defaultRegion = "default"
+const maxTopologyPages = 10000
+
+// ctxKeyDSXPageSize carries the effective page size for one [Provider.generateInstanceTopology] call
+// (request override merged with config). See [contextWithDSXPageSize].
+type ctxKeyDSXPageSize struct{}
+
+func contextWithDSXPageSize(ctx context.Context, pageSize int) context.Context {
+	return context.WithValue(ctx, ctxKeyDSXPageSize{}, pageSize)
+}
+
+func effectivePageSize(ctx context.Context, p *Params) int {
+	if v := ctx.Value(ctxKeyDSXPageSize{}); v != nil {
+		if n, ok := v.(int); ok && n > 0 {
+			return n
+		}
+	}
+	if p.PageSize > 0 {
+		return p.PageSize
+	}
+	return 1000
+}
 
 // apiClient implements [Client] using HTTPS GET DSX API endpoints.
 type apiClient struct {
@@ -54,7 +78,11 @@ func newAPIClient(p *Params) *apiClient {
 }
 
 func newHTTPTransportClient(insecureSkipTLS bool) *http.Client {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		tr = &http.Transport{}
+	}
+	tr = tr.Clone()
 	tr.TLSClientConfig = &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		//nolint:gosec // InsecureSkipVerify only when params explicitly request it (lab/dev).
@@ -63,7 +91,36 @@ func newHTTPTransportClient(insecureSkipTLS bool) *http.Client {
 	return &http.Client{Transport: tr, Timeout: defaultHTTPTimeout}
 }
 
-func (c *apiClient) GetTopology(ctx context.Context, vpcID string, nodeIDs []string, pageSize int, pageToken string) (*TopologyResponse, error) {
+func (c *apiClient) GetTopology(ctx context.Context, vpcID string, nodeIDs []string, cis []topology.ComputeInstances) (*TopologyResponse, []topology.ComputeInstances, error) {
+	pageSize := effectivePageSize(ctx, c.params)
+	var merged *TopologyResponse
+	token := ""
+	for i := 0; ; i++ {
+		if i >= maxTopologyPages {
+			return nil, nil, fmt.Errorf("dsx: topology pagination exceeded %d pages", maxTopologyPages)
+		}
+		page, err := c.getTopologyPage(ctx, vpcID, nodeIDs, pageSize, token)
+		if err != nil {
+			return nil, nil, err
+		}
+		if merged == nil {
+			merged = page
+		} else {
+			mergeTopologyResponses(merged, page)
+		}
+		token = strings.TrimSpace(page.NextPageToken)
+		if token == "" {
+			break
+		}
+	}
+	if merged == nil || len(merged.Switches) == 0 {
+		return nil, nil, fmt.Errorf("dsx: empty switches in response")
+	}
+	merged.NextPageToken = ""
+	return merged, effectiveComputeInstances(merged, cis), nil
+}
+
+func (c *apiClient) getTopologyPage(ctx context.Context, vpcID string, nodeIDs []string, pageSize int, pageToken string) (*TopologyResponse, error) {
 	v := vpcID
 	if v == "" {
 		v = c.params.VpcID
@@ -111,10 +168,48 @@ func (c *apiClient) GetTopology(ctx context.Context, vpcID string, nodeIDs []str
 	if err := json.Unmarshal(body, &out); err != nil {
 		return nil, fmt.Errorf("dsx: decode topology: %w", err)
 	}
-	if len(out.Switches) == 0 {
-		return nil, fmt.Errorf("dsx: empty switches in response")
-	}
 	return &out, nil
+}
+
+func mergeTopologyResponses(dst *TopologyResponse, src *TopologyResponse) {
+	if src == nil || len(src.Switches) == 0 {
+		return
+	}
+	if dst.Switches == nil {
+		dst.Switches = make(map[string]SwitchInfo)
+	}
+	for name, swSrc := range src.Switches {
+		swDst := dst.Switches[name]
+		swDst.Switches = unionStringSlices(swDst.Switches, swSrc.Switches)
+		swDst.Nodes = mergeNodeInfos(swDst.Nodes, swSrc.Nodes)
+		dst.Switches[name] = swDst
+	}
+}
+
+func unionStringSlices(a, b []string) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	for _, s := range append(append([]string{}, a...), b...) {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
+}
+
+func mergeNodeInfos(a, b []NodeInfo) []NodeInfo {
+	seen := make(map[string]struct{})
+	var out []NodeInfo
+	for _, n := range append(append([]NodeInfo{}, a...), b...) {
+		if _, ok := seen[n.NodeID]; ok {
+			continue
+		}
+		seen[n.NodeID] = struct{}{}
+		out = append(out, n)
+	}
+	return out
 }
 
 // topologyRequestURL builds GET …/topology/…/nodes. Query parameters on baseURL are preserved
@@ -124,9 +219,13 @@ func topologyRequestURL(baseURL, vpcID string) (*url.URL, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dsx: invalid base_url: %w", err)
 	}
-	path := "/v1/topology/nodes"
+	apiPath := "/v1/topology/nodes"
 	if vpcID != "" {
-		path = "/v1/topology/vpcs/" + url.PathEscape(vpcID) + "/nodes"
+		apiPath = "/v1/topology/vpcs/" + url.PathEscape(vpcID) + "/nodes"
+	}
+	path := apiPath
+	if p := strings.TrimSuffix(base.Path, "/"); p != "" {
+		path = p + apiPath
 	}
 	out := &url.URL{
 		Scheme:   base.Scheme,

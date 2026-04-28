@@ -33,7 +33,35 @@ import (
 
 func testServer(t *testing.T) *Server {
 	t.Helper()
-	return NewServer(EmbeddedResponsesFS())
+	return NewServer()
+}
+
+// sim tests use a non-empty Bearer token; the server does not interpret the value.
+const testBearer = "Bearer sim"
+
+func getWithAuth(t *testing.T, ts *httptest.Server, u string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", testBearer)
+	res, err := ts.Client().Do(req)
+	require.NoError(t, err)
+	return res
+}
+
+func TestVPCPathYAMLModelGeneratesJSON(t *testing.T) {
+	ts := httptest.NewServer(testServer(t).Handler())
+	t.Cleanup(ts.Close)
+
+	u := ts.URL + "/v1/topology/vpcs/x/nodes?" + QueryParamFilePath + "=" + url.QueryEscape("small-tree.yaml")
+	res := getWithAuth(t, ts, u)
+	t.Cleanup(func() { _ = res.Body.Close() })
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	var m map[string]any
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&m))
+	sw := m["switches"].(map[string]any)
+	require.Contains(t, sw, "S1")
 }
 
 func TestVPCPathIgnoredUsesFilePath(t *testing.T) {
@@ -41,8 +69,7 @@ func TestVPCPathIgnoredUsesFilePath(t *testing.T) {
 	t.Cleanup(ts.Close)
 
 	u := ts.URL + "/v1/topology/vpcs/ignored-vpc/nodes?" + QueryParamFilePath + "=" + url.QueryEscape("small-tree.json")
-	res, err := ts.Client().Get(u)
-	require.NoError(t, err)
+	res := getWithAuth(t, ts, u)
 	t.Cleanup(func() { _ = res.Body.Close() })
 	require.Equal(t, http.StatusOK, res.StatusCode)
 
@@ -100,12 +127,22 @@ func TestBearerMissingAuth(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
 }
 
+func TestVPCPathMissingAuth(t *testing.T) {
+	ts := httptest.NewServer(testServer(t).Handler())
+	t.Cleanup(ts.Close)
+
+	u := ts.URL + "/v1/topology/vpcs/x/nodes?" + QueryParamFilePath + "=small-tree.json"
+	res, err := ts.Client().Get(u)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = res.Body.Close() })
+	require.Equal(t, http.StatusUnauthorized, res.StatusCode)
+}
+
 func TestMissingFilePathVPCRoute(t *testing.T) {
 	ts := httptest.NewServer(testServer(t).Handler())
 	t.Cleanup(ts.Close)
 
-	res, err := ts.Client().Get(ts.URL + "/v1/topology/vpcs/x/nodes")
-	require.NoError(t, err)
+	res := getWithAuth(t, ts, ts.URL+"/v1/topology/vpcs/x/nodes")
 	t.Cleanup(func() { _ = res.Body.Close() })
 	require.Equal(t, http.StatusBadRequest, res.StatusCode)
 }
@@ -118,13 +155,13 @@ func TestAbsoluteFilePathReadsDiskOnly(t *testing.T) {
 	abs, err := filepath.Abs(p)
 	require.NoError(t, err)
 
-	srv := NewServer(EmbeddedResponsesFS())
+	srv := NewServer()
+	srv.AbsResponseRoot = dir
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 
 	u := ts.URL + "/v1/topology/vpcs/x/nodes?" + QueryParamFilePath + "=" + url.QueryEscape(abs)
-	res, err := ts.Client().Get(u)
-	require.NoError(t, err)
+	res := getWithAuth(t, ts, u)
 	t.Cleanup(func() { _ = res.Body.Close() })
 	require.Equal(t, http.StatusOK, res.StatusCode)
 	body, err := io.ReadAll(res.Body)
@@ -137,8 +174,7 @@ func TestEmbedWhenRelativePathUsesBasename(t *testing.T) {
 	t.Cleanup(ts.Close)
 
 	u := ts.URL + "/v1/topology/vpcs/x/nodes?" + QueryParamFilePath + "=" + url.QueryEscape("does/not/exist/small-tree.json")
-	res, err := ts.Client().Get(u)
-	require.NoError(t, err)
+	res := getWithAuth(t, ts, u)
 	t.Cleanup(func() { _ = res.Body.Close() })
 	require.Equal(t, http.StatusOK, res.StatusCode)
 	var m map[string]any
@@ -152,13 +188,67 @@ func TestAbsoluteMissingNoEmbedFallback(t *testing.T) {
 	abs, err := filepath.Abs(missing)
 	require.NoError(t, err)
 
-	srv := NewServer(EmbeddedResponsesFS())
+	srv := NewServer()
+	srv.AbsResponseRoot = dir
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 
 	u := ts.URL + "/v1/topology/vpcs/x/nodes?" + QueryParamFilePath + "=" + url.QueryEscape(abs)
-	res, err := ts.Client().Get(u)
-	require.NoError(t, err)
+	res := getWithAuth(t, ts, u)
 	t.Cleanup(func() { _ = res.Body.Close() })
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
+}
+
+func TestAbsolutePathRejectedWithoutConfiguredRoot(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "only.json")
+	require.NoError(t, os.WriteFile(p, []byte(`{}`), 0o644))
+	abs, err := filepath.Abs(p)
+	require.NoError(t, err)
+
+	srv := NewServer()
+	srv.AbsResponseRoot = ""
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	u := ts.URL + "/v1/topology/vpcs/x/nodes?" + QueryParamFilePath + "=" + url.QueryEscape(abs)
+	res := getWithAuth(t, ts, u)
+	t.Cleanup(func() { _ = res.Body.Close() })
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+}
+
+func TestAbsolutePathRejectedOutsideConfiguredRoot(t *testing.T) {
+	dirAllowed := t.TempDir()
+	dirOutside := t.TempDir()
+	p := filepath.Join(dirOutside, "secret.json")
+	require.NoError(t, os.WriteFile(p, []byte(`{}`), 0o644))
+	abs, err := filepath.Abs(p)
+	require.NoError(t, err)
+
+	srv := NewServer()
+	srv.AbsResponseRoot = dirAllowed
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	u := ts.URL + "/v1/topology/vpcs/x/nodes?" + QueryParamFilePath + "=" + url.QueryEscape(abs)
+	res := getWithAuth(t, ts, u)
+	t.Cleanup(func() { _ = res.Body.Close() })
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+}
+
+func TestAbsolutePathTraversalRejected(t *testing.T) {
+	dir := t.TempDir()
+	srv := NewServer()
+	srv.AbsResponseRoot = dir
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	evil := filepath.Join(dir, "..", "..", "etc", "passwd")
+	absEvil, err := filepath.Abs(evil)
+	require.NoError(t, err)
+
+	u := ts.URL + "/v1/topology/vpcs/x/nodes?" + QueryParamFilePath + "=" + url.QueryEscape(absEvil)
+	res := getWithAuth(t, ts, u)
+	t.Cleanup(func() { _ = res.Body.Close() })
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
 }
