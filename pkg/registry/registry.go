@@ -26,6 +26,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/cw"
 	"github.com/NVIDIA/topograph/pkg/providers/dra"
+	"github.com/NVIDIA/topograph/pkg/providers/dsx"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
 	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
@@ -41,6 +42,8 @@ var Providers = providers.NewRegistry(
 	infiniband.NamedLoaderBM,
 	infiniband.NamedLoaderK8S,
 	cw.NamedLoader,
+	dsx.NamedLoader,
+	dsx.NamedLoaderSim,
 	dra.NamedLoader,
 	gcp.NamedLoader,
 	gcp.NamedLoaderSim,

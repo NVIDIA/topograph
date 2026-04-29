@@ -1,0 +1,42 @@
+{
+  "switches": {
+    "S1": {
+      "switches": [
+        "S2",
+        "S3"
+      ]
+    },
+    "S2": {
+      "nodes": [
+        {
+          "node_id": "I21",
+          "accelerated_network_id": "cb2-h100"
+        },
+        {
+          "node_id": "I22",
+          "accelerated_network_id": "cb2-h100"
+        },
+        {
+          "node_id": "I25",
+          "accelerated_network_id": "cb2-h100"
+        }
+      ]
+    },
+    "S3": {
+      "nodes": [
+        {
+          "node_id": "I34",
+          "accelerated_network_id": "cb3-h100"
+        },
+        {
+          "node_id": "I35",
+          "accelerated_network_id": "cb3-h100"
+        },
+        {
+          "node_id": "I36",
+          "accelerated_network_id": "cb3-h100"
+        }
+      ]
+    }
+  }
+}

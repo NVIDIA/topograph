@@ -1,0 +1,482 @@
+{
+  "switches": {
+    "core": {
+      "switches": [
+        "spine-1",
+        "spine-2",
+        "spine-3",
+        "spine-4",
+        "spine-5",
+        "spine-6"
+      ]
+    },
+    "spine-1": {
+      "switches": [
+        "leaf-1-1",
+        "leaf-1-2"
+      ]
+    },
+    "spine-2": {
+      "switches": [
+        "leaf-2-1",
+        "leaf-2-2"
+      ]
+    },
+    "spine-3": {
+      "switches": [
+        "leaf-3-1",
+        "leaf-3-2"
+      ]
+    },
+    "spine-4": {
+      "switches": [
+        "leaf-4-1",
+        "leaf-4-2"
+      ]
+    },
+    "spine-5": {
+      "switches": [
+        "leaf-5-1",
+        "leaf-5-2"
+      ]
+    },
+    "spine-6": {
+      "switches": [
+        "leaf-6-1",
+        "leaf-6-2"
+      ]
+    },
+    "leaf-1-1": {
+      "nodes": [
+        {
+          "node_id": "n-1101",
+          "accelerated_network_id": "nvl-1-1"
+        },
+        {
+          "node_id": "n-1102",
+          "accelerated_network_id": "nvl-1-1"
+        },
+        {
+          "node_id": "n-1103",
+          "accelerated_network_id": "nvl-1-1"
+        },
+        {
+          "node_id": "n-1104",
+          "accelerated_network_id": "nvl-1-1"
+        },
+        {
+          "node_id": "n-1105",
+          "accelerated_network_id": "nvl-1-1"
+        },
+        {
+          "node_id": "n-1106",
+          "accelerated_network_id": "nvl-1-1"
+        },
+        {
+          "node_id": "n-1107",
+          "accelerated_network_id": "nvl-1-1"
+        },
+        {
+          "node_id": "n-1108",
+          "accelerated_network_id": "nvl-1-1"
+        }
+      ]
+    },
+    "leaf-1-2": {
+      "nodes": [
+        {
+          "node_id": "n-1201",
+          "accelerated_network_id": "nvl-1-2"
+        },
+        {
+          "node_id": "n-1202",
+          "accelerated_network_id": "nvl-1-2"
+        },
+        {
+          "node_id": "n-1203",
+          "accelerated_network_id": "nvl-1-2"
+        },
+        {
+          "node_id": "n-1204",
+          "accelerated_network_id": "nvl-1-2"
+        },
+        {
+          "node_id": "n-1205",
+          "accelerated_network_id": "nvl-1-2"
+        },
+        {
+          "node_id": "n-1206",
+          "accelerated_network_id": "nvl-1-2"
+        },
+        {
+          "node_id": "n-1207",
+          "accelerated_network_id": "nvl-1-2"
+        },
+        {
+          "node_id": "n-1208",
+          "accelerated_network_id": "nvl-1-2"
+        }
+      ]
+    },
+    "leaf-2-1": {
+      "nodes": [
+        {
+          "node_id": "n-2101",
+          "accelerated_network_id": "nvl-2-1"
+        },
+        {
+          "node_id": "n-2102",
+          "accelerated_network_id": "nvl-2-1"
+        },
+        {
+          "node_id": "n-2103",
+          "accelerated_network_id": "nvl-2-1"
+        },
+        {
+          "node_id": "n-2104",
+          "accelerated_network_id": "nvl-2-1"
+        },
+        {
+          "node_id": "n-2105",
+          "accelerated_network_id": "nvl-2-1"
+        },
+        {
+          "node_id": "n-2106",
+          "accelerated_network_id": "nvl-2-1"
+        },
+        {
+          "node_id": "n-2107",
+          "accelerated_network_id": "nvl-2-1"
+        },
+        {
+          "node_id": "n-2108",
+          "accelerated_network_id": "nvl-2-1"
+        }
+      ]
+    },
+    "leaf-2-2": {
+      "nodes": [
+        {
+          "node_id": "n-2201",
+          "accelerated_network_id": "nvl-2-2"
+        },
+        {
+          "node_id": "n-2202",
+          "accelerated_network_id": "nvl-2-2"
+        },
+        {
+          "node_id": "n-2203",
+          "accelerated_network_id": "nvl-2-2"
+        },
+        {
+          "node_id": "n-2204",
+          "accelerated_network_id": "nvl-2-2"
+        },
+        {
+          "node_id": "n-2205",
+          "accelerated_network_id": "nvl-2-2"
+        },
+        {
+          "node_id": "n-2206",
+          "accelerated_network_id": "nvl-2-2"
+        },
+        {
+          "node_id": "n-2207",
+          "accelerated_network_id": "nvl-2-2"
+        },
+        {
+          "node_id": "n-2208",
+          "accelerated_network_id": "nvl-2-2"
+        }
+      ]
+    },
+    "leaf-3-1": {
+      "nodes": [
+        {
+          "node_id": "n-3101",
+          "accelerated_network_id": "nvl-3-1"
+        },
+        {
+          "node_id": "n-3102",
+          "accelerated_network_id": "nvl-3-1"
+        },
+        {
+          "node_id": "n-3103",
+          "accelerated_network_id": "nvl-3-1"
+        },
+        {
+          "node_id": "n-3104",
+          "accelerated_network_id": "nvl-3-1"
+        },
+        {
+          "node_id": "n-3105",
+          "accelerated_network_id": "nvl-3-1"
+        },
+        {
+          "node_id": "n-3106",
+          "accelerated_network_id": "nvl-3-1"
+        },
+        {
+          "node_id": "n-3107",
+          "accelerated_network_id": "nvl-3-1"
+        },
+        {
+          "node_id": "n-3108",
+          "accelerated_network_id": "nvl-3-1"
+        }
+      ]
+    },
+    "leaf-3-2": {
+      "nodes": [
+        {
+          "node_id": "n-3201",
+          "accelerated_network_id": "nvl-3-2"
+        },
+        {
+          "node_id": "n-3202",
+          "accelerated_network_id": "nvl-3-2"
+        },
+        {
+          "node_id": "n-3203",
+          "accelerated_network_id": "nvl-3-2"
+        },
+        {
+          "node_id": "n-3204",
+          "accelerated_network_id": "nvl-3-2"
+        },
+        {
+          "node_id": "n-3205",
+          "accelerated_network_id": "nvl-3-2"
+        },
+        {
+          "node_id": "n-3206",
+          "accelerated_network_id": "nvl-3-2"
+        },
+        {
+          "node_id": "n-3207",
+          "accelerated_network_id": "nvl-3-2"
+        },
+        {
+          "node_id": "n-3208",
+          "accelerated_network_id": "nvl-3-2"
+        }
+      ]
+    },
+    "leaf-4-1": {
+      "nodes": [
+        {
+          "node_id": "n-4101",
+          "accelerated_network_id": "nvl-4-1"
+        },
+        {
+          "node_id": "n-4102",
+          "accelerated_network_id": "nvl-4-1"
+        },
+        {
+          "node_id": "n-4103",
+          "accelerated_network_id": "nvl-4-1"
+        },
+        {
+          "node_id": "n-4104",
+          "accelerated_network_id": "nvl-4-1"
+        },
+        {
+          "node_id": "n-4105",
+          "accelerated_network_id": "nvl-4-1"
+        },
+        {
+          "node_id": "n-4106",
+          "accelerated_network_id": "nvl-4-1"
+        },
+        {
+          "node_id": "n-4107",
+          "accelerated_network_id": "nvl-4-1"
+        },
+        {
+          "node_id": "n-4108",
+          "accelerated_network_id": "nvl-4-1"
+        }
+      ]
+    },
+    "leaf-4-2": {
+      "nodes": [
+        {
+          "node_id": "n-4201",
+          "accelerated_network_id": "nvl-4-2"
+        },
+        {
+          "node_id": "n-4202",
+          "accelerated_network_id": "nvl-4-2"
+        },
+        {
+          "node_id": "n-4203",
+          "accelerated_network_id": "nvl-4-2"
+        },
+        {
+          "node_id": "n-4204",
+          "accelerated_network_id": "nvl-4-2"
+        },
+        {
+          "node_id": "n-4205",
+          "accelerated_network_id": "nvl-4-2"
+        },
+        {
+          "node_id": "n-4206",
+          "accelerated_network_id": "nvl-4-2"
+        },
+        {
+          "node_id": "n-4207",
+          "accelerated_network_id": "nvl-4-2"
+        },
+        {
+          "node_id": "n-4208",
+          "accelerated_network_id": "nvl-4-2"
+        }
+      ]
+    },
+    "leaf-5-1": {
+      "nodes": [
+        {
+          "node_id": "n-5101",
+          "accelerated_network_id": "nvl-5-1"
+        },
+        {
+          "node_id": "n-5102",
+          "accelerated_network_id": "nvl-5-1"
+        },
+        {
+          "node_id": "n-5103",
+          "accelerated_network_id": "nvl-5-1"
+        },
+        {
+          "node_id": "n-5104",
+          "accelerated_network_id": "nvl-5-1"
+        },
+        {
+          "node_id": "n-5105",
+          "accelerated_network_id": "nvl-5-1"
+        },
+        {
+          "node_id": "n-5106",
+          "accelerated_network_id": "nvl-5-1"
+        },
+        {
+          "node_id": "n-5107",
+          "accelerated_network_id": "nvl-5-1"
+        },
+        {
+          "node_id": "n-5108",
+          "accelerated_network_id": "nvl-5-1"
+        }
+      ]
+    },
+    "leaf-5-2": {
+      "nodes": [
+        {
+          "node_id": "n-5201",
+          "accelerated_network_id": "nvl-5-2"
+        },
+        {
+          "node_id": "n-5202",
+          "accelerated_network_id": "nvl-5-2"
+        },
+        {
+          "node_id": "n-5203",
+          "accelerated_network_id": "nvl-5-2"
+        },
+        {
+          "node_id": "n-5204",
+          "accelerated_network_id": "nvl-5-2"
+        },
+        {
+          "node_id": "n-5205",
+          "accelerated_network_id": "nvl-5-2"
+        },
+        {
+          "node_id": "n-5206",
+          "accelerated_network_id": "nvl-5-2"
+        },
+        {
+          "node_id": "n-5207",
+          "accelerated_network_id": "nvl-5-2"
+        },
+        {
+          "node_id": "n-5208",
+          "accelerated_network_id": "nvl-5-2"
+        }
+      ]
+    },
+    "leaf-6-1": {
+      "nodes": [
+        {
+          "node_id": "n-6101",
+          "accelerated_network_id": "nvl-6-1"
+        },
+        {
+          "node_id": "n-6102",
+          "accelerated_network_id": "nvl-6-1"
+        },
+        {
+          "node_id": "n-6103",
+          "accelerated_network_id": "nvl-6-1"
+        },
+        {
+          "node_id": "n-6104",
+          "accelerated_network_id": "nvl-6-1"
+        },
+        {
+          "node_id": "n-6105",
+          "accelerated_network_id": "nvl-6-1"
+        },
+        {
+          "node_id": "n-6106",
+          "accelerated_network_id": "nvl-6-1"
+        },
+        {
+          "node_id": "n-6107",
+          "accelerated_network_id": "nvl-6-1"
+        },
+        {
+          "node_id": "n-6108",
+          "accelerated_network_id": "nvl-6-1"
+        }
+      ]
+    },
+    "leaf-6-2": {
+      "nodes": [
+        {
+          "node_id": "n-6201",
+          "accelerated_network_id": "nvl-6-2"
+        },
+        {
+          "node_id": "n-6202",
+          "accelerated_network_id": "nvl-6-2"
+        },
+        {
+          "node_id": "n-6203",
+          "accelerated_network_id": "nvl-6-2"
+        },
+        {
+          "node_id": "n-6204",
+          "accelerated_network_id": "nvl-6-2"
+        },
+        {
+          "node_id": "n-6205",
+          "accelerated_network_id": "nvl-6-2"
+        },
+        {
+          "node_id": "n-6206",
+          "accelerated_network_id": "nvl-6-2"
+        },
+        {
+          "node_id": "n-6207",
+          "accelerated_network_id": "nvl-6-2"
+        },
+        {
+          "node_id": "n-6208",
+          "accelerated_network_id": "nvl-6-2"
+        }
+      ]
+    }
+  }
+}

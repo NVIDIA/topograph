@@ -301,6 +301,27 @@ func TestServerLocal(t *testing.T) {
 				`topograph_http_request_duration_seconds_count\{from=".+",method="GET",path="/v1/topology",proto="HTTP/1\.1",status="404"\} 1`,
 			},
 		},
+		{
+			name:     "Case 10: mock dsx-sim request for block topology",
+			endpoint: "generate",
+			provider: "dsx-sim",
+			payload:  slurmBlockPayload,
+			expected: slurmBlockConfig,
+		},
+		{
+			name:     "Case 11: mock dsx-sim request for tree topology",
+			endpoint: "generate",
+			provider: "dsx-sim",
+			payload:  slurmTreePayload,
+			expected: slurmTreeConfig,
+		},
+		{
+			name:     "Case 12: mock dsx-sim request for trimmed tree topology",
+			endpoint: "generate",
+			provider: "dsx-sim",
+			payload:  slurmTrimmedTreePayload,
+			expected: slurmTrimmedTreeConfig,
+		},
 	}
 
 	for _, tc := range testCases {

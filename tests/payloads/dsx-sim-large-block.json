@@ -1,0 +1,15 @@
+{
+  "provider": {
+    "name": "dsx-sim",
+    "params": {
+      "modelFileName": "large.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "blockSizes": [64, 128]
+    }
+  }
+}
