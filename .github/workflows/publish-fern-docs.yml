@@ -26,6 +26,8 @@ name: Publish Fern Docs
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'docs/**'
       - 'fern/**'
