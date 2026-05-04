@@ -1,0 +1,16 @@
+{
+  "provider": {
+    "name": "dsx-sim",
+    "params": {
+      "modelFileName": "tests/models/medium.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "plugin": "topology/block",
+      "blockSizes": [2,4],
+      "topologyConfigPath": "topology.conf"
+    }
+  }
+}

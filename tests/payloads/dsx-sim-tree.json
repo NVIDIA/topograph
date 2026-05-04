@@ -1,0 +1,14 @@
+{
+  "provider": {
+    "name": "dsx-sim",
+    "params": {
+      "modelFileName": "tests/models/medium.yaml"
+    }
+  },
+  "engine": {
+    "name": "slurm",
+    "params": {
+      "topologyConfigPath": "topology.conf"
+    }
+  }
+}
