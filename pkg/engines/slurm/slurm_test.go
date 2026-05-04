@@ -306,7 +306,7 @@ func TestGetTranslateConfig(t *testing.T) {
 
 func TestGenerateOutput(t *testing.T) {
 	ctx := context.TODO()
-	v, _ := translate.GetTreeTestSet(false)
+	graph, _ := translate.GetTreeTestSet(false)
 	cfg := `SwitchName=S1 Switches=S[2-3]
 SwitchName=S2 Nodes=Node[201-202,205]
 SwitchName=S3 Nodes=Node[304-306]
@@ -314,7 +314,7 @@ SwitchName=S3 Nodes=Node[304-306]
 
 	testCases := []struct {
 		name   string
-		vertex *topology.Vertex
+		graph  *topology.Graph
 		params map[string]any
 		cfg    string
 		err    string
@@ -328,21 +328,21 @@ SwitchName=S3 Nodes=Node[304-306]
 		},
 		{
 			name:   "Case 2: invalid blocksize",
-			vertex: v,
+			graph:  graph,
 			params: map[string]any{"blockSizes": "bad"},
 			err:    "could not decode configuration: 1 error(s) decoding:\n\n* 'blockSizes': source data must be an array or slice, got string",
 			code:   http.StatusBadRequest,
 		},
 		{
-			name:   "Case 3: valid input",
-			vertex: v,
-			cfg:    cfg,
+			name:  "Case 3: valid input",
+			graph: graph,
+			cfg:   cfg,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := GenerateOutput(ctx, tc.vertex, tc.params)
+			cfg, err := GenerateOutput(ctx, tc.graph, tc.params)
 			if len(tc.err) != 0 {
 				require.NotNil(t, err)
 				require.EqualError(t, err, tc.err)

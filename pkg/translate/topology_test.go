@@ -31,33 +31,48 @@ SwitchName=S2 Nodes=Node[201-202,205]
 SwitchName=S3 Nodes=Node[304-306]
 `
 
-	testBlockConfig1_1 = `BlockName=B1 Nodes=Node[104-106]
-BlockName=B2 Nodes=Node[201-202,205]
+	testBlockConfig1_1 = `# block001=B1
+BlockName=block001 Nodes=Node[104-106]
+# block002=B2
+BlockName=block002 Nodes=Node[201-202,205]
 BlockSizes=3
 `
 
-	testBlockConfig1_2 = `BlockName=B1 Nodes=Node[104-106]
-BlockName=B2 Nodes=Node[201-202,205]
-BlockName=B3 Nodes=Node[304-306]
-BlockName=B4 Nodes=Node[401-403]
+	testBlockConfig1_2 = `# block001=B1
+BlockName=block001 Nodes=Node[104-106]
+# block002=B2
+BlockName=block002 Nodes=Node[201-202,205]
+# block003=B3
+BlockName=block003 Nodes=Node[304-306]
+# block004=B4
+BlockName=block004 Nodes=Node[401-403]
 BlockSizes=3
 `
 
-	testBlockConfigDiffNumNodes = `BlockName=B1 Nodes=Node[104-106]
-BlockName=B2 Nodes=Node[201-202,205-206]
+	testBlockConfigDiffNumNodes = `# block001=B1
+BlockName=block001 Nodes=Node[104-106]
+# block002=B2
+BlockName=block002 Nodes=Node[201-202,205-206]
 BlockSizes=3,6
 `
 
-	testBlockConfig2 = `BlockName=B3 Nodes=Node[301-303]
-BlockName=B4 Nodes=Node[401-403]
-BlockName=B1 Nodes=Node[104-106]
-BlockName=B2 Nodes=Node[201-202,205]
+	testBlockConfig2 = `# block003=B3
+BlockName=block003 Nodes=Node[301-303]
+# block004=B4
+BlockName=block004 Nodes=Node[401-403]
+# block001=B1
+BlockName=block001 Nodes=Node[104-106]
+# block002=B2
+BlockName=block002 Nodes=Node[201-202,205]
 BlockSizes=3
 `
 
-	testBlockConfigDFS = `BlockName=B2 Nodes=Node[104-105]
-BlockName=B1 Nodes=Node202
-BlockName=B3 Nodes=Node205
+	testBlockConfigDFS = `# block002=B2
+BlockName=block002 Nodes=Node[104-105]
+# block001=B1
+BlockName=block001 Nodes=Node202
+# block003=B3
+BlockName=block003 Nodes=Node205
 BlockSizes=1
 `
 
@@ -75,14 +90,12 @@ SwitchName=switch.1.2 Nodes=node-2
 )
 
 func TestValidateConfig(t *testing.T) {
-	emptyRoot := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
-	blockRoot := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: nil},
-	}
+	emptyRoot := &topology.Graph{}
+	blockRoot := &topology.Graph{Domains: topology.NewDomainMap()}
 
 	testCases := []struct {
 		name string
-		root *topology.Vertex
+		root *topology.Graph
 		cfg  *Config
 		err  string
 	}{
@@ -174,6 +187,17 @@ func TestValidateConfig(t *testing.T) {
 		})
 	}
 
+}
+
+func testDomainMap(domains map[string]map[string]string) topology.DomainMap {
+	domainMap := topology.NewDomainMap()
+	for domainName, hosts := range domains {
+		for hostName, instanceID := range hosts {
+			domainMap.AddHost(domainName, instanceID, hostName)
+		}
+	}
+
+	return domainMap
 }
 
 func TestToTreeTopology(t *testing.T) {
@@ -319,9 +343,7 @@ func TestToSlurmNameShortener(t *testing.T) {
 		},
 	}
 
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.TopologyTree: v},
-	}
+	root := &topology.Graph{Tiers: v}
 
 	cfg := &Config{
 		Plugin: topology.TopologyTree,
@@ -333,7 +355,7 @@ func TestToSlurmNameShortener(t *testing.T) {
 	require.Equal(t, shortNameExpectedResult, buf.String())
 }
 
-func getBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
+func getBlockWithIBTestSet() (*topology.Graph, map[string]string) {
 	//
 	//         ------core------
 	//        |                |
@@ -400,39 +422,21 @@ func getBlockWithIBTestSet() (*topology.Vertex, map[string]string) {
 		Vertices: map[string]*topology.Vertex{"L1": l1, "R1": r1},
 	}
 
-	block1 := &topology.Vertex{
-		ID:       "B1",
-		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
-	}
-	block2 := &topology.Vertex{
-		ID:       "B2",
-		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
-	}
-	block3 := &topology.Vertex{
-		ID:       "B3",
-		Vertices: map[string]*topology.Vertex{"I34": n34, "I35": n35, "I36": n36},
-	}
-	block4 := &topology.Vertex{
-		ID:       "B4",
-		Vertices: map[string]*topology.Vertex{"I41": n41, "I42": n42, "I43": n43},
-	}
+	domains := testDomainMap(map[string]map[string]string{
+		"B1": {n14.Name: n14.ID, n15.Name: n15.ID, n16.Name: n16.ID},
+		"B2": {n21.Name: n21.ID, n22.Name: n22.ID, n25.Name: n25.ID},
+		"B3": {n34.Name: n34.ID, n35.Name: n35.ID, n36.Name: n36.ID},
+		"B4": {n41.Name: n41.ID, n42.Name: n42.ID, n43.Name: n43.ID},
+	})
 
-	blockRoot := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{
-			"B1": block1, "B2": block2, "B3": block3, "B4": block4,
-		},
-	}
-
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{
-			topology.TopologyBlock: blockRoot,
-			topology.TopologyTree:  treeRoot,
-		},
+	root := &topology.Graph{
+		Tiers:   treeRoot,
+		Domains: domains,
 	}
 	return root, instance2node
 }
 
-func getBlockWithDFSIBTestSet() (*topology.Vertex, map[string]string) {
+func getBlockWithDFSIBTestSet() (*topology.Graph, map[string]string) {
 	//
 	//     		 ibRoot1
 	//       /      |        \
@@ -488,34 +492,20 @@ func getBlockWithDFSIBTestSet() (*topology.Vertex, map[string]string) {
 		Vertices: map[string]*topology.Vertex{"S0": sw0},
 	}
 
-	block2 := &topology.Vertex{
-		ID:       "B2",
-		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15},
-	}
-	block1 := &topology.Vertex{
-		ID:       "B1",
-		Vertices: map[string]*topology.Vertex{"I22": n22},
-	}
+	domains := testDomainMap(map[string]map[string]string{
+		"B1": {n22.Name: n22.ID},
+		"B2": {n14.Name: n14.ID, n15.Name: n15.ID},
+		"B3": {n25.Name: n25.ID},
+	})
 
-	block3 := &topology.Vertex{
-		ID:       "B3",
-		Vertices: map[string]*topology.Vertex{"I25": n25},
-	}
-
-	blockRoot := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2, "B3": block3},
-	}
-
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{
-			topology.TopologyBlock: blockRoot,
-			topology.TopologyTree:  treeRoot,
-		},
+	root := &topology.Graph{
+		Tiers:   treeRoot,
+		Domains: domains,
 	}
 	return root, instance2node
 }
 
-func getBlockTestSet() (*topology.Vertex, map[string]string) {
+func getBlockTestSet() (*topology.Graph, map[string]string) {
 	//
 	//	---        ---
 	//   I14\      I21\
@@ -536,26 +526,16 @@ func getBlockTestSet() (*topology.Vertex, map[string]string) {
 	n22 := &topology.Vertex{ID: "I22", Name: "Node202"}
 	n25 := &topology.Vertex{ID: "I25", Name: "Node205"}
 
-	block1 := &topology.Vertex{
-		ID:       "B1",
-		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
-	}
-	block2 := &topology.Vertex{
-		ID:       "B2",
-		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
-	}
+	domains := testDomainMap(map[string]map[string]string{
+		"B1": {n14.Name: n14.ID, n15.Name: n15.ID, n16.Name: n16.ID},
+		"B2": {n21.Name: n21.ID, n22.Name: n22.ID, n25.Name: n25.ID},
+	})
 
-	blockRoot := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2},
-	}
-
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.TopologyBlock: blockRoot},
-	}
+	root := &topology.Graph{Domains: domains}
 	return root, instance2node
 }
 
-func getBlockWithDiffNumNodeTestSet() (*topology.Vertex, map[string]string) {
+func getBlockWithDiffNumNodeTestSet() (*topology.Graph, map[string]string) {
 	//
 	//     ibRoot1
 	//        |
@@ -601,24 +581,14 @@ func getBlockWithDiffNumNodeTestSet() (*topology.Vertex, map[string]string) {
 		Vertices: map[string]*topology.Vertex{"S1": sw1},
 	}
 
-	block1 := &topology.Vertex{
-		ID:       "B1",
-		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
-	}
-	block2 := &topology.Vertex{
-		ID:       "B2",
-		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25, "I26": n26},
-	}
+	domains := testDomainMap(map[string]map[string]string{
+		"B1": {n14.Name: n14.ID, n15.Name: n15.ID, n16.Name: n16.ID},
+		"B2": {n21.Name: n21.ID, n22.Name: n22.ID, n25.Name: n25.ID, n26.Name: n26.ID},
+	})
 
-	blockRoot := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2},
-	}
-
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{
-			topology.TopologyBlock: blockRoot,
-			topology.TopologyTree:  treeRoot,
-		},
+	root := &topology.Graph{
+		Tiers:   treeRoot,
+		Domains: domains,
 	}
 	return root, instance2node
 }
@@ -716,8 +686,8 @@ func TestGetNodeTopologySpecInBlockTopologyConf(t *testing.T) {
 	node105Id := "Node105"
 	node205Id := "Node205"
 	node999Id := "Node999"
-	expectedNode105Spec := `default:B1`
-	expectedNode205Spec := `default:B2`
+	expectedNode105Spec := `default:block001`
+	expectedNode205Spec := `default:block002`
 	expectedNode99Spec := ``
 
 	v, _ := getBlockTestSet()

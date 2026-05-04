@@ -209,13 +209,12 @@ func getNetworkLayers(sw *Switch, swmap map[string]*Switch) ([]string, map[strin
 	}
 }
 
-func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
+func (model *Model) ToGraph() (*topology.Graph, map[string]string) {
 	instance2node := make(map[string]string)
 	nodeVertexMap := make(map[string]*topology.Vertex)
 	swVertexMap := make(map[string]*topology.Vertex)
 	swRootMap := make(map[string]bool)
-	blockVertexMap := make(map[string]*topology.Vertex)
-	block_topology := false
+	domainMap := topology.NewDomainMap()
 
 	// Create all the vertices for each node
 	for k, v := range model.Nodes {
@@ -229,14 +228,12 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 		swRootMap[sw.Name] = true
 	}
 
-	// Initializes all the block vertices
+	// Initializes accelerator domain membership from capacity block metadata.
 	for _, cb := range model.CapacityBlocks {
-		blockVertexMap[cb.Name] = &topology.Vertex{ID: cb.Name, Vertices: make(map[string]*topology.Vertex)}
-		for _, node := range cb.Nodes {
-			blockVertexMap[cb.Name].Vertices[node] = nodeVertexMap[node]
-		}
 		if len(cb.NVLink) != 0 {
-			block_topology = true
+			for _, node := range cb.Nodes {
+				domainMap.AddHost(cb.NVLink, node, node)
+			}
 		}
 	}
 
@@ -265,19 +262,13 @@ func (model *Model) ToGraph() (*topology.Vertex, map[string]string) {
 			treeRoot.Vertices[k] = swVertexMap[k]
 		}
 	}
-	blockRoot := &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
-	for k, v := range blockVertexMap {
-		blockRoot.Vertices[k] = v
+	graph := &topology.Graph{
+		Tiers: treeRoot,
 	}
 
-	rootNode := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
+	if len(domainMap) != 0 {
+		graph.Domains = domainMap
 	}
 
-	if block_topology {
-		rootNode.Vertices[topology.TopologyBlock] = blockRoot
-	}
-
-	rootNode.Vertices[topology.TopologyTree] = treeRoot
-	return rootNode, instance2node
+	return graph, instance2node
 }

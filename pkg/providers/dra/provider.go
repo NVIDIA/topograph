@@ -84,7 +84,7 @@ func getParameters(params map[string]any) (*Params, error) {
 	return p, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
 	regIndices := make(map[string]int) // map[region : index]
 	for i, ci := range instances {
 		regIndices[ci.Region] = i
@@ -120,17 +120,9 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 				DomainLabel, topology.KeyNodeRegion, topology.KeyNodeInstance))
 	}
 
-	return toGraph(domainMap), nil
-}
-
-func toGraph(domainMap topology.DomainMap) *topology.Vertex {
-	root := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-		Metadata: make(map[string]string),
-	}
-	root.Vertices[topology.TopologyBlock] = domainMap.ToBlocks()
-
-	return root
+	return &topology.Graph{
+		Domains: domainMap,
+	}, nil
 }
 
 func GetNodeAnnotations(ctx context.Context, hostname string) (map[string]string, error) {

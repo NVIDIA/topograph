@@ -31,7 +31,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
+func forwardRequest(ctx context.Context, tr *topology.Request, url string, cis []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
 	klog.Infof("Forwarding request to %s", url)
 
 	trimTiers, err := providers.GetTrimTiers(tr.Provider.Params)

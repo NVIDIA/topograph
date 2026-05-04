@@ -115,27 +115,13 @@ func TestToThreeTierGraphNoNorm(t *testing.T) {
 		},
 	}
 
-	b01 := &Vertex{
-		ID:       "block001",
-		Name:     "acc-111111",
-		Vertices: map[string]*Vertex{"node1": {ID: "i-001", Name: "node1"}},
-	}
+	domains := NewDomainMap()
+	domains.AddHost("acc-111111", "i-001", "node1")
+	domains.AddHost("acc-222222", "i-002", "node2")
 
-	b02 := &Vertex{
-		ID:       "block002",
-		Name:     "acc-222222",
-		Vertices: map[string]*Vertex{"node2": {ID: "i-002", Name: "node2"}},
-	}
-
-	blocks := &Vertex{
-		Vertices: map[string]*Vertex{
-			"acc-111111": b01,
-			"acc-222222": b02,
-		},
-	}
-
-	expected := &Vertex{
-		Vertices: map[string]*Vertex{TopologyTree: v0, TopologyBlock: blocks},
+	expected := &Graph{
+		Tiers:   v0,
+		Domains: domains,
 	}
 
 	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, 0, false)
@@ -185,27 +171,13 @@ func TestToThreeTierGraphNorm(t *testing.T) {
 		},
 	}
 
-	b01 := &Vertex{
-		ID:       "block001",
-		Name:     "acc-111111",
-		Vertices: map[string]*Vertex{"node1": {ID: "i-001", Name: "node1"}},
-	}
+	domains := NewDomainMap()
+	domains.AddHost("acc-111111", "i-001", "node1")
+	domains.AddHost("acc-222222", "i-002", "node2")
 
-	b02 := &Vertex{
-		ID:       "block002",
-		Name:     "acc-222222",
-		Vertices: map[string]*Vertex{"node2": {ID: "i-002", Name: "node2"}},
-	}
-
-	blocks := &Vertex{
-		Vertices: map[string]*Vertex{
-			"acc-111111": b01,
-			"acc-222222": b02,
-		},
-	}
-
-	expected := &Vertex{
-		Vertices: map[string]*Vertex{TopologyTree: v0, TopologyBlock: blocks},
+	expected := &Graph{
+		Tiers:   v0,
+		Domains: domains,
 	}
 
 	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, 0, true)

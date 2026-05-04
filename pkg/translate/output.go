@@ -18,7 +18,7 @@ package translate
 
 import "github.com/NVIDIA/topograph/pkg/topology"
 
-func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]string) {
+func GetTreeTestSet(testForLongLabelName bool) (*topology.Graph, map[string]string) {
 	//
 	//        S1
 	//      /    \
@@ -66,13 +66,11 @@ func GetTreeTestSet(testForLongLabelName bool) (*topology.Vertex, map[string]str
 		Vertices: map[string]*topology.Vertex{"S1": sw1},
 	}
 
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.TopologyTree: treeRoot},
-	}
+	root := &topology.Graph{Tiers: treeRoot}
 	return root, instance2node
 }
 
-func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
+func GetBlockWithMultiIBTestSet() (*topology.Graph, map[string]string) {
 	//
 	//       IB2             IB1
 	//        |               |
@@ -147,32 +145,31 @@ func GetBlockWithMultiIBTestSet() (*topology.Vertex, map[string]string) {
 		Vertices: map[string]*topology.Vertex{"IB1": ibRoot1, "IB2": ibRoot2},
 	}
 
-	block1 := &topology.Vertex{
-		ID:       "B1",
-		Vertices: map[string]*topology.Vertex{"I14": n14, "I15": n15, "I16": n16},
-	}
-	block2 := &topology.Vertex{
-		ID:       "B2",
-		Vertices: map[string]*topology.Vertex{"I21": n21, "I22": n22, "I25": n25},
-	}
-	block3 := &topology.Vertex{
-		ID:       "B3",
-		Vertices: map[string]*topology.Vertex{"I31": n31, "I32": n32, "I33": n33},
-	}
-	block4 := &topology.Vertex{
-		ID:       "B4",
-		Vertices: map[string]*topology.Vertex{"I41": n41, "I42": n42, "I43": n43},
+	domains := topology.NewDomainMap()
+	for _, host := range []struct {
+		domain   string
+		instance string
+		name     string
+	}{
+		{"B1", "I14", "Node104"},
+		{"B1", "I15", "Node105"},
+		{"B1", "I16", "Node106"},
+		{"B2", "I21", "Node201"},
+		{"B2", "I22", "Node202"},
+		{"B2", "I25", "Node205"},
+		{"B3", "I31", "Node301"},
+		{"B3", "I32", "Node302"},
+		{"B3", "I33", "Node303"},
+		{"B4", "I41", "Node401"},
+		{"B4", "I42", "Node402"},
+		{"B4", "I43", "Node403"},
+	} {
+		domains.AddHost(host.domain, host.instance, host.name)
 	}
 
-	blockRoot := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{"B1": block1, "B2": block2, "B3": block3, "B4": block4},
-	}
-
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{
-			topology.TopologyBlock: blockRoot,
-			topology.TopologyTree:  treeRoot,
-		},
+	root := &topology.Graph{
+		Tiers:   treeRoot,
+		Domains: domains,
 	}
 	return root, instance2node
 }

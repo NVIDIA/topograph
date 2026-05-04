@@ -16,7 +16,7 @@ Topograph discovers the physical network topology of a cluster (NVLink domains, 
 
 ### Key invariant
 
-Providers differ by environment. The canonical `*topology.Vertex` tree is stable. Engines only translate — they do not discover.
+Providers differ by environment. The canonical `topology.Graph` is stable. Engines only translate — they do not discover.
 
 This separation is load-bearing. If you find yourself reading the fabric in an engine, or emitting scheduler-specific output from a provider, stop and reconsider.
 
@@ -27,7 +27,7 @@ cmd/                  # Four entry points: topograph, node-observer, node-data-b
 pkg/
   providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, cw, test
   engines/            # One directory per engine: k8s, slinky, slurm
-  topology/           # Canonical Vertex tree and topology constants (DO NOT CHANGE CASUALLY)
+  topology/           # Canonical Graph, Vertex tree, and topology constants (DO NOT CHANGE CASUALLY)
   registry/           # Central NamedLoader wiring for providers + engines
   translate/          # topology.conf and block/tree generation shared by engines
   server/             # HTTP server and request aggregator
@@ -56,7 +56,7 @@ These structures propagate across every provider and engine. Changing them in a 
 
 | Surface | Why it's load-bearing |
 |---|---|
-| `pkg/topology/` — the `Vertex` tree and topology constants | Every provider returns it; every engine consumes it. A shape change ripples to all of them. |
+| `pkg/topology/` — `Graph`, the `Vertex` tree, and topology constants | Every provider returns it; every engine consumes it. A shape change ripples to all of them. |
 | `protos/topology.proto` | Used by `forwardServiceUrl` gRPC forwarding. Breaking changes require regeneration (`make proto`) and coordinated client updates. |
 | Helm `global.provider.name` / `global.engine.name` / `topologyNodeLabels` | External contract for operators deploying Topograph. |
 | The four default label keys `network.topology.nvidia.com/{accelerator,leaf,spine,core}` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue). |
@@ -146,11 +146,11 @@ type Provider interface {
         ctx context.Context,
         pageSize *int,
         instances []topology.ComputeInstances,
-    ) (*topology.Vertex, *httperr.Error)
+    ) (*topology.Graph, *httperr.Error)
 }
 ```
 
-A provider returns the root `*topology.Vertex` of the discovered tree. Leaf vertices are compute nodes; interior vertices are switches or (for block topology) accelerator domains. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
+A provider returns a `*topology.Graph` of the discovered topology. `Tiers` is the root of the switch hierarchy; `Domains` is a `topology.DomainMap` mapping accelerator/block domains to hosts, with each finalized domain carrying the enumerated ID used by block-topology output. Leaf vertices are compute nodes; interior tier vertices are switches. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
 
 ### Adding a new provider
 
@@ -182,7 +182,7 @@ Engines are much rarer (three exist: slurm, k8s, slinky). Follow the same regist
 
 ### Label and annotation reference
 
-Label keys written by the Kubernetes and Slinky engines are documented in `docs/reference/node-labels.md`. Do not invent new keys in provider or engine code — values flow through the canonical tree; keys are configured via Helm `topologyNodeLabels`.
+Label keys written by the Kubernetes and Slinky engines are documented in `docs/reference/node-labels.md`. Do not invent new keys in provider or engine code — values flow through the canonical graph; keys are configured via Helm `topologyNodeLabels`.
 
 ## 5. Pull Request Guidelines
 
