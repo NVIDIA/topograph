@@ -1,4 +1,29 @@
 {{- if .Values.serviceAccount.create -}}
+{{- /*
+pods/exec is needed by providers that exec inside pods, and by Slinky only for
+legacy partition discovery through `scontrol show partition` in a login pod.
+Slinky skips that path when dynamic nodes are enabled or when a topology entry
+already supplies nodes, a pod selector, or the default flat topology.
+*/ -}}
+{{- $needsPodExec := dict "value" false -}}
+{{- if eq .Values.global.provider.name "infiniband-k8s" -}}
+{{- $_ := set $needsPodExec "value" true -}}
+{{- end -}}
+{{- if eq .Values.global.engine.name "slinky" -}}
+{{- $params := default dict .Values.global.engine.params -}}
+{{- if not (get $params "useDynamicNodes") -}}
+{{- range $topology := (default dict (get $params "topologies")) -}}
+{{- $spec := default dict $topology -}}
+{{- $hasNodes := hasKey $spec "nodes" -}}
+{{- $podSelector := get $spec "podSelector" -}}
+{{- $hasPodSelector := and $podSelector (or (get $podSelector "matchLabels") (get $podSelector "matchExpressions")) -}}
+{{- $isDefaultFlat := and (get $spec "clusterDefault") (eq (get $spec "plugin") "topology/flat") (not (get $spec "partition")) -}}
+{{- if and (not $hasNodes) (not $hasPodSelector) (not $isDefaultFlat) -}}
+{{- $_ := set $needsPodExec "value" true -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -7,9 +32,11 @@ rules:
 - apiGroups: [""]
   resources: [pods]
   verbs: [get,list]
+{{- if $needsPodExec.value }}
 - apiGroups: [""]
   resources: [pods/exec]
   verbs: [create]
+{{- end }}
 - apiGroups: [""]
   resources: [nodes]
   verbs: [get,list,update]

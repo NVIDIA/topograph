@@ -19,6 +19,7 @@ package slurm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -226,6 +227,7 @@ func TestGetTranslateConfig(t *testing.T) {
 		name       string
 		params     *BaseParams
 		topologies map[string]*Topology
+		finder     *TopologyNodeFinder
 		cfg        *translate.Config
 		err        string
 	}{
@@ -289,11 +291,35 @@ func TestGetTranslateConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "Case 5: explicit empty nodes do not use partition discovery",
+			params: &BaseParams{},
+			topologies: map[string]*Topology{
+				"topo": {
+					Plugin:    topology.TopologyFlat,
+					Partition: "would-fallback-without-explicit-nodes",
+					Nodes:     []string{},
+				},
+			},
+			finder: &TopologyNodeFinder{
+				GetPartitionNodes: func(context.Context, string, []any) (string, error) {
+					return "", errors.New("unexpected partition discovery")
+				},
+			},
+			cfg: &translate.Config{
+				Topologies: map[string]*translate.TopologySpec{
+					"topo": {
+						Plugin: topology.TopologyFlat,
+						Nodes:  []string{},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := GetTranslateConfig(ctx, tc.params, tc.topologies, nil)
+			cfg, err := GetTranslateConfig(ctx, tc.params, tc.topologies, tc.finder)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {
