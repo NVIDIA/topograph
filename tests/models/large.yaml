@@ -18,105 +18,484 @@
 # Supported block sizes: 8, 16, 32
 #
 switches:
-- name: core
-  metadata:
-    region: us-east
-    group: none
-  switches: [spine-1,spine-2,spine-3,spine-4,spine-5,spine-6]
-- name: spine-1
-  metadata:
-    availability_zone: zone1
-  switches: [leaf-1-1,leaf-1-2]
-- name: spine-2
-  metadata:
-    availability_zone: zone1
-  switches: [leaf-2-1,leaf-2-2]
-- name: spine-3
-  metadata:
-    availability_zone: zone2
-  switches: [leaf-3-1,leaf-3-2]
-- name: spine-4
-  metadata:
-    availability_zone: zone2
-  switches: [leaf-4-1,leaf-4-2]
-- name: spine-5
-  metadata:
-    availability_zone: zone3
-  switches: [leaf-5-1,leaf-5-2]
-- name: spine-6
-  metadata:
-    availability_zone: zone3
-  switches: [leaf-6-1,leaf-6-2]
-- name: leaf-1-1
-  capacity_blocks: [cb-1-1]
-- name: leaf-1-2
-  capacity_blocks: [cb-1-2]
-- name: leaf-2-1
-  capacity_blocks: [cb-2-1]
-- name: leaf-2-2
-  capacity_blocks: [cb-2-2]
-- name: leaf-3-1
-  capacity_blocks: [cb-3-1]
-- name: leaf-3-2
-  capacity_blocks: [cb-3-2]
-- name: leaf-4-1
-  capacity_blocks: [cb-4-1]
-- name: leaf-4-2
-  capacity_blocks: [cb-4-2]
-- name: leaf-5-1
-  capacity_blocks: [cb-5-1]
-- name: leaf-5-2
-  capacity_blocks: [cb-5-2]
-- name: leaf-6-1
-  capacity_blocks: [cb-6-1]
-- name: leaf-6-2
-  capacity_blocks: [cb-6-2]
+  core:
+    metadata:
+      region: us-east
+      group: none
+    switches:
+    - spine-1
+    - spine-2
+    - spine-3
+    - spine-4
+    - spine-5
+    - spine-6
+  spine-1:
+    metadata:
+      availability_zone: zone1
+    switches:
+    - leaf-1-1
+    - leaf-1-2
+  spine-2:
+    metadata:
+      availability_zone: zone1
+    switches:
+    - leaf-2-1
+    - leaf-2-2
+  spine-3:
+    metadata:
+      availability_zone: zone2
+    switches:
+    - leaf-3-1
+    - leaf-3-2
+  spine-4:
+    metadata:
+      availability_zone: zone2
+    switches:
+    - leaf-4-1
+    - leaf-4-2
+  spine-5:
+    metadata:
+      availability_zone: zone3
+    switches:
+    - leaf-5-1
+    - leaf-5-2
+  spine-6:
+    metadata:
+      availability_zone: zone3
+    switches:
+    - leaf-6-1
+    - leaf-6-2
+  leaf-1-1:
+    nodes:
+    - "[1101-1108]"
+  leaf-1-2:
+    nodes:
+    - "[1201-1208]"
+  leaf-2-1:
+    nodes:
+    - "[2101-2108]"
+  leaf-2-2:
+    nodes:
+    - "[2201-2208]"
+  leaf-3-1:
+    nodes:
+    - "[3101-3108]"
+  leaf-3-2:
+    nodes:
+    - "[3201-3208]"
+  leaf-4-1:
+    nodes:
+    - "[4101-4108]"
+  leaf-4-2:
+    nodes:
+    - "[4201-4208]"
+  leaf-5-1:
+    nodes:
+    - "[5101-5108]"
+  leaf-5-2:
+    nodes:
+    - "[5201-5208]"
+  leaf-6-1:
+    nodes:
+    - "[6101-6108]"
+  leaf-6-2:
+    nodes:
+    - "[6201-6208]"
+nodes:
+  "1101":
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+  "1102":
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+  "1103":
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+  "1104":
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+  "1105":
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+  "1106":
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+  "1107":
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+  "1108":
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+  "1201":
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+  "1202":
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+  "1203":
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+  "1204":
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+  "1205":
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+  "1206":
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+  "1207":
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+  "1208":
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+  "2101":
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+  "2102":
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+  "2103":
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+  "2104":
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+  "2105":
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+  "2106":
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+  "2107":
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+  "2108":
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+  "2201":
+    capacity_block_id: cb-2-2
+    attributes:
+      nvlink: nvl-2-2
+  "2202":
+    capacity_block_id: cb-2-2
+    attributes:
+      nvlink: nvl-2-2
+  "2203":
+    capacity_block_id: cb-2-2
+    attributes:
+      nvlink: nvl-2-2
+  "2204":
+    capacity_block_id: cb-2-2
+    attributes:
+      nvlink: nvl-2-2
+  "2205":
+    capacity_block_id: cb-2-2
+    attributes:
+      nvlink: nvl-2-2
+  "2206":
+    capacity_block_id: cb-2-2
+    attributes:
+      nvlink: nvl-2-2
+  "2207":
+    capacity_block_id: cb-2-2
+    attributes:
+      nvlink: nvl-2-2
+  "2208":
+    capacity_block_id: cb-2-2
+    attributes:
+      nvlink: nvl-2-2
+  "3101":
+    capacity_block_id: cb-3-1
+    attributes:
+      nvlink: nvl-3-1
+  "3102":
+    capacity_block_id: cb-3-1
+    attributes:
+      nvlink: nvl-3-1
+  "3103":
+    capacity_block_id: cb-3-1
+    attributes:
+      nvlink: nvl-3-1
+  "3104":
+    capacity_block_id: cb-3-1
+    attributes:
+      nvlink: nvl-3-1
+  "3105":
+    capacity_block_id: cb-3-1
+    attributes:
+      nvlink: nvl-3-1
+  "3106":
+    capacity_block_id: cb-3-1
+    attributes:
+      nvlink: nvl-3-1
+  "3107":
+    capacity_block_id: cb-3-1
+    attributes:
+      nvlink: nvl-3-1
+  "3108":
+    capacity_block_id: cb-3-1
+    attributes:
+      nvlink: nvl-3-1
+  "3201":
+    capacity_block_id: cb-3-2
+    attributes:
+      nvlink: nvl-3-2
+  "3202":
+    capacity_block_id: cb-3-2
+    attributes:
+      nvlink: nvl-3-2
+  "3203":
+    capacity_block_id: cb-3-2
+    attributes:
+      nvlink: nvl-3-2
+  "3204":
+    capacity_block_id: cb-3-2
+    attributes:
+      nvlink: nvl-3-2
+  "3205":
+    capacity_block_id: cb-3-2
+    attributes:
+      nvlink: nvl-3-2
+  "3206":
+    capacity_block_id: cb-3-2
+    attributes:
+      nvlink: nvl-3-2
+  "3207":
+    capacity_block_id: cb-3-2
+    attributes:
+      nvlink: nvl-3-2
+  "3208":
+    capacity_block_id: cb-3-2
+    attributes:
+      nvlink: nvl-3-2
+  "4101":
+    capacity_block_id: cb-4-1
+    attributes:
+      nvlink: nvl-4-1
+  "4102":
+    capacity_block_id: cb-4-1
+    attributes:
+      nvlink: nvl-4-1
+  "4103":
+    capacity_block_id: cb-4-1
+    attributes:
+      nvlink: nvl-4-1
+  "4104":
+    capacity_block_id: cb-4-1
+    attributes:
+      nvlink: nvl-4-1
+  "4105":
+    capacity_block_id: cb-4-1
+    attributes:
+      nvlink: nvl-4-1
+  "4106":
+    capacity_block_id: cb-4-1
+    attributes:
+      nvlink: nvl-4-1
+  "4107":
+    capacity_block_id: cb-4-1
+    attributes:
+      nvlink: nvl-4-1
+  "4108":
+    capacity_block_id: cb-4-1
+    attributes:
+      nvlink: nvl-4-1
+  "4201":
+    capacity_block_id: cb-4-2
+    attributes:
+      nvlink: nvl-4-2
+  "4202":
+    capacity_block_id: cb-4-2
+    attributes:
+      nvlink: nvl-4-2
+  "4203":
+    capacity_block_id: cb-4-2
+    attributes:
+      nvlink: nvl-4-2
+  "4204":
+    capacity_block_id: cb-4-2
+    attributes:
+      nvlink: nvl-4-2
+  "4205":
+    capacity_block_id: cb-4-2
+    attributes:
+      nvlink: nvl-4-2
+  "4206":
+    capacity_block_id: cb-4-2
+    attributes:
+      nvlink: nvl-4-2
+  "4207":
+    capacity_block_id: cb-4-2
+    attributes:
+      nvlink: nvl-4-2
+  "4208":
+    capacity_block_id: cb-4-2
+    attributes:
+      nvlink: nvl-4-2
+  "5101":
+    capacity_block_id: cb-5-1
+    attributes:
+      nvlink: nvl-5-1
+  "5102":
+    capacity_block_id: cb-5-1
+    attributes:
+      nvlink: nvl-5-1
+  "5103":
+    capacity_block_id: cb-5-1
+    attributes:
+      nvlink: nvl-5-1
+  "5104":
+    capacity_block_id: cb-5-1
+    attributes:
+      nvlink: nvl-5-1
+  "5105":
+    capacity_block_id: cb-5-1
+    attributes:
+      nvlink: nvl-5-1
+  "5106":
+    capacity_block_id: cb-5-1
+    attributes:
+      nvlink: nvl-5-1
+  "5107":
+    capacity_block_id: cb-5-1
+    attributes:
+      nvlink: nvl-5-1
+  "5108":
+    capacity_block_id: cb-5-1
+    attributes:
+      nvlink: nvl-5-1
+  "5201":
+    capacity_block_id: cb-5-2
+    attributes:
+      nvlink: nvl-5-2
+  "5202":
+    capacity_block_id: cb-5-2
+    attributes:
+      nvlink: nvl-5-2
+  "5203":
+    capacity_block_id: cb-5-2
+    attributes:
+      nvlink: nvl-5-2
+  "5204":
+    capacity_block_id: cb-5-2
+    attributes:
+      nvlink: nvl-5-2
+  "5205":
+    capacity_block_id: cb-5-2
+    attributes:
+      nvlink: nvl-5-2
+  "5206":
+    capacity_block_id: cb-5-2
+    attributes:
+      nvlink: nvl-5-2
+  "5207":
+    capacity_block_id: cb-5-2
+    attributes:
+      nvlink: nvl-5-2
+  "5208":
+    capacity_block_id: cb-5-2
+    attributes:
+      nvlink: nvl-5-2
+  "6101":
+    capacity_block_id: cb-6-1
+    attributes:
+      nvlink: nvl-6-1
+  "6102":
+    capacity_block_id: cb-6-1
+    attributes:
+      nvlink: nvl-6-1
+  "6103":
+    capacity_block_id: cb-6-1
+    attributes:
+      nvlink: nvl-6-1
+  "6104":
+    capacity_block_id: cb-6-1
+    attributes:
+      nvlink: nvl-6-1
+  "6105":
+    capacity_block_id: cb-6-1
+    attributes:
+      nvlink: nvl-6-1
+  "6106":
+    capacity_block_id: cb-6-1
+    attributes:
+      nvlink: nvl-6-1
+  "6107":
+    capacity_block_id: cb-6-1
+    attributes:
+      nvlink: nvl-6-1
+  "6108":
+    capacity_block_id: cb-6-1
+    attributes:
+      nvlink: nvl-6-1
+  "6201":
+    capacity_block_id: cb-6-2
+    attributes:
+      nvlink: nvl-6-2
+  "6202":
+    capacity_block_id: cb-6-2
+    attributes:
+      nvlink: nvl-6-2
+  "6203":
+    capacity_block_id: cb-6-2
+    attributes:
+      nvlink: nvl-6-2
+  "6204":
+    capacity_block_id: cb-6-2
+    attributes:
+      nvlink: nvl-6-2
+  "6205":
+    capacity_block_id: cb-6-2
+    attributes:
+      nvlink: nvl-6-2
+  "6206":
+    capacity_block_id: cb-6-2
+    attributes:
+      nvlink: nvl-6-2
+  "6207":
+    capacity_block_id: cb-6-2
+    attributes:
+      nvlink: nvl-6-2
+  "6208":
+    capacity_block_id: cb-6-2
+    attributes:
+      nvlink: nvl-6-2
 capacity_blocks:
-- name: cb-1-1
-  type: GB200
-  nvlink: nvl-1-1
-  nodes: ["[1101-1108]"]
-- name: cb-1-2
-  type: GB200
-  nvlink: nvl-1-2
-  nodes: ["[1201-1208]"]
-- name: cb-2-1
-  type: GB200
-  nvlink: nvl-2-1
-  nodes: ["[2101-2108]"]
-- name: cb-2-2
-  type: GB200
-  nvlink: nvl-2-2
-  nodes: ["[2201-2208]"]
-- name: cb-3-1
-  type: GB200
-  nvlink: nvl-3-1
-  nodes: ["[3101-3108]"]
-- name: cb-3-2
-  type: GB200
-  nvlink: nvl-3-2
-  nodes: ["[3201-3208]"]
-- name: cb-4-1
-  type: GB200
-  nvlink: nvl-4-1
-  nodes: ["[4101-4108]"]
-- name: cb-4-2
-  type: GB200
-  nvlink: nvl-4-2
-  nodes: ["[4201-4208]"]
-- name: cb-5-1
-  type: GB200
-  nvlink: nvl-5-1
-  nodes: ["[5101-5108]"]
-- name: cb-5-2
-  type: GB200
-  nvlink: nvl-5-2
-  nodes: ["[5201-5208]"]
-- name: cb-6-1
-  type: GB200
-  nvlink: nvl-6-1
-  nodes: ["[6101-6108]"]
-- name: cb-6-2
-  type: GB200
-  nvlink: nvl-6-2
-  nodes: ["[6201-6208]"]
+- cb-1-1
+- cb-1-2
+- cb-2-1
+- cb-2-2
+- cb-3-1
+- cb-3-2
+- cb-4-1
+- cb-4-2
+- cb-5-1
+- cb-5-2
+- cb-6-1
+- cb-6-2

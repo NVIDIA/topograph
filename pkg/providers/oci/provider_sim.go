@@ -99,8 +99,8 @@ func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHo
 				host.HpcIslandId = ptr.String(node.NetLayers[i])
 			}
 		}
-		if len(node.NVLink) != 0 {
-			host.GpuMemoryFabricId = &node.NVLink
+		if len(node.Attributes.NVLink) != 0 {
+			host.GpuMemoryFabricId = &node.Attributes.NVLink
 		}
 		resp.Items = append(resp.Items, host)
 	}

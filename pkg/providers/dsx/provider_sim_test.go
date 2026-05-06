@@ -23,69 +23,597 @@ const (
 
 	clusterModel = `
 switches:
-- name: core
-  switches: [spine]
-- name: spine
-  metadata:
-    availability_zone: az1
-  switches: [leaf1,leaf2]
-- name: leaf1
-  metadata:
-    group: g1
-  capacity_blocks: [cb1]
-- name: leaf2
-  metadata:
-    group: g2
-  capacity_blocks: [cb2]
+  core:
+    switches: [spine]
+  spine:
+    metadata:
+      availability_zone: az1
+    switches: [leaf1,leaf2]
+  leaf1:
+    metadata:
+      group: g1
+    nodes: [n11,n12]
+  leaf2:
+    metadata:
+      group: g2
+    nodes: [n21,n22]
+nodes:
+  n11:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n12:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n21:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n22:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
 capacity_blocks:
-- name: cb1
-  type: GB200
-  nvlink: nvl1
-  nodes: [n11,n12]
-- name: cb2
-  type: GB200
-  nvlink: nvl2
-  nodes: [n21,n22]
+- cb1
+- cb2
 `
 
 	largeClusterModel = `
 switches:
-- name: core
-  switches: [spine]
-- name: spine
-  metadata:
-    availability_zone: az1
-  switches: [leaf1,leaf2]
-- name: leaf1
-  metadata:
-    group: g1
-  capacity_blocks: [cb1]
-- name: leaf2
-  metadata:
-    group: g2
-  capacity_blocks: [cb2]
+  core:
+    switches: [spine]
+  spine:
+    metadata:
+      availability_zone: az1
+    switches: [leaf1,leaf2]
+  leaf1:
+    metadata:
+      group: g1
+    nodes: ["n[100-164]"]
+  leaf2:
+    metadata:
+      group: g2
+    nodes: ["n[200-264]"]
+nodes:
+  n100:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n101:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n102:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n103:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n104:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n105:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n106:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n107:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n108:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n109:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n110:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n111:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n112:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n113:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n114:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n115:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n116:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n117:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n118:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n119:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n120:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n121:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n122:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n123:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n124:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n125:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n126:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n127:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n128:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n129:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n130:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n131:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n132:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n133:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n134:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n135:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n136:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n137:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n138:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n139:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n140:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n141:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n142:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n143:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n144:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n145:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n146:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n147:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n148:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n149:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n150:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n151:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n152:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n153:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n154:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n155:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n156:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n157:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n158:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n159:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n160:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n161:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n162:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n163:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n164:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  n200:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n201:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n202:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n203:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n204:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n205:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n206:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n207:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n208:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n209:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n210:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n211:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n212:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n213:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n214:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n215:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n216:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n217:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n218:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n219:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n220:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n221:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n222:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n223:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n224:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n225:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n226:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n227:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n228:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n229:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n230:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n231:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n232:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n233:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n234:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n235:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n236:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n237:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n238:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n239:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n240:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n241:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n242:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n243:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n244:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n245:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n246:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n247:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n248:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n249:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n250:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n251:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n252:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n253:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n254:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n255:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n256:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n257:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n258:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n259:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n260:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n261:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n262:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n263:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  n264:
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
 capacity_blocks:
-- name: cb1
-  type: GB200
-  nvlink: nvl1
-  nodes: ["n[100-164]"]
-- name: cb2
-  type: GB200
-  nvlink: nvl2
-  nodes: ["n[200-264]"]
+- cb1
+- cb2
 `
 
 	singleNodeModel = `
 switches:
-- name: core
-  switches: [leaf]
-- name: leaf
-  capacity_blocks: [cb1]
+  core:
+    switches: [leaf]
+  leaf:
+    nodes: [n1]
+nodes:
+  n1:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
 capacity_blocks:
-- name: cb1
-  type: GB200
-  nvlink: nvl1
-  nodes: [n1]
+- cb1
 `
 )
 
@@ -130,11 +658,11 @@ func TestProviderSim(t *testing.T) {
 			name: "Case 2: model with no capacity blocks",
 			model: `
 switches:
-- name: core
-  switches: [spine]
-- name: spine
-  switches: [leaf]
-- name: leaf
+  core:
+    switches: [spine]
+  spine:
+    switches: [leaf]
+  leaf: {}
 `,
 			instances: []topology.ComputeInstances{
 				{
