@@ -38,7 +38,6 @@ type Config struct {
 	PageSize                *int              `yaml:"pageSize,omitempty"`
 	SSL                     *SSL              `yaml:"ssl,omitempty"`
 	CredsPath               *string           `yaml:"credentialsPath,omitempty"`
-	FwdSvcURL               *string           `yaml:"forwardServiceUrl,omitempty"`
 	Env                     map[string]string `yaml:"env"`
 
 	// derived

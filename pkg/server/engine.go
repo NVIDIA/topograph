@@ -121,13 +121,7 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *httperr.Error) {
 		}
 	}
 
-	var graph *topology.Graph
-	if srv.cfg.FwdSvcURL != nil {
-		// forward the request to the global service
-		graph, err = forwardRequest(ctx, tr, *srv.cfg.FwdSvcURL, computeInstances)
-	} else {
-		graph, err = prv.GenerateTopologyConfig(ctx, srv.cfg.PageSize, computeInstances)
-	}
+	graph, err := prv.GenerateTopologyConfig(ctx, srv.cfg.PageSize, computeInstances)
 	if err != nil {
 		return nil, err
 	}

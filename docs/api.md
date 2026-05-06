@@ -29,12 +29,6 @@ engine: slurm
 # processing only if no new requests arrive during the specified duration.
 requestAggregationDelay: 15s
 
-# forwardServiceUrl: specifies the URL of an external gRPC service
-# to which requests are forwarded (optional).
-# This can be useful for testing or integration with external systems.
-# See protos/topology.proto for details.
-# forwardServiceUrl:
-
 # pageSize: sets the page size for topology requests against a CSP API (optional).
 pageSize: 100
 
