@@ -10,9 +10,6 @@ http:
 # waiting period before processing a request
 requestAggregationDelay: 15s
 
-# URL of an external gRPC service for request processing (optional)
-# forwardServiceUrl:
-
 # number of results per API call (optional)
 pageSize: 100
 

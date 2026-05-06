@@ -29,13 +29,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agrea/ptr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/pkg/config"
-	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/test"
-	"github.com/NVIDIA/topograph/pkg/toposim"
 )
 
 const (
@@ -452,96 +449,6 @@ func checkMetrics(t *testing.T, baseURL string, metrics []string) {
 		if !matched {
 			t.Errorf("missing metrics %q", metric)
 		}
-	}
-}
-
-func TestServerRemote(t *testing.T) {
-	testCases := []struct {
-		name     string
-		model    string
-		payload  string
-		expected string
-	}{
-		{
-			name:     "Case 1: send request for tree topology",
-			model:    "../../tests/models/medium.yaml",
-			payload:  slurmTreePayload,
-			expected: slurmTreeConfig,
-		},
-		{
-			name:     "Case 2: send request for block topology",
-			model:    "../../tests/models/large.yaml",
-			payload:  slurmBlockPayload,
-			expected: slurmBlockConfig,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// read model
-			model, err := models.NewModelFromFile(tc.model)
-			require.NoError(t, err)
-
-			// init gRPC server
-			grpcPort, err := test.GetAvailablePort()
-			require.NoError(t, err)
-
-			topo := toposim.NewServer(model, grpcPort)
-
-			defer topo.Stop(nil)
-			go func() { _ = topo.Start() }()
-
-			// init http server
-			httpPort, err := test.GetAvailablePort()
-			require.NoError(t, err)
-
-			cfg := &config.Config{
-				RequestAggregationDelay: time.Second,
-				HTTP: config.Endpoint{
-					Port: httpPort,
-				},
-				FwdSvcURL: ptr.String(fmt.Sprintf("localhost:%d", grpcPort)),
-			}
-
-			srv = initHttpServer(context.TODO(), cfg)
-			defer srv.Stop(nil)
-			go func() { _ = srv.Start() }()
-
-			// let the servers start
-			time.Sleep(time.Second)
-
-			// send topology request
-			baseURL := fmt.Sprintf("http://localhost:%d", httpPort)
-			payload := fmt.Sprintf(tc.payload, "test")
-			resp, err := http.Post(baseURL+"/v1/generate", "application/json", bytes.NewBuffer([]byte(payload)))
-			require.NoError(t, err)
-			require.Equal(t, http.StatusAccepted, resp.StatusCode)
-
-			body, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
-			out := string(body)
-			resp.Body.Close()
-
-			// retrieve topology config
-			params := url.Values{}
-			params.Add("uid", out)
-			fullURL := fmt.Sprintf("%s?%s", baseURL+"/v1/topology", params.Encode())
-
-			for range 5 {
-				time.Sleep(2 * time.Second)
-				resp, err := http.Get(fullURL)
-				require.NoError(t, err)
-				defer resp.Body.Close()
-
-				if resp.StatusCode == http.StatusOK {
-					body, err = io.ReadAll(resp.Body)
-					require.NoError(t, err)
-					require.Equal(t, stringToLineMap(tc.expected), stringToLineMap(string(body)))
-					return
-				}
-			}
-			t.Errorf("timeout")
-		})
 	}
 }
 

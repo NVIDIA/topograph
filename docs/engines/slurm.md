@@ -36,37 +36,6 @@ To verify the service is healthy, you can use the following command:
 curl http://localhost:49021/healthz
 ```
 
-#### Using Toposim
-To test the service on a simulated cluster, first add the following lines to `/etc/topograph/topograph-config.yaml` so that topograph knows to run topology in simulation and to forward any topology requests to toposim.
-```bash
-provider: test
-engine: slurm
-forwardServiceUrl: dns:localhost:49025
-```
-Then run the topograph service as normal.
-
-You must then start the toposim service as such, setting the path to the test model that you want to use in simulation:
-```bash
-/usr/local/bin/toposim -m /usr/local/bin/tests/models/<cluster-model>.yaml
-```
-
-You can then verify the topology results via simulation by querying topograph, and specifying the test model path as a parameter to the provider.
-If you want to view the tree topology, then use the command:
-```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"params":{"modelFileName":"/usr/local/bin/tests/models/<cluster-model>.yaml"}}}' http://localhost:49021/v1/generate)
-```
-
-And if you want to view the block topology (with specified block sizes), use the command:
-```bash
-id=$(curl -s -X POST -H "Content-Type: application/json" -d '{"provider":{"params":{"modelFileName":"/usr/local/bin/tests/models/<cluster-model>.yaml"}},"engine":{"params":{"plugin":"topology/block", "blockSizes": [4,8]}}}' http://localhost:49021/v1/generate)
-```
-
-You can query the results of either topology request with:
-```bash
-curl -s "http://localhost:49021/v1/topology?uid=$id"
-```
-Note the path specified in the topograph query should point to the same model as provided to toposim. 
-
 #### Automated Solution for SLURM
 
 The Cluster Topology Generator enables a fully automated solution when combined with SLURM's `strigger` command. You can set up a trigger that runs whenever a node goes down or comes up:
