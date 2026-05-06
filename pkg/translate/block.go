@@ -59,12 +59,11 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *htt
 			comment = fmt.Sprintf("# %s=%s\n", bInfo.id, bInfo.name)
 		}
 
-		outputNodeNames := strings.Join(cluset.Compact(bInfo.nodes), ",")
-
 		var err error
 		if skeletonOnly {
 			_, err = fmt.Fprintf(wr, "%sBlockName=%s\n", comment, bInfo.id)
 		} else {
+			outputNodeNames := strings.Join(cluset.Compact(bInfo.nodes), ",")
 			_, err = fmt.Fprintf(wr, "%sBlockName=%s Nodes=%s\n", comment, bInfo.id, outputNodeNames)
 		}
 		if err != nil {

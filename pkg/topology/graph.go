@@ -90,7 +90,7 @@ func (c *ClusterTopology) Len() int {
 	return len(c.Instances)
 }
 
-func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstances, trimTiers int, normalize bool) *Vertex {
+func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstances, trimTiers int, normalize bool) *Graph {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
 		maps.Copy(i2n, ci.Instances)
@@ -166,16 +166,15 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 	}
 	maps.Copy(treeRoot.Vertices, forest)
 
-	root := &Vertex{
-		Vertices: make(map[string]*Vertex),
+	graph := &Graph{
+		Tiers: treeRoot,
 	}
-	root.Vertices[TopologyTree] = treeRoot
 
 	if len(domainMap) != 0 {
-		root.Vertices[TopologyBlock] = domainMap.ToBlocks()
+		graph.Domains = domainMap
 	}
 
-	return root
+	return graph
 }
 
 func (c *ClusterTopology) Normalize() {

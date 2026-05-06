@@ -46,7 +46,7 @@ func LoaderIMDS(_ context.Context, config providers.Config) (providers.Provider,
 	return &imdsProvider{baseProvider: baseProvider{trimTiers: trimTiers}}, nil
 }
 
-func (p *imdsProvider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
+func (p *imdsProvider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
 	topo, err := p.generateInstanceTopology(ctx, instances)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())

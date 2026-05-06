@@ -34,7 +34,7 @@ import (
 )
 
 type Provider interface {
-	GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error)
+	GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error)
 }
 
 type Config struct {

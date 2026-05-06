@@ -317,11 +317,7 @@ func TestProviderSimTopologyStructure(t *testing.T) {
 	require.NotNil(t, topo)
 
 	// Verify the topology tree structure
-	require.NotNil(t, topo.Vertices)
-
-	// Should have a topology/tree vertex
-	treeVertex, exists := topo.Vertices["topology/tree"]
-	require.True(t, exists, "topology/tree vertex should exist")
+	treeVertex := topo.Tiers
 	require.NotNil(t, treeVertex)
 	require.NotNil(t, treeVertex.Vertices)
 
@@ -377,11 +373,10 @@ func TestProviderSimWithNVLink(t *testing.T) {
 	require.Nil(t, httpErr)
 	require.NotNil(t, topo)
 
-	// NVLink / accelerator domain is emitted under topology/block (same as AWS ToThreeTierGraph path).
-	block, exists := topo.Vertices[topology.TopologyBlock]
-	require.True(t, exists, "topology/block should exist when model has nvlink domains")
-	require.NotNil(t, block)
-	_, hasNVL := block.Vertices["nvl1"]
+	// NVLink / accelerator domain is emitted as graph domains (same as AWS ToThreeTierGraph path).
+	domains := topo.Domains
+	require.NotNil(t, domains)
+	_, hasNVL := domains["nvl1"]
 	require.True(t, hasNVL, "cluster model places cb1 nodes in NVLink domain nvl1 under topology/block")
 }
 

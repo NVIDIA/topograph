@@ -266,7 +266,7 @@ func (eng *SlinkyEngine) generateConfigMapAnnotations() map[string]string {
 	return annotations
 }
 
-func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vertex, _ map[string]any) ([]byte, *httperr.Error) {
+func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, _ map[string]any) ([]byte, *httperr.Error) {
 	p := eng.params
 
 	resolvedTopologies, err := eng.resolveTopologies(ctx)
@@ -283,12 +283,12 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, root *topology.Vert
 		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	nt, err := translate.NewNetworkTopology(root, cfg)
+	nt, err := translate.NewNetworkTopology(graph, cfg)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	// For dynamic mode, perform reconciliation using the latest topology information from the provider (root) and the cluster (nodes and their annotations)
+	// For dynamic mode, perform reconciliation using the latest topology information from the provider and the cluster (nodes and their annotations)
 	if p.ReportingMode == ReportingModeDynamicNodes {
 		return eng.generateDynamicNodesOutput(ctx, nt)
 	}

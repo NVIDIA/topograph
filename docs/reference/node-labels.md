@@ -22,7 +22,7 @@ Not all providers produce both topology types:
 | Provider | Block (`accelerator`) | Tree (`leaf`/`spine`/`core`) |
 |---|---|---|
 | `aws` | Yes (CapacityBlockId) | Yes |
-| `cw` | No | No (vertex structure is incompatible with the Kubernetes and Slinky engines — the provider returns a bare tree root that is not wrapped under `topology.TopologyTree`, so neither labeler processes its output; tracked separately) |
+| `cw` | No | Yes (InfiniBand switch hierarchy) |
 | `gcp` | No | Yes |
 | `lambdai` | Yes (`NVLink.DomainID.CliqueID`) | Yes |
 | `oci` | No | Yes |
