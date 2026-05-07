@@ -30,9 +30,9 @@ import (
 )
 
 type Model struct {
-	Switches       map[string]*Switch `yaml:"switches"`
-	Nodes          map[string]*Node   `yaml:"nodes"`
-	CapacityBlocks []string           `yaml:"capacity_blocks"`
+	Switches       map[string]*Switch       `yaml:"switches"`
+	Nodes          map[string]*Node         `yaml:"nodes"`
+	CapacityBlocks map[string]CapacityBlock `yaml:"capacity_blocks"`
 
 	// derived
 	Instances []topology.ComputeInstances `yaml:"-"`
@@ -45,11 +45,20 @@ type Switch struct {
 	Nodes    []string          `yaml:"nodes"`
 }
 
+type BasicNodeAttributes struct {
+	NVLink string `yaml:"nvlink,omitempty"`
+}
+
 type NodeAttributes struct {
-	NVLink    string `yaml:"nvlink,omitempty"`
-	Status    string `yaml:"status,omitempty"`
-	Timestamp string `yaml:"timestamp,omitempty"`
-	GPUs      []GPU  `yaml:"gpus,omitempty"`
+	BasicNodeAttributes `yaml:",inline"`
+	Status              string `yaml:"status,omitempty"`
+	Timestamp           string `yaml:"timestamp,omitempty"`
+	GPUs                []GPU  `yaml:"gpus,omitempty"`
+}
+
+type CapacityBlock struct {
+	Nodes      []string            `yaml:"nodes"`
+	Attributes BasicNodeAttributes `yaml:"attributes"`
 }
 
 type GPU struct {
@@ -107,9 +116,9 @@ func NewModelFromData(data []byte, fname string) (*Model, error) {
 
 func (m *Model) UnmarshalYAML(value *yaml.Node) error {
 	var raw struct {
-		Switches       map[string]*Switch `yaml:"switches"`
-		Nodes          map[string]*Node   `yaml:"nodes"`
-		CapacityBlocks []string           `yaml:"capacity_blocks"`
+		Switches       map[string]*Switch       `yaml:"switches"`
+		Nodes          map[string]*Node         `yaml:"nodes"`
+		CapacityBlocks map[string]CapacityBlock `yaml:"capacity_blocks"`
 	}
 	if err := value.Decode(&raw); err != nil {
 		return err
@@ -174,6 +183,10 @@ func (m *Model) buildSwitchMaps() (*switchMaps, error) {
 }
 
 func (m *Model) derive() error {
+	if err := m.completeCapacityBlocks(); err != nil {
+		return err
+	}
+
 	maps, err := m.buildSwitchMaps()
 	if err != nil {
 		return err
@@ -189,17 +202,6 @@ func (m *Model) derive() error {
 		}
 	}
 
-	capacityBlocks := make(map[string]struct{}, len(m.CapacityBlocks))
-	for _, name := range m.CapacityBlocks {
-		if name == "" {
-			return fmt.Errorf("capacity block entry is missing name")
-		}
-		if _, ok := capacityBlocks[name]; ok {
-			return fmt.Errorf("duplicated capacity block name %q", name)
-		}
-		capacityBlocks[name] = struct{}{}
-	}
-
 	regions := make(map[string]map[string]string)
 	for _, node := range m.Nodes {
 		var netLayers []string
@@ -212,12 +214,6 @@ func (m *Model) derive() error {
 			}
 		}
 
-		if node.CapacityBlock != "" {
-			if _, ok := capacityBlocks[node.CapacityBlock]; !ok {
-				return fmt.Errorf("node %q references unknown capacity block %q", node.Name, node.CapacityBlock)
-			}
-		}
-
 		node.Metadata = metadata
 		node.NetLayers = netLayers
 		addInstanceRegion(regions, metadata, node.Name)
@@ -225,6 +221,82 @@ func (m *Model) derive() error {
 
 	m.setInstances(regions)
 	return nil
+}
+
+func (m *Model) completeCapacityBlocks() error {
+	hasTopLevelNodes := len(m.Nodes) != 0
+
+	for capacityBlockID, capacityBlock := range m.CapacityBlocks {
+		capacityBlock.Nodes = cluset.Expand(capacityBlock.Nodes)
+		m.CapacityBlocks[capacityBlockID] = capacityBlock
+		for _, name := range capacityBlock.Nodes {
+			if !hasTopLevelNodes {
+				if m.Nodes == nil {
+					m.Nodes = make(map[string]*Node)
+				}
+				if _, ok := m.Nodes[name]; ok {
+					return fmt.Errorf("node %q belongs to more than one capacity block", name)
+				}
+				m.Nodes[name] = &Node{
+					Name:          name,
+					Attributes:    copyNodeAttributes(capacityBlock.Attributes),
+					CapacityBlock: capacityBlockID,
+				}
+				continue
+			}
+
+			node, ok := m.Nodes[name]
+			if !ok {
+				return fmt.Errorf("capacity block %q references unknown node %q", capacityBlockID, name)
+			}
+			if node.CapacityBlock != "" && node.CapacityBlock != capacityBlockID {
+				return fmt.Errorf("node %q belongs to capacity blocks %q and %q", name, node.CapacityBlock, capacityBlockID)
+			}
+			node.CapacityBlock = capacityBlockID
+			applyCapacityBlockAttributes(node, capacityBlock.Attributes)
+		}
+	}
+
+	for _, node := range m.Nodes {
+		if node.CapacityBlock == "" {
+			continue
+		}
+		if m.CapacityBlocks == nil {
+			m.CapacityBlocks = make(map[string]CapacityBlock)
+		}
+		capacityBlock := m.CapacityBlocks[node.CapacityBlock]
+		capacityBlock.Nodes = appendUnique(capacityBlock.Nodes, node.Name)
+		if capacityBlock.Attributes.NVLink == "" {
+			capacityBlock.Attributes.NVLink = node.Attributes.NVLink
+		}
+		sort.Strings(capacityBlock.Nodes)
+		m.CapacityBlocks[node.CapacityBlock] = capacityBlock
+	}
+
+	return nil
+}
+
+func copyNodeAttributes(attributes BasicNodeAttributes) NodeAttributes {
+	return NodeAttributes{
+		BasicNodeAttributes: BasicNodeAttributes{
+			NVLink: attributes.NVLink,
+		},
+	}
+}
+
+func applyCapacityBlockAttributes(node *Node, attributes BasicNodeAttributes) {
+	if attributes.NVLink != "" {
+		node.Attributes.NVLink = attributes.NVLink
+	}
+}
+
+func appendUnique(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func addInstanceRegion(regions map[string]map[string]string, metadata map[string]string, name string) {

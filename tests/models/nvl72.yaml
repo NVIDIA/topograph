@@ -455,6 +455,87 @@ nodes:
         uuid: GPU-fc4c0ce7-e390-49d7-9067-f5d7afa66283
         model: NVIDIA GB300
         memory_mib: 284208
+  node1116:
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:1A:01.5
+        uuid: GPU-140da664-5752-4660-ab3c-54a9e0efd3a7
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: '00000000:32:17.3'
+        uuid: GPU-ef262001-ba0a-40ee-aed0-c89c9cb69681
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:92:17.2
+        uuid: GPU-cfdeabf8-a5e1-4823-8444-e9842ef56721
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:F8:0E.0
+        uuid: GPU-fc4c0ce7-e390-49d7-9067-f5d7afa66283
+        model: NVIDIA GB300
+        memory_mib: 284208
+  node1117:
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:1A:70.5
+        uuid: GPU-140da664-5752-4560-a73c-54a9e0efd3a7
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: '00000000:32:17.3'
+        uuid: GPU-ef262001-ba0a-40ee-aed0-c89c9cb69681
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:92:17.2
+        uuid: GPU-cfdeabf8-a5e1-4823-8444-e9842ef56721
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:F8:0E.0
+        uuid: GPU-fc4c0ce7-e390-49d7-9067-f5d7afa66283
+        model: NVIDIA GB300
+        memory_mib: 284208
+  node1118:
+    capacity_block_id: cb-1-1
+    attributes:
+      nvlink: nvl-1-1
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:1A:80.5
+        uuid: GPU-140da664-5752-4560-a83c-54a9e0efd3a7
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: '00000000:32:17.3'
+        uuid: GPU-ef262001-ba0a-40ee-aed0-c89c9cb69681
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:92:17.2
+        uuid: GPU-cfdeabf8-a5e1-4823-8444-e9842ef56721
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:F8:0E.0
+        uuid: GPU-fc4c0ce7-e390-49d7-9067-f5d7afa66283
+        model: NVIDIA GB300
+        memory_mib: 284208
   node1201:
     capacity_block_id: cb-1-2
     attributes:
@@ -860,6 +941,87 @@ nodes:
         uuid: GPU-e6374ce3-43b6-4ddd-afc0-acfdcc9f242a
         model: NVIDIA GB300
         memory_mib: 284208
+  node1216:
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:EF:0D.6
+        uuid: GPU-b82a71f1-aac1-4134-8ee2-669345b81c24
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: 00000000:B1:16.3
+        uuid: GPU-0f3ce8f2-47f1-49aa-8b59-7efc94435d07
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:2B:1A.3
+        uuid: GPU-2d82cdce-65d4-480f-90d5-ad249c372c29
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:A8:02.3
+        uuid: GPU-e6374ce3-43b6-4ddd-afc0-acfdcc9f242a
+        model: NVIDIA GB300
+        memory_mib: 284208
+  node1217:
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:E7:0D.7
+        uuid: GPU-b82a71f1-aac1-4134-8e72-669345b81c24
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: 00000000:B1:16.3
+        uuid: GPU-0f3ce8f2-47f1-49aa-8b59-7efc94435d07
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:2B:1A.3
+        uuid: GPU-2d82cdce-65d4-480f-90d5-ad249c372c29
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:A8:02.3
+        uuid: GPU-e6374ce3-43b6-4ddd-afc0-acfdcc9f242a
+        model: NVIDIA GB300
+        memory_mib: 284208
+  node1218:
+    capacity_block_id: cb-1-2
+    attributes:
+      nvlink: nvl-1-2
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:E8:0D.7
+        uuid: GPU-b82a71f1-aac1-4134-8e82-669345b81c24
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: 00000000:B1:16.3
+        uuid: GPU-0f3ce8f2-47f1-49aa-8b59-7efc94435d07
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:2B:1A.3
+        uuid: GPU-2d82cdce-65d4-480f-90d5-ad249c372c29
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:A8:02.3
+        uuid: GPU-e6374ce3-43b6-4ddd-afc0-acfdcc9f242a
+        model: NVIDIA GB300
+        memory_mib: 284208
   node2101:
     capacity_block_id: cb-2-1
     attributes:
@@ -1239,6 +1401,87 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2115:
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:92:01.1
+        uuid: GPU-aee08121-18b7-412c-b574-caa03cdfa82e
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: 00000000:77:05.0
+        uuid: GPU-5916913d-63f3-4534-bd0e-ed4aa4811033
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:3C:13.2
+        uuid: GPU-a8cfa122-fff5-48ef-8a87-91da141b9dca
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:7D:17.0
+        uuid: GPU-2266b54e-0d45-4299-b85e-2e540c5cc1b8
+        model: NVIDIA GB300
+        memory_mib: 284208
+  node2116:
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:92:01.1
+        uuid: GPU-aee08121-18b7-412c-b574-caa03cdfa82e
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: 00000000:77:05.0
+        uuid: GPU-5916913d-63f3-4534-bd0e-ed4aa4811033
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:3C:13.2
+        uuid: GPU-a8cfa122-fff5-48ef-8a87-91da141b9dca
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:7D:17.0
+        uuid: GPU-2266b54e-0d45-4299-b85e-2e540c5cc1b8
+        model: NVIDIA GB300
+        memory_mib: 284208
+  node2117:
+    capacity_block_id: cb-2-1
+    attributes:
+      nvlink: nvl-2-1
+      status: Completed
+      timestamp: 2026/01/01 13:59:00.000
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:92:01.1
+        uuid: GPU-aee08121-18b7-412c-b574-caa03cdfa82e
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 1
+        pci_bus_id: 00000000:77:05.0
+        uuid: GPU-5916913d-63f3-4534-bd0e-ed4aa4811033
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 2
+        pci_bus_id: 00000000:3C:13.2
+        uuid: GPU-a8cfa122-fff5-48ef-8a87-91da141b9dca
+        model: NVIDIA GB300
+        memory_mib: 284208
+      - index: 3
+        pci_bus_id: 00000000:7D:17.0
+        uuid: GPU-2266b54e-0d45-4299-b85e-2e540c5cc1b8
+        model: NVIDIA GB300
+        memory_mib: 284208
+  node2118:
     capacity_block_id: cb-2-1
     attributes:
       nvlink: nvl-2-1
@@ -1752,7 +1995,4 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
 capacity_blocks:
-- cb-1-1
-- cb-1-2
-- cb-2-1
-- cb-2-2
+  cb-new: {}
