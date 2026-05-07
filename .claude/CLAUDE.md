@@ -16,32 +16,29 @@ Topograph discovers the physical network topology of a cluster (NVLink domains, 
 
 ### Key invariant
 
-Providers differ by environment. The canonical `*topology.Vertex` tree is stable. Engines only translate — they do not discover.
+Providers differ by environment. The canonical `topology.Graph` is stable. Engines only translate — they do not discover.
 
 This separation is load-bearing. If you find yourself reading the fabric in an engine, or emitting scheduler-specific output from a provider, stop and reconsider.
 
 ### Repository map
 
 ```
-cmd/                  # Four entry points: topograph, node-observer, node-data-broker-initc, toposim
+cmd/                  # Four entry points: topograph, node-observer, node-data-broker-initc
 pkg/
   providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, cw, test
   engines/            # One directory per engine: k8s, slinky, slurm
-  topology/           # Canonical Vertex tree and topology constants (DO NOT CHANGE CASUALLY)
+  topology/           # Canonical Graph, Vertex tree, and topology constants (DO NOT CHANGE CASUALLY)
   registry/           # Central NamedLoader wiring for providers + engines
   translate/          # topology.conf and block/tree generation shared by engines
   server/             # HTTP server and request aggregator
   node_observer/      # Kubernetes Node watcher
   ib/                 # InfiniBand fabric discovery helpers
-  toposim/            # Simulation harness used by provider `*sim*` variants
   config/             # Config file parser
-  protos/             # Generated protobuf (pb.go — do not hand-edit)
   metrics/            # Prometheus metrics
   models/             # Go types and loader for YAML simulation models (the YAML files live in tests/models/)
   test/               # Cross-package test helpers
 internal/             # Shared utilities not part of the public API
   cluset, component, config, exec, files, httperr, httpreq, k8s, version
-protos/               # .proto sources (regenerate with `make proto`)
 charts/topograph/     # Helm chart (with node-data-broker subchart)
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
 tests/models/         # YAML simulation fixtures
@@ -56,8 +53,7 @@ These structures propagate across every provider and engine. Changing them in a 
 
 | Surface | Why it's load-bearing |
 |---|---|
-| `pkg/topology/` — the `Vertex` tree and topology constants | Every provider returns it; every engine consumes it. A shape change ripples to all of them. |
-| `protos/topology.proto` | Used by `forwardServiceUrl` gRPC forwarding. Breaking changes require regeneration (`make proto`) and coordinated client updates. |
+| `pkg/topology/` — `Graph`, the `Vertex` tree, and topology constants | Every provider returns it; every engine consumes it. A shape change ripples to all of them. |
 | Helm `global.provider.name` / `global.engine.name` / `topologyNodeLabels` | External contract for operators deploying Topograph. |
 | The four default label keys `network.topology.nvidia.com/{accelerator,leaf,spine,core}` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue). |
 
@@ -69,7 +65,6 @@ These structures propagate across every provider and engine. Changing them in a 
 - **make**
 - **golangci-lint** — `brew install golangci-lint` or via `go install`
 - **docker** — only for container image builds and the IB variant
-- **protoc** + plugins — only when regenerating protobuf (`make init-proto` installs the plugins)
 
 ### Clone and build
 
@@ -80,17 +75,6 @@ make build   # produces bin/topograph, bin/node-observer, bin/node-data-broker-i
 ```
 
 Cross-compile with `make build-linux-amd64`, `make build-darwin-arm64`, etc.
-
-### Protobuf regeneration
-
-Only when `protos/*.proto` changes:
-
-```bash
-make init-proto   # one-time: installs protoc-gen-go and protoc-gen-go-grpc
-make proto        # regenerates pkg/protos/*.pb.go
-```
-
-Commit the regenerated files alongside the `.proto` change.
 
 ## 3. Testing and Deployment Workflows
 
@@ -146,11 +130,11 @@ type Provider interface {
         ctx context.Context,
         pageSize *int,
         instances []topology.ComputeInstances,
-    ) (*topology.Vertex, *httperr.Error)
+    ) (*topology.Graph, *httperr.Error)
 }
 ```
 
-A provider returns the root `*topology.Vertex` of the discovered tree. Leaf vertices are compute nodes; interior vertices are switches or (for block topology) accelerator domains. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
+A provider returns a `*topology.Graph` of the discovered topology. `Tiers` is the root of the switch hierarchy; `Domains` is a `topology.DomainMap` mapping accelerator/block domains to hosts, with each finalized domain carrying the enumerated ID used by block-topology output. Leaf vertices are compute nodes; interior tier vertices are switches. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
 
 ### Adding a new provider
 
@@ -172,7 +156,6 @@ Engines are much rarer (three exist: slurm, k8s, slinky). Follow the same regist
 | Read the fabric inside an engine | Engines only translate; discovery belongs in providers |
 | Emit scheduler-specific output from a provider | Same invariant in reverse |
 | Change `pkg/topology/Vertex` fields without discussion | Every provider and engine depends on the shape |
-| Hand-edit `pkg/protos/*.pb.go` | These are regenerated by `make proto`; edit `protos/*.proto` instead |
 | Add a new provider in `pkg/providers/<name>/` without also updating `pkg/registry/registry.go` | Orphaned code; provider will not be loadable |
 | Modify an AGENTS.md-described surface (new Makefile target, top-level directory, chart template, invariant) without updating `AGENTS.md` + `.claude/CLAUDE.md` in the same PR | Drift between the code and its agent-facing description; the next contributor / agent reads stale guidance |
 | Skip DCO sign-off to "fix later" | The DCO bot will block the PR; rebase with `--signoff` is always available |
@@ -182,7 +165,7 @@ Engines are much rarer (three exist: slurm, k8s, slinky). Follow the same regist
 
 ### Label and annotation reference
 
-Label keys written by the Kubernetes and Slinky engines are documented in `docs/reference/node-labels.md`. Do not invent new keys in provider or engine code — values flow through the canonical tree; keys are configured via Helm `topologyNodeLabels`.
+Label keys written by the Kubernetes and Slinky engines are documented in `docs/reference/node-labels.md`. Do not invent new keys in provider or engine code — values flow through the canonical graph; keys are configured via Helm `topologyNodeLabels`.
 
 ## 5. Pull Request Guidelines
 
@@ -259,7 +242,7 @@ When filing a PR (`gh pr create` or the GitHub UI), `.github/PULL_REQUEST_TEMPLA
 - [ ] `make qualify` passes (runs fmt, vet, lint, test)
 - [ ] New or changed public behavior is covered by a test
 - [ ] Documentation impact evaluated per the table above — applicable doc updates are included in this PR
-- [ ] `pkg/topology/` or `protos/` changes were discussed in an issue first
+- [ ] `pkg/topology/` changes were discussed in an issue first
 - [ ] Every commit has a DCO sign-off
 
 ### Review expectations

@@ -20,6 +20,7 @@
                 "dra",
                 "gcp",
                 "gcp-sim",
+                "dsx-sim",
                 "infiniband-bm",
                 "infiniband-k8s",
                 "lambdai",

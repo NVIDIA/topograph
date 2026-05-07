@@ -41,7 +41,7 @@ func Loader(_ context.Context, _ providers.Config) (providers.Provider, *httperr
 	return &Provider{}, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
 	if len(instances) > 1 {
 		return nil, httperr.NewError(http.StatusBadRequest, "CW does not support mult-region topology requests")
 	}
@@ -60,7 +60,7 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 	for _, v := range roots {
 		treeRoot.Vertices[v.ID] = v
 	}
-	return treeRoot, nil
+	return &topology.Graph{Tiers: treeRoot}, nil
 }
 
 // Engine support

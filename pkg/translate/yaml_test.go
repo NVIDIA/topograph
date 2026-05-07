@@ -233,7 +233,7 @@ func TestBlockOnlyYamlTopology(t *testing.T) {
           nodes: Node[301,303]
 `
 	v, _ := GetBlockWithMultiIBTestSet()
-	delete(v.Vertices, topology.TopologyTree)
+	v.Tiers = nil
 
 	cfg := &Config{
 		Topologies: map[string]*TopologySpec{

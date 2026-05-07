@@ -62,24 +62,24 @@ func NewTopologyLabeler() *topologyLabeler {
 	}
 }
 
-func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, v *topology.Vertex, labeler Labeler) error {
-	if v == nil || len(v.Vertices) == 0 {
+func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, graph *topology.Graph, labeler Labeler) error {
+	if graph == nil || (graph.Domains == nil && graph.Tiers == nil) {
 		return nil
 	}
 
 	nodeMap := make(nodeLabelMap)
-	if blockRoot, ok := v.Vertices[topology.TopologyBlock]; ok {
-		if err := l.getBlockNodeLabels(blockRoot, nodeMap); err != nil {
+	if graph.Domains != nil {
+		if err := l.getDomainLabels(graph.Domains, nodeMap); err != nil {
 			return err
 		}
 	}
 
-	if treeRoot, ok := v.Vertices[topology.TopologyTree]; ok {
+	if treeRoot := graph.Tiers; treeRoot != nil {
 		layers := []string{}
 		if len(treeRoot.ID) != 0 {
 			layers = append(layers, treeRoot.ID)
 		}
-		if err := l.getTreeNodeLabels(treeRoot, nodeMap, layers); err != nil {
+		if err := l.getTierLabels(treeRoot, nodeMap, layers); err != nil {
 			return err
 		}
 	}
@@ -93,7 +93,24 @@ func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, v *topology.Verte
 	return nil
 }
 
-func (l *topologyLabeler) getTreeNodeLabels(v *topology.Vertex, nodeMap nodeLabelMap, layers []string) error {
+func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap nodeLabelMap) error {
+	for domainName, domain := range domains {
+		for nodeName := range domain {
+			labels, ok := nodeMap[nodeName]
+			if !ok {
+				labels = make(map[string]string)
+				nodeMap[nodeName] = labels
+			}
+			if val, ok := labels[labelAccelerator]; ok {
+				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, domainName, nodeName)
+			}
+			labels[labelAccelerator] = l.checkLabel(domainName)
+		}
+	}
+	return nil
+}
+
+func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap nodeLabelMap, layers []string) error {
 	if len(v.Vertices) == 0 { // compute node
 		if len(layers) != 0 {
 			if v.ID != layers[0] {
@@ -118,29 +135,11 @@ func (l *topologyLabeler) getTreeNodeLabels(v *topology.Vertex, nodeMap nodeLabe
 	}
 
 	for _, w := range v.Vertices {
-		if err := l.getTreeNodeLabels(w, nodeMap, append([]string{w.ID}, layers...)); err != nil {
+		if err := l.getTierLabels(w, nodeMap, append([]string{w.ID}, layers...)); err != nil {
 			return err
 		}
 	}
 
-	return nil
-}
-
-func (l *topologyLabeler) getBlockNodeLabels(v *topology.Vertex, nodeMap nodeLabelMap) error {
-	for _, block := range v.Vertices {
-		for _, node := range block.Vertices {
-			nodeName := node.Name
-			labels, ok := nodeMap[nodeName]
-			if !ok {
-				labels = make(map[string]string)
-				nodeMap[nodeName] = labels
-			}
-			if val, ok := labels[labelAccelerator]; ok {
-				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, block.ID, nodeName)
-			}
-			labels[labelAccelerator] = l.checkLabel(block.ID)
-		}
-	}
 	return nil
 }
 

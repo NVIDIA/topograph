@@ -273,9 +273,7 @@ func TestGenerateTopologyConfigValid(t *testing.T) {
 		root.Vertices[v.ID] = v
 	}
 
-	tree := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.TopologyTree: root},
-	}
+	tree := &topology.Graph{Tiers: root}
 
 	data, err = slurm.GenerateOutputParams(context.TODO(), tree, &slurm.Params{})
 	require.Nil(t, err)
@@ -310,9 +308,7 @@ func TestGenerateTopologyConfigInvalid(t *testing.T) {
 		root.Vertices[v.ID] = v
 	}
 
-	tree := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{topology.TopologyTree: root},
-	}
+	tree := &topology.Graph{Tiers: root}
 
 	data, err = slurm.GenerateOutputParams(context.TODO(), tree, &slurm.Params{})
 	require.Nil(t, err)

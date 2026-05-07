@@ -288,19 +288,6 @@ func requireAnnotation(t *testing.T, annotations map[string]string, key, expecte
 	require.Equal(t, expected, val, "annotation %s should have correct value", key)
 }
 
-// Helper for setting metadata
-func setMetadata(tree *topology.Vertex, plugin, blockSizes string) {
-	if tree.Metadata == nil {
-		tree.Metadata = make(map[string]string)
-	}
-	if plugin != "" {
-		tree.Metadata[topology.KeyPlugin] = plugin
-	}
-	if blockSizes != "" {
-		tree.Metadata[topology.KeyBlockSizes] = blockSizes
-	}
-}
-
 func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 	labelSelector := metav1.LabelSelector{
 		MatchLabels: map[string]string{"app.kubernetes.io/component": "compute"},
@@ -385,16 +372,6 @@ func TestConfigMapAnnotationsAndMetadata(t *testing.T) {
 				requireAnnotation(t, annotations, topology.KeyConfigMapBlockSizes, intToStr(tc.params.BlockSizes))
 			} else {
 				require.NotContains(t, annotations, topology.KeyConfigMapBlockSizes)
-			}
-
-			// Metadata logic (simulate GenerateOutput)
-			tree := &topology.Vertex{Name: "root"}
-			setMetadata(tree, tc.params.Plugin, intToStr(tc.params.BlockSizes))
-			if tc.wantPlugin {
-				require.Equal(t, tc.params.Plugin, tree.Metadata[topology.KeyPlugin])
-			}
-			if tc.wantBlock {
-				require.Equal(t, intToStr(tc.params.BlockSizes), tree.Metadata[topology.KeyBlockSizes])
 			}
 		})
 	}

@@ -5,8 +5,12 @@
 
 instances:
   - url: topograph.docs.buildwithfern.com/topograph
+    custom-domain: docs.nvidia.com/topograph
 
 title: NVIDIA Topograph
+
+metadata:
+  canonical-host: "docs.nvidia.com/topograph"
 
 products:
   - display-name: Topograph

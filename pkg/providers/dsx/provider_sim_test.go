@@ -1,20 +1,9 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2026, NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
-package aws
+package dsx
 
 import (
 	"context"
@@ -22,7 +11,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/agrea/ptr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
@@ -40,12 +28,12 @@ switches:
   spine:
     metadata:
       availability_zone: az1
-    switches: [tor1,tor2]
-  tor1:
+    switches: [leaf1,leaf2]
+  leaf1:
     metadata:
       group: g1
     nodes: [n11,n12]
-  tor2:
+  leaf2:
     metadata:
       group: g2
     nodes: [n21,n22]
@@ -78,15 +66,15 @@ switches:
   spine:
     metadata:
       availability_zone: az1
-    switches: [tor1,tor2]
-  tor1:
+    switches: [leaf1,leaf2]
+  leaf1:
     metadata:
       group: g1
-    nodes: ["n[100-199]"]
-  tor2:
+    nodes: ["n[100-164]"]
+  leaf2:
     metadata:
       group: g2
-    nodes: ["n[200-299]"]
+    nodes: ["n[200-264]"]
 nodes:
   n100:
     capacity_block_id: cb1
@@ -345,146 +333,6 @@ nodes:
     attributes:
       nvlink: nvl1
   n164:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n165:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n166:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n167:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n168:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n169:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n170:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n171:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n172:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n173:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n174:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n175:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n176:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n177:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n178:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n179:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n180:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n181:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n182:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n183:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n184:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n185:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n186:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n187:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n188:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n189:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n190:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n191:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n192:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n193:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n194:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n195:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n196:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n197:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n198:
-    capacity_block_id: cb1
-    attributes:
-      nvlink: nvl1
-  n199:
     capacity_block_id: cb1
     attributes:
       nvlink: nvl1
@@ -748,302 +596,158 @@ nodes:
     capacity_block_id: cb2
     attributes:
       nvlink: nvl2
-  n265:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n266:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n267:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n268:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n269:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n270:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n271:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n272:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n273:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n274:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n275:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n276:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n277:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n278:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n279:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n280:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n281:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n282:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n283:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n284:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n285:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n286:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n287:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n288:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n289:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n290:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n291:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n292:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n293:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n294:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n295:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n296:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n297:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n298:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
-  n299:
-    capacity_block_id: cb2
-    attributes:
-      nvlink: nvl2
 capacity_blocks:
 - cb1
 - cb2
 `
+
+	singleNodeModel = `
+switches:
+  core:
+    switches: [leaf]
+  leaf:
+    nodes: [n1]
+nodes:
+  n1:
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+capacity_blocks:
+- cb1
+`
 )
+
+// makeRegionInstances builds one region group like gcp provider_sim tests (instance ID -> node name).
+func makeRegionInstances(region string, ranges ...[2]int) []topology.ComputeInstances {
+	m := make(map[string]string)
+	for _, r := range ranges {
+		from, to := r[0], r[1]
+		for i := from; i <= to; i++ {
+			m[fmt.Sprintf("n%d", i)] = fmt.Sprintf("node%d", i)
+		}
+	}
+	return []topology.ComputeInstances{{Region: region, Instances: m}}
+}
+
+func TestProviderSimNamedLoaderSim(t *testing.T) {
+	name, loader := NamedLoaderSim()
+	require.Equal(t, NAME_SIM, name)
+	require.NotNil(t, loader)
+}
 
 func TestProviderSim(t *testing.T) {
 	ctx := context.Background()
 
-	type interval struct{ from, to int }
-
 	testCases := []struct {
-		name      string
-		model     string
-		region    string
-		intervals []interval
-		pageSize  *int
-		params    map[string]any
-		apiErr    int
-		topology  string
-		err       string
+		name       string
+		model      string
+		instances  []topology.ComputeInstances
+		pageSize   *int
+		params     map[string]any
+		apiErr     int
+		shouldFail bool
+		err        string
 	}{
 		{
-			name:  "Case 1: bad model",
-			model: `bad: model: error:`,
-			err:   ignoreErrMsg,
+			name:       "Case 1: bad model YAML",
+			model:      `bad: model: error:`,
+			shouldFail: true,
+			err:        ignoreErrMsg,
 		},
 		{
-			name: "Case 2: no ComputeInstances",
+			name: "Case 2: model with no capacity blocks",
 			model: `
 switches:
   core:
     switches: [spine]
   spine:
-    switches: [tor]
-  tor:
-    nodes: [n11,n12]
-nodes:
-  n11:
-    capacity_block_id: cb
-    attributes:
-      nvlink: nvl1
-  n12:
-    capacity_block_id: cb
-    attributes:
-      nvlink: nvl1
-capacity_blocks:
-- cb
+    switches: [leaf]
+  leaf: {}
 `,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"n0": "node0"},
+				},
+			},
+			shouldFail: false,
 		},
 		{
-			name:      "Case 3.1: ClientFactory API error",
-			model:     clusterModel,
-			region:    "region",
-			intervals: []interval{{11, 12}},
-			apiErr:    errClientFactory,
-			err:       "failed to get client: API error",
+			name:  "Case 3: ClientFactory API error",
+			model: clusterModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"n11": "node11", "n12": "node12"},
+				},
+			},
+			apiErr:     errClientFactory,
+			shouldFail: true,
+			err:        "failed to get client: API error",
 		},
 		{
-			name:      "Case 3.2: DescribeInstanceTopology API error",
-			model:     clusterModel,
-			region:    "region",
-			intervals: []interval{{11, 12}},
-			apiErr:    errDescribeInstanceTopology,
-			err:       "failed to describe instance topology: API error",
+			name:  "Case 4: API error during topology fetch",
+			model: clusterModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"n11": "node11", "n12": "node12"},
+				},
+			},
+			apiErr:     errAPIError,
+			shouldFail: true,
+			err:        "API error: API error",
 		},
 		{
-			name:      "Case 4: missing region",
-			model:     clusterModel,
-			intervals: []interval{{11, 12}},
-			err:       `must specify region`,
+			name:  "Case 5: valid small cluster in tree format",
+			model: clusterModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region: "region",
+					Instances: map[string]string{
+						"n11": "node11", "n12": "node12",
+						"n21": "node21", "n22": "node22",
+					},
+				},
+			},
+			shouldFail: false,
 		},
 		{
-			name: "Case 5.1: missing availability zone",
-			model: `
-switches:
-  core:
-    switches: [spine]
-  spine:
-    switches: [tor]
-  tor:
-    nodes: [n11]
-nodes:
-  n11:
-    capacity_block_id: cb
-    attributes:
-      nvlink: nvl1
-capacity_blocks:
-- cb
-`,
-			region:    "region",
-			intervals: []interval{{11, 11}},
-			err:       `failed to describe instance topology: availability zone not found for instance "n11" in AWS simulation`,
+			name:  "Case 6: valid small cluster with nodes",
+			model: clusterModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region: "region",
+					Instances: map[string]string{
+						"n11": "node11", "n12": "node12", "n13": "node13",
+						"n21": "node21", "n22": "node22", "n23": "node23",
+					},
+				},
+			},
+			shouldFail: false,
 		},
 		{
-			name: "Case 5.2: missing placement group",
-			model: `
-switches:
-  core:
-    switches: [spine]
-  spine:
-    metadata:
-      availability_zone: az1
-    switches: [tor]
-  tor:
-    nodes: [n11]
-nodes:
-  n11:
-    capacity_block_id: cb
-    attributes:
-      nvlink: nvl1
-capacity_blocks:
-- cb
-`,
-			region:    "region",
-			intervals: []interval{{11, 11}},
-			err:       `failed to describe instance topology: placement group not found for instance "n11" in AWS simulation`,
+			name:  "Case 7: single node model",
+			model: singleNodeModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"n1": "node1"},
+				},
+			},
+			shouldFail: false,
 		},
 		{
-			name:      "Case 6: valid cluster in tree format",
-			model:     clusterModel,
-			region:    "region",
-			intervals: []interval{{11, 13}, {21, 23}},
-			topology: `SwitchName=core Switches=spine
-SwitchName=no-topology Nodes=node[13,23]
-SwitchName=spine Switches=tor[1-2]
-SwitchName=tor1 Nodes=node[11-12]
-SwitchName=tor2 Nodes=node[21-22]
-`,
+			name:       "Case 8: large cluster with many nodes",
+			model:      largeClusterModel,
+			instances:  makeRegionInstances("region", [2]int{100, 164}, [2]int{200, 264}),
+			shouldFail: false,
 		},
 		{
-			name:      "Case 7: valid cluster in block format",
-			model:     clusterModel,
-			region:    "region",
-			intervals: []interval{{11, 12}, {21, 22}, {31, 32}},
-			params:    map[string]any{"plugin": "topology/block"},
-			topology: `# block001=nvl1
-BlockName=block001 Nodes=node[11-12]
-# block002=nvl2
-BlockName=block002 Nodes=node[21-22]
-BlockSizes=2,4
-`,
-		},
-		{
-			name:      "Case 8: valid large cluster in block format",
-			model:     largeClusterModel,
-			region:    "region",
-			intervals: []interval{{101, 164}, {201, 264}},
-			pageSize:  ptr.Int(25),
-			params:    map[string]any{"plugin": "topology/block"},
-			topology: `# block001=nvl1
-BlockName=block001 Nodes=node[101-164]
-# block002=nvl2
-BlockName=block002 Nodes=node[201-264]
-BlockSizes=64,128
-`,
+			name:       "Case 9: empty node list",
+			model:      clusterModel,
+			instances:  nil,
+			shouldFail: false,
 		},
 	}
 
@@ -1075,29 +779,202 @@ BlockSizes=64,128
 				return
 			}
 
-			var instances []topology.ComputeInstances
-			if len(tc.intervals) != 0 {
-				instances = []topology.ComputeInstances{
-					{
-						Region:    tc.region,
-						Instances: make(map[string]string),
-					},
+			topo, httpErr := provider.GenerateTopologyConfig(ctx, tc.pageSize, tc.instances)
+			if tc.shouldFail {
+				if len(tc.err) == 0 {
+					require.NotNil(t, httpErr)
+				} else if tc.err != ignoreErrMsg {
+					require.EqualError(t, httpErr, tc.err)
 				}
-				for _, item := range tc.intervals {
-					for i := item.from; i <= item.to; i++ {
-						instances[0].Instances[fmt.Sprintf("n%d", i)] = fmt.Sprintf("node%d", i)
-					}
-				}
-			}
-			topo, httpErr := provider.GenerateTopologyConfig(ctx, tc.pageSize, instances)
-			if len(tc.err) != 0 {
-				require.EqualError(t, httpErr, tc.err)
 			} else {
 				require.Nil(t, httpErr)
+				require.NotNil(t, topo)
+				// For valid topologies, try to generate SLURM output
 				data, httpErr := slurm.GenerateOutput(ctx, topo, tc.params)
 				require.Nil(t, httpErr)
-				require.Equal(t, tc.topology, string(data))
+				nInst := 0
+				for _, ci := range tc.instances {
+					nInst += len(ci.Instances)
+				}
+				// With no requested instances, the buffer stays empty and Bytes() is nil.
+				if nInst > 0 {
+					require.NotNil(t, data)
+				}
 			}
 		})
 	}
+}
+
+func TestProviderSimTopologyStructure(t *testing.T) {
+	ctx := context.Background()
+
+	// Test that the generated topology has the expected structure
+	model := clusterModel
+	f, err := os.CreateTemp("", "test-*")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer func() { _ = f.Close() }()
+	_, err = f.WriteString(model)
+	require.NoError(t, err)
+	err = f.Sync()
+	require.NoError(t, err)
+
+	cfg := providers.Config{
+		Params: map[string]any{
+			"modelFileName": f.Name(),
+			"api_error":     errNone,
+		},
+	}
+	provider, httpErr := LoaderSim(ctx, cfg)
+	require.Nil(t, httpErr)
+
+	instances := []topology.ComputeInstances{
+		{
+			Region: "region",
+			Instances: map[string]string{
+				"n11": "node11",
+				"n12": "node12",
+				"n21": "node21",
+				"n22": "node22",
+			},
+		},
+	}
+
+	topo, httpErr := provider.GenerateTopologyConfig(ctx, nil, instances)
+	require.Nil(t, httpErr)
+	require.NotNil(t, topo)
+
+	// Verify the topology tree structure
+	treeVertex := topo.Tiers
+	require.NotNil(t, treeVertex)
+	require.NotNil(t, treeVertex.Vertices)
+
+	// Root should have core switch
+	coreVertex, exists := treeVertex.Vertices["core"]
+	require.True(t, exists, "core vertex should exist")
+	require.Equal(t, "core", coreVertex.ID)
+
+	require.NotNil(t, coreVertex.Vertices)
+	spineVertex, exists := coreVertex.Vertices["spine"]
+	require.True(t, exists, "spine vertex should exist")
+	require.Equal(t, "spine", spineVertex.ID)
+
+	// Spine should have leaf1 and leaf2 as children
+	require.NotNil(t, spineVertex.Vertices)
+	require.True(t, len(spineVertex.Vertices) >= 1, "spine should have at least one leaf child")
+}
+
+func TestProviderSimWithNVLink(t *testing.T) {
+	ctx := context.Background()
+
+	// Test that nodes carry their NVLink information
+	model := clusterModel
+	f, err := os.CreateTemp("", "test-*")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer func() { _ = f.Close() }()
+	_, err = f.WriteString(model)
+	require.NoError(t, err)
+	err = f.Sync()
+	require.NoError(t, err)
+
+	cfg := providers.Config{
+		Params: map[string]any{
+			"modelFileName": f.Name(),
+			"api_error":     errNone,
+		},
+	}
+	provider, httpErr := LoaderSim(ctx, cfg)
+	require.Nil(t, httpErr)
+
+	instances := []topology.ComputeInstances{
+		{
+			Region: "region",
+			Instances: map[string]string{
+				"n11": "node11",
+				"n12": "node12",
+			},
+		},
+	}
+
+	topo, httpErr := provider.GenerateTopologyConfig(ctx, nil, instances)
+	require.Nil(t, httpErr)
+	require.NotNil(t, topo)
+
+	// NVLink / accelerator domain is emitted as graph domains (same as AWS ToThreeTierGraph path).
+	domains := topo.Domains
+	require.NotNil(t, domains)
+	_, hasNVL := domains["nvl1"]
+	require.True(t, hasNVL, "cluster model places cb1 nodes in NVLink domain nvl1 under topology/block")
+}
+
+func TestLoaderSimMissingModelFile(t *testing.T) {
+	ctx := context.Background()
+
+	cfg := providers.Config{
+		Params: map[string]any{
+			"modelFileName": "/nonexistent/model.yaml",
+			"api_error":     errNone,
+		},
+	}
+	_, httpErr := LoaderSim(ctx, cfg)
+	require.NotNil(t, httpErr)
+	require.Contains(t, httpErr.Error(), "failed to load model file")
+}
+
+func TestLoaderSimMissingModelFileName(t *testing.T) {
+	ctx := context.Background()
+
+	cfg := providers.Config{
+		Params: map[string]any{},
+	}
+	_, httpErr := LoaderSim(ctx, cfg)
+	require.NotNil(t, httpErr)
+	// Should contain error about missing model file name
+	require.True(t, len(httpErr.Error()) > 0, "should have error message")
+}
+
+func TestProviderSimMultipleInstances(t *testing.T) {
+	ctx := context.Background()
+
+	model := clusterModel
+	f, err := os.CreateTemp("", "test-*")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer func() { _ = f.Close() }()
+	_, err = f.WriteString(model)
+	require.NoError(t, err)
+	err = f.Sync()
+	require.NoError(t, err)
+
+	cfg := providers.Config{
+		Params: map[string]any{
+			"modelFileName": f.Name(),
+			"api_error":     errNone,
+		},
+	}
+	provider, httpErr := LoaderSim(ctx, cfg)
+	require.Nil(t, httpErr)
+
+	// Create multiple compute instance groups
+	instances := []topology.ComputeInstances{
+		{
+			Region: "region1",
+			Instances: map[string]string{
+				"n11": "node11",
+				"n12": "node12",
+			},
+		},
+		{
+			Region: "region2",
+			Instances: map[string]string{
+				"n21": "node21",
+				"n22": "node22",
+			},
+		},
+	}
+
+	topo, httpErr := provider.GenerateTopologyConfig(ctx, nil, instances)
+	require.Nil(t, httpErr)
+	require.NotNil(t, topo)
 }

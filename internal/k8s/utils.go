@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,7 +91,8 @@ func ExecInPod(ctx context.Context, client kubernetes.Interface, config *rest.Co
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute command %v in pod %s/%s: %s: %v", cmd, namespace, name, stderr.String(), err)
+		strerr := strings.ReplaceAll(stderr.String(), "\n", " ")
+		return nil, fmt.Errorf("failed to execute command %v in pod %s/%s: %s: %v", cmd, namespace, name, strerr, err)
 	}
 
 	return &stdout, nil

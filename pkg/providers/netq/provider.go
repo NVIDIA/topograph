@@ -81,25 +81,23 @@ func getParams(params map[string]any) (*ProviderParams, error) {
 	return p, nil
 }
 
-func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
+func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
 	treeRoot, err := p.getNetworkTree(ctx, instances)
 	if err != nil {
 		return nil, err
 	}
 
-	root := &topology.Vertex{
-		Vertices: map[string]*topology.Vertex{
-			topology.TopologyTree: treeRoot,
-		},
+	graph := &topology.Graph{
+		Tiers: treeRoot,
 	}
 
 	if domains, err := p.getNvlDomains(ctx); err != nil {
 		klog.Warningf("Failed to get NVL domains: %v", err)
 	} else {
-		root.Vertices[topology.TopologyBlock] = domains.ToBlocks()
+		graph.Domains = domains
 	}
 
-	return root, nil
+	return graph, nil
 }
 
 // Instances2NodeMap implements slurm.instanceMapper

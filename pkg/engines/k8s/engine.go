@@ -89,8 +89,8 @@ func getParameters(params engines.Config) (*Params, error) {
 	return p, nil
 }
 
-func (eng *K8sEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, *httperr.Error) {
-	if err := NewTopologyLabeler().ApplyNodeLabels(ctx, tree, eng); err != nil {
+func (eng *K8sEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, params map[string]any) ([]byte, *httperr.Error) {
+	if err := NewTopologyLabeler().ApplyNodeLabels(ctx, graph, eng); err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 

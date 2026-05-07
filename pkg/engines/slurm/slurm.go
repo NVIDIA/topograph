@@ -211,20 +211,20 @@ func parsePartitionNodes(partition string, data string) ([]string, error) {
 	return nil, fmt.Errorf("partition %q has no nodes", partition)
 }
 
-func (eng *SlurmEngine) GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, *httperr.Error) {
-	return GenerateOutput(ctx, tree, params)
+func (eng *SlurmEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, params map[string]any) ([]byte, *httperr.Error) {
+	return GenerateOutput(ctx, graph, params)
 }
 
-func GenerateOutput(ctx context.Context, tree *topology.Vertex, params map[string]any) ([]byte, *httperr.Error) {
+func GenerateOutput(ctx context.Context, graph *topology.Graph, params map[string]any) ([]byte, *httperr.Error) {
 	p, err := getParams(params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	return GenerateOutputParams(ctx, tree, p)
+	return GenerateOutputParams(ctx, graph, p)
 }
 
-func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Params) ([]byte, *httperr.Error) {
+func GenerateOutputParams(ctx context.Context, graph *topology.Graph, params *Params) ([]byte, *httperr.Error) {
 	// apply legacy default plugin value
 	if len(params.Plugin) == 0 && len(params.Topologies) == 0 {
 		params.Plugin = topology.TopologyTree
@@ -235,7 +235,7 @@ func GenerateOutputParams(ctx context.Context, root *topology.Vertex, params *Pa
 		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	nt, err := translate.NewNetworkTopology(root, cfg)
+	nt, err := translate.NewNetworkTopology(graph, cfg)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}

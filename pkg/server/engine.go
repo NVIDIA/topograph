@@ -121,18 +121,12 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *httperr.Error) {
 		}
 	}
 
-	var root *topology.Vertex
-	if srv.cfg.FwdSvcURL != nil {
-		// forward the request to the global service
-		root, err = forwardRequest(ctx, tr, *srv.cfg.FwdSvcURL, computeInstances)
-	} else {
-		root, err = prv.GenerateTopologyConfig(ctx, srv.cfg.PageSize, computeInstances)
-	}
+	graph, err := prv.GenerateTopologyConfig(ctx, srv.cfg.PageSize, computeInstances)
 	if err != nil {
 		return nil, err
 	}
 
-	return eng.GenerateOutput(ctx, root, tr.Engine.Params)
+	return eng.GenerateOutput(ctx, graph, tr.Engine.Params)
 }
 
 func checkCredentials(payloadCreds, cfgCreds map[string]any) map[string]any {

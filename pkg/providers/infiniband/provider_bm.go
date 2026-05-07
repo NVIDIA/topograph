@@ -28,7 +28,7 @@ func LoaderBM(_ context.Context, _ providers.Config) (providers.Provider, *httpe
 	return &ProviderBM{}, nil
 }
 
-func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
+func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
 	if len(cis) > 1 {
 		return nil, httperr.NewError(http.StatusBadRequest, "on-prem does not support multi-region topology requests")
 	}
@@ -50,7 +50,10 @@ func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []t
 		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("getIbTree failed: %v", err))
 	}
 
-	return toGraph(domainMap, treeRoot), nil
+	return &topology.Graph{
+		Tiers:   treeRoot,
+		Domains: domainMap,
+	}, nil
 }
 
 // Instances2NodeMap implements slurm.instanceMapper

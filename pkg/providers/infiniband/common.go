@@ -69,14 +69,3 @@ func getIbTree(ctx context.Context, cis []topology.ComputeInstances, ibnetdiscov
 
 	return treeRoot, nil
 }
-
-func toGraph(domainMap topology.DomainMap, treeRoot *topology.Vertex) *topology.Vertex {
-	root := &topology.Vertex{
-		Vertices: make(map[string]*topology.Vertex),
-		Metadata: make(map[string]string),
-	}
-	root.Vertices[topology.TopologyTree] = treeRoot
-	root.Vertices[topology.TopologyBlock] = domainMap.ToBlocks()
-
-	return root
-}

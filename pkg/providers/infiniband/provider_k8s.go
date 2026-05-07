@@ -80,7 +80,7 @@ func getParameters(params map[string]any) (*Params, error) {
 	return p, nil
 }
 
-func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
+func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
 	if len(cis) > 1 {
 		return nil, httperr.NewError(http.StatusBadRequest, "on-prem does not support multi-region topology requests")
 	}
@@ -103,5 +103,8 @@ func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []
 		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("getIbTree failed: %v", err))
 	}
 
-	return toGraph(domainMap, treeRoot), nil
+	return &topology.Graph{
+		Tiers:   treeRoot,
+		Domains: domainMap,
+	}, nil
 }

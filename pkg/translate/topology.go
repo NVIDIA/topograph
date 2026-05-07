@@ -54,7 +54,7 @@ type nodeInfo struct {
 	switches   []string
 }
 
-func (cfg *Config) Validate(root *topology.Vertex) error {
+func (cfg *Config) Validate(graph *topology.Graph) error {
 	if len(cfg.Topologies) != 0 { // per-partition topology
 		if len(cfg.Plugin) != 0 {
 			return fmt.Errorf("plugin and topologies parameters are mutually exclusive")
@@ -62,11 +62,11 @@ func (cfg *Config) Validate(root *topology.Vertex) error {
 		for topo, spec := range cfg.Topologies {
 			switch spec.Plugin {
 			case topology.TopologyTree:
-				if _, ok := root.Vertices[topology.TopologyTree]; !ok {
+				if graph == nil || graph.Tiers == nil {
 					return fmt.Errorf("missing tree topology for topology %q", topo)
 				}
 			case topology.TopologyBlock:
-				if _, ok := root.Vertices[topology.TopologyBlock]; !ok {
+				if graph == nil || graph.Domains == nil {
 					return fmt.Errorf("missing block topology for topology %q", topo)
 				}
 			case topology.TopologyFlat:
@@ -78,14 +78,14 @@ func (cfg *Config) Validate(root *topology.Vertex) error {
 				return fmt.Errorf("topology %q specifies no nodes", topo)
 			}
 		}
-	} else { // cluster-wise topology
+	} else { // cluster-wide topology
 		switch cfg.Plugin {
 		case topology.TopologyTree:
-			if _, ok := root.Vertices[topology.TopologyTree]; !ok {
+			if graph == nil || graph.Tiers == nil {
 				return fmt.Errorf("missing tree topology")
 			}
 		case topology.TopologyBlock:
-			if _, ok := root.Vertices[topology.TopologyBlock]; !ok {
+			if graph == nil || graph.Domains == nil {
 				return fmt.Errorf("missing block topology")
 			}
 		default:
@@ -95,8 +95,8 @@ func (cfg *Config) Validate(root *topology.Vertex) error {
 	return nil
 }
 
-func NewNetworkTopology(root *topology.Vertex, cfg *Config) (*NetworkTopology, error) {
-	if err := cfg.Validate(root); err != nil {
+func NewNetworkTopology(graph *topology.Graph, cfg *Config) (*NetworkTopology, error) {
+	if err := cfg.Validate(graph); err != nil {
 		return nil, err
 	}
 
@@ -107,20 +107,19 @@ func NewNetworkTopology(root *topology.Vertex, cfg *Config) (*NetworkTopology, e
 		nodeInfo: make(map[string]*nodeInfo),
 	}
 
-	nt.initTree(root)
-	nt.initBlocks(root)
+	nt.initTree(graph)
+	nt.initBlocks(graph)
 
 	return nt, nil
 }
 
-func (nt *NetworkTopology) initTree(root *topology.Vertex) {
-	tree, ok := root.Vertices[topology.TopologyTree]
-	if !ok {
+func (nt *NetworkTopology) initTree(graph *topology.Graph) {
+	if graph == nil || graph.Tiers == nil {
 		return
 	}
 
 	parentMap := make(map[string][]string)
-	queue := []*topology.Vertex{tree}
+	queue := []*topology.Vertex{graph.Tiers}
 	for len(queue) > 0 {
 		v := queue[0]
 		queue = queue[1:]
@@ -148,62 +147,74 @@ func (nt *NetworkTopology) initTree(root *topology.Vertex) {
 	}
 }
 
-func (nt *NetworkTopology) initBlocks(root *topology.Vertex) {
-	blockRoot, ok := root.Vertices[topology.TopologyBlock]
-	if !ok {
+func toBlockInfos(domains topology.DomainMap) []*blockInfo {
+	domainNames := make([]string, 0, len(domains))
+	for domainName := range domains {
+		domainNames = append(domainNames, domainName)
+	}
+	sort.Strings(domainNames)
+
+	blocks := make([]*blockInfo, 0, len(domainNames))
+	for i, domainName := range domainNames {
+		domain := domains[domainName]
+		nodes := make([]string, 0, len(domain))
+		for node := range domain {
+			nodes = append(nodes, node)
+		}
+		sort.Strings(nodes)
+
+		blocks = append(blocks, &blockInfo{
+			id:    fmt.Sprintf("block%03d", i+1),
+			name:  domainName,
+			nodes: nodes,
+		})
+	}
+
+	return blocks
+}
+
+func (nt *NetworkTopology) initBlocks(graph *topology.Graph) {
+	if graph == nil || graph.Domains == nil {
 		klog.Warning("block topology data not found")
 		return
 	}
 
-	if len(blockRoot.Vertices) == 0 {
+	if len(graph.Domains) == 0 {
 		klog.Warning("no blocks found in block topology")
 		return
 	}
 
-	nt.blocks = make([]*blockInfo, 0, len(blockRoot.Vertices))
+	domainBlocks := toBlockInfos(graph.Domains)
+	nt.blocks = make([]*blockInfo, 0, len(domainBlocks))
 	indx := 0
 
-	treeRoot, ok := root.Vertices[topology.TopologyTree]
-	if !ok { // no tree data
-		ids := make([]string, 0, len(blockRoot.Vertices))
-		for id := range blockRoot.Vertices {
-			ids = append(ids, id)
-		}
-		sort.Strings(ids)
-		for _, id := range ids {
-			v := blockRoot.Vertices[id]
-			bInfo := &blockInfo{
-				id:    v.ID,
-				name:  v.Name,
-				indx:  indx,
-				nodes: make([]string, 0, len(v.Vertices)),
-			}
-			for _, w := range v.Vertices {
-				bInfo.nodes = append(bInfo.nodes, w.Name)
-
-				nt.nodeInfo[w.Name] = &nodeInfo{
-					instanceID: w.ID,
-					blockID:    id,
+	if graph.Tiers == nil { // no tree data
+		for _, bInfo := range domainBlocks {
+			bInfo.indx = indx
+			for _, node := range bInfo.nodes {
+				nt.nodeInfo[node] = &nodeInfo{
+					instanceID: graph.Domains[bInfo.name][node],
+					blockID:    bInfo.id,
 					blockIndx:  ptr.Int(indx),
 				}
-				klog.V(4).InfoS("initBlocks: adding nodeInfo", "name", w.Name, "blockID", id, "blockIndx", indx)
+				klog.V(4).InfoS("initBlocks: adding nodeInfo", "name", node, "blockID", bInfo.id, "blockIndx", indx)
 			}
 			nt.blocks = append(nt.blocks, bInfo)
 			indx++
 		}
 	} else {
 		// set block ID for each node
-		blockMap := make(map[string]*topology.Vertex)
-		for _, block := range blockRoot.Vertices {
-			blockMap[block.ID] = block
-			for _, v := range block.Vertices {
-				if info, ok := nt.nodeInfo[v.Name]; ok {
-					info.blockID = block.ID
+		blockMap := make(map[string]*blockInfo)
+		for _, block := range domainBlocks {
+			blockMap[block.id] = block
+			for _, node := range block.nodes {
+				if info, ok := nt.nodeInfo[node]; ok {
+					info.blockID = block.id
 				}
 			}
 		}
 		// sort blocks according to the node appearance in the tree
-		queue := []*topology.Vertex{treeRoot}
+		queue := []*topology.Vertex{graph.Tiers}
 		for len(queue) > 0 {
 			v := queue[0]
 			queue = queue[1:]
@@ -234,17 +245,16 @@ func (nt *NetworkTopology) initBlocks(root *topology.Vertex) {
 }
 
 // markBlockNodes assigns provided block index to the block nodes
-func (nt *NetworkTopology) markBlockNodes(block *topology.Vertex, indx int) *blockInfo {
+func (nt *NetworkTopology) markBlockNodes(block *blockInfo, indx int) *blockInfo {
 	pIndx := ptr.Int(indx)
 	bInfo := &blockInfo{
-		id:    block.ID,
-		name:  block.Name,
+		id:    block.id,
+		name:  block.name,
 		indx:  indx,
-		nodes: make([]string, 0, len(block.Vertices)),
+		nodes: append([]string(nil), block.nodes...),
 	}
-	for _, v := range block.Vertices {
-		bInfo.nodes = append(bInfo.nodes, v.Name)
-		if info, ok := nt.nodeInfo[v.Name]; ok {
+	for _, node := range bInfo.nodes {
+		if info, ok := nt.nodeInfo[node]; ok {
 			info.blockIndx = pIndx
 		}
 	}

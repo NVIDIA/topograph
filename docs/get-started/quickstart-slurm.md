@@ -57,7 +57,7 @@ HTTP 200 means the API server is up.
 
 ## Where to go next
 
-- **[Slurm engine reference](../engines/slurm.md)** — full configuration, tree vs block vs per-partition topology formats, `strigger` integration, using toposim for simulated-cluster testing
+- **[Slurm engine reference](../engines/slurm.md)** — full configuration, tree vs block vs per-partition topology formats, `strigger` integration
 - **[Provider documentation](../providers/)** — per-provider prerequisites and configuration
 - **[Config and API reference](../api.md)** — `topograph-config.yaml` schema, `/v1/generate` and `/v1/topology` contract
 - **[`scripts/create-topology-update-script.sh`](https://github.com/NVIDIA/topograph/blob/main/scripts/create-topology-update-script.sh)** — generates the Slurm trigger that calls `/v1/generate` automatically when the cluster's node inventory changes

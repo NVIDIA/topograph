@@ -23,38 +23,51 @@ const (
 
 	nodeModel = `
 switches:
-- name: core
-  switches: [spine]
-- name: spine
-  switches: [tor]
-- name: tor
-  capacity_blocks: [cb]
+  core:
+    switches: [spine]
+  spine:
+    switches: [tor]
+  tor:
+    nodes: ["11"]
+nodes:
+  "11":
+    capacity_block_id: cb
+    attributes:
+      nvlink: nvl1
 capacity_blocks:
-- name: cb
-  type: GB200
-  nvlink: nvl1
-  nodes: [11]
+- cb
 `
 
 	clusterModel = `
 switches:
-- name: core
-  switches: [spine]
-- name: spine
-  switches: [tor1,tor2]
-- name: tor1
-  capacity_blocks: [cb1]
-- name: tor2
-  capacity_blocks: [cb2]
+  core:
+    switches: [spine]
+  spine:
+    switches: [tor1,tor2]
+  tor1:
+    nodes: ["11","12"]
+  tor2:
+    nodes: ["21","22"]
+nodes:
+  "11":
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  "12":
+    capacity_block_id: cb1
+    attributes:
+      nvlink: nvl1
+  "21":
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
+  "22":
+    capacity_block_id: cb2
+    attributes:
+      nvlink: nvl2
 capacity_blocks:
-- name: cb1
-  type: GB200
-  nvlink: nvl1
-  nodes: [11,12]
-- name: cb2
-  type: GB200
-  nvlink: nvl2
-  nodes: [21,22]
+- cb1
+- cb2
 `
 )
 

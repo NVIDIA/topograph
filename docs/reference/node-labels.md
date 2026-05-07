@@ -22,7 +22,7 @@ Not all providers produce both topology types:
 | Provider | Block (`accelerator`) | Tree (`leaf`/`spine`/`core`) |
 |---|---|---|
 | `aws` | Yes (CapacityBlockId) | Yes |
-| `cw` | No | No (vertex structure is incompatible with the Kubernetes and Slinky engines — the provider returns a bare tree root that is not wrapped under `topology.TopologyTree`, so neither labeler processes its output; tracked separately) |
+| `cw` | No | Yes (InfiniBand switch hierarchy) |
 | `gcp` | No | Yes |
 | `lambdai` | Yes (`NVLink.DomainID.CliqueID`) | Yes |
 | `oci` | No | Yes |
@@ -48,12 +48,12 @@ Workload schedulers consuming topology labels may need to choose between Topogra
 
 **Caveats when preferring `nvidia.com/gpu.clique`:**
 
-- The label covers only placement within a single MNNVL domain (one GB200 NVL72 rack): NVL Partition via the full `<ClusterUUID>.<CliqueID>` value, NVL Domain via the `ClusterUUID` prefix. Locality beyond that scope is not reflected:
-    - **Same top-of-rack switch** (cross-rack within a first-tier fabric) — see Topograph's `leaf` label.
-    - **Same second-tier aggregation** (typically Scalable-Unit / pod-scale grouping above individual racks) — see Topograph's `spine` label.
-    - **Same third-tier aggregation** (present in large three-tier fabrics — typically cross-SU grouping in multi-SU SuperPOD deployments) — see Topograph's `core` label.
+- The label encodes node identity within MNNVL domains, not fabric proximity between them. NVL Partition is encoded as the full `<ClusterUUID>.<CliqueID>` value; NVL Domain is encoded as the `ClusterUUID` prefix. A scheduler can therefore distinguish racks — two nodes with different `ClusterUUID` are in different NVL Domains — and act on that distinction (same-Domain affinity to pack a job onto a single rack, cross-Domain anti-affinity to spread independent jobs across racks). What the label does **not** encode is the *physical proximity* between Domains: `ClusterUUID`s are opaque identifiers, so the label cannot tell a scheduler which racks share a top-of-rack switch, an aggregation tier, or a core. For cross-rack proximity-aware placement, Topograph populates the following labels from the InfiniBand or NetQ providers regardless of whether `gpu.clique` is present:
+    - **Same top-of-rack switch** (cross-rack within a first-tier fabric) — Topograph's `leaf` label.
+    - **Same second-tier aggregation** (typically Scalable-Unit / pod-scale grouping above individual racks) — Topograph's `spine` label.
+    - **Same third-tier aggregation** (present in large three-tier fabrics — typically cross-SU grouping in multi-SU SuperPOD deployments) — Topograph's `core` label.
 
-  These labels are populated by the InfiniBand or NetQ providers regardless of whether `gpu.clique` is present, and are also relevant for mixed-workload fragmentation avoidance (see [`docs/engines/k8s.md` § Mixed Workload Considerations](../engines/k8s.md#mixed-workload-considerations)).
+  These labels are also relevant for mixed-workload fragmentation avoidance (see [`docs/engines/k8s.md` § Mixed Workload Considerations](../engines/k8s.md#mixed-workload-considerations)).
 - The label is refreshed by GPU Feature Discovery at its configured interval (the k8s-device-plugin default is 60s) rather than propagated instantly. Fabric-state changes in the window between refreshes are not yet reflected in the label.
 - Persistence of `ClusterUUID` / `CliqueID` across node reboots is administratively controlled via Fabric Manager's `FABRIC_MODE_RESTART` configuration (default: preserve partition configurations). Deployments that disable preservation may see identifiers change across restarts, which can invalidate scheduler state cached on those values.
 

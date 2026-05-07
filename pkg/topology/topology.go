@@ -57,6 +57,14 @@ const (
 	KeySlurmNodeName      = "slurm.node.name"
 )
 
+// Graph is the canonical scheduler-agnostic topology representation.
+// Tiers is the root of the switch hierarchy. Domains maps accelerator/block
+// domains to hosts and carries the finalized enumerated domain ID.
+type Graph struct {
+	Tiers   *Vertex
+	Domains DomainMap
+}
+
 // Vertex is a tree node, representing a compute node or a network switch, where
 // - Name is a compute node name
 // - ID is an CSP defined instance ID of switches and compute nodes
@@ -65,7 +73,6 @@ type Vertex struct {
 	Name     string
 	ID       string
 	Vertices map[string]*Vertex
-	Metadata map[string]string
 }
 
 func (v *Vertex) String() string {
