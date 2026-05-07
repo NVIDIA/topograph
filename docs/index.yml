@@ -17,6 +17,8 @@ navigation:
         path: architecture.md
       - page: Config and API
         path: api.md
+      - page: Modeling and API Simulation
+        path: modeling.md
 
   - section: Providers
     contents:

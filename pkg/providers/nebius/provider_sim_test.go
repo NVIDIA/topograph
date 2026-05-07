@@ -35,7 +35,7 @@ nodes:
     attributes:
       nvlink: nvl1
 capacity_blocks:
-- cb
+  cb: {}
 `
 
 	clusterModel = `
@@ -66,8 +66,8 @@ nodes:
     attributes:
       nvlink: nvl2
 capacity_blocks:
-- cb1
-- cb2
+  cb1: {}
+  cb2: {}
 `
 )
 

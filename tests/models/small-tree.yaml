@@ -27,19 +27,8 @@ switches:
     - I34
     - I35
     - I36
-nodes:
-  I21:
-    capacity_block_id: CB2
-  I22:
-    capacity_block_id: CB2
-  I25:
-    capacity_block_id: CB2
-  I34:
-    capacity_block_id: CB3
-  I35:
-    capacity_block_id: CB3
-  I36:
-    capacity_block_id: CB3
 capacity_blocks:
-- CB2
-- CB3
+  CB2:
+    nodes: ["I[21-22]", "I25"]
+  CB3:
+    nodes: ["I[34-36]"]

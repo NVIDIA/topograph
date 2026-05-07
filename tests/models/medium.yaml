@@ -60,41 +60,26 @@ switches:
       group: cb14
     nodes:
     - "[1401-1402]"
-nodes:
-  "1101":
-    capacity_block_id: cb11
-    attributes:
-      nvlink: nvl1
-  "1102":
-    capacity_block_id: cb11
-    attributes:
-      nvlink: nvl1
-  "1201":
-    capacity_block_id: cb12
-    attributes:
-      nvlink: nvl2
-  "1202":
-    capacity_block_id: cb12
-    attributes:
-      nvlink: nvl2
-  "1301":
-    capacity_block_id: cb13
-    attributes:
-      nvlink: nvl3
-  "1302":
-    capacity_block_id: cb13
-    attributes:
-      nvlink: nvl3
-  "1401":
-    capacity_block_id: cb14
-    attributes:
-      nvlink: nvl4
-  "1402":
-    capacity_block_id: cb14
-    attributes:
-      nvlink: nvl4
+
 capacity_blocks:
-- cb11
-- cb12
-- cb13
-- cb14
+  cb11:
+    nodes:
+    - "[1101-1102]"
+    attributes:
+      nvlink: nvl1
+  cb12:
+    nodes:
+    - "[1201-1202]"
+    attributes:
+      nvlink: nvl2
+  cb13:
+    nodes:
+    - "[1301-1302]"
+    attributes:
+      nvlink: nvl3
+  cb14:
+    nodes:
+    - "[1401-1402]"
+    attributes:
+      nvlink: nvl4
+  cb15: {}
