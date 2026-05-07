@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/NVIDIA/topograph/internal/cluset"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -45,12 +44,6 @@ func (client *simClient) GetTopology(ctx context.Context, _ string, nodeIDs []st
 		want[nodeID] = struct{}{}
 	}
 
-	// Build capacity block map from model
-	capacityBlockMap := make(map[string]*models.CapacityBlock)
-	for _, cb := range client.model.CapacityBlocks {
-		capacityBlockMap[cb.Name] = cb
-	}
-
 	//Iterate over the switches from the model and add them to the switch map
 	for _, sw := range client.model.Switches {
 		swInfo := SwitchInfo{
@@ -58,18 +51,17 @@ func (client *simClient) GetTopology(ctx context.Context, _ string, nodeIDs []st
 			Nodes:    make([]NodeInfo, 0),
 		}
 
-		if len(sw.CapacityBlocks) > 0 {
+		if len(sw.Nodes) > 0 {
 			//If it is a leaf switch, add the nodes to the switch info
-			for _, cbName := range sw.CapacityBlocks {
-				if cb, exists := capacityBlockMap[cbName]; exists {
-					nodes := cluset.Expand(cb.Nodes)
-					for _, nodeName := range nodes {
-						if _, exists := want[nodeName]; !exists {
-							continue
-						}
-						swInfo.Nodes = append(swInfo.Nodes, NodeInfo{NodeID: nodeName, AcceleratedNetworkID: cb.NVLink})
-					}
+			for _, nodeName := range sw.Nodes {
+				if _, exists := want[nodeName]; !exists {
+					continue
 				}
+				node, exists := client.model.Nodes[nodeName]
+				if !exists {
+					continue
+				}
+				swInfo.Nodes = append(swInfo.Nodes, NodeInfo{NodeID: nodeName, AcceleratedNetworkID: node.Attributes.NVLink})
 			}
 		} else {
 			//If it is not a leaf switch, add the child switches to the switch info

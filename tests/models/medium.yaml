@@ -22,48 +22,79 @@
 #
 
 switches:
-- name: sw3
-  metadata:
-    region: us-west
-  switches: [sw21,sw22]
-- name: sw21
-  metadata:
-    availability_zone: zone1
-  switches: [sw11,sw12]
-- name: sw22
-  metadata:
-    availability_zone: zone2
-  switches: [sw13,sw14]
-- name: sw11
-  metadata:
-    group: cb11
-  capacity_blocks: [cb11]
-- name: sw12
-  metadata:
-    group: cb12
-  capacity_blocks: [cb12]
-- name: sw13
-  metadata:
-    group: cb13
-  capacity_blocks: [cb13]
-- name: sw14
-  metadata:
-    group: cb14
-  capacity_blocks: [cb14]
+  sw3:
+    metadata:
+      region: us-west
+    switches:
+    - sw21
+    - sw22
+  sw21:
+    metadata:
+      availability_zone: zone1
+    switches:
+    - sw11
+    - sw12
+  sw22:
+    metadata:
+      availability_zone: zone2
+    switches:
+    - sw13
+    - sw14
+  sw11:
+    metadata:
+      group: cb11
+    nodes:
+    - "[1101-1102]"
+  sw12:
+    metadata:
+      group: cb12
+    nodes:
+    - "[1201-1202]"
+  sw13:
+    metadata:
+      group: cb13
+    nodes:
+    - "[1301-1302]"
+  sw14:
+    metadata:
+      group: cb14
+    nodes:
+    - "[1401-1402]"
+nodes:
+  "1101":
+    capacity_block_id: cb11
+    attributes:
+      nvlink: nvl1
+  "1102":
+    capacity_block_id: cb11
+    attributes:
+      nvlink: nvl1
+  "1201":
+    capacity_block_id: cb12
+    attributes:
+      nvlink: nvl2
+  "1202":
+    capacity_block_id: cb12
+    attributes:
+      nvlink: nvl2
+  "1301":
+    capacity_block_id: cb13
+    attributes:
+      nvlink: nvl3
+  "1302":
+    capacity_block_id: cb13
+    attributes:
+      nvlink: nvl3
+  "1401":
+    capacity_block_id: cb14
+    attributes:
+      nvlink: nvl4
+  "1402":
+    capacity_block_id: cb14
+    attributes:
+      nvlink: nvl4
 capacity_blocks:
-- name: cb11
-  type: GB200
-  nvlink: nvl1
-  nodes: ["1101","1102"]
-- name: cb12
-  type: GB200
-  nvlink: nvl2
-  nodes: ["[1201-1202]"]
-- name: cb13
-  type: GB200
-  nvlink: nvl3
-  nodes: ["1301","1302"]
-- name: cb14
-  type: GB200
-  nvlink: nvl4
-  nodes: ["[1401-1402]"]
+- cb11
+- cb12
+- cb13
+- cb14

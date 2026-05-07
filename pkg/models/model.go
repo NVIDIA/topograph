@@ -30,40 +30,48 @@ import (
 )
 
 type Model struct {
-	Switches       []*Switch        `yaml:"switches"`
-	CapacityBlocks []*CapacityBlock `yaml:"capacity_blocks"`
+	Switches       map[string]*Switch `yaml:"switches"`
+	Nodes          map[string]*Node   `yaml:"nodes"`
+	CapacityBlocks []string           `yaml:"capacity_blocks"`
 
 	// derived
-	Nodes     map[string]*Node
-	Instances []topology.ComputeInstances
+	Instances []topology.ComputeInstances `yaml:"-"`
 }
 
 type Switch struct {
-	Name           string            `yaml:"name"`
-	Metadata       map[string]string `yaml:"metadata"`
-	Switches       []string          `yaml:"switches"`
-	CapacityBlocks []string          `yaml:"capacity_blocks"`
+	Name     string            `yaml:"name,omitempty"`
+	Metadata map[string]string `yaml:"metadata"`
+	Switches []string          `yaml:"switches"`
+	Nodes    []string          `yaml:"nodes"`
 }
 
-type CapacityBlock struct {
-	Name   string   `yaml:"name"`
-	Type   string   `yaml:"type"`
-	NVLink string   `yaml:"nvlink,omitempty"`
-	Nodes  []string `yaml:"nodes"`
+type NodeAttributes struct {
+	NVLink    string `yaml:"nvlink,omitempty"`
+	Status    string `yaml:"status,omitempty"`
+	Timestamp string `yaml:"timestamp,omitempty"`
+	GPUs      []GPU  `yaml:"gpus,omitempty"`
+}
+
+type GPU struct {
+	Index     int    `yaml:"index"`
+	PCIBusID  string `yaml:"pci_bus_id"`
+	UUID      string `yaml:"uuid"`
+	Model     string `yaml:"model"`
+	MemoryMiB int    `yaml:"memory_mib"`
 }
 
 type Node struct {
-	Name          string
-	Metadata      map[string]string
-	Type          string
-	NVLink        string
-	NetLayers     []string
-	CapacityBlock string
+	Name          string         `yaml:"name,omitempty"`
+	Attributes    NodeAttributes `yaml:"attributes"`
+	CapacityBlock string         `yaml:"capacity_block_id"`
+
+	Metadata  map[string]string `yaml:"-"`
+	NetLayers []string          `yaml:"-"`
 }
 
 func (n *Node) String() string {
-	return fmt.Sprintf("Node: %s Metadata: %v Type: %s NVL: %s NetLayers: %v CBlock: %s",
-		n.Name, n.Metadata, n.Type, n.NVLink, n.NetLayers, n.CapacityBlock)
+	return fmt.Sprintf("Node: %s Metadata: %v NetLayers: %v Attr: %v",
+		n.Name, n.Metadata, n.NetLayers, n.Attributes)
 }
 
 func NewModelFromFile(fname string) (*Model, error) {
@@ -85,89 +93,154 @@ func NewModelFromFile(fname string) (*Model, error) {
 }
 
 func NewModelFromData(data []byte, fname string) (*Model, error) {
-	var err error
 	model := &Model{}
-	if err = yaml.Unmarshal(data, model); err != nil {
+	if err := yaml.Unmarshal(data, model); err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %v", fname, err)
 	}
 
-	// expand nodes
-	for _, cb := range model.CapacityBlocks {
-		cb.Nodes = cluset.Expand(cb.Nodes)
-	}
-
-	if err = model.setNodeMap(); err != nil {
+	if err := model.derive(); err != nil {
 		return nil, err
 	}
 
-	return model, err
+	return model, nil
 }
 
-// setNodeMap populates map[instance ID : hostname]
-func (m *Model) setNodeMap() error {
+func (m *Model) UnmarshalYAML(value *yaml.Node) error {
+	var raw struct {
+		Switches       map[string]*Switch `yaml:"switches"`
+		Nodes          map[string]*Node   `yaml:"nodes"`
+		CapacityBlocks []string           `yaml:"capacity_blocks"`
+	}
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+
+	m.Switches = raw.Switches
+	m.CapacityBlocks = raw.CapacityBlocks
+	m.Nodes = raw.Nodes
+	for name, sw := range m.Switches {
+		if sw == nil {
+			return fmt.Errorf("switch %q has empty definition", name)
+		}
+		if sw.Name != "" && sw.Name != name {
+			return fmt.Errorf("switch key %q does not match switch name %q", name, sw.Name)
+		}
+		sw.Name = name
+	}
+	for name, node := range m.Nodes {
+		if node == nil {
+			return fmt.Errorf("node %q has empty definition", name)
+		}
+		if node.Name != "" && node.Name != name {
+			return fmt.Errorf("node key %q does not match node name %q", name, node.Name)
+		}
+		node.Name = name
+	}
+	return nil
+}
+
+type switchMaps struct {
+	parentBySwitch map[string]*Switch
+	switchByNode   map[string]*Switch
+}
+
+func (m *Model) buildSwitchMaps() (*switchMaps, error) {
 	// switch map child:parent
 	swmap := make(map[string]*Switch)
-	// capacity block map cb:switch
-	cbmap := make(map[string]*Switch)
+	nodeMap := make(map[string]*Switch)
 
 	for _, parent := range m.Switches {
 		for _, sw := range parent.Switches {
 			if p, ok := swmap[sw]; ok {
 				// a child switch cannot have more than one parent switch
-				return fmt.Errorf("switch %q has two parent switches %q and %q", sw, parent.Name, p)
+				return nil, fmt.Errorf("switch %q has two parent switches %q and %q", sw, parent.Name, p.Name)
 			}
 			swmap[sw] = parent
 		}
-		for _, cb := range parent.CapacityBlocks {
-			if p, ok := cbmap[cb]; ok {
-				// a capacity block cannot have more than one switch
-				return fmt.Errorf("capacity block %q has two switches %q and %q", cb, parent.Name, p)
+		parent.Nodes = cluset.Expand(parent.Nodes)
+		for _, node := range parent.Nodes {
+			if p, ok := nodeMap[node]; ok {
+				// a node cannot be attached to more than one switch
+				return nil, fmt.Errorf("node %q has two switches %q and %q", node, parent.Name, p.Name)
 			}
-			cbmap[cb] = parent
+			nodeMap[node] = parent
 		}
 	}
 
-	m.Nodes = make(map[string]*Node)
+	return &switchMaps{
+		parentBySwitch: swmap,
+		switchByNode:   nodeMap,
+	}, nil
+}
+
+func (m *Model) derive() error {
+	maps, err := m.buildSwitchMaps()
+	if err != nil {
+		return err
+	}
+
+	if len(m.Nodes) == 0 && len(maps.switchByNode) != 0 {
+		return fmt.Errorf("switches reference nodes but top-level nodes section is empty")
+	}
+
+	for node := range maps.switchByNode {
+		if _, ok := m.Nodes[node]; !ok {
+			return fmt.Errorf("switch references unknown node %q", node)
+		}
+	}
+
+	capacityBlocks := make(map[string]struct{}, len(m.CapacityBlocks))
+	for _, name := range m.CapacityBlocks {
+		if name == "" {
+			return fmt.Errorf("capacity block entry is missing name")
+		}
+		if _, ok := capacityBlocks[name]; ok {
+			return fmt.Errorf("duplicated capacity block name %q", name)
+		}
+		capacityBlocks[name] = struct{}{}
+	}
+
 	regions := make(map[string]map[string]string)
-	for _, cb := range m.CapacityBlocks {
+	for _, node := range m.Nodes {
 		var netLayers []string
 		var metadata map[string]string
-		var err error
 
-		sw, ok := cbmap[cb.Name]
-		if ok {
-			netLayers, metadata, err = getNetworkLayers(sw, swmap)
+		if sw, ok := maps.switchByNode[node.Name]; ok {
+			netLayers, metadata, err = getNetworkLayers(sw, maps.parentBySwitch)
 			if err != nil {
 				return err
 			}
 		}
 
-		for _, name := range cb.Nodes {
-			if _, ok := m.Nodes[name]; ok {
-				return fmt.Errorf("duplicated node name %q", name)
+		if node.CapacityBlock != "" {
+			if _, ok := capacityBlocks[node.CapacityBlock]; !ok {
+				return fmt.Errorf("node %q references unknown capacity block %q", node.Name, node.CapacityBlock)
 			}
-			m.Nodes[name] = &Node{
-				Name:          name,
-				Metadata:      metadata,
-				Type:          cb.Type,
-				NVLink:        cb.NVLink,
-				NetLayers:     netLayers,
-				CapacityBlock: cb.Name,
-			}
-
-			region, ok := metadata["region"]
-			if !ok {
-				region = "none"
-			}
-			r, ok := regions[region]
-			if !ok {
-				r = make(map[string]string)
-				regions[region] = r
-			}
-			r[name] = fmt.Sprintf("n-%s", name)
 		}
+
+		node.Metadata = metadata
+		node.NetLayers = netLayers
+		addInstanceRegion(regions, metadata, node.Name)
 	}
 
+	m.setInstances(regions)
+	return nil
+}
+
+func addInstanceRegion(regions map[string]map[string]string, metadata map[string]string, name string) {
+	region, ok := metadata["region"]
+	if !ok {
+		region = "none"
+	}
+	r, ok := regions[region]
+	if !ok {
+		r = make(map[string]string)
+		regions[region] = r
+	}
+	r[name] = fmt.Sprintf("n-%s", name)
+}
+
+func (m *Model) setInstances(regions map[string]map[string]string) {
 	regionNames := make([]string, 0, len(regions))
 	for region := range regions {
 		regionNames = append(regionNames, region)
@@ -181,8 +254,6 @@ func (m *Model) setNodeMap() error {
 			Instances: regions[region],
 		})
 	}
-
-	return nil
 }
 
 func getNetworkLayers(sw *Switch, swmap map[string]*Switch) ([]string, map[string]string, error) {
@@ -228,12 +299,10 @@ func (model *Model) ToGraph() (*topology.Graph, map[string]string) {
 		swRootMap[sw.Name] = true
 	}
 
-	// Initializes accelerator domain membership from capacity block metadata.
-	for _, cb := range model.CapacityBlocks {
-		if len(cb.NVLink) != 0 {
-			for _, node := range cb.Nodes {
-				domainMap.AddHost(cb.NVLink, node, node)
-			}
+	// Initializes accelerator domain membership from node attributes.
+	for _, node := range model.Nodes {
+		if node.Attributes.NVLink != "" {
+			domainMap.AddHost(node.Attributes.NVLink, node.Name, node.Name)
 		}
 	}
 
@@ -243,15 +312,8 @@ func (model *Model) ToGraph() (*topology.Graph, map[string]string) {
 			swRootMap[subsw] = false
 			swVertexMap[sw.Name].Vertices[subsw] = swVertexMap[subsw]
 		}
-		for _, cbname := range sw.CapacityBlocks {
-			for _, block := range model.CapacityBlocks {
-				if cbname == block.Name {
-					for _, node := range block.Nodes {
-						swVertexMap[sw.Name].Vertices[node] = nodeVertexMap[node]
-					}
-					break
-				}
-			}
+		for _, node := range sw.Nodes {
+			swVertexMap[sw.Name].Vertices[node] = nodeVertexMap[node]
 		}
 	}
 
