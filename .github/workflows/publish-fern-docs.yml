@@ -51,6 +51,15 @@ jobs:
       - name: Install Fern CLI
         run: npm install -g fern-api@$(jq -r .version fern/fern.config.json)
 
+      - name: Stamp version in docs.yml
+        run: |
+          VERSION=$(curl -sf https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
+          if [ -n "$VERSION" ] && [ "$VERSION" != "null" ]; then
+            sed -i 's/display-name: "Latest"/display-name: "Latest · '"${VERSION}"'"/' fern/docs.yml
+          fi
+          echo "--- docs.yml versions after stamp ---"
+          grep "display-name:" fern/docs.yml
+
       - name: Publish Docs
         env:
           FERN_TOKEN: ${{ secrets.DOCS_FERN_TOKEN }}

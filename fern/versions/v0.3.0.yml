@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+navigation:
+  - section: Getting Started
+    contents:
+      - page: Overview
+        path: ../../docs/overview.md
+      - page: Install on Kubernetes
+        path: ../../docs/get-started/quickstart-k8s.md
+      - page: Install on Slurm
+        path: ../../docs/get-started/quickstart-slurm.md
+
+  - section: Architecture
+    contents:
+      - page: Architecture
+        path: ../../docs/architecture.md
+      - page: Config and API
+        path: ../../docs/api.md
+
+  - section: Providers
+    contents:
+      - page: AWS
+        path: ../../docs/providers/aws.md
+      - page: GCP
+        path: ../../docs/providers/gcp.md
+      - page: OCI
+        path: ../../docs/providers/oci.md
+      - page: Nebius
+        path: ../../docs/providers/nebius.md
+      - page: InfiniBand
+        path: ../../docs/providers/infiniband.md
+      - page: NetQ
+        path: ../../docs/providers/netq.md
+      - page: DRA
+        path: ../../docs/providers/dra.md
+      - page: Test
+        path: ../../docs/providers/test.md
+
+  - section: Engines
+    contents:
+      - page: SLURM
+        path: ../../docs/engines/slurm.md
+      - page: Kubernetes
+        path: ../../docs/engines/k8s.md
+      - page: Slinky
+        path: ../../docs/engines/slinky.md
+
+  - section: Reference
+    contents:
+      - page: Node Labels and Annotations
+        path: ../../docs/reference/node-labels.md
