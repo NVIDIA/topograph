@@ -19,8 +19,6 @@ package slinky
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"testing"
 	"time"
 
@@ -35,7 +33,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/topology"
-	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 func TestGetParameters(t *testing.T) {
@@ -132,7 +129,6 @@ func TestGetParameters(t *testing.T) {
 				PodSelector:   labelSelector,
 				ConfigPath:    "path",
 				ConfigMapName: "name",
-				ReportingMode: "staticNodes",
 				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
@@ -157,7 +153,6 @@ func TestGetParameters(t *testing.T) {
 				NodeSelector:  nodeSelector,
 				ConfigPath:    "path",
 				ConfigMapName: "name",
-				ReportingMode: "staticNodes",
 				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
 				nodeListOpt:   &metav1.ListOptions{LabelSelector: "key=value"},
 			},
@@ -188,7 +183,6 @@ func TestGetParameters(t *testing.T) {
 				NodeSelector:  nodeSelector,
 				ConfigPath:    "path",
 				ConfigMapName: "name",
-				ReportingMode: "staticNodes",
 				Topologies: map[string]*Topology{
 					"topo1": {
 						Topology: slurm.Topology{
@@ -392,30 +386,53 @@ const (
         - switch: sw3
           children: sw[21-22]
         - switch: sw21
-          children: sw[11-12]
+          children: sw11
         - switch: sw22
-          children: sw[13-14]
+          children: sw14
         - switch: sw11
-        - switch: sw12
-        - switch: sw13
         - switch: sw14
 `
-
+	//medium.yaml - full tree topology
+	mediumTreeTopologyYamlFull = `- topology: topo-0
+  cluster_default: false
+  tree:
+    switches:
+        - switch: sw3
+          children: sw[21-22]
+        - switch: sw21
+          children: sw11
+        - switch: sw22
+          children: sw14
+        - switch: sw11
+          nodes: "1101"
+        - switch: sw14
+          nodes: "1402"
+`
 	//medium.yaml - block topology skeleton
 	mediumBlockTopologyYamlSkeleton = `- topology: topo-0
   cluster_default: false
   block:
     block_sizes:
+        - 1
         - 2
-        - 4
-        - 8
     blocks:
         - block: block1
         - block: block2
-        - block: block3
-        - block: block4
 `
-	//medium.yaml - tree topology skeleton
+	//medium.yaml - full block topology
+	mediumBlockTopologyYamlFull = `- topology: topo-0
+  cluster_default: false
+  block:
+    block_sizes:
+        - 1
+        - 2
+    blocks:
+        - block: block1
+          nodes: "1101"
+        - block: block2
+          nodes: "1301"
+`
+	//medium.yaml - combined topology skeleton
 	mediumCombinedTopologyYamlSkeleton = `- topology: topo-0
   cluster_default: false
   tree:
@@ -423,29 +440,70 @@ const (
         - switch: sw3
           children: sw[21-22]
         - switch: sw21
-          children: sw[11-12]
+          children: sw11
         - switch: sw22
-          children: sw[13-14]
+          children: sw13
         - switch: sw11
-        - switch: sw12
         - switch: sw13
-        - switch: sw14
 - topology: topo-1
   cluster_default: false
   block:
     block_sizes:
+        - 1
         - 2
-        - 4
-        - 8
     blocks:
         - block: block1
         - block: block2
-        - block: block3
-        - block: block4
 `
+	//medium.yaml - combined topology full
+	mediumCombinedTopologyYamlFull = `- topology: topo-0
+  cluster_default: false
+  tree:
+    switches:
+        - switch: sw3
+          children: sw[21-22]
+        - switch: sw21
+          children: sw11
+        - switch: sw22
+          children: sw13
+        - switch: sw11
+          nodes: "1101"
+        - switch: sw13
+          nodes: "1302"
+- topology: topo-1
+  cluster_default: false
+  block:
+    block_sizes:
+        - 1
+        - 2
+    blocks:
+        - block: block1
+          nodes: "1101"
+        - block: block2
+          nodes: "1302"
+`
+	noUpdateConfigMap = `existing: topology`
 )
 
+// slurmTopologiesForDynamicTest builds per-partition slurm.Topology entries for BaseParams.Topologies.
+// Each entry includes podSelector under Other (seeRemain) for getPartitionNodes, matching engine decoding in getPartitionNodes.
+func slurmTopologiesForDynamicTest(plugins []string) map[string]*Topology {
+	out := make(map[string]*Topology, len(plugins))
+	for i, plugin := range plugins {
+		key := fmt.Sprintf("topo-%d", i)
+		out[key] = &Topology{
+			Topology: slurm.Topology{
+				Plugin:    plugin,
+				Partition: key,
+			},
+			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{"app": "slinky"}},
+		}
+	}
+	return out
+}
+
 func TestGenerateDynamicNodesOutput(t *testing.T) {
+	slinkyPodSel := metav1.LabelSelector{MatchLabels: map[string]string{"app": "slinky"}}
 
 	fakeSuccessClient := func(slurmNames []string, createConfigMap bool) *fake.Clientset {
 		client := fake.NewSimpleClientset()
@@ -510,68 +568,129 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name               string
-		k8sClient          func([]string, bool) *fake.Clientset
-		createConfigMap    bool
-		topologyFile       string
-		topologyConfig     []string
-		slurmName          []string
-		expectTopologyYaml string
-		expectTopologySpec []string
-		expectError        bool
-		errorMsg           string
+		name                  string
+		k8sClient             func([]string, bool) *fake.Clientset
+		createConfigMap       bool
+		topologyFile          string
+		topologyConfig        []string
+		slurmName             []string
+		slurmConfigUpdateMode string
+		expectTopologyYaml    string
+		expectTopologySpec    []string
+		expectError           bool
+		errorMsg              string
 	}{
 		{
-			name:               "successful dynamic nodes for tree topology",
+			name:                  "successful dynamic nodes for tree topology with skeleton only update",
+			k8sClient:             fakeSuccessClient,
+			createConfigMap:       true,
+			topologyFile:          "medium.yaml",
+			topologyConfig:        []string{topology.TopologyTree},
+			slurmName:             []string{"1101", "1402"},
+			slurmConfigUpdateMode: "skeleton-only",
+			expectTopologyYaml:    mediumTreeTopologyYamlSkeleton,
+			expectTopologySpec:    []string{"topo-0:sw3:sw21:sw11", "topo-0:sw3:sw22:sw14"},
+			expectError:           false,
+		},
+		{
+			name:               "successful dynamic nodes for tree topology with full update",
 			k8sClient:          fakeSuccessClient,
 			createConfigMap:    true,
 			topologyFile:       "medium.yaml",
 			topologyConfig:     []string{topology.TopologyTree},
 			slurmName:          []string{"1101", "1402"},
-			expectTopologyYaml: mediumTreeTopologyYamlSkeleton,
+			expectTopologyYaml: mediumTreeTopologyYamlFull,
 			expectTopologySpec: []string{"topo-0:sw3:sw21:sw11", "topo-0:sw3:sw22:sw14"},
 			expectError:        false,
 		},
 		{
-			name:               "successful dynamic nodes for block topology",
+			name:                  "successful dynamic nodes for tree topology with no update",
+			k8sClient:             fakeSuccessClient,
+			createConfigMap:       true,
+			topologyFile:          "medium.yaml",
+			topologyConfig:        []string{topology.TopologyTree},
+			slurmName:             []string{"1101", "1402"},
+			slurmConfigUpdateMode: "none",
+			expectTopologyYaml:    noUpdateConfigMap,
+			expectTopologySpec:    []string{"topo-0:sw3:sw21:sw11", "topo-0:sw3:sw22:sw14"},
+			expectError:           false,
+		},
+		{
+			name:                  "successful dynamic nodes for block topology with skeleton only update",
+			k8sClient:             fakeSuccessClient,
+			createConfigMap:       true,
+			topologyFile:          "medium.yaml",
+			topologyConfig:        []string{topology.TopologyBlock},
+			slurmName:             []string{"1101", "1301"},
+			slurmConfigUpdateMode: "skeleton-only",
+			expectTopologyYaml:    mediumBlockTopologyYamlSkeleton,
+			expectTopologySpec:    []string{"topo-0:block1", "topo-0:block2"},
+			expectError:           false,
+		},
+		{
+			name:               "successful dynamic nodes for block topology with full update",
 			k8sClient:          fakeSuccessClient,
 			createConfigMap:    true,
 			topologyFile:       "medium.yaml",
 			topologyConfig:     []string{topology.TopologyBlock},
 			slurmName:          []string{"1101", "1301"},
-			expectTopologyYaml: mediumBlockTopologyYamlSkeleton,
-			expectTopologySpec: []string{"topo-0:block1", "topo-0:block3"},
+			expectTopologyYaml: mediumBlockTopologyYamlFull,
+			expectTopologySpec: []string{"topo-0:block1", "topo-0:block2"},
 			expectError:        false,
 		},
 		{
-			name:               "successful dynamic nodes for combined topology",
+			name:                  "successful dynamic nodes for block topology with no update",
+			k8sClient:             fakeSuccessClient,
+			createConfigMap:       true,
+			topologyFile:          "medium.yaml",
+			topologyConfig:        []string{topology.TopologyBlock},
+			slurmName:             []string{"1101", "1301"},
+			slurmConfigUpdateMode: "none",
+			expectTopologyYaml:    noUpdateConfigMap,
+			expectTopologySpec:    []string{"topo-0:block1", "topo-0:block2"},
+			expectError:           false,
+		},
+		{
+			name:                  "successful dynamic nodes for combined topology with skeleton only update",
+			k8sClient:             fakeSuccessClient,
+			createConfigMap:       false,
+			topologyFile:          "medium.yaml",
+			topologyConfig:        []string{topology.TopologyTree, topology.TopologyBlock},
+			slurmName:             []string{"1101", "1302"},
+			slurmConfigUpdateMode: "skeleton-only",
+			expectTopologyYaml:    mediumCombinedTopologyYamlSkeleton,
+			expectTopologySpec:    []string{"topo-0:sw3:sw21:sw11,topo-1:block1", "topo-0:sw3:sw22:sw13,topo-1:block2"},
+			expectError:           false,
+		},
+		{
+			name:               "successful dynamic nodes for combined topology with full update",
 			k8sClient:          fakeSuccessClient,
 			createConfigMap:    false,
 			topologyFile:       "medium.yaml",
 			topologyConfig:     []string{topology.TopologyTree, topology.TopologyBlock},
 			slurmName:          []string{"1101", "1302"},
-			expectTopologyYaml: mediumCombinedTopologyYamlSkeleton,
-			expectTopologySpec: []string{"topo-0:sw3:sw21:sw11,topo-1:block1", "topo-0:sw3:sw22:sw13,topo-1:block3"},
+			expectTopologyYaml: mediumCombinedTopologyYamlFull,
+			expectTopologySpec: []string{"topo-0:sw3:sw21:sw11,topo-1:block1", "topo-0:sw3:sw22:sw13,topo-1:block2"},
 			expectError:        false,
 		},
 		{
-			name: "error getting nodes",
+			name: "error getting pods",
 			k8sClient: func([]string, bool) *fake.Clientset {
 				client := fake.NewSimpleClientset()
-				client.PrependReactor("list", "nodes", func(action k8stesting.Action) (bool, runtime.Object, error) {
-					return true, nil, errors.NewInternalError(fmt.Errorf("failed to list nodes"))
+				client.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.NewInternalError(fmt.Errorf("failed to list pods"))
 				})
 				return client
 			},
 			topologyFile:   "medium.yaml",
 			topologyConfig: []string{topology.TopologyTree},
 			expectError:    true,
-			errorMsg:       "failed to list node in the cluster",
+			errorMsg:       `topology "topo-0": failed to list pods with selector "app=slinky": Internal error occurred: failed to list pods`,
 		},
 		{
 			name: "error getting config map",
-			k8sClient: func([]string, bool) *fake.Clientset {
-				client := fake.NewSimpleClientset()
+			k8sClient: func(_ []string, _ bool) *fake.Clientset {
+				client := fakeSuccessClient([]string{"1101", "1402"}, true)
 				client.PrependReactor("get", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
 					return true, nil, errors.NewInternalError(fmt.Errorf("failed to get config map"))
 				})
@@ -587,34 +706,32 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			client := tc.k8sClient(tc.slurmName, tc.createConfigMap)
+
+			model, err := models.NewModelFromFile(tc.topologyFile)
+			require.NoError(t, err)
+			topo, _ := model.ToGraph()
+
+			podListSel, err := metav1.LabelSelectorAsSelector(&slinkyPodSel)
+			require.NoError(t, err)
+			podListOpt := &metav1.ListOptions{LabelSelector: podListSel.String()}
+
 			params := &Params{
-				Namespace:     "test-ns",
-				ConfigMapName: "slurm-config",
-				ConfigPath:    "topology.yaml",
-				podListOpt:    &metav1.ListOptions{LabelSelector: "app=slinky"},
-				nodeListOpt:   &metav1.ListOptions{},
+				Namespace:        "test-ns",
+				ConfigMapName:    "slurm-config",
+				ConfigPath:       "topology.yaml",
+				PodSelector:      slinkyPodSel,
+				UseDynamicNodes:  true,
+				podListOpt:       podListOpt,
+				nodeListOpt:      &metav1.ListOptions{},
+				ConfigUpdateMode: tc.slurmConfigUpdateMode,
+				Topologies:       slurmTopologiesForDynamicTest(tc.topologyConfig),
 			}
 			engine := &SlinkyEngine{
 				client: client,
 				params: params,
 			}
 
-			//Get the topology tree, and topology config for the test
-			model, err := models.NewModelFromFile(tc.topologyFile)
-			require.NoError(t, err)
-			topo, inst2Node := model.ToGraph()
-			nodes := slices.Collect(maps.Keys(inst2Node))
-			topologyConfig := &translate.Config{
-				Topologies: make(map[string]*translate.TopologySpec),
-			}
-			for i, topo := range tc.topologyConfig {
-				topologyConfig.Topologies[fmt.Sprintf("topo-%d", i)] = &translate.TopologySpec{Plugin: topo, Nodes: nodes}
-			}
-
-			nt, err := translate.NewNetworkTopology(topo, topologyConfig)
-			require.NoError(t, err)
-
-			result, httpErr := engine.generateDynamicNodesOutput(context.Background(), nt)
+			result, httpErr := engine.GenerateOutput(context.Background(), topo, nil)
 
 			if tc.expectError {
 				require.Error(t, httpErr)

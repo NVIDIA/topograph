@@ -44,9 +44,10 @@ import (
 )
 
 const (
-	NAME                      = "slinky"
-	ReportingModeStaticNodes  = "staticNodes"
-	ReportingModeDynamicNodes = "dynamicNodes"
+	NAME = "slinky"
+
+	ConfigUpdateModeNone         = "none"
+	ConfigUpdateModeSkeletonOnly = "skeleton-only"
 )
 
 type SlinkyEngine struct {
@@ -67,8 +68,10 @@ type Params struct {
 	ConfigMapName string `mapstructure:"topologyConfigmapName"`
 	// ConfigPath specifies the topology config filename inside the configmap
 	ConfigPath string `mapstructure:"topologyConfigPath"`
-	// ReportingMode specifies the mode for reporting nodes: staticNodes or dynamicNodes
-	ReportingMode string `mapstructure:"reportingMode"`
+	// UseDynamicNodes specifies whether to use dynamic nodes for reporting: true or false
+	UseDynamicNodes bool `mapstructure:"useDynamicNodes" default:"false"`
+	// ConfigUpdateMode specifies the mode for updating the slurm config: valid values {"none", "skeleton-only"}
+	ConfigUpdateMode string `mapstructure:"configUpdateMode,omitempty"`
 	// Topologies specifies per-partition topology configuration
 	Topologies map[string]*Topology `mapstructure:"topologies,omitempty"`
 
@@ -120,14 +123,9 @@ func getParameters(params engines.Config) (*Params, error) {
 		return nil, err
 	}
 
-	// Set default reporting mode
-	if p.ReportingMode == "" {
-		p.ReportingMode = ReportingModeStaticNodes
-	}
-
-	// Validate reporting mode
-	if p.ReportingMode != ReportingModeStaticNodes && p.ReportingMode != ReportingModeDynamicNodes {
-		return nil, fmt.Errorf("invalid reportingMode: %s, must be %s or %s", p.ReportingMode, ReportingModeStaticNodes, ReportingModeDynamicNodes)
+	// Validate config update mode
+	if len(p.ConfigUpdateMode) != 0 && p.ConfigUpdateMode != ConfigUpdateModeNone && p.ConfigUpdateMode != ConfigUpdateModeSkeletonOnly {
+		return nil, fmt.Errorf("invalid configUpdateMode: %s, must be either %s, or %s", p.ConfigUpdateMode, ConfigUpdateModeNone, ConfigUpdateModeSkeletonOnly)
 	}
 
 	sel, err := metav1.LabelSelectorAsSelector(&p.PodSelector)
@@ -288,18 +286,28 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	// For dynamic mode, perform reconciliation using the latest topology information from the provider and the cluster (nodes and their annotations)
-	if p.ReportingMode == ReportingModeDynamicNodes {
-		return eng.generateDynamicNodesOutput(ctx, nt)
-	}
-
+	// Get desired topology from root topology graph
 	buf := &bytes.Buffer{}
-	if httpErr := nt.Generate(buf); httpErr != nil {
+	topologies, httpErr := nt.GenerateTopologyConfig(buf, p.ConfigUpdateMode == ConfigUpdateModeSkeletonOnly)
+	if httpErr != nil {
 		return nil, httpErr
 	}
-	err = eng.UpdateTopologyConfigmap(ctx, p.ConfigMapName, p.Namespace, map[string]string{p.ConfigPath: buf.String()})
-	if err != nil {
-		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
+	desiredTopology := buf.String()
+
+	// If the slurm config update mode is not none, update the slurm config
+	if p.ConfigUpdateMode != ConfigUpdateModeNone {
+		data := map[string]string{p.ConfigPath: desiredTopology}
+		if err := eng.UpdateTopologyConfigmap(ctx, p.ConfigMapName, p.Namespace, data); err != nil {
+			return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
+		}
+	}
+
+	// For dynamic mode, perform reconciliation using the latest topology information from the provider (root) and the cluster (nodes and their annotations)
+	if p.UseDynamicNodes {
+		httpErr := eng.performReconciliation(ctx, nt, topologies)
+		if httpErr != nil {
+			return nil, httpErr
+		}
 	}
 
 	return []byte("OK\n"), nil
@@ -314,6 +322,21 @@ func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, name
 	cm, err := cmClient.Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
 		verb = "update"
+
+		changed := false
+		for key, value := range data {
+			if cm.Data[key] != value {
+				changed = true
+				break
+			}
+		}
+
+		if !changed {
+			klog.Infof("No changes to configmap %s/%s found, skipping update", namespace, name)
+			return nil
+		}
+
+		// If the config map data is nil, create a new map
 		if cm.Data == nil {
 			cm.Data = map[string]string{}
 		}
@@ -436,48 +459,11 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 	return "", fmt.Errorf("no running pods with labels %v", labels)
 }
 
-func (eng *SlinkyEngine) generateDynamicNodesOutput(ctx context.Context, nt *translate.NetworkTopology) ([]byte, *httperr.Error) {
+func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit) *httperr.Error {
+
 	nodes, nodeMap, err := eng.getClusterNodes(ctx)
 	if err != nil {
-		return nil, err
-	}
-
-	if reconErr := eng.performReconciliation(ctx, nodes, nodeMap, nt); reconErr != nil {
-		return nil, reconErr
-	}
-	return []byte("OK\n"), nil
-}
-
-func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nodes *corev1.NodeList, nodeMap map[string]string, nt *translate.NetworkTopology) *httperr.Error {
-	p := eng.params
-
-	// Get current topology from config map
-	cm, err := eng.client.CoreV1().ConfigMaps(eng.params.Namespace).Get(ctx, eng.params.ConfigMapName, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get config map %s: %v", eng.params.ConfigMapName, err))
-	}
-
-	//Get the topology from the config map. This represents the current topology skeleton that Slinky is configured with. It may be empty if Slinky has not been configured yet.
-	var currentTopology string
-	if cm != nil && cm.Data != nil {
-		currentTopology = cm.Data[eng.params.ConfigPath]
-	}
-
-	// Get desired topology from root topology graph
-	buf := &bytes.Buffer{}
-	topologies, httpErr := nt.GenerateTopologyConfig(buf, true)
-	if httpErr != nil {
-		return httpErr
-	}
-	desiredTopology := buf.String()
-
-	// Compare current and desired topology skeletons to determine if reconfiguration is needed (e.g. new topologies added or switches/blocks added to existing topologies)
-	if currentTopology != desiredTopology {
-		// Update config map with skeleton
-		err = eng.UpdateTopologyConfigmap(ctx, p.ConfigMapName, p.Namespace, map[string]string{p.ConfigPath: buf.String()})
-		if err != nil {
-			return httperr.NewError(http.StatusInternalServerError, err.Error())
-		}
+		return err
 	}
 
 	// Update node annotations based on the desired topology and the current cluster state.
