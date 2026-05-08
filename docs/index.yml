@@ -49,6 +49,8 @@ navigation:
         path: engines/k8s.md
       - page: Slinky
         path: engines/slinky.md
+      - page: Graph
+        path: engines/graph.md
 
   - section: Reference
     contents:

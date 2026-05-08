@@ -190,6 +190,38 @@ func TestToThreeTierGraphNorm(t *testing.T) {
 	require.Equal(t, inst2, topo.Instances[2].String())
 }
 
+func TestToThreeTierGraphIncludesInstanceData(t *testing.T) {
+	topo := NewClusterTopology()
+	topo.Append(&InstanceTopology{
+		InstanceID:    "i-001",
+		LeafID:        "leaf-1",
+		SpineID:       "spine-1",
+		CoreID:        "core-1",
+		AcceleratorID: "nvl-1",
+		Instance: &Instance{
+			ID:            "i-001",
+			Type:          "H100",
+			NetworkLayers: []string{"leaf-1", "spine-1", "core-1"},
+		},
+	})
+
+	graph := topo.ToThreeTierGraph("test", []ComputeInstances{
+		{
+			Region:    "region-1",
+			Instances: map[string]string{"i-001": "node1"},
+		},
+	}, 1, false)
+
+	require.Equal(t, map[string]Instance{
+		"i-001": {
+			ID:            "i-001",
+			Type:          "H100",
+			NetworkLayers: []string{"leaf-1", "spine-1"},
+			Attributes:    NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl-1"}},
+		},
+	}, graph.Instances)
+}
+
 func TestTrimTiers(t *testing.T) {
 	tests := []struct {
 		name      string

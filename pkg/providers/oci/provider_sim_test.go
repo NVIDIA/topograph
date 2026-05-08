@@ -44,19 +44,19 @@ switches:
     nodes: [n21,n22]
 nodes:
   n11:
-    capacity_block_id: cb1
+    capacity_block: cb1
     attributes:
       nvlink: nvl1
   n12:
-    capacity_block_id: cb1
+    capacity_block: cb1
     attributes:
       nvlink: nvl1
   n21:
-    capacity_block_id: cb2
+    capacity_block: cb2
     attributes:
       nvlink: nvl2
   n22:
-    capacity_block_id: cb2
+    capacity_block: cb2
     attributes:
       nvlink: nvl2
 capacity_blocks:

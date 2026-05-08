@@ -20,7 +20,7 @@ http:
 provider: test
 
 # engine: the engine that topograph will use (optional)
-# Valid options include "slurm", "k8s", or "slinky".
+# Valid options include "slurm", "k8s", "slinky", or "graph".
 # Can be overridden if the engine is specified in a topology request to topograph
 engine: slurm
 
@@ -73,11 +73,11 @@ Topograph exposes three endpoints for interacting with the service. Below are th
     - **creds**: (optional) A key-value map with provider-specific parameters for authentication.
     - **params**: (optional) A key-value map with provider-specific parameters. The `test` provider uses these parameters for response simulation; for complete behavior and examples, see [Test Mode and Test Provider](./providers/test.md).
   - **engine**: (optional) Selects the topology output and provides any engine-specific parameters.
-    - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, or `slinky`. This parameter will override the engine set in the topograph config.
+    - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, `slinky`, or `graph`. This parameter will override the engine set in the topograph config.
     - **params**: (optional) A key-value map with engine-specific parameters.
       - **plugin**: (optional) Used in: [`slurm`, `slinky`]. A string specifying the cluster-wide topology plugin: `topology/tree` or `topology/block`. For `slurm`, this defaults to `topology/tree` when neither `plugin` nor `topologies` is set. Do not set `plugin` together with `topologies`.
       - **blockSizes**: (optional) Used in: [`slurm`, `slinky`]. An array of block sizes for `topology/block`.
-      - **topologyConfigPath**: Used in: [`slurm`, `slinky`]. Optional for `slurm`; required for `slinky`. For `slurm`, a file path for the topology configuration; if omitted, the topology config content is returned in the HTTP response. For `slinky`, the key for the topology config in the ConfigMap.
+      - **topologyConfigPath**: Used in: [`slurm`, `slinky`, `graph`]. Optional for `slurm` and `graph`; required for `slinky`. For `slurm`, a file path for the topology configuration; if omitted, the topology config content is returned in the HTTP response. For `slinky`, the key for the topology config in the ConfigMap. For `graph`, an existing path on the Topograph host where instance JSON should be written; if omitted, the JSON is returned in the topology response.
       - **topologies**: (optional) Used in: [`slurm`, `slinky`]. A map of named per-partition topology settings. Do not set top-level `plugin` together with `topologies`.
         - **plugin**: Used in: [`slurm`, `slinky`]. A required string specifying the per-partition topology plugin: `topology/tree`, `topology/block`, or `topology/flat`.
         - **blockSizes**: (optional) Used in: [`slurm`, `slinky`]. An array of block sizes for `topology/block`.

@@ -27,11 +27,10 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/k8s"
-	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, *httperr.Error) {
+func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
 	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())

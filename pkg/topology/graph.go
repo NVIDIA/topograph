@@ -48,6 +48,8 @@ type InstanceTopology struct {
 	CoreID        string
 	CoreName      string // optional
 	AcceleratorID string
+	// Instance optionally carries enriched metadata for instance-oriented output.
+	Instance *Instance
 }
 
 func (inst *InstanceTopology) String() string {
@@ -104,6 +106,7 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 		c.Normalize()
 	}
 
+	instances := make(map[string]Instance)
 	for _, inst := range c.Instances {
 		nodeName, ok := i2n[inst.InstanceID]
 		if !ok {
@@ -120,6 +123,9 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 
 		if len(inst.AcceleratorID) != 0 {
 			domainMap.AddHost(inst.AcceleratorID, inst.InstanceID, nodeName)
+		}
+		if inst.Instance != nil {
+			instances[inst.InstanceID] = inst.toInstance(trimTiers)
 		}
 
 		swNames := [3]string{inst.LeafName, inst.SpineName, inst.CoreName}
@@ -173,8 +179,22 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 	if len(domainMap) != 0 {
 		graph.Domains = domainMap
 	}
+	if len(instances) != 0 {
+		graph.Instances = instances
+	}
 
 	return graph
+}
+
+func (c *ClusterTopology) AttachInstances(instances map[string]Instance) {
+	for _, topo := range c.Instances {
+		instance, ok := instances[topo.InstanceID]
+		if !ok {
+			continue
+		}
+		clone := instance
+		topo.Instance = &clone
+	}
 }
 
 func (c *ClusterTopology) Normalize() {
@@ -233,4 +253,33 @@ func trimmedTiers(inst *InstanceTopology, trimTiers int) []string {
 		tiers[n-i-1] = ""
 	}
 	return tiers
+}
+
+func (inst *InstanceTopology) toInstance(trimTiers int) Instance {
+	instance := *inst.Instance
+	if instance.ID == "" {
+		instance.ID = inst.InstanceID
+	}
+	instance.NetworkLayers = inst.networkLayers(trimTiers)
+	if instance.Attributes.NVLink == "" {
+		instance.Attributes.NVLink = inst.AcceleratorID
+	}
+	return instance
+}
+
+func (inst *InstanceTopology) networkLayers(trimTiers int) []string {
+	ids := trimmedTiers(inst, trimTiers)
+	names := []string{inst.LeafName, inst.SpineName, inst.CoreName}
+	layers := []string{}
+	for i, id := range ids {
+		if id == "" {
+			continue
+		}
+		if names[i] != "" {
+			layers = append(layers, names[i])
+			continue
+		}
+		layers = append(layers, id)
+	}
+	return layers
 }

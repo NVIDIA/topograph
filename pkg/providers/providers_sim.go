@@ -17,10 +17,14 @@
 package providers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/NVIDIA/topograph/internal/config"
+	"github.com/NVIDIA/topograph/internal/httperr"
+	"github.com/NVIDIA/topograph/pkg/models"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 var ErrAPIError = errors.New("API error")
@@ -40,4 +44,36 @@ func GetSimulationParams(params map[string]any) (*SimulationParams, error) {
 		return nil, fmt.Errorf("no model file name for simulation")
 	}
 	return &p, nil
+}
+
+// BaseSimProvider holds model-derived topology data shared by simulation providers.
+type BaseSimProvider struct {
+	instances        map[string]topology.Instance
+	computeInstances []topology.ComputeInstances
+	trimTiers        int
+}
+
+// NewBaseSimProvider builds the shared model-derived data used by simulation providers.
+func NewBaseSimProvider(model *models.Model, trimTiers int) *BaseSimProvider {
+	return &BaseSimProvider{
+		instances:        model.InstanceMap(nil),
+		computeInstances: model.Instances,
+		trimTiers:        trimTiers,
+	}
+}
+
+// AttachInstances attaches the model's optional instance metadata to provider topology.
+func (p *BaseSimProvider) AttachInstances(topo *topology.ClusterTopology) {
+	topo.AttachInstances(p.instances)
+}
+
+// ToThreeTierGraph converts provider topology with the shared simulation settings.
+func (p *BaseSimProvider) ToThreeTierGraph(provider string, topo *topology.ClusterTopology, instances []topology.ComputeInstances, normalize bool) *topology.Graph {
+	p.AttachInstances(topo)
+	return topo.ToThreeTierGraph(provider, instances, p.trimTiers, normalize)
+}
+
+// GetComputeInstances returns model-derived compute instances for engines that need them.
+func (p *BaseSimProvider) GetComputeInstances(_ context.Context) ([]topology.ComputeInstances, *httperr.Error) {
+	return p.computeInstances, nil
 }

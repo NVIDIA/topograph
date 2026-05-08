@@ -57,7 +57,7 @@ func (c *simClient) InstanceList(ctx context.Context, req *InstanceListRequest) 
 			continue
 		}
 		instance := InstanceTopology{
-			ID:          node.Name,
+			ID:          node.ID,
 			NetworkPath: node.NetLayers,
 			//TODO: check whether the below mapping is correct
 			NVLink: &NVLinkInfo{
@@ -102,7 +102,7 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 
 	instanceIDs := make([]string, 0, len(model.Nodes))
 	for _, node := range model.Nodes {
-		instanceIDs = append(instanceIDs, node.Name)
+		instanceIDs = append(instanceIDs, node.ID)
 	}
 
 	clientFactory := func(pageSize *int) (Client, error) {
@@ -123,29 +123,29 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 		}, nil
 	}
 
-	return NewSim(clientFactory, p.TrimTiers), nil
+	return NewSim(clientFactory, p.TrimTiers, model), nil
 }
 
 type simProvider struct {
 	baseProvider
+	*providers.BaseSimProvider
 }
 
-func NewSim(clientFactory ClientFactory, trimTiers int) *simProvider {
+func NewSim(clientFactory ClientFactory, trimTiers int, model *models.Model) *simProvider {
 	return &simProvider{
 		baseProvider: baseProvider{
 			clientFactory: clientFactory,
-			trimTiers:     trimTiers,
 		},
+		BaseSimProvider: providers.NewBaseSimProvider(model, trimTiers),
 	}
 }
 
 // Engine support
 
-func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
-	client, err := p.clientFactory(nil)
+func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
-		return nil, httperr.NewError(http.StatusInternalServerError, "failed to create client")
+		return nil, err
 	}
-
-	return client.(*simClient).model.Instances, nil
+	return p.ToThreeTierGraph(NAME_SIM, topo, instances, false), nil
 }

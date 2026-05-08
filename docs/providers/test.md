@@ -93,7 +93,7 @@ The test provider is configured through `provider.params` in the `/v1/generate` 
 }
 ```
 
-The `engine` object follows the normal Topograph engine configuration. For example, use `slurm` parameters to request `topology/tree` or `topology/block` output, use `k8s` parameters to write node labels, or use `slinky` parameters to update a Slinky ConfigMap.
+The `engine` object follows the normal Topograph engine configuration. For example, use `slurm` parameters to request `topology/tree` or `topology/block` output, use `k8s` parameters to write node labels, use `slinky` parameters to update a Slinky ConfigMap, or use `graph` to return model-backed instance metadata as JSON.
 
 ### Test Provider Parameters
 

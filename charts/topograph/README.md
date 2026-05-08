@@ -43,7 +43,7 @@ global:
   provider:
     name: dra        # or aws, gcp, oci, nebius, netq, infiniband-k8s, ...
   engine:
-    name: k8s        # or slurm, slinky
+    name: k8s        # or slurm, slinky, graph
 ```
 
 For the full list of values and their defaults, see [`values.yaml`](./values.yaml). Example values files for specific deployment patterns:
@@ -95,7 +95,7 @@ Both are installed together when you install this chart. Their values are access
 - **Project documentation site**: <https://topograph.docs.buildwithfern.com/topograph>
 - **Main repository**: <https://github.com/NVIDIA/topograph>
 - **Provider-specific setup**: `docs/providers/` in the main repository
-- **Engine documentation**: `docs/engines/k8s.md`, `docs/engines/slinky.md`, `docs/engines/slurm.md`
+- **Engine documentation**: `docs/engines/k8s.md`, `docs/engines/slinky.md`, `docs/engines/slurm.md`, `docs/engines/graph.md`
 - **Node-labels reference**: `docs/reference/node-labels.md`
 - **Contributing**: see [`CONTRIBUTING.md`](https://github.com/NVIDIA/topograph/blob/main/CONTRIBUTING.md) in the main repository
 

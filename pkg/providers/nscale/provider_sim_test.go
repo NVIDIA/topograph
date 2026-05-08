@@ -45,15 +45,16 @@ func TestProviderSim(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name      string
-		model     string
-		region    string
-		instances []topology.ComputeInstances
-		pageSize  *int
-		params    map[string]any
-		apiErr    int
-		topology  string
-		err       string
+		name           string
+		model          string
+		region         string
+		instances      []topology.ComputeInstances
+		pageSize       *int
+		providerParams map[string]any
+		params         map[string]any
+		apiErr         int
+		topology       string
+		err            string
 	}{
 		{
 			name:  "Case 1: bad model",
@@ -104,7 +105,24 @@ SwitchName=tor2 Nodes=node[21-22]
 `,
 		},
 		{
-			name:   "Case 6: valid cluster in block format with pagination",
+			name:   "Case 6: valid cluster with trimmed tiers",
+			model:  clusterModel,
+			region: "region",
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"n11": "node11", "n12": "node12", "n21": "node21", "n22": "node22", "n31": "node31"},
+				},
+			},
+			providerParams: map[string]any{"trimTiers": 1},
+			topology: `SwitchName=no-topology Nodes=node31
+SwitchName=spine Switches=tor[1-2]
+SwitchName=tor1 Nodes=node[11-12]
+SwitchName=tor2 Nodes=node[21-22]
+`,
+		},
+		{
+			name:   "Case 7: valid cluster in block format with pagination",
 			model:  clusterModel,
 			region: "region",
 			instances: []topology.ComputeInstances{
@@ -141,6 +159,9 @@ BlockSizes=2,4
 					"modelFileName": f.Name(),
 					"api_error":     tt.apiErr,
 				},
+			}
+			for k, v := range tt.providerParams {
+				cfg.Params[k] = v
 			}
 			provider, httpErr := LoaderSim(ctx, cfg)
 			if httpErr != nil {

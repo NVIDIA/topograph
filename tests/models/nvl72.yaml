@@ -51,7 +51,7 @@ switches:
     - node[2201-2218]
 nodes:
   node1101:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -78,7 +78,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1102:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -105,7 +105,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1103:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -132,7 +132,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1104:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -159,7 +159,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1105:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -186,7 +186,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1106:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -213,7 +213,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1107:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -240,7 +240,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1108:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -267,7 +267,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1109:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -294,7 +294,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1110:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -321,7 +321,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1111:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -348,7 +348,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1112:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -375,7 +375,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1113:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -402,7 +402,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1114:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -429,7 +429,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1115:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -456,7 +456,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1116:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -483,7 +483,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1117:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -510,7 +510,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1118:
-    capacity_block_id: cb-1-1
+    capacity_block: cb-1-1
     attributes:
       nvlink: nvl-1-1
       status: Completed
@@ -537,7 +537,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1201:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -564,7 +564,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1202:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -591,7 +591,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1203:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -618,7 +618,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1204:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -645,7 +645,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1205:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -672,7 +672,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1206:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -699,7 +699,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1207:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -726,7 +726,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1208:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -753,7 +753,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1209:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -780,7 +780,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1210:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -807,7 +807,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1211:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -834,7 +834,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1212:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -861,7 +861,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1213:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -888,7 +888,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1214:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -915,7 +915,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1215:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -942,7 +942,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1216:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -969,7 +969,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1217:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -996,7 +996,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node1218:
-    capacity_block_id: cb-1-2
+    capacity_block: cb-1-2
     attributes:
       nvlink: nvl-1-2
       status: Completed
@@ -1023,7 +1023,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2101:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1050,7 +1050,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2102:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1077,7 +1077,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2103:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1104,7 +1104,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2104:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1131,7 +1131,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2105:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1158,7 +1158,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2106:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1185,7 +1185,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2107:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1212,7 +1212,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2108:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1239,7 +1239,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2109:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1266,7 +1266,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2110:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1293,7 +1293,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2111:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1320,7 +1320,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2112:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1347,7 +1347,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2113:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1374,7 +1374,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2114:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1401,7 +1401,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2115:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1428,7 +1428,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2116:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1455,7 +1455,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2117:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1482,7 +1482,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2118:
-    capacity_block_id: cb-2-1
+    capacity_block: cb-2-1
     attributes:
       nvlink: nvl-2-1
       status: Completed
@@ -1509,7 +1509,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2201:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1536,7 +1536,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2202:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1563,7 +1563,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2203:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1590,7 +1590,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2204:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1617,7 +1617,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2205:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1644,7 +1644,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2206:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1671,7 +1671,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2207:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1698,7 +1698,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2208:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1725,7 +1725,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2209:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1752,7 +1752,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2210:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1779,7 +1779,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2211:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1806,7 +1806,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2212:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1833,7 +1833,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2213:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1860,7 +1860,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2214:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1887,7 +1887,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2215:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1914,7 +1914,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2216:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1941,7 +1941,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2217:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
@@ -1968,7 +1968,7 @@ nodes:
         model: NVIDIA GB300
         memory_mib: 284208
   node2218:
-    capacity_block_id: cb-2-2
+    capacity_block: cb-2-2
     attributes:
       nvlink: nvl-2-2
       status: Completed
