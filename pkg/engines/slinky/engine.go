@@ -264,7 +264,7 @@ func (eng *SlinkyEngine) generateConfigMapAnnotations() map[string]string {
 	return annotations
 }
 
-func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, _ map[string]any) ([]byte, *httperr.Error) {
+func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, _ []topology.ComputeInstances, _ map[string]any, _ engines.Environment) ([]byte, *httperr.Error) {
 	p := eng.params
 
 	resolvedTopologies, err := eng.resolveTopologies(ctx)

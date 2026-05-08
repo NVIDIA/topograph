@@ -731,7 +731,7 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 				params: params,
 			}
 
-			result, httpErr := engine.GenerateOutput(context.Background(), topo, nil)
+			result, httpErr := engine.GenerateOutput(context.Background(), topo, nil, nil, nil)
 
 			if tc.expectError {
 				require.Error(t, httpErr)

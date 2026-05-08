@@ -190,6 +190,126 @@ BlockSizes=8,16,32
   }
 }
 `
+
+	// graph engine returns compact JSON from the test provider's model-backed GetInstances
+	graphPayload = `
+{
+  "provider": {
+    "name": "%s",
+    "params": {
+      "modelFileName": "../../tests/models/small-tree.yaml"
+    }
+  },
+  "engine": {
+    "name": "graph"
+  },
+  "nodes": [
+    {
+      "region": "none",
+      "instances": {
+        "I21": "n-I21",
+        "I22": "n-I22"
+      }
+    }
+  ]
+}
+`
+	graphInstancesJSON = `{
+  "instances": [
+    {
+      "id": "I21",
+      "instance_type": "H100",
+      "provider": "%s",
+      "region": "",
+      "network_layers": [
+        "S2",
+        "S1"
+      ],
+      "nvlink_domain": "CB2",
+      "attributes": {
+        "gpu": {
+          "status": "known",
+          "collected_at": "2026-01-01T13:59:00.000Z",
+          "gpus": [
+            {
+              "index": 0,
+              "pci_bus_id": "00000000:0F:00.0",
+              "uuid": "GPU-I21-0000-0000-0000-000000000000",
+              "model": "NVIDIA H100 SXM5 80GB",
+              "memory_mib": 81920
+            },
+            {
+              "index": 1,
+              "pci_bus_id": "00000000:2D:00.0",
+              "uuid": "GPU-I21-0000-0000-0000-000000000001",
+              "model": "NVIDIA H100 SXM5 80GB",
+              "memory_mib": 81920
+            },
+            {
+              "index": 2,
+              "pci_bus_id": "00000000:44:00.0",
+              "uuid": "GPU-I21-0000-0000-0000-000000000002",
+              "model": "NVIDIA H100 SXM5 80GB",
+              "memory_mib": 81920
+            },
+            {
+              "index": 3,
+              "pci_bus_id": "00000000:62:00.0",
+              "uuid": "GPU-I21-0000-0000-0000-000000000003",
+              "model": "NVIDIA H100 SXM5 80GB",
+              "memory_mib": 81920
+            },
+            {
+              "index": 4,
+              "pci_bus_id": "00000000:80:00.0",
+              "uuid": "GPU-I21-0000-0000-0000-000000000004",
+              "model": "NVIDIA H100 SXM5 80GB",
+              "memory_mib": 81920
+            },
+            {
+              "index": 5,
+              "pci_bus_id": "00000000:9E:00.0",
+              "uuid": "GPU-I21-0000-0000-0000-000000000005",
+              "model": "NVIDIA H100 SXM5 80GB",
+              "memory_mib": 81920
+            },
+            {
+              "index": 6,
+              "pci_bus_id": "00000000:BA:00.0",
+              "uuid": "GPU-I21-0000-0000-0000-000000000006",
+              "model": "NVIDIA H100 SXM5 80GB",
+              "memory_mib": 81920
+            },
+            {
+              "index": 7,
+              "pci_bus_id": "00000000:D8:00.0",
+              "uuid": "GPU-I21-0000-0000-0000-000000000007",
+              "model": "NVIDIA H100 SXM5 80GB",
+              "memory_mib": 81920
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "I22",
+      "instance_type": "",
+      "provider": "%s",
+      "region": "",
+      "network_layers": [
+        "S2",
+        "S1"
+      ],
+      "nvlink_domain": "CB2",
+      "attributes": {
+        "gpu": {
+          "status": "unknown",
+          "collected_at": "2026-01-01T13:59:00.000Z"
+        }
+      }
+    }
+  ]
+}`
 )
 
 func TestServerLocal(t *testing.T) {
@@ -218,6 +338,7 @@ func TestServerLocal(t *testing.T) {
 		payload  string
 		expected string
 		metrics  []string
+		jsonBody bool
 	}{
 		{
 			name:     "Case 1: test invalid endpoint",
@@ -319,6 +440,19 @@ func TestServerLocal(t *testing.T) {
 			payload:  slurmTrimmedTreePayload,
 			expected: slurmTrimmedTreeConfig,
 		},
+		{
+			name:     "Case 13: graph engine returns instances JSON",
+			endpoint: "generate",
+			provider: "test",
+			payload:  graphPayload,
+			expected: fmt.Sprintf(graphInstancesJSON, "test", "test"),
+			metrics: []string{
+				// Cumulative HTTP metrics are omitted: they depend on how many prior generate cases
+				// ran in the same TestServerLocal run (and subtests like -run Case_13 only see counts of 1).
+				`topograph_request_duration_seconds_count\{engine="graph",provider="test",status="200"\} 1`,
+			},
+			jsonBody: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -329,7 +463,7 @@ func TestServerLocal(t *testing.T) {
 			case "healthz":
 				testHealthz(t, baseURL, tc.expected, tc.metrics)
 			case "generate":
-				testGenerate(t, baseURL, fmt.Sprintf(tc.payload, tc.provider), tc.expected, tc.metrics)
+				testGenerate(t, baseURL, fmt.Sprintf(tc.payload, tc.provider), tc.expected, tc.metrics, tc.jsonBody)
 			case "topology":
 				testTopology(t, baseURL, tc.payload, tc.expected, http.StatusNotFound, tc.metrics)
 			default:
@@ -365,7 +499,7 @@ func testHealthz(t *testing.T, baseURL, expected string, metrics []string) {
 	checkMetrics(t, baseURL, metrics)
 }
 
-func testGenerate(t *testing.T, baseURL, payload, expected string, metrics []string) {
+func testGenerate(t *testing.T, baseURL, payload, expected string, metrics []string, jsonBody bool) {
 	// send topology request
 	resp, err := http.Post(baseURL+"/v1/generate", "application/json", bytes.NewBuffer([]byte(payload)))
 	require.NoError(t, err)
@@ -401,10 +535,15 @@ func testGenerate(t *testing.T, baseURL, payload, expected string, metrics []str
 
 	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
+
+	if jsonBody {
+		require.JSONEq(t, expected, string(body))
+	} else {
+		require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
+	}
 
 	// Check lookup endpoint
-	testLookup(t, baseURL, payload, expected, http.StatusOK)
+	testLookup(t, baseURL, payload, expected, http.StatusOK, jsonBody)
 
 	checkMetrics(t, baseURL, metrics)
 }
@@ -422,7 +561,7 @@ func testTopology(t *testing.T, baseURL, uid, expected string, expectedResponse 
 	checkMetrics(t, baseURL, metrics)
 }
 
-func testLookup(t *testing.T, baseURL, payload, expected string, expectedResponse int) {
+func testLookup(t *testing.T, baseURL, payload, expected string, expectedResponse int, jsonBody bool) {
 	resp, err := http.Post(baseURL+"/v1/lookup", "application/json", bytes.NewBuffer([]byte(payload)))
 	require.NoError(t, err)
 	defer resp.Body.Close()
@@ -430,7 +569,11 @@ func testLookup(t *testing.T, baseURL, payload, expected string, expectedRespons
 	require.Equal(t, expectedResponse, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
+	if jsonBody {
+		require.JSONEq(t, expected, string(body))
+	} else {
+		require.Equal(t, stringToLineMap(expected), stringToLineMap(string(body)))
+	}
 }
 
 func checkMetrics(t *testing.T, baseURL string, metrics []string) {

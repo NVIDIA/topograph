@@ -36,6 +36,7 @@ const NAME = "test"
 type Provider struct {
 	graph         *topology.Graph
 	instance2node map[string]string
+	model         *models.Model
 }
 
 type Params struct {
@@ -110,6 +111,7 @@ func Loader(_ context.Context, cfg providers.Config) (providers.Provider, *httpe
 			return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("failed to read model file %s: %v", p.ModelFileName, err))
 		}
 
+		provider.model = model
 		provider.graph, provider.instance2node = model.ToGraph()
 	} else {
 		provider.graph, provider.instance2node = translate.GetTreeTestSet(false)
@@ -127,4 +129,11 @@ func (p *Provider) GetComputeInstances(_ context.Context) ([]topology.ComputeIns
 
 func (p *Provider) GenerateTopologyConfig(_ context.Context, _ *int, _ []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
 	return p.graph, nil
+}
+
+func (p *Provider) GetInstances(ctx context.Context, instanceIDs []string) ([]topology.Node, error) {
+	if p.model != nil {
+		return p.model.GetInstances(ctx, NAME, instanceIDs)
+	}
+	return nil, nil
 }

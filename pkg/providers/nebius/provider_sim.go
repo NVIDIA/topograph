@@ -75,7 +75,7 @@ func (c *simClient) GetComputeInstanceList(ctx context.Context, req *compute.Lis
 			instance.Status.NetworkInterfaces = []*compute.NetworkInterfaceStatus{
 				{
 					Name:       "eth0",
-					MacAddress: node.Name,
+					MacAddress: node.ID,
 				},
 			}
 		}
@@ -115,7 +115,7 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, *
 
 	instanceIDs := make([]string, 0, len(model.Nodes))
 	for _, node := range model.Nodes {
-		instanceIDs = append(instanceIDs, node.Name)
+		instanceIDs = append(instanceIDs, node.ID)
 	}
 
 	clientFactory := func(pageSize *int) (Client, error) {
@@ -131,19 +131,21 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, *
 		}, nil
 	}
 
-	return NewSim(clientFactory, p.TrimTiers), nil
+	return NewSim(clientFactory, p.TrimTiers, model), nil
 }
 
 type simProvider struct {
 	baseProvider
+	model *models.Model
 }
 
-func NewSim(factory ClientFactory, trimTiers int) *simProvider {
+func NewSim(factory ClientFactory, trimTiers int, model *models.Model) *simProvider {
 	return &simProvider{
 		baseProvider: baseProvider{
 			clientFactory: factory,
 			trimTiers:     trimTiers,
 		},
+		model: model,
 	}
 }
 
@@ -153,4 +155,8 @@ func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.Compu
 	client, _ := p.clientFactory(nil)
 
 	return client.(*simClient).model.Instances, nil
+}
+
+func (p *simProvider) GetInstances(ctx context.Context, instanceIDs []string) ([]topology.Node, error) {
+	return p.model.GetInstances(ctx, NAME_SIM, instanceIDs)
 }

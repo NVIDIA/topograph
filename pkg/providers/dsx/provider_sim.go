@@ -101,19 +101,21 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, *
 		return sim, nil
 	}
 
-	return NewSim(clientFactory, p.TrimTiers), nil
+	return NewSim(clientFactory, p.TrimTiers, model), nil
 }
 
 type simProvider struct {
 	baseProvider
+	model *models.Model
 }
 
-func NewSim(clientFactory ClientFactory, trimTiers int) *simProvider {
+func NewSim(clientFactory ClientFactory, trimTiers int, model *models.Model) *simProvider {
 	return &simProvider{
 		baseProvider: baseProvider{
 			clientFactory: clientFactory,
 			trimTiers:     trimTiers,
 		},
+		model: model,
 	}
 }
 
@@ -125,4 +127,8 @@ func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.Compu
 		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get client: %v", err))
 	}
 	return client.(*simClient).model.Instances, nil
+}
+
+func (p *simProvider) GetInstances(ctx context.Context, instanceIDs []string) ([]topology.Node, error) {
+	return p.model.GetInstances(ctx, NAME_SIM, instanceIDs)
 }
