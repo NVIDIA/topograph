@@ -5,48 +5,48 @@ navigation:
   - section: Getting Started
     contents:
       - page: Overview
-        path: ../../docs/overview.md
+        path: v0.3.0-content/overview.md
       - page: Install on Kubernetes
-        path: ../../docs/get-started/quickstart-k8s.md
+        path: v0.3.0-content/get-started/quickstart-k8s.md
       - page: Install on Slurm
-        path: ../../docs/get-started/quickstart-slurm.md
+        path: v0.3.0-content/get-started/quickstart-slurm.md
 
   - section: Architecture
     contents:
       - page: Architecture
-        path: ../../docs/architecture.md
+        path: v0.3.0-content/architecture.md
       - page: Config and API
-        path: ../../docs/api.md
+        path: v0.3.0-content/api.md
 
   - section: Providers
     contents:
       - page: AWS
-        path: ../../docs/providers/aws.md
+        path: v0.3.0-content/providers/aws.md
       - page: GCP
-        path: ../../docs/providers/gcp.md
+        path: v0.3.0-content/providers/gcp.md
       - page: OCI
-        path: ../../docs/providers/oci.md
+        path: v0.3.0-content/providers/oci.md
       - page: Nebius
-        path: ../../docs/providers/nebius.md
+        path: v0.3.0-content/providers/nebius.md
       - page: InfiniBand
-        path: ../../docs/providers/infiniband.md
+        path: v0.3.0-content/providers/infiniband.md
       - page: NetQ
-        path: ../../docs/providers/netq.md
+        path: v0.3.0-content/providers/netq.md
       - page: DRA
-        path: ../../docs/providers/dra.md
+        path: v0.3.0-content/providers/dra.md
       - page: Test
-        path: ../../docs/providers/test.md
+        path: v0.3.0-content/providers/test.md
 
   - section: Engines
     contents:
       - page: SLURM
-        path: ../../docs/engines/slurm.md
+        path: v0.3.0-content/engines/slurm.md
       - page: Kubernetes
-        path: ../../docs/engines/k8s.md
+        path: v0.3.0-content/engines/k8s.md
       - page: Slinky
-        path: ../../docs/engines/slinky.md
+        path: v0.3.0-content/engines/slinky.md
 
   - section: Reference
     contents:
       - page: Node Labels and Annotations
-        path: ../../docs/reference/node-labels.md
+        path: v0.3.0-content/reference/node-labels.md
