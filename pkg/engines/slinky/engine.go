@@ -48,6 +48,8 @@ const (
 
 	ConfigUpdateModeNone         = "none"
 	ConfigUpdateModeSkeletonOnly = "skeleton-only"
+
+	dynamicShowPartitionNodes = "\tNodes=NONE"
 )
 
 type SlinkyEngine struct {
@@ -428,6 +430,11 @@ func (eng *SlinkyEngine) listPartitionNodes(ctx context.Context, sel *metav1.Lab
 }
 
 func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string, params []any) (string, error) {
+	if eng.params.UseDynamicNodes {
+		klog.Infof("Skipping - scontrol show partition - when using useDynamicNodes flag")
+		return dynamicShowPartitionNodes, nil
+	}
+
 	if len(params) != 1 {
 		return "", fmt.Errorf("getPartitionNodes expects a namespace as a parameter")
 	}
