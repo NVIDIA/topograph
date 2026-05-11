@@ -37,6 +37,7 @@ Currently supported providers:
 - [OCI](./providers/oci.md)
 - [GCP](./providers/gcp.md)
 - [Nebius](./providers/nebius.md)
+- [Nscale](./providers/nscale.md)
 - [NetQ](./providers/netq.md)
 - [DRA](./providers/dra.md) — reads `nvidia.com/gpu.clique` labels set by the NVIDIA GPU operator DRA driver
 - [InfiniBand (bare-metal)](./providers/infiniband.md#infiniband-bm-bare-metal)
@@ -53,7 +54,7 @@ Currently supported engines:
 
 | Scenario | Recommended provider |
 |---|---|
-| Cloud cluster (AWS, GCP, OCI, Nebius) | Use the matching CSP provider |
+| Cloud cluster (AWS, GCP, OCI, Nebius, Nscale) | Use the matching CSP provider |
 | Spectrum-X fabric | [NetQ](./providers/netq.md) |
 | Multi-Node NVLink (MNNVL), infrastructure visibility | [NetQ](./providers/netq.md) |
 | MNNVL on Kubernetes (scheduling) | [DRA](./providers/dra.md) |

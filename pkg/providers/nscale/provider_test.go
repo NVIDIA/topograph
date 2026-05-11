@@ -8,6 +8,7 @@ package nscale
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -26,29 +27,48 @@ func TestLoader(t *testing.T) {
 			name: "Case 1: success",
 			config: providers.Config{
 				Params: map[string]any{
-					"baseUrl": "https://api.test.com",
+					"radarApiUrl":    "https://radar.test.com",
+					"instanceApiUrl": "https://instances.test.com",
 				},
 				Creds: map[string]any{
-					"org":   "org",
-					"token": "token",
+					"org":    "org",
+					"token":  "token",
+					"region": "region",
 				},
 			},
 		},
 		{
-			name: "Case 2: missing baseUrl",
-			config: providers.Config{
-				Creds: map[string]any{
-					"org":   "org",
-					"token": "token",
-				},
-			},
-			err: "missing 'baseUrl'",
-		},
-		{
-			name: "Case 3: missing org",
+			name: "Case 2: missing radarApiUrl",
 			config: providers.Config{
 				Params: map[string]any{
-					"baseUrl": "https://api.test.com",
+					"instanceApiUrl": "https://instances.test.com",
+				},
+				Creds: map[string]any{
+					"org":   "org",
+					"token": "token",
+				},
+			},
+			err: "missing 'radarApiUrl'",
+		},
+		{
+			name: "Case 3: missing instanceApiUrl",
+			config: providers.Config{
+				Params: map[string]any{
+					"radarApiUrl": "https://radar.test.com",
+				},
+				Creds: map[string]any{
+					"org":   "org",
+					"token": "token",
+				},
+			},
+			err: "missing 'instanceApiUrl'",
+		},
+		{
+			name: "Case 4: missing org",
+			config: providers.Config{
+				Params: map[string]any{
+					"radarApiUrl":    "https://radar.test.com",
+					"instanceApiUrl": "https://instances.test.com",
 				},
 				Creds: map[string]any{
 					"token": "token",
@@ -57,10 +77,11 @@ func TestLoader(t *testing.T) {
 			err: "missing 'org'",
 		},
 		{
-			name: "Case 4: missing token",
+			name: "Case 5: missing token",
 			config: providers.Config{
 				Params: map[string]any{
-					"baseUrl": "https://api.test.com",
+					"radarApiUrl":    "https://radar.test.com",
+					"instanceApiUrl": "https://instances.test.com",
 				},
 				Creds: map[string]any{
 					"org": "org",
@@ -85,4 +106,68 @@ func TestLoader(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInstances2NodeMap(t *testing.T) {
+	ctx := context.Background()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method)
+		require.Equal(t, "/v2/instances", r.URL.Path)
+		require.Equal(t, "org", r.URL.Query().Get("organizationID"))
+		require.Equal(t, "region", r.URL.Query().Get("regionID"))
+		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(`[
+			{"metadata":{"id":"instance-1","name":"node-1"}},
+			{"metadata":{"id":"instance-2","name":"node-2"}},
+			{"metadata":{"id":"instance-3","name":"outside-node"}}
+		]`))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	provider, httpErr := Loader(ctx, providers.Config{
+		Params: map[string]any{
+			"radarApiUrl":    "https://radar.test.com",
+			"instanceApiUrl": server.URL,
+		},
+		Creds: map[string]any{
+			"org":    "org",
+			"token":  "token",
+			"region": "region",
+		},
+	})
+	require.Nil(t, httpErr)
+
+	i2n, err := provider.(*Provider).Instances2NodeMap(ctx, []string{"node-1", "node-2"})
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"instance-1": "node-1",
+		"instance-2": "node-2",
+	}, i2n)
+
+	i2n, err = provider.(*Provider).Instances2NodeMap(ctx, nil)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"instance-1": "node-1",
+		"instance-2": "node-2",
+		"instance-3": "outside-node",
+	}, i2n)
+
+	provider, httpErr = Loader(ctx, providers.Config{
+		Params: map[string]any{
+			"radarApiUrl":    "https://radar.test.com",
+			"instanceApiUrl": server.URL,
+		},
+		Creds: map[string]any{
+			"org":   "org",
+			"token": "token",
+		},
+	})
+	require.Nil(t, httpErr)
+
+	_, err = provider.(*Provider).Instances2NodeMap(ctx, []string{"node-1"})
+	require.EqualError(t, err, "missing 'region'")
 }

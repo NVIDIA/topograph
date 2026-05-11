@@ -22,34 +22,39 @@ import (
 const (
 	NAME = "nscale"
 
-	urlTopologyPath = "/v1/topology"
+	urlTopologyPath  = "/v1/topology"
+	urlInstancesPath = "/v2/instances"
 )
 
 type baseProvider struct {
 	params *ProviderParams
+	creds  *Credentials
 	client Client
 }
 
 type ProviderParams struct {
-	BaseURL   string `mapstructure:"baseUrl"`
-	Region    string `mapstructure:"region"`
-	TrimTiers int    `mapstructure:"trimTiers"`
+	RadarApiUrl    string `mapstructure:"radarApiUrl"`
+	InstanceAPIUrl string `mapstructure:"instanceApiUrl"`
+	TrimTiers      int    `mapstructure:"trimTiers"`
 }
 
 type Credentials struct {
-	Org   string `mapstructure:"org"`
-	Token string `mapstructure:"token"`
+	Org    string `mapstructure:"org"`
+	Token  string `mapstructure:"token"`
+	Region string `mapstructure:"region"`
 }
 
 type Client interface {
 	Topology(context.Context, string, int, int) ([]InstanceTopology, error)
+	Instances(context.Context, string) (map[string]string, error)
 }
 
-// nscaleClient is a Topology API client.
+// nscaleClient is a topology and instance API client.
 type nscaleClient struct {
-	baseURL string
-	org     string
-	token   string
+	radarAPIURL    string
+	instanceAPIURL string
+	org            string
+	token          string
 }
 
 // InstanceTopology represents the topology of a single instance.
@@ -57,6 +62,20 @@ type InstanceTopology struct {
 	ID          string   `json:"instance_id"`
 	NetworkPath []string `json:"network_node_path"`
 	BlockID     *string  `json:"block_id,omitempty"`
+}
+
+// TopologyResult represents the topology of a single instance.
+type TopologyResult struct {
+	Instances []InstanceTopology `json:"results"`
+}
+
+type instance struct {
+	Metadata instanceMetadata `json:"metadata"`
+}
+
+type instanceMetadata struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func (c *nscaleClient) Topology(ctx context.Context, region string, pageSize, offset int) ([]InstanceTopology, error) {
@@ -69,19 +88,50 @@ func (c *nscaleClient) Topology(ctx context.Context, region string, pageSize, of
 		"limit":  strconv.Itoa(pageSize),
 		"offset": strconv.Itoa(offset),
 	}
-	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, query, nil, c.baseURL, urlTopologyPath)
+	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, query, nil, c.radarAPIURL, urlTopologyPath)
 
 	body, httpErr := httpreq.DoRequestWithRetries(f, false)
 	if httpErr != nil {
 		return nil, httpErr
 	}
 
-	resp := []InstanceTopology{}
+	resp := TopologyResult{}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	return resp, nil
+	return resp.Instances, nil
+}
+
+func (c *nscaleClient) Instances(ctx context.Context, region string) (map[string]string, error) {
+	headers := map[string]string{
+		"Authorization": "Bearer " + c.token,
+	}
+	query := map[string]string{
+		"organizationID": c.org,
+		"regionID":       region,
+	}
+	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, query, nil, c.instanceAPIURL, urlInstancesPath)
+
+	body, httpErr := httpreq.DoRequestWithRetries(f, false)
+	if httpErr != nil {
+		return nil, httpErr
+	}
+
+	instances := []instance{}
+	if err := json.Unmarshal(body, &instances); err != nil {
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
+	}
+
+	i2n := make(map[string]string, len(instances))
+	for _, instance := range instances {
+		if instance.Metadata.ID == "" || instance.Metadata.Name == "" {
+			continue
+		}
+		i2n[instance.Metadata.ID] = instance.Metadata.Name
+	}
+
+	return i2n, nil
 }
 
 type Provider struct {
@@ -106,11 +156,13 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	return &Provider{
 		baseProvider: baseProvider{
 			client: &nscaleClient{
-				baseURL: params.BaseURL,
-				org:     creds.Org,
-				token:   creds.Token,
+				radarAPIURL:    params.RadarApiUrl,
+				instanceAPIURL: params.InstanceAPIUrl,
+				org:            creds.Org,
+				token:          creds.Token,
 			},
 			params: params,
+			creds:  creds,
 		},
 	}, nil
 }
@@ -120,8 +172,11 @@ func getParams(params map[string]any) (*ProviderParams, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, fmt.Errorf("failed to decode params: %v", err)
 	}
-	if len(p.BaseURL) == 0 {
-		return nil, fmt.Errorf("missing 'baseUrl'")
+	if len(p.RadarApiUrl) == 0 {
+		return nil, fmt.Errorf("missing 'radarApiUrl'")
+	}
+	if len(p.InstanceAPIUrl) == 0 {
+		return nil, fmt.Errorf("missing 'instanceApiUrl'")
 	}
 
 	return p, nil
@@ -153,9 +208,28 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	i2n := make(map[string]string)
+	if len(p.creds.Region) == 0 {
+		return nil, fmt.Errorf("missing 'region'")
+	}
+
+	instances, err := p.client.Instances(ctx, p.creds.Region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get instances: %v", err)
+	}
+	if len(nodes) == 0 {
+		return instances, nil
+	}
+
+	nodeSet := make(map[string]struct{}, len(nodes))
 	for _, node := range nodes {
-		i2n[node] = node
+		nodeSet[node] = struct{}{}
+	}
+
+	i2n := make(map[string]string, len(instances))
+	for instanceID, node := range instances {
+		if _, ok := nodeSet[node]; ok {
+			i2n[instanceID] = node
+		}
 	}
 
 	return i2n, nil
@@ -163,9 +237,13 @@ func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[s
 
 // GetInstancesRegions implements slurm.instanceMapper
 func (p *Provider) GetInstancesRegions(ctx context.Context, nodes []string) (map[string]string, error) {
+	if len(p.creds.Region) == 0 {
+		return nil, fmt.Errorf("missing 'region'")
+	}
+
 	res := make(map[string]string)
 	for _, node := range nodes {
-		res[node] = p.params.Region
+		res[node] = p.creds.Region
 	}
 
 	return res, nil

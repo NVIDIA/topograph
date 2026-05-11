@@ -65,6 +65,15 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 	return resp, nil
 }
 
+func (c *simClient) Instances(_ context.Context, _ string) (map[string]string, error) {
+	i2n := make(map[string]string, len(c.model.Nodes))
+	for _, node := range c.model.Nodes {
+		i2n[node.Name] = node.Name
+	}
+
+	return i2n, nil
+}
+
 func NamedLoaderSim() (string, providers.Loader) {
 	return NAME_SIM, LoaderSim
 }

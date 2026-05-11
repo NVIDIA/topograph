@@ -15,7 +15,7 @@ http:
   ssl: false
 
 # provider: the provider that topograph will use (optional)
-# Valid options include "aws", "oci", "gcp", "nebius", "netq", "dra", "infiniband-k8s", "infiniband-bm" or "test".
+# Valid options include "aws", "oci", "gcp", "nebius", "nscale", "netq", "dra", "infiniband-k8s", "infiniband-bm" or "test".
 # Can be overridden if the provider is specified in a topology request to topograph
 provider: test
 
@@ -69,7 +69,7 @@ Topograph exposes three endpoints for interacting with the service. Below are th
 - **Payload:** The request body is a JSON object organized into three top-level sections:
 
   - **provider**: (optional) Selects the topology source and provides any provider-specific authentication or parameters.
-    - **name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will override the provider set in the topograph config.
+    - **name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will override the provider set in the topograph config.
     - **creds**: (optional) A key-value map with provider-specific parameters for authentication.
     - **params**: (optional) A key-value map with provider-specific parameters. The `test` provider uses these parameters for response simulation; for complete behavior and examples, see [Test Mode and Test Provider](./providers/test.md).
   - **engine**: (optional) Selects the topology output and provides any engine-specific parameters.
