@@ -205,6 +205,10 @@ func GetPartitionNodes(ctx context.Context, partition string, f *TopologyNodeFin
 func parsePartitionNodes(partition string, data string) ([]string, error) {
 	match := partitionNodesRe.FindStringSubmatch(data)
 	if len(match) > 1 {
+		// If the nodes are NONE, return an empty list
+		if match[1] == "NONE" {
+			return []string{}, nil
+		}
 		return cluset.Compact(cluset.ExpandList(match[1])), nil
 	}
 
