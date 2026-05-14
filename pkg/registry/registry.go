@@ -21,7 +21,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines/slinky"
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
-
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/cw"
@@ -32,6 +31,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/netq"
+	"github.com/NVIDIA/topograph/pkg/providers/nscale"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 	provider_test "github.com/NVIDIA/topograph/pkg/providers/test"
 )
@@ -53,6 +53,8 @@ var Providers = providers.NewRegistry(
 	lambdai.NamedLoader,
 	lambdai.NamedLoaderSim,
 	dsx.NamedLoaderSim,
+	nscale.NamedLoader,
+	nscale.NamedLoaderSim,
 	provider_test.NamedLoader,
 )
 
