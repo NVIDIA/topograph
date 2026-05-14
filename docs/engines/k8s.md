@@ -293,7 +293,7 @@ The Helm chart ships two layers of validation for operators.
 ```
 Error: values don't meet the specifications of the schema(s) in the following chart(s):
 topograph:
-- at '/global/provider/name': value must be one of 'aws', 'aws-sim', 'cw', 'dra', 'dsx-sim', 'gcp', 'gcp-sim', 'infiniband-bm', 'infiniband-k8s', 'lambdai', 'lambdai-sim', 'nebius', 'nscale', 'netq', 'oci', 'oci-imds', 'oci-sim', 'test'
+- at '/global/provider/name': value must be one of 'aws', 'oci', 'gcp', 'cw', 'infiniband-k8s', 'lambdai', 'nebius', 'nscale', 'netq', 'test'
 ```
 
 The schema is deliberately narrow: per-provider credential requirements are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because credential field sets evolve with upstream provider changes.

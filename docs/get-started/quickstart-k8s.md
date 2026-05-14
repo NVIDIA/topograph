@@ -29,7 +29,7 @@ helm install topograph \
   # ... engine-specific flags ...
 ```
 
-Replace `<provider>` with one of the supported values (`aws`, `gcp`, `oci`, `nebius`, `netq`, `dra`, `infiniband-k8s`, `lambdai`, `cw`). To see available chart versions, run `helm show chart oci://ghcr.io/nvidia/topograph/topograph`.
+Replace `<provider>` with one of the supported values (`aws`, `gcp`, `oci`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `lambdai`, `cw`). To see available chart versions, run `helm show chart oci://ghcr.io/nvidia/topograph/topograph`.
 
 Provider-specific credentials and parameters are passed via Helm values. See the [chart README](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/README.md) and [`values.yaml`](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/values.yaml) for the full values shape, plus the example values files shipped in the chart directory.
 

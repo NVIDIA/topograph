@@ -23,9 +23,9 @@ Not all providers produce both topology types:
 |---|---|---|
 | `aws` | Yes (CapacityBlockId) | Yes |
 | `cw` | No | Yes (InfiniBand switch hierarchy) |
-| `gcp` | No | Yes |
+| `gcp` | Yes (SubblockId) | Yes |
 | `lambdai` | Yes (`NVLink.DomainID.CliqueID`) | Yes |
-| `oci` | No | Yes |
+| `oci` | Yes (GpuMemoryFabricId) | Yes |
 | `nebius` | No | Yes |
 | `nscale` | Yes | Yes |
 | `netq` | Yes (NMX `DomainUUID`) | Yes (Spectrum-X switch hierarchy) |
