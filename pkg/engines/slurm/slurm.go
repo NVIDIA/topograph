@@ -292,7 +292,7 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 				ClusterDefault: sect.Default,
 			}
 			klog.InfoS("Adding partition topology", "name", topo, "plugin", sect.Plugin, "default", sect.Default, "partition", sect.Partition)
-			if len(sect.Nodes) != 0 {
+			if sect.Nodes != nil {
 				klog.V(4).Infof("%s %q provides nodes %v", sect.Plugin, topo, sect.Nodes)
 				spec.Nodes = sect.Nodes
 			} else {

@@ -823,22 +823,40 @@ func TestResolveTopologies(t *testing.T) {
 }
 
 func TestGetParametersTopologyValidation(t *testing.T) {
-	params := map[string]any{
-		topology.KeyNamespace:         "test-ns",
-		topology.KeyPodSelector:       map[string]any{"matchLabels": map[string]string{"app": "slurm"}},
-		topology.KeyTopoConfigPath:    "topology.conf",
-		topology.KeyTopoConfigmapName: "slurm-config",
-		"topologies": map[string]any{
-			"bad": map[string]any{
-				"plugin": topology.TopologyTree,
-				"nodes":  []string{"n1"},
-				"podSelector": map[string]any{
-					"matchLabels": map[string]string{"partition": "a"},
-				},
-			},
+	testCases := []struct {
+		name  string
+		nodes any
+	}{
+		{
+			name:  "non-empty nodes and pod selector",
+			nodes: []string{"n1"},
+		},
+		{
+			name:  "empty nodes and pod selector",
+			nodes: []string{},
 		},
 	}
 
-	_, err := getParameters(params)
-	require.ErrorContains(t, err, `cannot set both nodes and podSelector`)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			params := map[string]any{
+				topology.KeyNamespace:         "test-ns",
+				topology.KeyPodSelector:       map[string]any{"matchLabels": map[string]string{"app": "slurm"}},
+				topology.KeyTopoConfigPath:    "topology.conf",
+				topology.KeyTopoConfigmapName: "slurm-config",
+				"topologies": map[string]any{
+					"bad": map[string]any{
+						"plugin": topology.TopologyTree,
+						"nodes":  tc.nodes,
+						"podSelector": map[string]any{
+							"matchLabels": map[string]string{"partition": "a"},
+						},
+					},
+				},
+			}
+
+			_, err := getParameters(params)
+			require.ErrorContains(t, err, `cannot set both nodes and podSelector`)
+		})
+	}
 }

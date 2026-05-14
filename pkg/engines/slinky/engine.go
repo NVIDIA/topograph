@@ -159,7 +159,7 @@ func getParameters(params engines.Config) (*Params, error) {
 		if t == nil {
 			return nil, fmt.Errorf("topology %q: nil entry", name)
 		}
-		if len(t.Nodes) != 0 && !isEmptySelector(&t.PodSelector) {
+		if t.Nodes != nil && !isEmptySelector(&t.PodSelector) {
 			return nil, fmt.Errorf("topology %q: cannot set both nodes and podSelector", name)
 		}
 	}
