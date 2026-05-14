@@ -124,7 +124,7 @@ The parameters for the configuration file and topology request are defined in th
 ```yaml
 global:
   # provider – name of the cloud provider or on-prem environment.
-  # Supported values: "aws", "gcp", "oci", "nebius", "netq", "infiniband-k8s".
+  # Supported values: "aws", "gcp", "oci", "nebius", "nscale", "netq", "infiniband-k8s".
   provider: "aws"
 
   engine: "k8s"
@@ -293,7 +293,7 @@ The Helm chart ships two layers of validation for operators.
 ```
 Error: values don't meet the specifications of the schema(s) in the following chart(s):
 topograph:
-- at '/global/provider/name': value must be one of 'aws', 'aws-sim', 'cw', 'dra', 'dsx-sim', 'gcp', 'gcp-sim', 'infiniband-bm', 'infiniband-k8s', 'lambdai', 'lambdai-sim', 'nebius', 'netq', 'oci', 'oci-imds', 'oci-sim', 'test'
+- at '/global/provider/name': value must be one of 'aws', 'aws-sim', 'cw', 'dra', 'dsx-sim', 'gcp', 'gcp-sim', 'infiniband-bm', 'infiniband-k8s', 'lambdai', 'lambdai-sim', 'nebius', 'nscale', 'netq', 'oci', 'oci-imds', 'oci-sim', 'test'
 ```
 
 The schema is deliberately narrow: per-provider credential requirements are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because credential field sets evolve with upstream provider changes.

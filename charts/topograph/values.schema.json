@@ -27,6 +27,8 @@
                 "lambdai-sim",
                 "nebius",
                 "netq",
+                "nscale",
+                "nscale-sim",
                 "oci",
                 "oci-imds",
                 "oci-sim",

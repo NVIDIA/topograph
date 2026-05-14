@@ -27,6 +27,7 @@ Not all providers produce both topology types:
 | `lambdai` | Yes (`NVLink.DomainID.CliqueID`) | Yes |
 | `oci` | No | Yes |
 | `nebius` | No | Yes |
+| `nscale` | Yes | Yes |
 | `netq` | Yes (NMX `DomainUUID`) | Yes (Spectrum-X switch hierarchy) |
 | `dra` | Yes (reads `nvidia.com/gpu.clique`) | No |
 | `infiniband-bm` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
