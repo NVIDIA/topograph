@@ -60,6 +60,27 @@ jobs:
           echo "$BRANCH_NAME" > preview-metadata/head_ref
           git diff --name-only "origin/main...HEAD" -- '*.md' > preview-metadata/changed_md_files 2>/dev/null || true
 
+      - name: Checkout frozen version content
+        run: |
+          set -eo pipefail
+          for version_file in fern/versions/v*.yml; do
+            [ -f "$version_file" ] || continue
+            version=$(basename "$version_file" .yml)
+            if git rev-parse "$version" >/dev/null 2>&1; then
+              mkdir -p "fern/versions/${version}-content"
+              git archive "$version" -- docs/ | tar -x --strip-components=1 -C "fern/versions/${version}-content"
+              find "fern/versions/${version}-content" -name '*.md' -exec sed -i 's/<img \([^>]*[^/]\)>/<img \1 \/>/g' {} +
+              for subdir in "fern/versions/${version}-content"/*/; do
+                if [ ! -d "${subdir}assets" ] && [ -d "fern/versions/${version}-content/assets" ]; then
+                  ln -sf ../assets "${subdir}assets"
+                fi
+              done
+              echo "Extracted docs from $version"
+            else
+              echo "::warning::Tag $version not found — skipping content checkout"
+            fi
+          done
+
       - name: Upload fern sources and metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
