@@ -74,16 +74,23 @@ jobs:
           git archive "$TAG_VERSION" -- docs/index.yml | tar -xO docs/index.yml | \
             sed "s|path: |path: ${TAG_VERSION}-content/|g" > "fern/versions/${TAG_VERSION}.yml"
 
-          # Add version entry to docs.yml (insert before the first existing version)
-          # Find the line number of the first versioned entry (after "Latest")
-          INSERT_LINE=$(grep -n 'availability: stable' fern/docs.yml | head -1 | cut -d: -f1)
-          if [ -n "$INSERT_LINE" ]; then
-            sed -i "${INSERT_LINE}a\\
-      - display-name: \"${TAG_VERSION}\"\\
-        path: versions/${TAG_VERSION}.yml\\
-        slug: ${TAG_VERSION}\\
-        availability: stable" fern/docs.yml
-          fi
+          # Add version entry to docs.yml after the first "availability: stable" line
+          python3 - "$TAG_VERSION" <<'PYEOF'
+import sys
+v = sys.argv[1]
+entry = (
+    '      - display-name: "' + v + '"\n'
+    '        path: versions/' + v + '.yml\n'
+    '        slug: ' + v + '\n'
+    '        availability: stable\n'
+)
+lines = open('fern/docs.yml').readlines()
+for i, line in enumerate(lines):
+    if 'availability: stable' in line:
+        lines.insert(i + 1, entry)
+        break
+open('fern/docs.yml', 'w').writelines(lines)
+PYEOF
 
           echo "--- docs.yml versions ---"
           grep "display-name:" fern/docs.yml
