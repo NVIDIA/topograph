@@ -3,7 +3,7 @@ entries:
   topograph:
   - apiVersion: v2
     appVersion: v0.4.0
-    created: "2026-05-14T16:47:06.566044874-04:00"
+    created: "2026-05-14T19:45:50.59129008-04:00"
     dependencies:
     - name: node-data-broker
       repository: file://charts/node-data-broker
@@ -12,7 +12,7 @@ entries:
       repository: file://charts/node-observer
       version: 0.4.0
     description: A Helm chart for Kubernetes
-    digest: 2a77c3b5ec3602fee139038415ce268892ea3f54c9629a01a6a6fd1cd5cf16fe
+    digest: d5e4a91316a6b5723dfa1f7f8c9e7aac4dcb5acd14d9bba69788716520e0109b
     kubeVersion: '>=1.27.0-0'
     name: topograph
     type: application
@@ -70,4 +70,4 @@ entries:
     urls:
     - https://NVIDIA.github.io/topograph/topograph-0.1.0.tgz
     version: 0.1.0
-generated: "2026-05-14T16:47:06.564934394-04:00"
+generated: "2026-05-14T19:45:50.589980789-04:00"
