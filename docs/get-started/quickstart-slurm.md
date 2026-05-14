@@ -34,7 +34,7 @@ The package installs the service but does not start it. Edit `/etc/topograph/top
 ```yaml
 http:
   port: 49021
-provider: <provider>                     # aws, gcp, oci, nebius, netq, infiniband-bm, ...
+provider: <provider>                     # aws, gcp, oci, nebius, nscale, netq, infiniband-bm, ...
 engine: slurm
 requestAggregationDelay: 15s
 ```

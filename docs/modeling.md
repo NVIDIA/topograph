@@ -33,6 +33,7 @@ Several providers also have simulation variants, such as:
 - `gcp-sim`
 - `oci-sim`
 - `nebius-sim`
+- `nscale-sim`
 - `lambdai-sim`
 - `dsx-sim`
 
@@ -355,7 +356,7 @@ Use the `test` provider when you want to validate API-client behavior:
 
 Use a `*-sim` provider when you want to validate provider-specific topology translation:
 
-- AWS, GCP, OCI, Nebius, Lambda AI, or DSX topology paths
+- AWS, GCP, OCI, Nebius, Nscale, Lambda AI, or DSX topology paths
 - Pagination behavior in simulated provider APIs
 - Engine output generated from provider-shaped data
 - Tree and block topology output from the same model

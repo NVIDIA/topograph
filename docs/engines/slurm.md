@@ -53,7 +53,7 @@ curl -s -X POST -H "Content-Type: application/json" -d @payload.json http://loca
 We provide `scripts/create-topology-update-script.sh` in the repository, which performs the steps outlined above: it creates the topology update script and registers it with the strigger.
 
 The script accepts the following parameters:
-- **provider name** (aws, oci, gcp, nebius, netq, infiniband-bm)
+- **provider name** (aws, oci, gcp, nebius, nscale, netq, infiniband-bm)
 - **path to the generated topology update script**
 - **path to the topology.conf file**
 

@@ -30,6 +30,8 @@ navigation:
         path: providers/oci.md
       - page: Nebius
         path: providers/nebius.md
+      - page: Nscale
+        path: providers/nscale.md
       - page: InfiniBand
         path: providers/infiniband.md
       - page: NetQ
