@@ -58,6 +58,6 @@ DEB_OUTPUT_DIR="${DEB_OUTPUT_DIR:-${REPO_HOME}/bin}"
 DEB_FILE_PATH="${DEB_OUTPUT_DIR}/topograph-$1.${ARCH}.deb"
 
 # Create package parent directory
-mkdir -p $(dirname ${DEB_FILE_PATH})
-mv $REPO_HOME/deb/topograph.deb ${DEB_FILE_PATH}
+mkdir -p "$(dirname "${DEB_FILE_PATH}")"
+mv "$REPO_HOME/deb/topograph.deb" "${DEB_FILE_PATH}"
 echo "Created ${DEB_FILE_PATH}"
