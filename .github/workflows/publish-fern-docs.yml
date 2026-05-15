@@ -41,6 +41,9 @@ concurrency:
   group: fern-publish
   cancel-in-progress: true
 
+env:
+  YQ_VERSION: v4.53.2
+
 jobs:
   publish:
     runs-on: linux-amd64-cpu8
@@ -53,7 +56,7 @@ jobs:
 
       - name: Install yq
         run: |
-          curl -sSfL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+          curl -sSfL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq
           chmod +x /usr/local/bin/yq
 
       - name: Register new version from tag
@@ -80,7 +83,8 @@ jobs:
             sed "s|path: |path: ${TAG_VERSION}-content/|g" > "fern/versions/${TAG_VERSION}.yml"
 
           # Add version entry to docs.yml (insert after Latest, before older versions)
-          yq -i '.products[0].versions |= [.[0]] + [{"display-name": "'"${TAG_VERSION}"'", "path": "versions/'"${TAG_VERSION}"'.yml", "slug": "'"${TAG_VERSION}"'", "availability": "stable"}] + .[1:]' fern/docs.yml
+          export TAG_VERSION
+          yq -i '.products[0].versions |= [.[0]] + [{"display-name": env(TAG_VERSION), "path": "versions/" + env(TAG_VERSION) + ".yml", "slug": env(TAG_VERSION), "availability": "stable"}] + .[1:]' fern/docs.yml
 
           echo "--- docs.yml versions ---"
           grep "display-name:" fern/docs.yml
@@ -134,7 +138,8 @@ jobs:
         run: |
           VERSION=$(curl -sf https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
           if [ -n "$VERSION" ] && [ "$VERSION" != "null" ]; then
-            yq -i '(.products[0].versions[] | select(.slug == "latest")).display-name = "Latest · '"${VERSION}"'"' fern/docs.yml
+            export VERSION
+            yq -i '(.products[0].versions[] | select(.slug == "latest")).display-name = "Latest · " + env(VERSION)' fern/docs.yml
           fi
           echo "--- docs.yml versions after stamp ---"
           yq '.products[0].versions[].display-name' fern/docs.yml
