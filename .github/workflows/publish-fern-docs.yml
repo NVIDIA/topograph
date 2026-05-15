@@ -56,8 +56,20 @@ jobs:
 
       - name: Install yq
         run: |
-          curl -sSfL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq
-          chmod +x /usr/local/bin/yq
+          if command -v yq &>/dev/null; then
+            echo "yq already installed: $(yq --version)"
+          else
+            OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+            ARCH=$(uname -m)
+            case "$ARCH" in
+              x86_64)  ARCH="amd64" ;;
+              aarch64) ARCH="arm64" ;;
+            esac
+            mkdir -p "$HOME/.local/bin"
+            curl -sSfL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_${OS}_${ARCH}" -o "$HOME/.local/bin/yq"
+            chmod +x "$HOME/.local/bin/yq"
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          fi
 
       - name: Register new version from tag
         if: startsWith(github.ref, 'refs/tags/docs/v')
