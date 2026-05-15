@@ -9,7 +9,7 @@
 {{- end }}
 
 {{- if eq .Values.global.provider.name "gcp" }}
-{{- $params := .Values.global.provider.params }}
+{{- $params := default dict .Values.global.provider.params }}
 
 {{- if and
       $params.serviceAccountKeysSecret

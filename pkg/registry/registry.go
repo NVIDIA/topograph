@@ -49,6 +49,7 @@ var Providers = providers.NewRegistry(
 	oci.NamedLoaderIMDS,
 	oci.NamedLoaderSim,
 	nebius.NamedLoader,
+	nebius.NamedLoaderSim,
 	netq.NamedLoader,
 	lambdai.NamedLoader,
 	lambdai.NamedLoaderSim,
