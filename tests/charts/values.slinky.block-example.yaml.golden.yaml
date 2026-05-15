@@ -1,0 +1,472 @@
+---
+# Source: topograph/charts/node-data-broker/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chart-ci-node-data-broker
+  labels:
+    helm.sh/chart: node-data-broker-0.4.0
+    app.kubernetes.io/name: node-data-broker
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: topograph/charts/node-observer/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chart-ci-node-observer
+  labels:
+    helm.sh/chart: node-observer-0.4.0
+    app.kubernetes.io/name: node-observer
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: topograph/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chart-ci-topograph
+  labels:
+    helm.sh/chart: topograph-0.4.0
+    app.kubernetes.io/name: topograph
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: topograph/charts/node-observer/templates/configmap.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chart-ci-node-observer
+  labels:
+    helm.sh/chart: node-observer-0.4.0
+    app.kubernetes.io/name: node-observer
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  node-observer-config.yaml: |-
+    generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+    provider:
+      name: aws
+      params:
+        nodeSelector:
+          slurmCluster: my-cluster
+    engine:
+      name: slinky
+      params:
+        blockSizes:
+        - 4
+        namespace: slurm
+        nodeSelector:
+          slurmCluster: my-cluster
+        plugin: topology/block
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: compute
+        topologyConfigPath: topology.conf
+        topologyConfigmapName: slurm-config
+        useDynamicNodes: false
+    trigger:
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: compute
+---
+# Source: topograph/templates/configmap.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chart-ci-topograph
+  labels:
+    helm.sh/chart: topograph-0.4.0
+    app.kubernetes.io/name: topograph
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  topograph-config.yaml: |-
+    http:
+      port: 49021
+      ssl: false
+    requestAggregationDelay: 15s
+---
+# Source: topograph/charts/node-data-broker/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chart-ci-node-data-broker
+rules:
+- apiGroups: [""]
+  resources: [nodes]
+  verbs: [get,list,update]
+---
+# Source: topograph/charts/node-observer/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chart-ci-node-observer
+rules:
+- apiGroups: [""]
+  resources: [nodes,pods]
+  verbs: [get,list,watch]
+---
+# Source: topograph/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chart-ci-topograph
+rules:
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [get,list]
+- apiGroups: [""]
+  resources: [nodes]
+  verbs: [get,list,update]
+- apiGroups: [apps]
+  resources: [daemonsets]
+  verbs: [get,list]
+- apiGroups: [""]
+  resources: [configmaps]
+  verbs: [create,get,list,update]
+---
+# Source: topograph/charts/node-data-broker/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chart-ci-node-data-broker
+subjects:
+- kind: ServiceAccount
+  name: chart-ci-node-data-broker
+  namespace: topograph
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: chart-ci-node-data-broker
+  apiGroup: ""
+---
+# Source: topograph/charts/node-observer/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chart-ci-node-observer
+subjects:
+- kind: ServiceAccount
+  name: chart-ci-node-observer
+  namespace: topograph
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: chart-ci-node-observer
+  apiGroup: ""
+---
+# Source: topograph/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chart-ci-topograph
+subjects:
+- kind: ServiceAccount
+  name: chart-ci-topograph
+  namespace: topograph
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: chart-ci-topograph
+  apiGroup: ""
+---
+# Source: topograph/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: chart-ci-topograph
+  labels:
+    helm.sh/chart: topograph-0.4.0
+    app.kubernetes.io/name: topograph
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 49021
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: topograph
+    app.kubernetes.io/instance: chart-ci
+---
+# Source: topograph/charts/node-data-broker/templates/daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: chart-ci-node-data-broker
+  labels:
+    helm.sh/chart: node-data-broker-0.4.0
+    app.kubernetes.io/name: node-data-broker
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-data-broker
+      app.kubernetes.io/instance: chart-ci
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: node-data-broker-0.4.0
+        app.kubernetes.io/name: node-data-broker
+        app.kubernetes.io/instance: chart-ci
+        app.kubernetes.io/version: "v0.4.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: chart-ci-node-data-broker
+      securityContext:
+        {}
+      initContainers:
+        - name: init-node-labels
+          image: "ghcr.io/nvidia/topograph:v0.4.0"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/node-data-broker-initc
+          args:
+            - --provider=aws
+            - -v=3
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+      containers:
+        - name: node-data-broker
+          securityContext:
+            {}
+          image: "curlimages/curl:8.13.0"
+          imagePullPolicy: IfNotPresent
+          command:
+            
+            - tail
+            - -f
+            - /dev/null
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: topograph/charts/node-observer/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chart-ci-node-observer
+  labels:
+    helm.sh/chart: node-observer-0.4.0
+    app.kubernetes.io/name: node-observer
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-observer
+      app.kubernetes.io/instance: chart-ci
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: node-observer-0.4.0
+        app.kubernetes.io/name: node-observer
+        app.kubernetes.io/instance: chart-ci
+        app.kubernetes.io/version: "v0.4.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: chart-ci-node-observer
+      securityContext:
+        {}
+      initContainers:
+        - name: wait
+          image: curlimages/curl:8.13.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+          args:
+            - -c
+            - |
+              until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
+                echo "Waiting for topograph to start ..."
+                sleep 2
+              done
+      containers:
+        - name: node-observer
+          securityContext:
+            {}
+          image: "ghcr.io/nvidia/topograph:v0.4.0"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/node-observer
+          args:
+            - -v=3
+          resources:
+            limits:
+              cpu: 400m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/topograph
+      volumes:
+        - name: config-volume
+          configMap:
+            defaultMode: 420
+            name: chart-ci-node-observer
+      nodeSelector:
+        dedicated: user-workload
+---
+# Source: topograph/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chart-ci-topograph
+  labels:
+    helm.sh/chart: topograph-0.4.0
+    app.kubernetes.io/name: topograph
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: topograph
+      app.kubernetes.io/instance: chart-ci
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: topograph-0.4.0
+        app.kubernetes.io/name: topograph
+        app.kubernetes.io/instance: chart-ci
+        app.kubernetes.io/version: "v0.4.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: chart-ci-topograph
+      securityContext:
+        {}
+      containers:
+        - name: topograph
+          securityContext:
+            {}
+          image: "ghcr.io/nvidia/topograph:v0.4.0"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/topograph
+          args:
+            - -v=3
+          env:
+            - name: NODE_DATA_BROKER_NAME
+              value: chart-ci-node-data-broker
+            - name: NODE_DATA_BROKER_NAMESPACE
+              value: topograph
+          ports:
+            - name: http
+              containerPort: 49021
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            limits:
+              cpu: 400m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/topograph
+      volumes:
+        - name: config-volume
+          configMap:
+            defaultMode: 420
+            name: chart-ci-topograph
+      nodeSelector:
+        dedicated: user-workload
+      tolerations:
+        - operator: Exists
+---
+# Source: topograph/templates/tests/test-healthz.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "chart-ci-topograph-test-healthz"
+  labels:
+    helm.sh/chart: topograph-0.4.0
+    app.kubernetes.io/name: topograph
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    {}
+  containers:
+    - name: healthz
+      securityContext:
+        {}
+      image: "ghcr.io/nvidia/topograph:v0.4.0"
+      imagePullPolicy: IfNotPresent
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -eu
+          wget -q -O /dev/null -T 10 \
+            "http://chart-ci-topograph:49021/healthz"
+---
+# Source: topograph/templates/tests/test-metrics.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "chart-ci-topograph-test-metrics"
+  labels:
+    helm.sh/chart: topograph-0.4.0
+    app.kubernetes.io/name: topograph
+    app.kubernetes.io/instance: chart-ci
+    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    {}
+  containers:
+    - name: metrics
+      securityContext:
+        {}
+      image: "ghcr.io/nvidia/topograph:v0.4.0"
+      imagePullPolicy: IfNotPresent
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -eu
+          body=$(wget -q -O - -T 10 \
+            "http://chart-ci-topograph:49021/metrics")
+          echo "$body" | grep -q '^topograph_version'
