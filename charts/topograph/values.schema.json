@@ -26,6 +26,7 @@
                 "lambdai",
                 "lambdai-sim",
                 "nebius",
+                "nebius-sim",
                 "netq",
                 "nscale",
                 "nscale-sim",
@@ -54,7 +55,7 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
             },
             "port": {
               "type": "integer",

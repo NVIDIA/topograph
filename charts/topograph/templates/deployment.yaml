@@ -1,4 +1,5 @@
 {{ include "topograph.validation" . }}
+{{- $providerParams := default dict .Values.global.provider.params }}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -49,10 +50,10 @@ spec:
             - name: NODE_DATA_BROKER_NAMESPACE
               value: {{ .Release.Namespace }}
             {{- if eq .Values.global.provider.name "gcp" }}
-            {{- if .Values.global.provider.params.serviceAccountKeysSecret }}
+            {{- if $providerParams.serviceAccountKeysSecret }}
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /etc/topograph/gcp/service-account-keys.json
-            {{- else if .Values.global.provider.params.workloadIdentityFederation }}
+            {{- else if $providerParams.workloadIdentityFederation }}
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /etc/topograph/gcp/credentials-config.json
             {{- end }}
@@ -80,11 +81,11 @@ spec:
               readOnly: true
           {{- end }}
           {{- if eq .Values.global.provider.name "gcp" }}
-          {{- if .Values.global.provider.params.serviceAccountKeysSecret }}
+          {{- if $providerParams.serviceAccountKeysSecret }}
             - name: service-account-keys
               mountPath: /etc/topograph/gcp/service-account-keys.json
               readOnly: true
-          {{- else if .Values.global.provider.params.workloadIdentityFederation }}
+          {{- else if $providerParams.workloadIdentityFederation }}
             - name: credentials-config
               mountPath: /etc/topograph/gcp
               readOnly: true
@@ -107,19 +108,19 @@ spec:
             secretName: {{ .Values.config.credentialsSecret }}
       {{- end }}
       {{- if eq .Values.global.provider.name "gcp" }}
-      {{- if .Values.global.provider.params.serviceAccountKeysSecret }}
+      {{- if $providerParams.serviceAccountKeysSecret }}
         - name: service-account-keys
           secret:
-            secretName: {{ .Values.global.provider.params.serviceAccountKeysSecret }}
-      {{- else if .Values.global.provider.params.workloadIdentityFederation }}
+            secretName: {{ $providerParams.serviceAccountKeysSecret }}
+      {{- else if $providerParams.workloadIdentityFederation }}
         - name: credentials-config
           configMap:
-            name: {{ .Values.global.provider.params.workloadIdentityFederation.credentialsConfigmap }}
+            name: {{ $providerParams.workloadIdentityFederation.credentialsConfigmap }}
         - name: token
           projected:
             sources:
             - serviceAccountToken:
-                audience: {{ .Values.global.provider.params.workloadIdentityFederation.audience }}
+                audience: {{ $providerParams.workloadIdentityFederation.audience }}
                 expirationSeconds: 3600
                 path: token
       {{- end }}
