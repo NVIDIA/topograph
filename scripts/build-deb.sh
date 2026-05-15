@@ -17,42 +17,42 @@ fi
 
 echo "Setting Debian package version to $VERSION"
 
-cp $REPO_HOME/deb/control $REPO_HOME/deb/topograph/DEBIAN/control
+cp "$REPO_HOME/deb/control" "$REPO_HOME/deb/topograph/DEBIAN/control"
 
-sed -i "s/__VERSION__/$VERSION/g" $REPO_HOME/deb/topograph/DEBIAN/control
-sed -i "s/__ARCH__/$ARCH/g" $REPO_HOME/deb/topograph/DEBIAN/control
+sed -i "s/__VERSION__/$VERSION/g" "$REPO_HOME/deb/topograph/DEBIAN/control"
+sed -i "s/__ARCH__/$ARCH/g" "$REPO_HOME/deb/topograph/DEBIAN/control"
 if [[ -n "${RELEASE}" ]]; then
-    sed -i "s/__RELEASE__/-${RELEASE}/g" $REPO_HOME/deb/topograph/DEBIAN/control
+    sed -i "s/__RELEASE__/-${RELEASE}/g" "$REPO_HOME/deb/topograph/DEBIAN/control"
 else
-    sed -i "s/__RELEASE__//g" $REPO_HOME/deb/topograph/DEBIAN/control
+    sed -i "s/__RELEASE__//g" "$REPO_HOME/deb/topograph/DEBIAN/control"
 fi
 
 # Copy binary
-mkdir -p $REPO_HOME/deb/topograph/usr/local/bin
-cp $REPO_HOME/bin/topograph $REPO_HOME/deb/topograph/usr/local/bin/
+mkdir -p "$REPO_HOME/deb/topograph/usr/local/bin"
+cp "$REPO_HOME/bin/topograph" "$REPO_HOME/deb/topograph/usr/local/bin/"
 
 # Copy config file and helper scripts
-mkdir -p $REPO_HOME/deb/topograph/etc/topograph
-cp $REPO_HOME/config/topograph-config.yaml \
-  $REPO_HOME/scripts/configure-ssl.sh \
-  $REPO_HOME/scripts/create-topology-update-script.sh \
-  $REPO_HOME/deb/topograph/etc/topograph
+mkdir -p "$REPO_HOME/deb/topograph/etc/topograph"
+cp "$REPO_HOME/config/topograph-config.yaml" \
+  "$REPO_HOME/scripts/configure-ssl.sh" \
+  "$REPO_HOME/scripts/create-topology-update-script.sh" \
+  "$REPO_HOME/deb/topograph/etc/topograph"
 
 # Copy service file
-mkdir -p $REPO_HOME/deb/topograph/lib/systemd/system
-cp $REPO_HOME/config/topograph.service \
-  $REPO_HOME/deb/topograph/lib/systemd/system
+mkdir -p "$REPO_HOME/deb/topograph/lib/systemd/system"
+cp "$REPO_HOME/config/topograph.service" \
+  "$REPO_HOME/deb/topograph/lib/systemd/system"
 
 # Build Debian package
-chmod -R 0755 $REPO_HOME/deb/topograph/DEBIAN
+chmod -R 0755 "$REPO_HOME/deb/topograph/DEBIAN"
 
 # Optional overrides for downstream packagers:
 #   DEB_COMPRESSION  - passed to dpkg-deb -Z (default: dpkg-deb's xz)
 #   DEB_OUTPUT_DIR   - directory the .deb is written to (default: ${REPO_HOME}/bin)
 if [[ -n "${DEB_COMPRESSION}" ]]; then
-  dpkg-deb --build -Z"${DEB_COMPRESSION}" $REPO_HOME/deb/topograph
+  dpkg-deb --build -Z"${DEB_COMPRESSION}" "$REPO_HOME/deb/topograph"
 else
-  dpkg-deb --build $REPO_HOME/deb/topograph
+  dpkg-deb --build "$REPO_HOME/deb/topograph"
 fi
 DEB_OUTPUT_DIR="${DEB_OUTPUT_DIR:-${REPO_HOME}/bin}"
 DEB_FILE_PATH="${DEB_OUTPUT_DIR}/topograph-$1.${ARCH}.deb"
