@@ -1,0 +1,9 @@
+# Used only by scripts/chart-test.sh for standalone helm lint/template on the
+# node-observer subchart. The parent topograph chart supplies `global` at install time.
+global:
+  provider:
+    name: test
+  engine:
+    name: k8s
+  service:
+    port: 49021

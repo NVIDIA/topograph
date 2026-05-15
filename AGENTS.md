@@ -42,6 +42,7 @@ internal/             # Shared utilities not part of the public API
 charts/topograph/     # Helm chart (with node-data-broker subchart)
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
 tests/models/         # YAML simulation fixtures
+tests/charts/         # Helm chart golden outputs (topograph/) and CI-only values for subchart tests
 config/               # Sample topograph-config.yaml
 scripts/              # Build scripts (deb, rpm, SSL, clean)
 localdev/             # Developer-local workspace — not tracked; personal scratch files
@@ -81,15 +82,17 @@ Cross-compile with `make build-linux-amd64`, `make build-darwin-arm64`, etc.
 ### Local test loop
 
 ```bash
-make qualify  # runs fmt, vet, lint, and test in sequence — pre-push aggregator
-make fmt      # go fmt ./...
-make vet      # go vet ./...
-make lint     # golangci-lint run (only flags new issues vs. main)
-make test     # go test -race -coverprofile=coverage.out ./...
-make coverage # human-readable per-package summary
+make qualify    # runs fmt, vet, lint, and test in sequence — pre-push aggregator
+make fmt        # go fmt ./...
+make vet        # go vet ./...
+make lint       # golangci-lint run (only flags new issues vs. main)
+make test       # go test -race -coverprofile=coverage.out ./...
+make chart-test                 # helm chart smoke + golden tests (see scripts/chart-test.sh)
+make chart-test-update-golden   # refresh tests/charts/topograph/*.golden.yaml (review before commit)
+make coverage   # human-readable per-package summary
 ```
 
-Run `make qualify` before pushing. The individual targets are available if you want to run a single check during iteration.
+Run `make qualify` before pushing. The individual targets are available if you want to run a single check during iteration. Run `make chart-test` when you change `charts/topograph/` or its subcharts; CI runs it on every workflow trigger.
 
 ### Coverage policy
 
@@ -101,7 +104,7 @@ Coverage checks run on pull requests. A drop below target with no matching uplif
 
 ### CI workflows
 
-- `.github/workflows/go.yml` — build, test, lint on every push and PR
+- `.github/workflows/go.yml` — build, test, lint, and Helm chart tests (`make chart-test`) on every push and PR
 - `.github/workflows/docker.yml` — container image build (manual trigger)
 - `.github/workflows/docker-ib.yml` — InfiniBand-variant container (manual trigger)
 - `.github/workflows/helm-release.yaml` — Helm chart release (manual trigger)
