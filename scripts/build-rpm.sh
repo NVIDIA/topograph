@@ -32,5 +32,10 @@ cp $REPO_HOME/bin/topograph \
 
 rpmbuild --define "_topdir $REPO_HOME/rpmbuild" -bb --clean $REPO_HOME/rpmbuild/SPECS/topograph.spec
 
-mv $REPO_HOME/rpmbuild/RPMS/${ARCH}/topograph-${VERSION}-${RELEASE}.${ARCH}.rpm $REPO_HOME/bin/topograph-$1.${ARCH}.rpm
-echo "Created $REPO_HOME/bin/topograph-$1.${ARCH}.rpm"
+# Optional override for downstream packagers:
+#   RPM_OUTPUT_DIR - directory the .rpm is written to (default: ${REPO_HOME}/bin)
+RPM_OUTPUT_DIR="${RPM_OUTPUT_DIR:-${REPO_HOME}/bin}"
+mkdir -p "${RPM_OUTPUT_DIR}"
+RPM_OUTPUT_FILE="${RPM_OUTPUT_DIR}/topograph-$1.${ARCH}.rpm"
+mv $REPO_HOME/rpmbuild/RPMS/${ARCH}/topograph-${VERSION}-${RELEASE}.${ARCH}.rpm "${RPM_OUTPUT_FILE}"
+echo "Created ${RPM_OUTPUT_FILE}"
