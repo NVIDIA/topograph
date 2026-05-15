@@ -46,8 +46,16 @@ cp $REPO_HOME/config/topograph.service \
 # Build Debian package
 chmod -R 0755 $REPO_HOME/deb/topograph/DEBIAN
 
-dpkg-deb --build $REPO_HOME/deb/topograph
-DEB_FILE_PATH="${REPO_HOME}/bin/topograph-$1.${ARCH}.deb"
+# Optional overrides for downstream packagers:
+#   DEB_COMPRESSION  - passed to dpkg-deb -Z (default: dpkg-deb's xz)
+#   DEB_OUTPUT_DIR   - directory the .deb is written to (default: ${REPO_HOME}/bin)
+if [[ -n "${DEB_COMPRESSION}" ]]; then
+  dpkg-deb --build -Z"${DEB_COMPRESSION}" $REPO_HOME/deb/topograph
+else
+  dpkg-deb --build $REPO_HOME/deb/topograph
+fi
+DEB_OUTPUT_DIR="${DEB_OUTPUT_DIR:-${REPO_HOME}/bin}"
+DEB_FILE_PATH="${DEB_OUTPUT_DIR}/topograph-$1.${ARCH}.deb"
 
 # Create package parent directory
 mkdir -p $(dirname ${DEB_FILE_PATH})
