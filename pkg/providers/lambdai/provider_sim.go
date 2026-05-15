@@ -57,7 +57,7 @@ func (c *simClient) InstanceList(ctx context.Context, req *InstanceListRequest) 
 			continue
 		}
 		instance := InstanceTopology{
-			ID:          node.Name,
+			ID:          node.ID,
 			NetworkPath: node.NetLayers,
 			//TODO: check whether the below mapping is correct
 			NVLink: &NVLinkInfo{
@@ -102,7 +102,7 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 
 	instanceIDs := make([]string, 0, len(model.Nodes))
 	for _, node := range model.Nodes {
-		instanceIDs = append(instanceIDs, node.Name)
+		instanceIDs = append(instanceIDs, node.ID)
 	}
 
 	clientFactory := func(pageSize *int) (Client, error) {
@@ -123,19 +123,21 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 		}, nil
 	}
 
-	return NewSim(clientFactory, p.TrimTiers), nil
+	return NewSim(clientFactory, p.TrimTiers, model), nil
 }
 
 type simProvider struct {
 	baseProvider
+	model *models.Model
 }
 
-func NewSim(clientFactory ClientFactory, trimTiers int) *simProvider {
+func NewSim(clientFactory ClientFactory, trimTiers int, model *models.Model) *simProvider {
 	return &simProvider{
 		baseProvider: baseProvider{
 			clientFactory: clientFactory,
 			trimTiers:     trimTiers,
 		},
+		model: model,
 	}
 }
 
@@ -148,4 +150,8 @@ func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.Compu
 	}
 
 	return client.(*simClient).model.Instances, nil
+}
+
+func (p *simProvider) GetInstances(ctx context.Context, instanceIDs []string) ([]topology.Node, error) {
+	return p.model.GetInstances(ctx, NAME_SIM, instanceIDs)
 }

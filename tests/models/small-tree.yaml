@@ -27,6 +27,73 @@ switches:
     - I34
     - I35
     - I36
+nodes:
+  I21:
+    capacity_block_id: CB2
+    type: H100
+    attributes:
+      nvlink: CB2
+      status: known
+      timestamp: 2026-01-01T13:59:00.000Z
+      gpus:
+      - index: 0
+        pci_bus_id: 00000000:0F:00.0
+        uuid: GPU-I21-0000-0000-0000-000000000000
+        model: NVIDIA H100 SXM5 80GB
+        memory_mib: 81920
+      - index: 1
+        pci_bus_id: 00000000:2D:00.0
+        uuid: GPU-I21-0000-0000-0000-000000000001
+        model: NVIDIA H100 SXM5 80GB
+        memory_mib: 81920
+      - index: 2
+        pci_bus_id: 00000000:44:00.0
+        uuid: GPU-I21-0000-0000-0000-000000000002
+        model: NVIDIA H100 SXM5 80GB
+        memory_mib: 81920
+      - index: 3
+        pci_bus_id: 00000000:62:00.0
+        uuid: GPU-I21-0000-0000-0000-000000000003
+        model: NVIDIA H100 SXM5 80GB
+        memory_mib: 81920 
+      - index: 4
+        pci_bus_id: 00000000:80:00.0
+        uuid: GPU-I21-0000-0000-0000-000000000004
+        model: NVIDIA H100 SXM5 80GB
+        memory_mib: 81920
+      - index: 5
+        pci_bus_id: 00000000:9E:00.0
+        uuid: GPU-I21-0000-0000-0000-000000000005
+        model: NVIDIA H100 SXM5 80GB
+        memory_mib: 81920
+      - index: 6
+        pci_bus_id: 00000000:BA:00.0
+        uuid: GPU-I21-0000-0000-0000-000000000006
+        model: NVIDIA H100 SXM5 80GB
+        memory_mib: 81920
+      - index: 7
+        pci_bus_id: 00000000:D8:00.0
+        uuid: GPU-I21-0000-0000-0000-000000000007
+        model: NVIDIA H100 SXM5 80GB
+        memory_mib: 81920
+  I22:
+    capacity_block_id: CB2
+    attributes:
+      nvlink: CB2
+      status: unknown
+      timestamp: 2026-01-01T13:59:00.000Z
+  I25:
+    capacity_block_id: CB2
+    type: H100
+  I34:
+    capacity_block_id: CB3
+    type: H100
+  I35:
+    capacity_block_id: CB3
+    type: H100
+  I36:
+    capacity_block_id: CB3
+    type: H100
 capacity_blocks:
   CB2:
     nodes: ["I[21-22]", "I25"]

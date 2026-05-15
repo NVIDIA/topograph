@@ -28,7 +28,20 @@ import (
 
 type Engine interface {
 	GetComputeInstances(ctx context.Context, environment Environment) ([]topology.ComputeInstances, *httperr.Error)
-	GenerateOutput(ctx context.Context, graph *topology.Graph, params map[string]any) ([]byte, *httperr.Error)
+	GenerateOutput(ctx context.Context, graph *topology.Graph, computeInstances []topology.ComputeInstances, params map[string]any, environment Environment) ([]byte, *httperr.Error)
+}
+
+// InstanceCache is the interface for the topology.Instance cache.
+// Depending on the configuration, the cache may be a local cache or a remote cache.
+type InstanceCache interface {
+	Get(ctx context.Context, instanceID string) (*topology.Node, error)
+	Set(ctx context.Context, instanceID string, instance *topology.Node) error
+	Delete(ctx context.Context, instanceID string) error
+}
+
+// InstanceProvider is used to get the instance records from the provider either using Pdsh or any other means
+type InstanceProvider interface {
+	GetInstances(ctx context.Context, instanceIDs []string) ([]topology.Node, error)
 }
 
 type Environment any

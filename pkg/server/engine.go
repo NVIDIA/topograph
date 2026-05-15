@@ -126,7 +126,7 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *httperr.Error) {
 		return nil, err
 	}
 
-	return eng.GenerateOutput(ctx, graph, tr.Engine.Params)
+	return eng.GenerateOutput(ctx, graph, computeInstances, tr.Engine.Params, prv)
 }
 
 func checkCredentials(payloadCreds, cfgCreds map[string]any) map[string]any {

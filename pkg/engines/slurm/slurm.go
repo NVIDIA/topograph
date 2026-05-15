@@ -215,7 +215,7 @@ func parsePartitionNodes(partition string, data string) ([]string, error) {
 	return nil, fmt.Errorf("partition %q has no nodes", partition)
 }
 
-func (eng *SlurmEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, params map[string]any) ([]byte, *httperr.Error) {
+func (eng *SlurmEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, _ []topology.ComputeInstances, params map[string]any, _ engines.Environment) ([]byte, *httperr.Error) {
 	return GenerateOutput(ctx, graph, params)
 }
 
