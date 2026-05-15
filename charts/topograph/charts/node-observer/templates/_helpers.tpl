@@ -1,4 +1,13 @@
 {{/*
+Topograph API base URL (no path). Matches charts/topograph/templates/_helpers.tpl
+`topograph.url` when this chart is a dependency; defined under this chart's
+namespace so `helm lint` works when this directory is used as a standalone chart.
+*/}}
+{{- define "node-observer.topographBaseURL" -}}
+{{ printf "http://%s.%s.svc.cluster.local:%.0f" .Release.Name .Release.Namespace .Values.global.service.port }}
+{{- end }}
+
+{{/*
 Expand the name of the chart.
 */}}
 {{- define "node-observer.name" -}}

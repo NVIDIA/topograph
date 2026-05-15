@@ -50,6 +50,17 @@ test:
 	@echo running tests
 	go test -coverprofile=coverage.out -covermode=atomic -race ./...
 
+# Helm 3.8+ required. Runs scripts/chart-test.sh (umbrella + subcharts, golden files for
+# charts/topograph/values.yaml + values.*.yaml, validation.tpl cases).
+.PHONY: chart-test
+chart-test:
+	scripts/chart-test.sh
+
+# Rewrite tests/charts/topograph/*.golden.yaml from current Helm output (review diff before commit).
+.PHONY: chart-test-update-golden
+chart-test-update-golden:
+	CHART_TEST_UPDATE_GOLDEN=1 scripts/chart-test.sh
+
 .PHONY: fmt
 fmt:
 	go fmt ./...
