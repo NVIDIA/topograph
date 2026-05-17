@@ -66,10 +66,13 @@ jobs:
           for version_file in fern/versions/v*.yml; do
             [ -f "$version_file" ] || continue
             version=$(basename "$version_file" .yml)
-            if git rev-parse "$version" >/dev/null 2>&1; then
+            if git show-ref --verify --quiet "refs/tags/${version}"; then
               mkdir -p "fern/versions/${version}-content"
-              git archive "$version" -- docs/ | tar -x --strip-components=1 -C "fern/versions/${version}-content"
-              find "fern/versions/${version}-content" -name '*.md' -exec sed -i 's/<img \([^>]*[^/]\)>/<img \1 \/>/g' {} +
+              git archive "refs/tags/${version}" -- docs/ | tar -x --strip-components=1 -C "fern/versions/${version}-content"
+              find "fern/versions/${version}-content" -name '*.md' -print0 | xargs -0 -r sed -i \
+                -e 's/{/\\{/g' \
+                -e 's/}/\\}/g' \
+                -e 's/</\&lt;/g'
               for subdir in "fern/versions/${version}-content"/*/; do
                 if [ ! -d "${subdir}assets" ] && [ -d "fern/versions/${version}-content/assets" ]; then
                   ln -sf ../assets "${subdir}assets"
