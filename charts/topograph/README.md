@@ -6,7 +6,7 @@ Topograph discovers the physical network topology of a cluster (NVLink domains, 
 
 ## Prerequisites
 
-- **Helm**: 3.8+ or 4.x. The chart has been verified against Helm 3.20.0 and Helm 4.1.4, with byte-identical `helm template` output under both.
+- **Helm**: 3.10+ or 4.x. The chart has been verified against Helm 3.20.0 and Helm 4.1.4, with byte-identical `helm template` output under both.
 - **Kubernetes**: 1.27 or later
 - **Provider-specific prerequisites**: see the [provider documentation](https://github.com/NVIDIA/topograph/tree/main/docs/providers) in the main repository for each provider's setup.
 

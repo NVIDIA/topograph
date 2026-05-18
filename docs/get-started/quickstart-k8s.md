@@ -10,7 +10,7 @@ Prerequisites, install flow, and verification are common to both — the engines
 ## Prerequisites
 
 - **Kubernetes**: 1.27 or later
-- **Helm**: 3.8+ or 4.x
+- **Helm**: 3.10+ or 4.x
 - **`kubectl`** with permission to install a chart and create a `Namespace`
 - **A supported provider** for your environment — see the [provider documentation](../providers/) for per-provider setup (credentials, required cluster state, etc.)
 - **For the `slinky` engine only**: a Slinky cluster already deployed in the target Kubernetes cluster — Topograph does not deploy Slinky itself
