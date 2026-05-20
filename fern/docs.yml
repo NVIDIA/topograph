@@ -17,11 +17,8 @@ products:
     slug: /
     path: ../docs/index.yml
     versions:
-      # display-name is stamped by publish-fern-docs.yml at publish time
-      - display-name: "Latest"
-        path: ../docs/index.yml
-        slug: latest
-        availability: stable
+      # The newest entry is stamped "Latest · vX.Y.Z" by publish-fern-docs.yml at publish time.
+      # All versions serve frozen content from their git tag.
       - display-name: "v0.4.0"
         path: versions/v0.4.0.yml
         slug: v0.4.0
