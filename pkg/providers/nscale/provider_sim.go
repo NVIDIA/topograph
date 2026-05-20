@@ -31,6 +31,7 @@ type simClient struct {
 
 type simProvider struct {
 	baseProvider
+	*providers.BaseSimProvider
 }
 
 func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int) ([]InstanceTopology, error) {
@@ -52,7 +53,7 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 			path[len(nl)-1-i] = v
 		}
 		instance := InstanceTopology{
-			ID:          node.Name,
+			ID:          node.ID,
 			NetworkPath: path,
 		}
 		if len(node.Attributes.NVLink) != 0 {
@@ -68,7 +69,7 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 func (c *simClient) Instances(_ context.Context, _ string) (map[string]string, error) {
 	i2n := make(map[string]string, len(c.model.Nodes))
 	for _, node := range c.model.Nodes {
-		i2n[node.Name] = node.Name
+		i2n[node.ID] = node.ID
 	}
 
 	return i2n, nil
@@ -91,7 +92,7 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 
 	instanceIDs := make([]string, 0, len(model.Nodes))
 	for _, node := range model.Nodes {
-		instanceIDs = append(instanceIDs, node.Name)
+		instanceIDs = append(instanceIDs, node.ID)
 	}
 
 	return &simProvider{
@@ -103,11 +104,16 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 			},
 			params: &ProviderParams{},
 		},
+		BaseSimProvider: providers.NewBaseSimProvider(model, p.TrimTiers),
 	}, nil
 }
 
 // Engine support
 
-func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
-	return p.client.(*simClient).model.Instances, nil
+func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
+	if err != nil {
+		return nil, err
+	}
+	return p.ToThreeTierGraph(NAME_SIM, topo, instances, false), nil
 }

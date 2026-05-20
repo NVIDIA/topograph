@@ -101,28 +101,29 @@ func LoaderSim(ctx context.Context, cfg providers.Config) (providers.Provider, *
 		return sim, nil
 	}
 
-	return NewSim(clientFactory, p.TrimTiers), nil
+	return NewSim(clientFactory, p.TrimTiers, model), nil
 }
 
 type simProvider struct {
 	baseProvider
+	*providers.BaseSimProvider
 }
 
-func NewSim(clientFactory ClientFactory, trimTiers int) *simProvider {
+func NewSim(clientFactory ClientFactory, trimTiers int, model *models.Model) *simProvider {
 	return &simProvider{
 		baseProvider: baseProvider{
 			clientFactory: clientFactory,
-			trimTiers:     trimTiers,
 		},
+		BaseSimProvider: providers.NewBaseSimProvider(model, trimTiers),
 	}
 }
 
 // Engine support
 
-func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
-	client, err := p.clientFactory()
+func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
 	if err != nil {
-		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get client: %v", err))
+		return nil, err
 	}
-	return client.(*simClient).model.Instances, nil
+	return p.ToThreeTierGraph(NAME_SIM, topo, instances, false), nil
 }

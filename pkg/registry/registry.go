@@ -18,6 +18,7 @@ package registry
 
 import (
 	"github.com/NVIDIA/topograph/pkg/engines"
+	"github.com/NVIDIA/topograph/pkg/engines/graph"
 	"github.com/NVIDIA/topograph/pkg/engines/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines/slinky"
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
@@ -61,6 +62,7 @@ var Providers = providers.NewRegistry(
 
 var Engines = engines.NewRegistry(
 	k8s.NamedLoader,
+	graph.NamedLoader,
 	slurm.NamedLoader,
 	slinky.NamedLoader,
 )

@@ -25,6 +25,7 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/httpreq"
+	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/registry"
@@ -37,6 +38,10 @@ const (
 )
 
 var backOff time.Duration
+
+type computeInstancesProvider interface {
+	GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error)
+}
 
 func init() {
 	backOff = defaultBackOff
@@ -100,25 +105,10 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *httperr.Error) {
 		return nil, err
 	}
 
-	// Optional provider interface if it directly supports getting compute instances.
-	// (e.g., Test provider)
-	type simpleGetComputeInstances interface {
-		GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error)
-	}
-
 	// if the instance/node mapping is not provided in the payload, get the mapping from the provider
-	computeInstances := tr.Nodes
-	if len(computeInstances) == 0 {
-		switch t := prv.(type) {
-		case simpleGetComputeInstances:
-			computeInstances, err = t.GetComputeInstances(ctx)
-		default:
-			computeInstances, err = eng.GetComputeInstances(ctx, prv)
-		}
-
-		if err != nil {
-			return nil, err
-		}
+	computeInstances, err := getComputeInstances(ctx, eng, prv, tr.Nodes)
+	if err != nil {
+		return nil, err
 	}
 
 	graph, err := prv.GenerateTopologyConfig(ctx, srv.cfg.PageSize, computeInstances)
@@ -134,4 +124,16 @@ func checkCredentials(payloadCreds, cfgCreds map[string]any) map[string]any {
 		return payloadCreds
 	}
 	return cfgCreds
+}
+
+func getComputeInstances(ctx context.Context, eng engines.Engine, prv providers.Provider, requested []topology.ComputeInstances) ([]topology.ComputeInstances, *httperr.Error) {
+	if len(requested) != 0 {
+		return requested, nil
+	}
+
+	if p, ok := prv.(computeInstancesProvider); ok {
+		return p.GetComputeInstances(ctx)
+	}
+
+	return eng.GetComputeInstances(ctx, prv)
 }

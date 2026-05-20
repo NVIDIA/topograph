@@ -171,7 +171,7 @@ func isEmptySelector(sel *metav1.LabelSelector) bool {
 	return sel == nil || (len(sel.MatchLabels) == 0 && len(sel.MatchExpressions) == 0)
 }
 
-func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ engines.Environment) ([]topology.ComputeInstances, *httperr.Error) {
+func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
 
 	nodes, nodeMap, err := eng.getClusterNodes(ctx)
 	if err != nil {

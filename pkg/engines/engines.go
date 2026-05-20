@@ -27,11 +27,9 @@ import (
 )
 
 type Engine interface {
-	GetComputeInstances(ctx context.Context, environment Environment) ([]topology.ComputeInstances, *httperr.Error)
+	GetComputeInstances(ctx context.Context, environment any) ([]topology.ComputeInstances, *httperr.Error)
 	GenerateOutput(ctx context.Context, graph *topology.Graph, params map[string]any) ([]byte, *httperr.Error)
 }
-
-type Environment any
 
 type Config = map[string]any
 type NamedLoader = component.NamedLoader[Engine, Config]

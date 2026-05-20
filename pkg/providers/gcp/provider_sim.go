@@ -87,13 +87,13 @@ func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesR
 
 	for indx = from; indx < from+int(*c.pageSize); indx++ {
 		node := c.model.Nodes[c.instanceIDs[indx]]
-		instanceID, err := strconv.ParseUint(node.Name, 10, 64)
+		instanceID, err := strconv.ParseUint(node.ID, 10, 64)
 		if err != nil {
-			return &simInstanceIter{err: fmt.Errorf("invalid instance ID %q; must be numerical", node.Name)}, ""
+			return &simInstanceIter{err: fmt.Errorf("invalid instance ID %q; must be numerical", node.ID)}, ""
 		}
 		instance := &computepb.Instance{
 			Id:   &instanceID,
-			Name: &node.Name,
+			Name: &node.ID,
 			ResourceStatus: &computepb.ResourceStatus{
 				PhysicalHostTopology: &computepb.ResourceStatusPhysicalHostTopology{
 					Cluster:  &node.NetLayers[2],
@@ -139,7 +139,7 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 
 	instanceIDs := make([]string, 0, len(model.Nodes))
 	for _, node := range model.Nodes {
-		instanceIDs = append(instanceIDs, node.Name)
+		instanceIDs = append(instanceIDs, node.ID)
 	}
 
 	clientFactory := func(pageSize *int) (Client, error) {
@@ -160,26 +160,29 @@ func LoaderSim(_ context.Context, cfg providers.Config) (providers.Provider, *ht
 		}, nil
 	}
 
-	return NewSim(clientFactory, p.TrimTiers), nil
+	return NewSim(clientFactory, p.TrimTiers, model), nil
 }
 
 type simProvider struct {
 	baseProvider
+	*providers.BaseSimProvider
 }
 
-func NewSim(clientFactory ClientFactory, trimTiers int) *simProvider {
+func NewSim(clientFactory ClientFactory, trimTiers int, model *models.Model) *simProvider {
 	return &simProvider{
 		baseProvider: baseProvider{
 			clientFactory: clientFactory,
-			trimTiers:     trimTiers,
 		},
+		BaseSimProvider: providers.NewBaseSimProvider(model, trimTiers),
 	}
 }
 
 // Engine support
 
-func (p *simProvider) GetComputeInstances(ctx context.Context) ([]topology.ComputeInstances, *httperr.Error) {
-	client, _ := p.clientFactory(nil)
-
-	return client.(*simClient).model.Instances, nil
+func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
+	topo, err := p.generateInstanceTopology(ctx, pageSize, instances)
+	if err != nil {
+		return nil, err
+	}
+	return p.ToThreeTierGraph(NAME_SIM, topo, instances, false), nil
 }

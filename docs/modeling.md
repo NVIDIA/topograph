@@ -126,8 +126,9 @@ The `nodes` map describes compute nodes directly. Each key is the node name. The
 
 | Field | Description |
 |---|---|
-| `name` | Optional. If set, it must match the map key. Usually omitted. |
-| `capacity_block_id` | Optional accelerated domain ID. If set and `capacity_blocks` is omitted, Topograph creates the corresponding capacity block entry. |
+| `id` | Optional. If set, it must match the map key. Usually omitted. |
+| `type` | Optional instance type metadata used by instance-oriented exports. |
+| `capacity_block` | Optional accelerated domain ID. If set and `capacity_blocks` is omitted, Topograph creates the corresponding capacity block entry. |
 | `attributes.nvlink` | Optional accelerated-domain / NVLink identifier. Used by block topology simulation paths. |
 | `attributes.status` | Optional node status metadata. |
 | `attributes.timestamp` | Optional timestamp metadata. |
@@ -138,7 +139,7 @@ Example:
 ```yaml
 nodes:
   n1:
-    capacity_block_id: cb1
+    capacity_block: cb1
     attributes:
       nvlink: nvl1
   n2:
@@ -148,10 +149,10 @@ nodes:
 
 Node rules:
 
-- `capacity_block_id` is optional.
-- Nodes without `capacity_block_id` are still valid compute nodes.
-- If `capacity_block_id` is set and `capacity_blocks` is omitted, Topograph creates the capacity block and adds the node to it.
-- If a node is listed under `capacity_blocks.<id>.nodes`, Topograph fills in the node's missing `capacity_block_id`.
+- `capacity_block` is optional.
+- Nodes without `capacity_block` are still valid compute nodes.
+- If `capacity_block` is set and `capacity_blocks` is omitted, Topograph creates the capacity block and adds the node to it.
+- If a node is listed under `capacity_blocks.<id>.nodes`, Topograph fills in the node's missing `capacity_block`.
 - If both sides specify different capacity block IDs for the same node, model loading fails.
 
 ## Capacity Blocks
@@ -210,7 +211,7 @@ After YAML parsing, Topograph completes the model before simulation uses it:
 - Node names are copied from their map keys.
 - Switch names are copied from their map keys.
 - Missing nodes can be created from `capacity_blocks.<id>.nodes`.
-- Missing capacity block entries can be created from node `capacity_block_id` values.
+- Missing capacity block entries can be created from node `capacity_block` values.
 - Node `NetLayers` is derived from the switch path from leaf to root.
 - Node `Metadata` is built by merging switch metadata along the same path.
 - `Instances` is derived from node names and grouped by `metadata.region`; nodes without a region use `none`.
@@ -249,12 +250,12 @@ After loading:
 
 ### Capacity Blocks From Nodes
 
-This model omits `capacity_blocks`. Topograph creates `cb1` from `n1.capacity_block_id`.
+This model omits `capacity_blocks`. Topograph creates `cb1` from `n1.capacity_block`.
 
 ```yaml
 nodes:
   n1:
-    capacity_block_id: cb1
+    capacity_block: cb1
     attributes:
       nvlink: nvl1
   n2:
@@ -275,7 +276,7 @@ This is valid. It declares a capacity block that currently has no nodes.
 ```yaml
 nodes:
   n1:
-    capacity_block_id: cb1
+    capacity_block: cb1
 
 capacity_blocks:
   cb1: {}
@@ -368,5 +369,5 @@ Before using a new model in a regression test:
 - Confirm every switch child has only one parent.
 - Confirm every switched node is defined in `nodes` or generated from `capacity_blocks`.
 - Confirm no node appears under two switches.
-- Confirm capacity block membership does not conflict with node `capacity_block_id`.
+- Confirm capacity block membership does not conflict with node `capacity_block`.
 - Run the relevant provider simulation test or API flow with the target engine.

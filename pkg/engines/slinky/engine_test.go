@@ -709,7 +709,7 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 
 			model, err := models.NewModelFromFile(tc.topologyFile)
 			require.NoError(t, err)
-			topo, _ := model.ToGraph()
+			topo, _ := model.ToGraph(nil)
 
 			podListSel, err := metav1.LabelSelectorAsSelector(&slinkyPodSel)
 			require.NoError(t, err)

@@ -1,6 +1,6 @@
 # Install on Kubernetes
 
-Topograph installs on a Kubernetes cluster via a Helm chart. The same chart supports two engines:
+Topograph installs on a Kubernetes cluster via a Helm chart. This quickstart covers the two Kubernetes-facing scheduler engines:
 
 - **[`k8s` engine](#engine-k8s)** — labels Kubernetes nodes with topology keys so schedulers (native `podAffinity`, KAI Scheduler, Kueue TAS, etc.) can make topology-aware placement decisions
 - **[`slinky` engine](#engine-slinky)** — writes Slurm topology configuration into a `ConfigMap` for [Slinky](https://github.com/SlinkyProject) (Slurm-on-Kubernetes) deployments

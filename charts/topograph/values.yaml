@@ -4,10 +4,10 @@
 
 global:
   provider:
-    # name: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test".
+    # name: "aws", "oci", "gcp", "nebius", "nscale", "netq", "infiniband-k8s", "dra" or "test".
     name: test
   engine:
-    # name: "k8s" or "slinky"
+    # name: "k8s", "slinky", "slurm" or "graph"
     name: k8s
 
   service:

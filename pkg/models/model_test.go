@@ -36,26 +36,28 @@ func TestNewModelFromFileMedium(t *testing.T) {
 	require.Equal(t, map[string]CapacityBlock{
 		"cb11": {
 			Nodes:      []string{"1101", "1102"},
-			Attributes: BasicNodeAttributes{NVLink: "nvl1"},
+			Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
 		},
 		"cb12": {
 			Nodes:      []string{"1201", "1202"},
-			Attributes: BasicNodeAttributes{NVLink: "nvl2"},
+			Attributes: topology.BasicNodeAttributes{NVLink: "nvl2"},
 		},
 		"cb13": {
 			Nodes:      []string{"1301", "1302"},
-			Attributes: BasicNodeAttributes{NVLink: "nvl3"},
+			Attributes: topology.BasicNodeAttributes{NVLink: "nvl3"},
 		},
 		"cb14": {
 			Nodes:      []string{"1401", "1402"},
-			Attributes: BasicNodeAttributes{NVLink: "nvl4"},
+			Attributes: topology.BasicNodeAttributes{NVLink: "nvl4"},
 		},
 		"cb15": {},
 	}, cfg.CapacityBlocks)
 
-	require.Equal(t, &Node{
-		Name:       "1101",
-		Attributes: NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl1"}},
+	require.Equal(t, &topology.Instance{
+		ID: "1101",
+		Attributes: topology.NodeAttributes{
+			BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+		},
 		Metadata: map[string]string{
 			"region":            "us-west",
 			"availability_zone": "zone1",
@@ -90,13 +92,12 @@ func TestNewModelFromFileNVL72(t *testing.T) {
 	require.Len(t, cfg.CapacityBlocks, 5)
 	require.Len(t, cfg.Nodes, 72)
 
-	require.Equal(t, &Node{
-		Name: "node2215",
-		Attributes: NodeAttributes{
-			BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl-2-2"},
-			Status:              "Completed",
-			Timestamp:           "2026/01/01 13:59:00.000",
-			GPUs: []GPU{
+	require.Equal(t, &topology.Instance{
+		ID: "node2215",
+		Attributes: topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl-2-2"},
+			Status:      "Completed",
+			CollectedAt: "2026/01/01 13:59:00.000",
+			GPUs: []topology.GPU{
 				{
 					Index:     0,
 					PCIBusID:  "00000000:61:1D.5",
@@ -170,24 +171,24 @@ capacity_blocks:
 					},
 					"leaf": {Name: "leaf", Nodes: []string{"n1", "n2", "n3"}},
 				},
-				Nodes: map[string]*Node{
+				Nodes: map[string]*topology.Instance{
 					"n1": {
-						Name:          "n1",
-						Attributes:    NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl1"}},
+						ID:            "n1",
+						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
 						CapacityBlock: "cb1",
 						NetLayers:     []string{"leaf", "core"},
 						Metadata:      map[string]string{},
 					},
 					"n2": {
-						Name:          "n2",
-						Attributes:    NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl1"}},
+						ID:            "n2",
+						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
 						CapacityBlock: "cb1",
 						NetLayers:     []string{"leaf", "core"},
 						Metadata:      map[string]string{},
 					},
 					"n3": {
-						Name:          "n3",
-						Attributes:    NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl2"}},
+						ID:            "n3",
+						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl2"}},
 						CapacityBlock: "cb2",
 						NetLayers:     []string{"leaf", "core"},
 						Metadata:      map[string]string{},
@@ -196,11 +197,11 @@ capacity_blocks:
 				CapacityBlocks: map[string]CapacityBlock{
 					"cb1": {
 						Nodes:      []string{"n1", "n2"},
-						Attributes: BasicNodeAttributes{NVLink: "nvl1"},
+						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
 					},
 					"cb2": {
 						Nodes:      []string{"n3"},
-						Attributes: BasicNodeAttributes{NVLink: "nvl2"},
+						Attributes: topology.BasicNodeAttributes{NVLink: "nvl2"},
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -216,14 +217,14 @@ capacity_blocks:
 			cfg: `
 nodes:
   n1:
-    capacity_block_id: cb1
+    capacity_block: cb1
 capacity_blocks:
   cb1: {}
 `,
 			model: &Model{
-				Nodes: map[string]*Node{
+				Nodes: map[string]*topology.Instance{
 					"n1": {
-						Name:          "n1",
+						ID:            "n1",
 						CapacityBlock: "cb1",
 					},
 				},
@@ -241,7 +242,7 @@ capacity_blocks:
 			cfg: `
 nodes:
   n1:
-    capacity_block_id: cb1
+    capacity_block: cb1
     attributes:
       nvlink: nvl1
   n2:
@@ -249,21 +250,21 @@ nodes:
       nvlink: nvl2
 `,
 			model: &Model{
-				Nodes: map[string]*Node{
+				Nodes: map[string]*topology.Instance{
 					"n1": {
-						Name:          "n1",
-						Attributes:    NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl1"}},
+						ID:            "n1",
+						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
 						CapacityBlock: "cb1",
 					},
 					"n2": {
-						Name:       "n2",
-						Attributes: NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl2"}},
+						ID:         "n2",
+						Attributes: topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl2"}},
 					},
 				},
 				CapacityBlocks: map[string]CapacityBlock{
 					"cb1": {
 						Nodes:      []string{"n1"},
-						Attributes: BasicNodeAttributes{NVLink: "nvl1"},
+						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -286,17 +287,17 @@ capacity_blocks:
       nvlink: nvl1
 `,
 			model: &Model{
-				Nodes: map[string]*Node{
+				Nodes: map[string]*topology.Instance{
 					"n1": {
-						Name:          "n1",
-						Attributes:    NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl1"}},
+						ID:            "n1",
+						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
 						CapacityBlock: "cb1",
 					},
 				},
 				CapacityBlocks: map[string]CapacityBlock{
 					"cb1": {
 						Nodes:      []string{"n1"},
-						Attributes: BasicNodeAttributes{NVLink: "nvl1"},
+						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -312,15 +313,15 @@ capacity_blocks:
 			cfg: `
 nodes:
   n1:
-    capacity_block_id: cb1
+    capacity_block: cb1
 capacity_blocks:
   cb1: {}
   cb2: {}
 `,
 			model: &Model{
-				Nodes: map[string]*Node{
+				Nodes: map[string]*topology.Instance{
 					"n1": {
-						Name:          "n1",
+						ID:            "n1",
 						CapacityBlock: "cb1",
 					},
 				},
@@ -337,11 +338,78 @@ capacity_blocks:
 			},
 		},
 		{
-			name: "Case 6: conflicting capacity block assignment",
+			name: "Case 6: canonical node field names",
 			cfg: `
 nodes:
   n1:
-    capacity_block_id: cb1
+    id: n1
+    type: H100
+    capacity_block: cb1
+    attributes:
+      nvlink: nvl1
+`,
+			model: &Model{
+				Nodes: map[string]*topology.Instance{
+					"n1": {
+						ID:            "n1",
+						Type:          "H100",
+						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
+						CapacityBlock: "cb1",
+					},
+				},
+				CapacityBlocks: map[string]CapacityBlock{
+					"cb1": {
+						Nodes:      []string{"n1"},
+						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+					},
+				},
+				Instances: []topology.ComputeInstances{
+					{
+						Region:    "none",
+						Instances: map[string]string{"n1": "n-n1"},
+					},
+				},
+			},
+		},
+		{
+			name: "Case 7: empty CapacityBlock attributes preserve node attributes",
+			cfg: `
+nodes:
+  n1:
+    attributes:
+      nvlink: nvl1
+capacity_blocks:
+  cb1:
+    nodes: [n1]
+`,
+			model: &Model{
+				Nodes: map[string]*topology.Instance{
+					"n1": {
+						ID:            "n1",
+						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
+						CapacityBlock: "cb1",
+					},
+				},
+				CapacityBlocks: map[string]CapacityBlock{
+					"cb1": {
+						Nodes:      []string{"n1"},
+						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+					},
+				},
+				Instances: []topology.ComputeInstances{
+					{
+						Region:    "none",
+						Instances: map[string]string{"n1": "n-n1"},
+					},
+				},
+			},
+		},
+		{
+			name: "Case 8: conflicting capacity block assignment",
+			cfg: `
+nodes:
+  n1:
+    capacity_block: cb1
 capacity_blocks:
   cb2:
     nodes: [n1]
@@ -349,7 +417,7 @@ capacity_blocks:
 			err: `node "n1" belongs to capacity blocks "cb1" and "cb2"`,
 		},
 		{
-			name: "Case 7: parsing error",
+			name: "Case 9: parsing error",
 			cfg: `
 capacity_blocks:
 - cb1

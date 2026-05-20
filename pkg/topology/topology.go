@@ -63,6 +63,9 @@ const (
 type Graph struct {
 	Tiers   *Vertex
 	Domains DomainMap
+	// Instances optionally carries per-instance metadata keyed by instance ID.
+	// Engines that do not need instance-oriented output ignore it.
+	Instances map[string]Instance
 }
 
 // Vertex is a tree node, representing a compute node or a network switch, where

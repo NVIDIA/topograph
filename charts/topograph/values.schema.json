@@ -45,7 +45,7 @@
             "name": {
               "type": "string",
               "description": "Scheduler-output engine. Must match a registered engine in pkg/registry/registry.go.",
-              "enum": ["k8s", "slinky", "slurm"]
+              "enum": ["graph", "k8s", "slinky", "slurm"]
             }
           },
           "required": ["name"]

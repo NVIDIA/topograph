@@ -29,15 +29,7 @@ import (
 	"github.com/NVIDIA/topograph/tests"
 )
 
-type Model struct {
-	Switches       map[string]*Switch       `yaml:"switches"`
-	Nodes          map[string]*Node         `yaml:"nodes"`
-	CapacityBlocks map[string]CapacityBlock `yaml:"capacity_blocks"`
-
-	// derived
-	Instances []topology.ComputeInstances `yaml:"-"`
-}
-
+// Switch is a switch vertex in a simulation model YAML tree (tests/models).
 type Switch struct {
 	Name     string            `yaml:"name,omitempty"`
 	Metadata map[string]string `yaml:"metadata"`
@@ -45,42 +37,19 @@ type Switch struct {
 	Nodes    []string          `yaml:"nodes"`
 }
 
-type BasicNodeAttributes struct {
-	NVLink string `yaml:"nvlink,omitempty"`
-}
-
-type NodeAttributes struct {
-	BasicNodeAttributes `yaml:",inline"`
-	Status              string `yaml:"status,omitempty"`
-	Timestamp           string `yaml:"timestamp,omitempty"`
-	GPUs                []GPU  `yaml:"gpus,omitempty"`
-}
-
+// CapacityBlock is the capacity_blocks entry shape in simulation model YAML.
 type CapacityBlock struct {
-	Nodes      []string            `yaml:"nodes"`
-	Attributes BasicNodeAttributes `yaml:"attributes"`
+	Nodes      []string                     `yaml:"nodes"`
+	Attributes topology.BasicNodeAttributes `yaml:"attributes"`
 }
 
-type GPU struct {
-	Index     int    `yaml:"index"`
-	PCIBusID  string `yaml:"pci_bus_id"`
-	UUID      string `yaml:"uuid"`
-	Model     string `yaml:"model"`
-	MemoryMiB int    `yaml:"memory_mib"`
-}
+type Model struct {
+	Switches       map[string]*Switch            `yaml:"switches"`
+	Nodes          map[string]*topology.Instance `yaml:"nodes"`
+	CapacityBlocks map[string]CapacityBlock      `yaml:"capacity_blocks"`
 
-type Node struct {
-	Name          string         `yaml:"name,omitempty"`
-	Attributes    NodeAttributes `yaml:"attributes"`
-	CapacityBlock string         `yaml:"capacity_block_id"`
-
-	Metadata  map[string]string `yaml:"-"`
-	NetLayers []string          `yaml:"-"`
-}
-
-func (n *Node) String() string {
-	return fmt.Sprintf("Node: %s Metadata: %v NetLayers: %v Attr: %v",
-		n.Name, n.Metadata, n.NetLayers, n.Attributes)
+	// derived
+	Instances []topology.ComputeInstances `yaml:"-"`
 }
 
 func NewModelFromFile(fname string) (*Model, error) {
@@ -116,9 +85,9 @@ func NewModelFromData(data []byte, fname string) (*Model, error) {
 
 func (m *Model) UnmarshalYAML(value *yaml.Node) error {
 	var raw struct {
-		Switches       map[string]*Switch       `yaml:"switches"`
-		Nodes          map[string]*Node         `yaml:"nodes"`
-		CapacityBlocks map[string]CapacityBlock `yaml:"capacity_blocks"`
+		Switches       map[string]*Switch            `yaml:"switches"`
+		Nodes          map[string]*topology.Instance `yaml:"nodes"`
+		CapacityBlocks map[string]CapacityBlock      `yaml:"capacity_blocks"`
 	}
 	if err := value.Decode(&raw); err != nil {
 		return err
@@ -140,10 +109,10 @@ func (m *Model) UnmarshalYAML(value *yaml.Node) error {
 		if node == nil {
 			return fmt.Errorf("node %q has empty definition", name)
 		}
-		if node.Name != "" && node.Name != name {
-			return fmt.Errorf("node key %q does not match node name %q", name, node.Name)
+		if node.ID != "" && node.ID != name {
+			return fmt.Errorf("node key %q does not match node id %q", name, node.ID)
 		}
-		node.Name = name
+		node.ID = name
 	}
 	return nil
 }
@@ -207,7 +176,7 @@ func (m *Model) derive() error {
 		var netLayers []string
 		var metadata map[string]string
 
-		if sw, ok := maps.switchByNode[node.Name]; ok {
+		if sw, ok := maps.switchByNode[node.ID]; ok {
 			netLayers, metadata, err = getNetworkLayers(sw, maps.parentBySwitch)
 			if err != nil {
 				return err
@@ -216,7 +185,7 @@ func (m *Model) derive() error {
 
 		node.Metadata = metadata
 		node.NetLayers = netLayers
-		addInstanceRegion(regions, metadata, node.Name)
+		addInstanceRegion(regions, metadata, node.ID)
 	}
 
 	m.setInstances(regions)
@@ -232,13 +201,13 @@ func (m *Model) completeCapacityBlocks() error {
 		for _, name := range capacityBlock.Nodes {
 			if !hasTopLevelNodes {
 				if m.Nodes == nil {
-					m.Nodes = make(map[string]*Node)
+					m.Nodes = make(map[string]*topology.Instance)
 				}
 				if _, ok := m.Nodes[name]; ok {
 					return fmt.Errorf("node %q belongs to more than one capacity block", name)
 				}
-				m.Nodes[name] = &Node{
-					Name:          name,
+				m.Nodes[name] = &topology.Instance{
+					ID:            name,
 					Attributes:    copyNodeAttributes(capacityBlock.Attributes),
 					CapacityBlock: capacityBlockID,
 				}
@@ -265,7 +234,7 @@ func (m *Model) completeCapacityBlocks() error {
 			m.CapacityBlocks = make(map[string]CapacityBlock)
 		}
 		capacityBlock := m.CapacityBlocks[node.CapacityBlock]
-		capacityBlock.Nodes = appendUnique(capacityBlock.Nodes, node.Name)
+		capacityBlock.Nodes = appendUnique(capacityBlock.Nodes, node.ID)
 		if capacityBlock.Attributes.NVLink == "" {
 			capacityBlock.Attributes.NVLink = node.Attributes.NVLink
 		}
@@ -276,15 +245,13 @@ func (m *Model) completeCapacityBlocks() error {
 	return nil
 }
 
-func copyNodeAttributes(attributes BasicNodeAttributes) NodeAttributes {
-	return NodeAttributes{
-		BasicNodeAttributes: BasicNodeAttributes{
-			NVLink: attributes.NVLink,
-		},
+func copyNodeAttributes(attributes topology.BasicNodeAttributes) topology.NodeAttributes {
+	return topology.NodeAttributes{
+		BasicNodeAttributes: attributes,
 	}
 }
 
-func applyCapacityBlockAttributes(node *Node, attributes BasicNodeAttributes) {
+func applyCapacityBlockAttributes(node *topology.Instance, attributes topology.BasicNodeAttributes) {
 	if attributes.NVLink != "" {
 		node.Attributes.NVLink = attributes.NVLink
 	}
@@ -352,7 +319,7 @@ func getNetworkLayers(sw *Switch, swmap map[string]*Switch) ([]string, map[strin
 	}
 }
 
-func (model *Model) ToGraph() (*topology.Graph, map[string]string) {
+func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Graph, map[string]string) {
 	instance2node := make(map[string]string)
 	nodeVertexMap := make(map[string]*topology.Vertex)
 	swVertexMap := make(map[string]*topology.Vertex)
@@ -362,7 +329,7 @@ func (model *Model) ToGraph() (*topology.Graph, map[string]string) {
 	// Create all the vertices for each node
 	for k, v := range model.Nodes {
 		instance2node[k] = fmt.Sprintf("n-%s", k)
-		nodeVertexMap[k] = &topology.Vertex{ID: v.Name, Name: v.Name}
+		nodeVertexMap[k] = &topology.Vertex{ID: v.ID, Name: v.ID}
 	}
 
 	// Initialize all the vertices for each switch (setting each on to be a possible root)
@@ -374,7 +341,7 @@ func (model *Model) ToGraph() (*topology.Graph, map[string]string) {
 	// Initializes accelerator domain membership from node attributes.
 	for _, node := range model.Nodes {
 		if node.Attributes.NVLink != "" {
-			domainMap.AddHost(node.Attributes.NVLink, node.Name, node.Name)
+			domainMap.AddHost(node.Attributes.NVLink, node.ID, node.ID)
 		}
 	}
 
@@ -403,6 +370,34 @@ func (model *Model) ToGraph() (*topology.Graph, map[string]string) {
 	if len(domainMap) != 0 {
 		graph.Domains = domainMap
 	}
+	if instanceMap := model.InstanceMap(instances); len(instanceMap) != 0 {
+		graph.Instances = instanceMap
+	}
 
 	return graph, instance2node
+}
+
+func (model *Model) InstanceMap(computeInstances []topology.ComputeInstances) map[string]topology.Instance {
+	wanted := requestedInstanceIDs(computeInstances)
+	instances := make(map[string]topology.Instance)
+
+	for instanceID, inst := range model.Nodes {
+		if len(wanted) != 0 {
+			if _, ok := wanted[instanceID]; !ok {
+				continue
+			}
+		}
+		instances[instanceID] = inst.CloneForTopology()
+	}
+	return instances
+}
+
+func requestedInstanceIDs(computeInstances []topology.ComputeInstances) map[string]struct{} {
+	ids := make(map[string]struct{})
+	for _, ci := range computeInstances {
+		for instanceID := range ci.Instances {
+			ids[instanceID] = struct{}{}
+		}
+	}
+	return ids
 }

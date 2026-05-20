@@ -51,19 +51,19 @@ switches:
     nodes: [n21,n22]
 nodes:
   n11:
-    capacity_block_id: cb1
+    capacity_block: cb1
     attributes:
       nvlink: nvl1
   n12:
-    capacity_block_id: cb1
+    capacity_block: cb1
     attributes:
       nvlink: nvl1
   n21:
-    capacity_block_id: cb2
+    capacity_block: cb2
     attributes:
       nvlink: nvl2
   n22:
-    capacity_block_id: cb2
+    capacity_block: cb2
     attributes:
       nvlink: nvl2
 `
@@ -129,11 +129,11 @@ switches:
     nodes: [n11,n12]
 nodes:
   n11:
-    capacity_block_id: cb
+    capacity_block: cb
     attributes:
       nvlink: nvl1
   n12:
-    capacity_block_id: cb
+    capacity_block: cb
     attributes:
       nvlink: nvl1
 capacity_blocks:
@@ -174,7 +174,7 @@ switches:
     nodes: [n11]
 nodes:
   n11:
-    capacity_block_id: cb
+    capacity_block: cb
     attributes:
       nvlink: nvl1
 capacity_blocks:
@@ -198,7 +198,7 @@ switches:
     nodes: [n11]
 nodes:
   n11:
-    capacity_block_id: cb
+    capacity_block: cb
     attributes:
       nvlink: nvl1
 capacity_blocks:

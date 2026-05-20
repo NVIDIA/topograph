@@ -96,7 +96,7 @@ func Loader(_ context.Context, _ engines.Config) (engines.Engine, *httperr.Error
 	return &SlurmEngine{}, nil
 }
 
-func (eng *SlurmEngine) GetComputeInstances(ctx context.Context, environment engines.Environment) ([]topology.ComputeInstances, *httperr.Error) {
+func (eng *SlurmEngine) GetComputeInstances(ctx context.Context, environment any) ([]topology.ComputeInstances, *httperr.Error) {
 	instanceMapper, ok := environment.(instanceMapper)
 	if !ok {
 		return nil, httperr.NewError(http.StatusBadRequest, "environment must implement instanceMapper")
