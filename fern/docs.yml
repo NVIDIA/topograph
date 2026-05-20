@@ -6,6 +6,7 @@
 instances:
   - url: topograph.docs.buildwithfern.com/topograph
     custom-domain: docs.nvidia.com/topograph
+    multi-source: true
 
 title: NVIDIA Topograph
 
