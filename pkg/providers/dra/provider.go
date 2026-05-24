@@ -25,7 +25,7 @@ import (
 const (
 	NAME = "dra"
 
-	DomainLabel = "nvidia.com/gpu.clique"
+	DomainLabel = topology.KeyNvidiaGPUClique
 )
 
 type Provider struct {

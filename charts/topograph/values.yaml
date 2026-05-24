@@ -6,6 +6,11 @@ global:
   provider:
     # name: "aws", "oci", "gcp", "nebius", "nscale", "netq", "infiniband-k8s", "dra" or "test".
     name: test
+    # params:
+    #   # For infiniband-k8s, use an existing Kubernetes node label as the
+    #   # accelerator-domain source instead of running nvidia-smi through the
+    #   # GPU Operator device-plugin DaemonSet.
+    #   useGpuCliqueLabel: true
   engine:
     # name: "k8s", "slinky", "slurm" or "graph"
     name: k8s

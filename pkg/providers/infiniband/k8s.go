@@ -24,6 +24,7 @@ import (
 const (
 	gpuOperatorNamespaceArg  = "gpu-operator-namespace"
 	devicePluginDaemonSetArg = "device-plugin-daemonset"
+	useGPUCliqueLabelArg     = "useGpuCliqueLabel"
 
 	defaultGpuOperatorNamespace  = "gpu-operator"
 	defaultDevicePluginDaemonSet = "nvidia-device-plugin-daemonset"
@@ -56,7 +57,7 @@ func (h *IBNetDiscoverK8S) Run(ctx context.Context, node string) (*bytes.Buffer,
 	return k8s.ExecInPod(ctx, h.client, h.config, pods.Items[0].Name, dataBrokerNamespace, []string{"ibnetdiscover"})
 }
 
-func GetClusterID(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, hostname string, overrides map[string]string) (string, error) {
+func GetGpuClusterID(ctx context.Context, client kubernetes.Interface, config *rest.Config, hostname string, overrides map[string]string) (string, error) {
 	ds, namespace := getDevicePluginInfo(overrides)
 
 	pods, err := k8s.GetDaemonSetPods(ctx, client, ds, namespace, hostname)
@@ -123,17 +124,25 @@ func parseClusterID(txt string) (string, error) {
 	return clusterUUID + "." + cliqueId, nil
 }
 
-func GetNodeAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, hostname string, overrides map[string]string) (map[string]string, error) {
+func GetNodeAnnotations(ctx context.Context, client kubernetes.Interface, config *rest.Config, hostname string, overrides map[string]string) (map[string]string, error) {
 	annotations := map[string]string{
 		topology.KeyNodeInstance: hostname,
 		topology.KeyNodeRegion:   "local",
 	}
 
-	if clusterID, err := GetClusterID(ctx, client, config, hostname, overrides); err != nil {
+	if useGPUCliqueLabel(overrides) {
+		return annotations, nil
+	}
+
+	if clusterID, err := GetGpuClusterID(ctx, client, config, hostname, overrides); err != nil {
 		klog.Warningf("No clusterID for node %s: %v", hostname, err)
-	} else {
-		annotations[topology.KeyNodeClusterID] = clusterID
+	} else if clusterID != "" {
+		annotations[topology.KeyGpuClusterID] = clusterID
 	}
 
 	return annotations, nil
+}
+
+func useGPUCliqueLabel(overrides map[string]string) bool {
+	return strings.EqualFold(strings.TrimSpace(overrides[useGPUCliqueLabelArg]), "true")
 }

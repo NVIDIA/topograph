@@ -72,6 +72,7 @@ Topograph exposes three endpoints for interacting with the service. Below are th
     - **name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will override the provider set in the topograph config.
     - **creds**: (optional) A key-value map with provider-specific parameters for authentication.
     - **params**: (optional) A key-value map with provider-specific parameters. The `test` provider uses these parameters for response simulation; for complete behavior and examples, see [Test Mode and Test Provider](./providers/test.md).
+      - **useGpuCliqueLabel**: (optional) Used in: [`infiniband-k8s`]. If `true`, reads the GPU Operator's `nvidia.com/gpu.clique` node label as the accelerator-domain source instead of using the `topograph.nvidia.com/cluster-id` node annotation.
   - **engine**: (optional) Selects the topology output and provides any engine-specific parameters.
     - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, `slinky`, or `graph`. This parameter will override the engine set in the topograph config.
     - **params**: (optional) A key-value map with engine-specific parameters.

@@ -6,7 +6,7 @@ Topograph is a tool designed to enhance scheduling decisions in Kubernetes clust
 
 Topograph maps both the multi-tier network hierarchy and accelerated network domains (such as NVLink) using node labels.
 Most cloud providers expose three levels of network topology through their APIs. To provide a unified view, Topograph assigns four labels to each node:
-* `network.topology.nvidia.com/accelerator`: Identifies high-speed interconnect domains, such as NVLink.
+* `network.topology.nvidia.com/accelerator`: Identifies high-speed interconnect domains, such as NVLink. If the node already has `nvidia.com/gpu.clique`, Topograph leaves the accelerator label unset and uses the GPU Operator label as the accelerator-domain signal.
 * `network.topology.nvidia.com/leaf`: Indicates the switches directly connected to compute nodes.
 * `network.topology.nvidia.com/spine`: Represents the next tier of switches above the leaf level.
 * `network.topology.nvidia.com/core`: Denotes the top-level switches.
@@ -57,12 +57,14 @@ graph TB
 
 The GPU Operator device plugin sets `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs (e.g., GB200 NVL72). This label identifies the NVLink clique a node belongs to and can be used as a topology key for Pod placement.
 
-Topograph's `network.topology.nvidia.com/accelerator` label and `nvidia.com/gpu.clique` are complementary:
+Topograph treats `nvidia.com/gpu.clique` as the authoritative accelerator-domain node label when it is already present:
 
-- On **MNNVL systems**: the InfiniBand provider's `accelerator` value is derived from the same `ClusterUUID.CliqueId` hardware identifiers as `gpu.clique`. The two labels carry the same value and can be correlated.
-- On **non-MNNVL systems** (e.g., DGX B200, B300): `nvidia.com/gpu.clique` is not set (see the [node labels reference](../reference/node-labels.md) for the Fabric Manager init and `GPU_FABRIC_STATE_COMPLETED` details). Topograph with an InfiniBand provider is the only source of network topology labels on these clusters.
+- On **MNNVL systems**: if `nvidia.com/gpu.clique` exists on a node, the k8s engine does not write Topograph's configured accelerator label for that node. It still writes `leaf`, `spine`, and `core` labels from the provider topology.
+- On **non-MNNVL systems** (e.g., DGX B200, B300): `nvidia.com/gpu.clique` is not set (see the [node labels reference](../reference/node-labels.md) for the Fabric Manager init and `GPU_FABRIC_STATE_COMPLETED` details). Topograph writes the configured accelerator label when the selected provider supplies an accelerator domain.
 
 In addition to NVLink domain membership, Topograph provides the IB switch hierarchy (`leaf`, `spine`, `core`) — giving schedulers both dimensions of topology simultaneously.
+
+For `infiniband-k8s`, operators can set `global.provider.params.useGpuCliqueLabel: true` so the provider reads the GPU Operator's existing clique label instead of collecting the same value through a `nvidia-smi` exec in the GPU Operator device-plugin DaemonSet.
 
 ## Use of Topograph
 
