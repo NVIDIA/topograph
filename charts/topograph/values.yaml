@@ -14,6 +14,10 @@ global:
   engine:
     # name: "k8s", "slinky", "slurm" or "graph"
     name: k8s
+    # params:
+    #   # For slinky topology/block output, use the GPU Operator's existing
+    #   # Kubernetes node label as the block-domain source.
+    #   useGpuCliqueLabel: true
 
   service:
     type: ClusterIP

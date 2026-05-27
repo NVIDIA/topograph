@@ -20,6 +20,7 @@ global:
           app.kubernetes.io/component: compute
       plugin: topology/block
       blockSizes: [4]
+      # useGpuCliqueLabel: true
       topologyConfigPath: topology.conf
       topologyConfigmapName: slurm-config
       useDynamicNodes: false

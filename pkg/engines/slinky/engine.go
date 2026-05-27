@@ -58,6 +58,11 @@ type SlinkyEngine struct {
 	params *Params
 }
 
+type clusterNodes struct {
+	nodes   *corev1.NodeList
+	nodeMap map[string]string
+}
+
 type Params struct {
 	slurm.BaseParams `mapstructure:",squash"`
 	// Namespace specifies the namespace where Slinky cluster is deployed
@@ -72,6 +77,9 @@ type Params struct {
 	ConfigPath string `mapstructure:"topologyConfigPath"`
 	// UseDynamicNodes specifies whether to use dynamic nodes for reporting: true or false
 	UseDynamicNodes bool `mapstructure:"useDynamicNodes" default:"false"`
+	// UseGPUCliqueLabel uses the GPU Operator's nvidia.com/gpu.clique node label
+	// as the block-domain source for topology/block output.
+	UseGPUCliqueLabel bool `mapstructure:"useGpuCliqueLabel"`
 	// ConfigUpdateMode specifies the mode for updating the slurm config: valid values {"none", "skeleton-only"}
 	ConfigUpdateMode string `mapstructure:"configUpdateMode,omitempty"`
 	// Topologies specifies per-partition topology configuration
@@ -172,24 +180,27 @@ func isEmptySelector(sel *metav1.LabelSelector) bool {
 }
 
 func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
-
-	nodes, nodeMap, err := eng.getClusterNodes(ctx)
+	clusterNodes, err := eng.getClusterNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return getComputeInstances(nodes, nodeMap)
+	return getComputeInstances(clusterNodes.nodes, clusterNodes.nodeMap)
 }
 
-func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*corev1.NodeList, map[string]string, *httperr.Error) {
+// getClusterNodes returns the Kubernetes nodes selected for topology generation
+// and a map from Kubernetes node name to Slurm node name. The mapping is built
+// from Ready slurmd pods in the configured namespace and pod selector, using the
+// slurm.node.name label when present and falling back to pod.spec.hostname.
+func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*clusterNodes, *httperr.Error) {
 	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
-		return nil, nil, httperr.NewError(http.StatusBadGateway, err.Error())
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	pods, err := eng.client.CoreV1().Pods(eng.params.Namespace).List(ctx, *eng.params.podListOpt)
 	if err != nil {
-		return nil, nil, httperr.NewError(http.StatusBadGateway,
+		return nil, httperr.NewError(http.StatusBadGateway,
 			fmt.Sprintf("failed to list SLURM pods in the cluster: %v", err))
 	}
 
@@ -208,7 +219,10 @@ func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*corev1.NodeList,
 		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, host)
 		nodeMap[pod.Spec.NodeName] = host
 	}
-	return nodes, nodeMap, nil
+	return &clusterNodes{
+		nodes:   nodes,
+		nodeMap: nodeMap,
+	}, nil
 }
 
 func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]topology.ComputeInstances, *httperr.Error) {
@@ -244,6 +258,64 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 	}
 
 	return cis, nil
+}
+
+func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*topology.Graph, *httperr.Error) {
+	domains := topology.NewDomainMap()
+	for _, node := range clusterNodes.nodes.Items {
+		slurmName, ok := clusterNodes.nodeMap[node.Name]
+		if !ok || slurmName == "" {
+			klog.V(4).Infof("Skipping node %s as it does not have a corresponding SLURM name", node.Name)
+			continue
+		}
+
+		gpuClique := strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique])
+		if gpuClique == "" {
+			continue
+		}
+
+		instance, ok := node.Annotations[topology.KeyNodeInstance]
+		if !ok {
+			klog.Warningf("missing %q annotation in node %s", topology.KeyNodeInstance, node.Name)
+			continue
+		}
+
+		domains.AddHost(gpuClique, instance, slurmName)
+	}
+
+	if len(domains) == 0 {
+		return nil, httperr.NewError(http.StatusBadGateway,
+			fmt.Sprintf("useGpuCliqueLabel=true but no matching nodes found; check label %q and annotation %q",
+				topology.KeyNvidiaGPUClique, topology.KeyNodeInstance))
+	}
+
+	if graph == nil {
+		graph = &topology.Graph{}
+	} else {
+		cloned := *graph
+		graph = &cloned
+	}
+	graph.Domains = domains
+
+	return graph, nil
+}
+
+func usesBlockTopology(cfg *translate.Config) bool {
+	if cfg == nil {
+		return false
+	}
+
+	if cfg.Plugin == topology.TopologyBlock {
+		return true
+	}
+
+	for _, spec := range cfg.Topologies {
+		if spec != nil && spec.Plugin == topology.TopologyBlock {
+			return true
+		}
+	}
+
+	return false
 }
 
 // generateConfigMapAnnotations creates metadata annotations for ConfigMaps
@@ -283,6 +355,27 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 		return nil, httpErr
 	}
 
+	var clusterNodeData *clusterNodes
+	loadClusterNodes := func() (*clusterNodes, *httperr.Error) {
+		if clusterNodeData != nil {
+			return clusterNodeData, nil
+		}
+		var httpErr *httperr.Error
+		clusterNodeData, httpErr = eng.getClusterNodes(ctx)
+		return clusterNodeData, httpErr
+	}
+
+	if p.UseGPUCliqueLabel && usesBlockTopology(cfg) {
+		clusterNodeData, httpErr := loadClusterNodes()
+		if httpErr != nil {
+			return nil, httpErr
+		}
+		graph, httpErr = withGPUCliqueDomains(graph, clusterNodeData)
+		if httpErr != nil {
+			return nil, httpErr
+		}
+	}
+
 	nt, err := translate.NewNetworkTopology(graph, cfg)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
@@ -306,7 +399,11 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 
 	// For dynamic mode, perform reconciliation using the latest topology information from the provider (root) and the cluster (nodes and their annotations)
 	if p.UseDynamicNodes {
-		httpErr := eng.performReconciliation(ctx, nt, topologies)
+		clusterNodeData, httpErr := loadClusterNodes()
+		if httpErr != nil {
+			return nil, httpErr
+		}
+		httpErr = eng.performReconciliation(ctx, nt, topologies, clusterNodeData)
 		if httpErr != nil {
 			return nil, httpErr
 		}
@@ -466,17 +563,11 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 	return "", fmt.Errorf("no running pods with labels %v", labels)
 }
 
-func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit) *httperr.Error {
-
-	nodes, nodeMap, err := eng.getClusterNodes(ctx)
-	if err != nil {
-		return err
-	}
-
+func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit, clusterNodes *clusterNodes) *httperr.Error {
 	// Update node annotations based on the desired topology and the current cluster state.
 	// This will trigger Slinky to reconfigure the nodes accordingly.
-	for _, node := range nodes.Items {
-		slurmName, ok := nodeMap[node.Name]
+	for _, node := range clusterNodes.nodes.Items {
+		slurmName, ok := clusterNodes.nodeMap[node.Name]
 		if !ok {
 			klog.V(4).Infof("Skipping node %s as it does not have a corresponding SLURM name", node.Name)
 			continue
