@@ -1,4 +1,6 @@
 {{- if .Values.enabled }}
+{{- $providerParams := default dict .Values.global.provider.params }}
+{{- $useGpuCliqueLabel := and (eq .Values.global.provider.name "infiniband-k8s") (eq (lower (toString (get $providerParams "useGpuCliqueLabel"))) "true") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -31,6 +33,9 @@ spec:
           args:
             - --provider={{ .Values.global.provider.name }}
             - -v={{ .Values.verbosity }}
+            {{- if $useGpuCliqueLabel }}
+            - --set=useGpuCliqueLabel=true
+            {{- end }}
             {{- range .Values.initc.extraArgs }}
             - --set={{ . }}
             {{- end }}

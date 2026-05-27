@@ -9,7 +9,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestGetParameters(t *testing.T) {
@@ -39,6 +42,20 @@ func TestGetParameters(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "Case 4: valid GPU clique label toggle",
+			params: map[string]any{"useGpuCliqueLabel": true},
+			ret: &Params{
+				UseGPUCliqueLabel: true,
+			},
+		},
+		{
+			name:   "Case 5: valid GPU clique label toggle from string",
+			params: map[string]any{"useGpuCliqueLabel": "true"},
+			ret: &Params{
+				UseGPUCliqueLabel: true,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -52,4 +69,20 @@ func TestGetParameters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetGPUClusterID(t *testing.T) {
+	node := corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				topology.KeyNvidiaGPUClique: "label-domain.0",
+			},
+			Annotations: map[string]string{
+				topology.KeyGpuClusterID: "annotation-domain.0",
+			},
+		},
+	}
+
+	require.Equal(t, "annotation-domain.0", getGPUClusterID(node, false))
+	require.Equal(t, "label-domain.0", getGPUClusterID(node, true))
 }

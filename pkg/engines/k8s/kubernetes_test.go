@@ -71,11 +71,14 @@ func TestGetComputeInstances(t *testing.T) {
 }
 
 func TestMergeNodeLabels(t *testing.T) {
+	InitLabels(DefaultLabelAccelerator, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
+
 	testCases := []struct {
-		name string
-		node *corev1.Node
-		in   map[string]string
-		out  map[string]string
+		name             string
+		acceleratorLabel string
+		node             *corev1.Node
+		in               map[string]string
+		out              map[string]string
 	}{
 		{
 			name: "Case 1: no labels",
@@ -99,10 +102,59 @@ func TestMergeNodeLabels(t *testing.T) {
 			in:  map[string]string{"c": "3", "d": "4"},
 			out: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4"},
 		},
+		{
+			name: "Case 4: skip accelerator when GPU clique exists",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						topology.KeyNvidiaGPUClique: "cluster-a.0",
+						DefaultLabelAccelerator:     "old-domain",
+						DefaultLabelLeaf:            "old-leaf",
+						"workload.example/label":    "keep",
+					},
+				},
+			},
+			in: map[string]string{
+				DefaultLabelAccelerator: "api-domain",
+				DefaultLabelLeaf:        "new-leaf",
+				DefaultLabelSpine:       "new-spine",
+			},
+			out: map[string]string{
+				topology.KeyNvidiaGPUClique: "cluster-a.0",
+				DefaultLabelLeaf:            "new-leaf",
+				DefaultLabelSpine:           "new-spine",
+				"workload.example/label":    "keep",
+			},
+		},
+		{
+			name:             "Case 5: do not overwrite GPU clique when it is the configured accelerator label",
+			acceleratorLabel: topology.KeyNvidiaGPUClique,
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						topology.KeyNvidiaGPUClique: "cluster-a.0",
+					},
+				},
+			},
+			in: map[string]string{
+				topology.KeyNvidiaGPUClique: "api-domain",
+				DefaultLabelLeaf:            "new-leaf",
+				DefaultLabelSpine:           "new-spine",
+			},
+			out: map[string]string{
+				topology.KeyNvidiaGPUClique: "cluster-a.0",
+				DefaultLabelLeaf:            "new-leaf",
+				DefaultLabelSpine:           "new-spine",
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.acceleratorLabel != "" {
+				InitLabels(tc.acceleratorLabel, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
+				defer InitLabels(DefaultLabelAccelerator, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
+			}
 			MergeNodeLabels(tc.node, tc.in)
 			require.Equal(t, tc.out, tc.node.Labels)
 		})

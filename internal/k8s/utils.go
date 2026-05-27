@@ -47,7 +47,7 @@ func IsPodReady(pod *corev1.Pod) bool {
 	return false
 }
 
-func GetDaemonSetPods(ctx context.Context, client *kubernetes.Clientset, name, namespace, nodename string) (*corev1.PodList, error) {
+func GetDaemonSetPods(ctx context.Context, client kubernetes.Interface, name, namespace, nodename string) (*corev1.PodList, error) {
 	ds, err := client.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

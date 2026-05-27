@@ -6,9 +6,12 @@
 package infiniband
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestGetDevicePluginInfo(t *testing.T) {
@@ -104,4 +107,15 @@ func TestParseClusterID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetNodeAnnotationsWithGPUCliqueLabel(t *testing.T) {
+	ctx := context.TODO()
+
+	annotations, err := GetNodeAnnotations(ctx, nil, nil, "node-1", map[string]string{useGPUCliqueLabelArg: "true"})
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		topology.KeyNodeInstance: "node-1",
+		topology.KeyNodeRegion:   "local",
+	}, annotations)
 }

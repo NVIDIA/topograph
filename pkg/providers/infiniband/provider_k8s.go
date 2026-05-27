@@ -9,7 +9,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -33,6 +35,10 @@ type ProviderK8S struct {
 type Params struct {
 	// NodeSelector (optional) specifies nodes participating in the topology
 	NodeSelector map[string]string `mapstructure:"nodeSelector"`
+
+	// UseGPUCliqueLabel uses the GPU Operator's nvidia.com/gpu.clique node label
+	// as the accelerator domain ID instead of Topograph's node annotation.
+	UseGPUCliqueLabel bool `mapstructure:"useGpuCliqueLabel"`
 
 	// derived fields
 	nodeListOpt *metav1.ListOptions
@@ -92,7 +98,7 @@ func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []
 
 	domainMap := topology.NewDomainMap()
 	for _, node := range nodes.Items {
-		if clusterID, ok := node.Annotations[topology.KeyNodeClusterID]; ok {
+		if clusterID := getGPUClusterID(node, p.params.UseGPUCliqueLabel); clusterID != "" {
 			domainMap.AddHost(clusterID, node.Name, node.Name)
 		}
 	}
@@ -107,4 +113,12 @@ func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []
 		Tiers:   treeRoot,
 		Domains: domainMap,
 	}, nil
+}
+
+func getGPUClusterID(node corev1.Node, useGPUCliqueLabel bool) string {
+	if useGPUCliqueLabel {
+		return strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique])
+	}
+
+	return strings.TrimSpace(node.Annotations[topology.KeyGpuClusterID])
 }

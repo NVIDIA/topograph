@@ -35,6 +35,10 @@
                 "oci-sim",
                 "test"
               ]
+            },
+            "params": {
+              "type": "object",
+              "description": "Provider-specific parameters. For infiniband-k8s, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the accelerator-domain source."
             }
           },
           "required": ["name"]

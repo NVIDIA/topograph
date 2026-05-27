@@ -20,6 +20,7 @@ import (
 	"context"
 	"maps"
 	"net/http"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,5 +86,22 @@ func MergeNodeLabels(node *corev1.Node, labels map[string]string) {
 	if node.Labels == nil {
 		node.Labels = make(map[string]string)
 	}
+
+	labels = skipAcceleratorLabelWhenGPUCliqueExists(node, labels)
 	maps.Copy(node.Labels, labels)
+}
+
+func skipAcceleratorLabelWhenGPUCliqueExists(node *corev1.Node, labels map[string]string) map[string]string {
+	if labelAccelerator == "" || strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
+		return labels
+	}
+
+	filtered := maps.Clone(labels)
+	delete(filtered, labelAccelerator)
+
+	if labelAccelerator != topology.KeyNvidiaGPUClique {
+		delete(node.Labels, labelAccelerator)
+	}
+
+	return filtered
 }

@@ -17,7 +17,7 @@ For **Multi-Node NVLink (MNNVL) Kubernetes clusters** (e.g. GB200 NVL72), use th
 |---|---|---|
 | **Auth** | None | In-cluster service account |
 | **Node access** | `pdsh` (SSH-based) | Kubernetes pod exec |
-| **NVLink clique source** | `nvidia-smi` via pdsh | Node annotations (set by node-data-broker) |
+| **NVLink clique source** | `nvidia-smi` via pdsh | Node annotations (set by node-data-broker), or a configured Kubernetes node label |
 | **Target environment** | Bare-metal / Slurm | Kubernetes |
 
 Both variants are presently single-region only (multi-region requests return a `400 Bad Request` error). No CSP credentials are required.
@@ -78,13 +78,13 @@ For the Slurm engine, verify the generated `topology.conf` reflects the expected
 
 ### Prerequisites
 
-- Topograph deployed via Helm — the node-data-broker DaemonSet (a Topograph subchart, enabled by default) collects NVLink clique IDs from each node and stores them as Kubernetes node annotations (`topograph.nvidia.com/cluster-id`)
+- Topograph deployed via Helm — the node-data-broker DaemonSet (a Topograph subchart, enabled by default) collects NVLink clique IDs from each node and stores them as Kubernetes node annotations (`topograph.nvidia.com/cluster-id`). If `useGpuCliqueLabel` is enabled, Topograph reads `nvidia.com/gpu.clique` directly instead and the node-data-broker skips NVLink clique collection.
 - NVIDIA GPU Operator — standard on NVIDIA GPU Kubernetes clusters; manages the device plugin DaemonSet used to read NVLink clique IDs. Required only for NVLink domain discovery; on clusters without NVLink-connected GPUs this does not apply and the provider will still discover the IB switch tree.
 
 ### How It Works
 
 1. Runs `ibnetdiscover` by exec-ing into a node-data-broker pod on each node to map the switch tree
-2. On NVIDIA GPU nodes: reads NVLink clique IDs from the `topograph.nvidia.com/cluster-id` node annotations set by the node-data-broker. The resulting `accelerator` label value is `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems.
+2. On NVIDIA GPU nodes: reads NVLink clique IDs from the `topograph.nvidia.com/cluster-id` node annotations set by the node-data-broker. If `useGpuCliqueLabel` is enabled, it reads `nvidia.com/gpu.clique` directly instead. The accelerator domain value is `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems. When the k8s engine sees `nvidia.com/gpu.clique` already present on a node, it does not write a duplicate Topograph accelerator label for that node.
 3. Combines the switch tree and any NVLink clique data into the topology graph
 
 ### Configuration
@@ -109,8 +109,21 @@ The following optional parameter can be passed in the topology request payload:
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `nodeSelector` | `map[string]string` | — | Label selector to filter which nodes participate in topology discovery |
+| `useGpuCliqueLabel` | `bool` | `false` | Use `nvidia.com/gpu.clique` as the accelerator-domain ID source instead of the `topograph.nvidia.com/cluster-id` annotation. |
 
-To override the GPU Operator namespace or device plugin DaemonSet name (defaults: `gpu-operator` and `nvidia-device-plugin-daemonset`), set these via `node-data-broker.initc.extraArgs` in your Helm values — they are init container arguments, not provider request parameters:
+With Helm, configure `useGpuCliqueLabel` under `global.provider.params`. The chart also passes it to the node-data-broker init container so it skips NVLink clique collection instead of exec-ing into the GPU Operator device-plugin DaemonSet to run `nvidia-smi`:
+
+```yaml
+global:
+  provider:
+    name: infiniband-k8s
+    params:
+      useGpuCliqueLabel: true
+  engine:
+    name: k8s
+```
+
+When `useGpuCliqueLabel` is not set, the node-data-broker init container uses the GPU Operator device-plugin DaemonSet as before. To override the GPU Operator namespace or device plugin DaemonSet name (defaults: `gpu-operator` and `nvidia-device-plugin-daemonset`), set these via `node-data-broker.initc.extraArgs` in your Helm values — they are init container arguments, not provider request parameters:
 
 ```yaml
 node-data-broker:
