@@ -29,9 +29,9 @@ func TestPopulateDomainsFromPdshOutput(t *testing.T) {
 	node-09:         ClusterUUID                       : 50000000-0000-0000-0000-000000000005
 `
 	domainMap := topology.DomainMap{
-		"50000000-0000-0000-0000-000000000004.4000000005": map[string]string{"node-07": "node-07", "node-08": "node-08"},
-		"50000000-0000-0000-0000-000000000005.4000000004": map[string]string{"node-10": "node-10"},
-		"50000000-0000-0000-0000-000000000005.4000000005": map[string]string{"node-09": "node-09"},
+		"50000000-0000-0000-0000-000000000004.4000000005": map[string]*topology.HostInfo{"node-07": {Domain: "50000000-0000-0000-0000-000000000004.4000000005", HostName: "node-07", InstanceID: "node-07"}, "node-08": {Domain: "50000000-0000-0000-0000-000000000004.4000000005", HostName: "node-08", InstanceID: "node-08"}},
+		"50000000-0000-0000-0000-000000000005.4000000004": map[string]*topology.HostInfo{"node-10": {Domain: "50000000-0000-0000-0000-000000000005.4000000004", HostName: "node-10", InstanceID: "node-10"}},
+		"50000000-0000-0000-0000-000000000005.4000000005": map[string]*topology.HostInfo{"node-09": {Domain: "50000000-0000-0000-0000-000000000005.4000000005", HostName: "node-09", InstanceID: "node-09"}},
 	}
 
 	testCases := []struct {

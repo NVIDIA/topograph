@@ -149,8 +149,13 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 		indx := *info.blockIndx
 		bInfo, ok := blockMap[indx]
 		if !ok {
+			name := ""
+			if indx < len(nt.blocks) {
+				name = nt.blocks[indx].name
+			}
 			blockMap[indx] = &blockInfo{
 				indx:  indx,
+				name:  name,
 				nodes: []string{nodeName},
 			}
 		} else {
@@ -175,15 +180,18 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 			return bInfos[i].indx < bInfos[j].indx
 		})
 
+		bInfos = nt.complementBlocks(bInfos, topoSpec.BlockSizes)
+
 		// populate block topology units ordered by block indices
 		blocks := make([]*Block, 0, len(bInfos))
 		parents := make(map[string]string)
 		for indx, bInfo := range bInfos {
 			blockName := fmt.Sprintf("block%d", indx+1)
-			blocks = append(blocks, &Block{
-				Name:  blockName,
-				Nodes: strings.Join(cluset.Compact(bInfo.nodes), ","),
-			})
+			block := &Block{Name: blockName}
+			if len(bInfo.nodes) != 0 {
+				block.Nodes = strings.Join(cluset.Compact(bInfo.nodes), ",")
+			}
+			blocks = append(blocks, block)
 
 			for _, nodeName := range bInfo.nodes {
 				parents[nodeName] = blockName

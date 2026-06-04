@@ -349,3 +349,59 @@ func TestEmptyPartitionTopology(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, expectedSkeleton, buf.String())
 }
+
+// TestGetBlockTopologyUnitComplementEmptyNodes verifies that per-partition block
+// topology pads each accelerator's base blocks to a complete aggregate group. a2 has
+// only 2 nodes (1 base block) but groupSize=2 requires 2 slots, so an empty block4 is
+// inserted. Tree-capacity expansion rounds 3 groups to 4, adding block7 and block8.
+func TestGetBlockTopologyUnitComplementEmptyNodes(t *testing.T) {
+	expected := `- topology: topo1
+  cluster_default: false
+  block:
+    block_sizes:
+        - 2
+        - 4
+    blocks:
+        - block: block1
+          nodes: n[10-11]
+        - block: block2
+          nodes: n12
+        - block: block3
+          nodes: n[20-21]
+        - block: block4
+        - block: block5
+          nodes: n[31-32]
+        - block: block6
+          nodes: n33
+        - block: block7
+        - block: block8
+`
+	domains := topology.NewDomainMap()
+	for _, n := range []string{"n10", "n11", "n12"} {
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a1", HostName: n, InstanceID: n})
+	}
+	for _, n := range []string{"n20", "n21"} {
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a2", HostName: n, InstanceID: n})
+	}
+	for _, n := range []string{"n31", "n32", "n33"} {
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a3", HostName: n, InstanceID: n})
+	}
+
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo1": {
+				Plugin:     topology.TopologyBlock,
+				Nodes:      []string{"n[10-12]", "n[20-21]", "n[31-33]"},
+				BlockSizes: []int{2, 4},
+			},
+		},
+	}
+
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	buf := &bytes.Buffer{}
+	require.Nil(t, nt.Generate(buf))
+	require.Equal(t, expected, buf.String())
+}
