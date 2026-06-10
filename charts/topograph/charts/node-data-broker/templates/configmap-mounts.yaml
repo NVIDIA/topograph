@@ -1,0 +1,17 @@
+{{- if and .Values.enabled .Values.configMapMounts }}
+{{- range .Values.configMapMounts }}
+{{- $data := required "node-data-broker.configMapMounts[].data is required" .data }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "node-data-broker.configMapMountName" (dict "root" $ "name" .name) }}
+  labels:
+    {{- include "node-data-broker.labels" $ | nindent 4 }}
+data:
+  {{- range $key, $value := $data }}
+  {{ $key | quote }}: |-
+{{ default "" $value | indent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}

@@ -247,6 +247,15 @@ echo "== subchart node-data-broker: initc.enabled=false =="
 out=$(helm "${helm_common[@]}" --set node-data-broker.initc.enabled=false)
 assert_output_not_contains "${out}" "init-node-labels" "node-data-broker.initc.enabled=false should omit init container"
 
+echo "== subchart node-data-broker: configMapMounts =="
+out=$(helm "${helm_common[@]}" \
+  --set-json 'node-data-broker.configMapMounts=[{"name":"ibdiag","mountPath":"/etc/infiniband-diags/ibdiag.conf","subPath":"ibdiag.conf","data":{"ibdiag.conf":"CA=smi0\nPort=1"}}]')
+assert_output_contains "${out}" "name: chart-ci-node-data-broker-ibdiag" "node-data-broker.configMapMounts should render an ibdiag ConfigMap"
+assert_output_contains "${out}" "    CA=smi0" "node-data-broker configMapMounts should include configured CA"
+assert_output_contains "${out}" "    Port=1" "node-data-broker configMapMounts should include configured Port"
+assert_output_contains "${out}" "mountPath: \"/etc/infiniband-diags/ibdiag.conf\"" "node-data-broker configMapMounts should mount at ibdiag.conf"
+assert_output_contains "${out}" "subPath: \"ibdiag.conf\"" "node-data-broker configMapMounts should mount as a single file"
+
 echo "== subchart node-observer: replicaCount override =="
 out=$(helm "${helm_common[@]}" --set node-observer.replicaCount=2)
 assert_output_contains "${out}" "replicas: 2" "node-observer.replicaCount=2 should scale Deployment"

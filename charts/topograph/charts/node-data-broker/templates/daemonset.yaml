@@ -1,6 +1,7 @@
 {{- if .Values.enabled }}
 {{- $providerParams := default dict .Values.global.provider.params }}
 {{- $useGpuCliqueLabel := and (eq .Values.global.provider.name "infiniband-k8s") (eq (lower (toString (get $providerParams "useGpuCliqueLabel"))) "true") }}
+{{- $configMapMounts := default list .Values.configMapMounts }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -44,9 +45,19 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-          {{- with .Values.volumeMounts }}
+          {{- if or $configMapMounts .Values.volumeMounts }}
           volumeMounts:
+            {{- range $configMapMounts }}
+            - name: {{ include "node-data-broker.configMapMountVolumeName" (dict "name" .name) }}
+              mountPath: {{ required "node-data-broker.configMapMounts[].mountPath is required" .mountPath | quote }}
+              {{- with .subPath }}
+              subPath: {{ . | quote }}
+              {{- end }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
       {{- end }}
       containers:
@@ -61,13 +72,30 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
+          {{- if or $configMapMounts .Values.volumeMounts }}
           volumeMounts:
+            {{- range $configMapMounts }}
+            - name: {{ include "node-data-broker.configMapMountVolumeName" (dict "name" .name) }}
+              mountPath: {{ required "node-data-broker.configMapMounts[].mountPath is required" .mountPath | quote }}
+              {{- with .subPath }}
+              subPath: {{ . | quote }}
+              {{- end }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
-      {{- with .Values.volumes }}
+      {{- if or $configMapMounts .Values.volumes }}
       volumes:
+        {{- range $configMapMounts }}
+        - name: {{ include "node-data-broker.configMapMountVolumeName" (dict "name" .name) }}
+          configMap:
+            name: {{ include "node-data-broker.configMapMountName" (dict "root" $ "name" .name) }}
+        {{- end }}
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

@@ -54,11 +54,13 @@ data:
     generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
     provider:
       name: infiniband-k8s
+      params:
+        useGpuCliqueLabel: true
     engine:
       name: k8s
     trigger:
       nodeSelector:
-        brightcomputing.com/node-category: dgx
+        nvidia.com/gpu.present: "true"
 ---
 # Source: topograph/templates/configmap.yml
 apiVersion: v1
@@ -87,15 +89,6 @@ rules:
 - apiGroups: [""]
   resources: [nodes]
   verbs: [get,list,update]
-- apiGroups: [apps]
-  resources: [daemonsets]
-  verbs: [get,list]
-- apiGroups: [""]
-  resources: [pods]
-  verbs: [get,list]
-- apiGroups: [""]
-  resources: [pods/exec]
-  verbs: [create]
 ---
 # Source: topograph/charts/node-observer/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -230,8 +223,7 @@ spec:
           args:
             - --provider=infiniband-k8s
             - -v=3
-            - --set=gpu-operator-namespace=gpu-operator
-            - --set=device-plugin-daemonset=nvidia-device-plugin-daemonset
+            - --set=useGpuCliqueLabel=true
           env:
             - name: NODE_NAME
               valueFrom:
@@ -239,7 +231,7 @@ spec:
                   fieldPath: spec.nodeName
           volumeMounts:
             - mountPath: /sys/class
-              name: sys-class
+              name: sys-class-volume
       containers:
         - name: node-data-broker
           securityContext:
@@ -260,14 +252,14 @@ spec:
               memory: 128Mi
           volumeMounts:
             - mountPath: /sys/class
-              name: sys-class
+              name: sys-class-volume
       volumes:
         - hostPath:
             path: /sys/class
             type: Directory
-          name: sys-class
+          name: sys-class-volume
       nodeSelector:
-        brightcomputing.com/node-category: dgx
+        nvidia.com/gpu.present: "true"
 ---
 # Source: topograph/charts/node-observer/templates/deployment.yaml
 apiVersion: apps/v1

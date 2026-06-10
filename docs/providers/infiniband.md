@@ -133,6 +133,20 @@ node-data-broker:
       - device-plugin-daemonset=my-daemonset
 ```
 
+If `ibnetdiscover` needs extra config files, the chart can render ConfigMaps and mount them into the node-data-broker pods:
+
+```yaml
+node-data-broker:
+  configMapMounts:
+    - name: ibdiag
+      mountPath: /etc/infiniband-diags/ibdiag.conf
+      subPath: ibdiag.conf
+      data:
+        ibdiag.conf: |-
+          CA=smi0
+          Port=1
+```
+
 Example request payload with `nodeSelector`:
 
 ```json
