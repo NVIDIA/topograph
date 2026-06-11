@@ -62,6 +62,19 @@ resources:
     cpu: 100m
     memory: 128Mi
 
+# Optional ConfigMaps rendered by the chart and mounted into both the
+# node-data-broker container and init container. Set subPath for file mounts;
+# omit it to mount the whole ConfigMap as a directory.
+configMapMounts: []
+# name is used as a Kubernetes resource and volume suffix; keep it DNS-label-safe.
+# - name: ibdiag
+#   mountPath: /etc/infiniband-diags/ibdiag.conf
+#   subPath: ibdiag.conf
+#   data:
+#     ibdiag.conf: |-
+#       CA=smi0
+#       Port=1
+
 # Additional volumes on the output Deployment definition.
 volumes: []
 # - name: foo

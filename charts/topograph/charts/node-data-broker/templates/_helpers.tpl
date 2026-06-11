@@ -60,3 +60,20 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Create the name of a generated ConfigMap mount.
+*/}}
+{{- define "node-data-broker.configMapMountName" -}}
+{{- $root := .root -}}
+{{- $name := required "node-data-broker.configMapMounts[].name is required" .name | lower | replace "_" "-" -}}
+{{- printf "%s-%s" (include "node-data-broker.fullname" $root) $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create the volume name for a generated ConfigMap mount.
+*/}}
+{{- define "node-data-broker.configMapMountVolumeName" -}}
+{{- $name := required "node-data-broker.configMapMounts[].name is required" .name | lower | replace "_" "-" -}}
+{{- printf "config-map-%s" $name | trunc 63 | trimSuffix "-" }}
+{{- end }}

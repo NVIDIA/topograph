@@ -1,10 +1,8 @@
-# Default values for topology-generator.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
 global:
   provider:
     name: infiniband-k8s
+    params:
+      useGpuCliqueLabel: true
   engine:
     name: k8s
 
@@ -12,26 +10,22 @@ node-observer:
   topograph:
     trigger:
       nodeSelector:
-        brightcomputing.com/node-category: dgx
+        nvidia.com/gpu.present: "true"
 
 node-data-broker:
   image:
     repository: ghcr.io/nvidia/topograph/ib
     pullPolicy: IfNotPresent
     tag: main
-  initc:
-    extraArgs:
-    - gpu-operator-namespace=gpu-operator
-    - device-plugin-daemonset=nvidia-device-plugin-daemonset
   securityContext:
     privileged: true
   nodeSelector:
-    brightcomputing.com/node-category: dgx
+    nvidia.com/gpu.present: "true"
   volumeMounts:
-  - name: sys-class
+  - name: sys-class-volume
     mountPath: /sys/class
   volumes:
-  - name: sys-class
+  - name: sys-class-volume
     hostPath:
       path: /sys/class
       type: Directory
