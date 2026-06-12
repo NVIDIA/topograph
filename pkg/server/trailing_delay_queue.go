@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package server
@@ -96,7 +85,8 @@ func (q *TrailingDelayQueue) Submit(item Hashable) (string, error) {
 		timer.Stop()
 	}
 
-	q.timers[hash] = time.AfterFunc(q.delay, func() {
+	var timer *time.Timer
+	timer = time.AfterFunc(q.delay, func() {
 		klog.Infof("Processing request ID %s", hash)
 		// process the request
 		data, err := q.handle(item)
@@ -104,7 +94,7 @@ func (q *TrailingDelayQueue) Submit(item Hashable) (string, error) {
 		// update the status and results
 		q.mutex.Lock()
 		defer q.mutex.Unlock()
-		// update the status only there was no later request for the same hash
+		// update the status only if there was no later request for the same hash
 		if currEntry, ok := q.store.Get(hash); ok && currEntry == entry {
 			if err != nil {
 				entry.Status = err.Code()
@@ -117,8 +107,11 @@ func (q *TrailingDelayQueue) Submit(item Hashable) (string, error) {
 			}
 			q.store.Add(hash, entry)
 		}
-		delete(q.timers, hash)
+		if currTimer, ok := q.timers[hash]; ok && currTimer == timer {
+			delete(q.timers, hash)
+		}
 	})
+	q.timers[hash] = timer
 	q.store.Add(hash, entry)
 
 	return hash, nil
