@@ -1,20 +1,9 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
-package server_test
+package server
 
 import (
 	"net/http"
@@ -26,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
-	"github.com/NVIDIA/topograph/pkg/server"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -38,7 +26,7 @@ func TestRepeatingPayload(t *testing.T) {
 		return nil, nil
 	}
 
-	queue := server.NewTrailingDelayQueue(processItem, 500*time.Millisecond)
+	queue := NewTrailingDelayQueue(processItem, 500*time.Millisecond)
 
 	request := &topology.Request{
 		Provider: topology.Provider{Name: "test"},
@@ -68,7 +56,7 @@ func TestVaryingPayload(t *testing.T) {
 		return item, nil
 	}
 
-	queue := server.NewTrailingDelayQueue(processItem, 500*time.Millisecond)
+	queue := NewTrailingDelayQueue(processItem, 500*time.Millisecond)
 
 	submissions := [3]string{}
 	for i := range len(submissions) {
@@ -122,4 +110,59 @@ func TestLRU(t *testing.T) {
 	v, ok = cache.Get(1)
 	require.True(t, ok) // found
 	require.Equal(t, 1, v)
+}
+
+type trailingDelayQueueTestItem struct {
+	hash string
+}
+
+func (i trailingDelayQueueTestItem) Hash() (string, error) {
+	return i.hash, nil
+}
+
+func TestSubmitRunningCallbackDoesNotDeleteReplacementTimer(t *testing.T) {
+	const hash = "same-request"
+
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+	returned := make(chan struct{})
+	var calls int32
+
+	queue := NewTrailingDelayQueue(func(item any) (any, *httperr.Error) {
+		if atomic.AddInt32(&calls, 1) == 1 {
+			close(started)
+			<-unblock
+			close(returned)
+		}
+		return item, nil
+	}, 10*time.Millisecond)
+	defer queue.Shutdown()
+
+	_, err := queue.Submit(trailingDelayQueueTestItem{hash: hash})
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		select {
+		case <-started:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+
+	queue.delay = time.Hour
+	_, err = queue.Submit(trailingDelayQueueTestItem{hash: hash})
+	require.NoError(t, err)
+
+	queue.mutex.Lock()
+	replacement := queue.timers[hash]
+	queue.mutex.Unlock()
+	require.NotNil(t, replacement)
+
+	close(unblock)
+	<-returned
+	time.Sleep(50 * time.Millisecond)
+
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	require.Same(t, replacement, queue.timers[hash])
 }
