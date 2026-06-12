@@ -36,28 +36,26 @@ func TestNewModelFromFileMedium(t *testing.T) {
 	require.Equal(t, map[string]CapacityBlock{
 		"cb11": {
 			Nodes:      []string{"1101", "1102"},
-			Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+			Attributes: topology.NodeAttributes{NVLink: "nvl1"},
 		},
 		"cb12": {
 			Nodes:      []string{"1201", "1202"},
-			Attributes: topology.BasicNodeAttributes{NVLink: "nvl2"},
+			Attributes: topology.NodeAttributes{NVLink: "nvl2"},
 		},
 		"cb13": {
 			Nodes:      []string{"1301", "1302"},
-			Attributes: topology.BasicNodeAttributes{NVLink: "nvl3"},
+			Attributes: topology.NodeAttributes{NVLink: "nvl3"},
 		},
 		"cb14": {
 			Nodes:      []string{"1401", "1402"},
-			Attributes: topology.BasicNodeAttributes{NVLink: "nvl4"},
+			Attributes: topology.NodeAttributes{NVLink: "nvl4"},
 		},
 		"cb15": {},
 	}, cfg.CapacityBlocks)
 
 	require.Equal(t, &topology.Instance{
-		ID: "1101",
-		Attributes: topology.NodeAttributes{
-			BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
-		},
+		ID:         "1101",
+		Attributes: topology.NodeAttributes{NVLink: "nvl1"},
 		Metadata: map[string]string{
 			"region":            "us-west",
 			"availability_zone": "zone1",
@@ -93,41 +91,8 @@ func TestNewModelFromFileNVL72(t *testing.T) {
 	require.Len(t, cfg.Nodes, 72)
 
 	require.Equal(t, &topology.Instance{
-		ID: "node2215",
-		Attributes: topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl-2-2"},
-			Status:      "Completed",
-			CollectedAt: "2026/01/01 13:59:00.000",
-			GPUs: []topology.GPU{
-				{
-					Index:     0,
-					PCIBusID:  "00000000:61:1D.5",
-					UUID:      "GPU-36d8f310-d6e2-4937-aaea-47778977d89a",
-					Model:     "NVIDIA GB300",
-					MemoryMiB: 284208,
-				},
-				{
-					Index:     1,
-					PCIBusID:  "00000000:96:1E.7",
-					UUID:      "GPU-6a485c2a-c0bd-44f8-abac-cbd3e7b9b352",
-					Model:     "NVIDIA GB300",
-					MemoryMiB: 284208,
-				},
-				{
-					Index:     2,
-					PCIBusID:  "00000000:69:0C.4",
-					UUID:      "GPU-41be6e1a-9964-489b-be71-7653d3bdd655",
-					Model:     "NVIDIA GB300",
-					MemoryMiB: 284208,
-				},
-				{
-					Index:     3,
-					PCIBusID:  "00000000:7D:1D.3",
-					UUID:      "GPU-3f0ac5a6-0d2a-4c5e-be59-bbbc8e8b3e28",
-					Model:     "NVIDIA GB300",
-					MemoryMiB: 284208,
-				},
-			},
-		},
+		ID:         "node2215",
+		Attributes: topology.NodeAttributes{NVLink: "nvl-2-2"},
 		Metadata: map[string]string{
 			"region":            "us-east",
 			"availability_zone": "zone1",
@@ -174,21 +139,21 @@ capacity_blocks:
 				Nodes: map[string]*topology.Instance{
 					"n1": {
 						ID:            "n1",
-						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
+						Attributes:    topology.NodeAttributes{NVLink: "nvl1"},
 						CapacityBlock: "cb1",
 						NetLayers:     []string{"leaf", "core"},
 						Metadata:      map[string]string{},
 					},
 					"n2": {
 						ID:            "n2",
-						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
+						Attributes:    topology.NodeAttributes{NVLink: "nvl1"},
 						CapacityBlock: "cb1",
 						NetLayers:     []string{"leaf", "core"},
 						Metadata:      map[string]string{},
 					},
 					"n3": {
 						ID:            "n3",
-						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl2"}},
+						Attributes:    topology.NodeAttributes{NVLink: "nvl2"},
 						CapacityBlock: "cb2",
 						NetLayers:     []string{"leaf", "core"},
 						Metadata:      map[string]string{},
@@ -197,11 +162,11 @@ capacity_blocks:
 				CapacityBlocks: map[string]CapacityBlock{
 					"cb1": {
 						Nodes:      []string{"n1", "n2"},
-						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+						Attributes: topology.NodeAttributes{NVLink: "nvl1"},
 					},
 					"cb2": {
 						Nodes:      []string{"n3"},
-						Attributes: topology.BasicNodeAttributes{NVLink: "nvl2"},
+						Attributes: topology.NodeAttributes{NVLink: "nvl2"},
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -253,18 +218,18 @@ nodes:
 				Nodes: map[string]*topology.Instance{
 					"n1": {
 						ID:            "n1",
-						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
+						Attributes:    topology.NodeAttributes{NVLink: "nvl1"},
 						CapacityBlock: "cb1",
 					},
 					"n2": {
 						ID:         "n2",
-						Attributes: topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl2"}},
+						Attributes: topology.NodeAttributes{NVLink: "nvl2"},
 					},
 				},
 				CapacityBlocks: map[string]CapacityBlock{
 					"cb1": {
 						Nodes:      []string{"n1"},
-						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+						Attributes: topology.NodeAttributes{NVLink: "nvl1"},
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -290,14 +255,14 @@ capacity_blocks:
 				Nodes: map[string]*topology.Instance{
 					"n1": {
 						ID:            "n1",
-						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
+						Attributes:    topology.NodeAttributes{NVLink: "nvl1"},
 						CapacityBlock: "cb1",
 					},
 				},
 				CapacityBlocks: map[string]CapacityBlock{
 					"cb1": {
 						Nodes:      []string{"n1"},
-						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+						Attributes: topology.NodeAttributes{NVLink: "nvl1"},
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -353,14 +318,14 @@ nodes:
 					"n1": {
 						ID:            "n1",
 						Type:          "H100",
-						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
+						Attributes:    topology.NodeAttributes{NVLink: "nvl1"},
 						CapacityBlock: "cb1",
 					},
 				},
 				CapacityBlocks: map[string]CapacityBlock{
 					"cb1": {
 						Nodes:      []string{"n1"},
-						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+						Attributes: topology.NodeAttributes{NVLink: "nvl1"},
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -386,14 +351,14 @@ capacity_blocks:
 				Nodes: map[string]*topology.Instance{
 					"n1": {
 						ID:            "n1",
-						Attributes:    topology.NodeAttributes{BasicNodeAttributes: topology.BasicNodeAttributes{NVLink: "nvl1"}},
+						Attributes:    topology.NodeAttributes{NVLink: "nvl1"},
 						CapacityBlock: "cb1",
 					},
 				},
 				CapacityBlocks: map[string]CapacityBlock{
 					"cb1": {
 						Nodes:      []string{"n1"},
-						Attributes: topology.BasicNodeAttributes{NVLink: "nvl1"},
+						Attributes: topology.NodeAttributes{NVLink: "nvl1"},
 					},
 				},
 				Instances: []topology.ComputeInstances{

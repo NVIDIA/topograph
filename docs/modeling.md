@@ -130,9 +130,6 @@ The `nodes` map describes compute nodes directly. Each key is the node name. The
 | `type` | Optional instance type metadata used by instance-oriented exports. |
 | `capacity_block` | Optional accelerated domain ID. If set and `capacity_blocks` is omitted, Topograph creates the corresponding capacity block entry. |
 | `attributes.nvlink` | Optional accelerated-domain / NVLink identifier. Used by block topology simulation paths. |
-| `attributes.status` | Optional node status metadata. |
-| `attributes.timestamp` | Optional timestamp metadata. |
-| `attributes.gpus` | Optional GPU inventory details. |
 
 Example:
 

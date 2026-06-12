@@ -217,7 +217,7 @@ func TestToThreeTierGraphIncludesInstanceData(t *testing.T) {
 			ID:            "i-001",
 			Type:          "H100",
 			NetworkLayers: []string{"leaf-1", "spine-1"},
-			Attributes:    NodeAttributes{BasicNodeAttributes: BasicNodeAttributes{NVLink: "nvl-1"}},
+			Attributes:    NodeAttributes{NVLink: "nvl-1"},
 		},
 	}, graph.Instances)
 }

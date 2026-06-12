@@ -224,69 +224,7 @@ BlockSizes=8,16,32
         "S1"
       ],
       "attributes": {
-        "nvlink": "CB2",
-        "gpu": {
-          "status": "known",
-          "collected_at": "2026-01-01T13:59:00.000Z",
-          "gpus": [
-            {
-              "index": 0,
-              "pci_bus_id": "00000000:0F:00.0",
-              "uuid": "GPU-I21-0000-0000-0000-000000000000",
-              "model": "NVIDIA H100 SXM5 80GB",
-              "memory_mib": 81920
-            },
-            {
-              "index": 1,
-              "pci_bus_id": "00000000:2D:00.0",
-              "uuid": "GPU-I21-0000-0000-0000-000000000001",
-              "model": "NVIDIA H100 SXM5 80GB",
-              "memory_mib": 81920
-            },
-            {
-              "index": 2,
-              "pci_bus_id": "00000000:44:00.0",
-              "uuid": "GPU-I21-0000-0000-0000-000000000002",
-              "model": "NVIDIA H100 SXM5 80GB",
-              "memory_mib": 81920
-            },
-            {
-              "index": 3,
-              "pci_bus_id": "00000000:62:00.0",
-              "uuid": "GPU-I21-0000-0000-0000-000000000003",
-              "model": "NVIDIA H100 SXM5 80GB",
-              "memory_mib": 81920
-            },
-            {
-              "index": 4,
-              "pci_bus_id": "00000000:80:00.0",
-              "uuid": "GPU-I21-0000-0000-0000-000000000004",
-              "model": "NVIDIA H100 SXM5 80GB",
-              "memory_mib": 81920
-            },
-            {
-              "index": 5,
-              "pci_bus_id": "00000000:9E:00.0",
-              "uuid": "GPU-I21-0000-0000-0000-000000000005",
-              "model": "NVIDIA H100 SXM5 80GB",
-              "memory_mib": 81920
-            },
-            {
-              "index": 6,
-              "pci_bus_id": "00000000:BA:00.0",
-              "uuid": "GPU-I21-0000-0000-0000-000000000006",
-              "model": "NVIDIA H100 SXM5 80GB",
-              "memory_mib": 81920
-            },
-            {
-              "index": 7,
-              "pci_bus_id": "00000000:D8:00.0",
-              "uuid": "GPU-I21-0000-0000-0000-000000000007",
-              "model": "NVIDIA H100 SXM5 80GB",
-              "memory_mib": 81920
-            }
-          ]
-        }
+        "nvlink": "CB2"
       }
     },
     {
@@ -297,11 +235,7 @@ BlockSizes=8,16,32
         "S1"
       ],
       "attributes": {
-        "nvlink": "CB2",
-        "gpu": {
-          "status": "unknown",
-          "collected_at": "2026-01-01T13:59:00.000Z"
-        }
+        "nvlink": "CB2"
       }
     }
   ]
