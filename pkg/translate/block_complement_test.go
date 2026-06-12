@@ -103,7 +103,7 @@ func TestNoComplementWithoutTree(t *testing.T) {
 }
 
 // TestNoComplementSingleBlockSize verifies that a single BlockSizes entry (no tiers)
-// disables the complement path entirely; fanoutsPerLevel requires at least two sizes.
+// disables the complement path entirely.
 func TestNoComplementSingleBlockSize(t *testing.T) {
 	root, _ := getBlockWithIBTestSet()
 	cfg := &Config{
@@ -122,12 +122,6 @@ func TestFanoutsPerLevel(t *testing.T) {
 	fanouts, ok := fanoutsPerLevel([]int{4, 8, 16})
 	require.True(t, ok)
 	require.Equal(t, []int{2, 2}, fanouts)
-
-	_, ok = fanoutsPerLevel([]int{4, 8, 12})
-	require.False(t, ok)
-
-	_, ok = fanoutsPerLevel([]int{4, 6, 12})
-	require.False(t, ok)
 
 	_, ok = fanoutsPerLevel([]int{4})
 	require.False(t, ok)
@@ -196,9 +190,9 @@ func TestComplementExcessHostsPerAccelerator(t *testing.T) {
 		name := fmt.Sprintf("Node%03d", 100+i)
 		nodes = append(nodes, name)
 		domains.AddHostInfo(&topology.HostInfo{
-			Domain: "B1",
-			HostName:      name,
-			InstanceID:    name,
+			Domain:     "B1",
+			HostName:   name,
+			InstanceID: name,
 		})
 	}
 

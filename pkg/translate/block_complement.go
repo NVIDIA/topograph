@@ -160,28 +160,17 @@ func hasEmptyBlockSlots(blocks []*blockInfo) bool {
 	return false
 }
 
-// fanoutsPerLevel derives child segment counts from BlockSizes.
-// Each ratio BlockSizes[i]/BlockSizes[i-1] must be a power of two greater than 1.
+// fanoutsPerLevel derives child segment counts from validated BlockSizes.
+// Fewer than two sizes means there are no aggregate tiers to complement.
 func fanoutsPerLevel(blockSizes []int) ([]int, bool) {
 	if len(blockSizes) < 2 {
 		return nil, false
 	}
 	prev := blockSizes[0]
-	if prev <= 0 {
-		return nil, false
-	}
 	out := make([]int, 0, len(blockSizes)-1)
 	for i := 1; i < len(blockSizes); i++ {
 		cur := blockSizes[i]
-		if cur <= prev || cur%prev != 0 {
-			return nil, false
-		}
-		ratio := cur / prev
-		// Power-of-two check: ratio & (ratio-1) is zero only for powers of two.
-		if ratio&(ratio-1) != 0 {
-			return nil, false
-		}
-		out = append(out, ratio)
+		out = append(out, cur/prev)
 		prev = cur
 	}
 	return out, true

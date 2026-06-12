@@ -41,7 +41,6 @@ func (n *baseBlockNode) domainIdentifier() string { return n.domain }
 // aggregateBlockNode groups base blocks or other aggregates. An domain with
 // multiple base blocks is represented as an aggregate of baseBlockNode children.
 type aggregateBlockNode struct {
-	id       string
 	children []blockTreeNode
 }
 
@@ -263,7 +262,6 @@ func domainIDsFromLeaves(leaves []*hostNode) []string {
 	sort.Strings(ids)
 	return ids
 }
-
 
 func hostNamesFromLeaves(leaves []*hostNode) []string {
 	nodes := make([]string, 0, len(leaves))

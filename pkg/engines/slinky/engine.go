@@ -278,9 +278,9 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 		GetPartitionNodes: eng.getPartitionNodes,
 		Params:            []any{p.Namespace},
 	}
-	cfg, err := slurm.GetTranslateConfig(ctx, &p.BaseParams, resolvedTopologies, topologyNodeFinder)
-	if err != nil {
-		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
+	cfg, httpErr := slurm.GetTranslateConfig(ctx, &p.BaseParams, resolvedTopologies, topologyNodeFinder)
+	if httpErr != nil {
+		return nil, httpErr
 	}
 
 	nt, err := translate.NewNetworkTopology(graph, cfg)
