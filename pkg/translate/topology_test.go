@@ -56,23 +56,25 @@ BlockName=block002 Nodes=Node[201-202,205-206]
 BlockSizes=3,6
 `
 
-	testBlockConfig2 = `# block003=B3
-BlockName=block003 Nodes=Node[301-303]
-# block004=B4
-BlockName=block004 Nodes=Node[401-403]
-# block001=B1
+	testBlockConfig2 = `# block001=B1
 BlockName=block001 Nodes=Node[104-106]
 # block002=B2
 BlockName=block002 Nodes=Node[201-202,205]
+# block003=B3
+BlockName=block003 Nodes=Node[301-303]
+# block004=B4
+BlockName=block004 Nodes=Node[401-403]
 BlockSizes=3
 `
 
-	testBlockConfigDFS = `# block002=B2
-BlockName=block002 Nodes=Node[104-105]
-# block001=B1
+	testBlockConfigDFS = `# block001=B1
 BlockName=block001 Nodes=Node202
-# block003=B3
-BlockName=block003 Nodes=Node205
+# block002=B2
+BlockName=block002 Nodes=Node104
+# block003=B2
+BlockName=block003 Nodes=Node105
+# block004=B3
+BlockName=block004 Nodes=Node205
 BlockSizes=1
 `
 
@@ -711,4 +713,47 @@ func TestGetNodeTopologySpecInBlockTopologyConf(t *testing.T) {
 	spec, err = nt.GetNodeTopologySpec(node999Id, topologies)
 	require.Nil(t, err)
 	require.Equal(t, expectedNode99Spec, spec)
+}
+
+// TestGetNodeTopologySpecAfterComplementPerPartition verifies that GetNodeTopologySpec
+// returns block IDs that match the per-partition topology when complementing is applied.
+func TestGetNodeTopologySpecAfterComplementPerPartition(t *testing.T) {
+	root, _ := getBlockWithIBTestSet()
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo1": {
+				Plugin:     topology.TopologyBlock,
+				Nodes:      []string{"Node[104-105]", "Node[201-202,205]", "Node[304]", "Node[401-403]"},
+				BlockSizes: []int{2, 4, 8},
+			},
+		},
+	}
+
+	nt, err := NewNetworkTopology(root, cfg)
+	require.Nil(t, err)
+
+	topologies, httpErr := nt.GetTopologies()
+	require.Nil(t, httpErr)
+
+	// Expected mapping mirrors cluster-wide complementing but uses per-partition block names (block1..)
+	cases := []struct {
+		node string
+		spec string
+	}{
+		{"Node104", "topo1:block1"},
+		{"Node105", "topo1:block1"},
+		{"Node201", "topo1:block3"},
+		{"Node202", "topo1:block3"},
+		{"Node205", "topo1:block4"},
+		{"Node304", "topo1:block5"},
+		{"Node401", "topo1:block7"},
+		{"Node402", "topo1:block7"},
+		{"Node403", "topo1:block8"},
+	}
+
+	for _, tc := range cases {
+		spec, err := nt.GetNodeTopologySpec(tc.node, topologies)
+		require.Nil(t, err, "node %s", tc.node)
+		require.Equal(t, tc.spec, spec, "node %s", tc.node)
+	}
 }

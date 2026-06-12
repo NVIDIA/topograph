@@ -176,7 +176,9 @@ func TestMixedYamlTopology(t *testing.T) {
         - 2
     blocks:
         - block: block1
-          nodes: Node[301-303]
+          nodes: Node[301-302]
+        - block: block2
+          nodes: Node303
 - topology: topo5
   cluster_default: true
   flat: true
@@ -373,8 +375,6 @@ func TestGetBlockTopologyUnitComplementEmptyNodes(t *testing.T) {
           nodes: n[31-32]
         - block: block6
           nodes: n33
-        - block: block7
-        - block: block8
 `
 	domains := topology.NewDomainMap()
 	for _, n := range []string{"n10", "n11", "n12"} {

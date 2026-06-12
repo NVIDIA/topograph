@@ -332,12 +332,15 @@ func validateBlockSizes(blockSizes []int) error {
 		if cur <= 0 {
 			return fmt.Errorf("blockSizes[%d]=%d must be positive", i, cur)
 		}
-		if cur <= prev || cur%prev != 0 {
-			return fmt.Errorf("blockSizes[%d]=%d must be greater than blockSizes[%d]=%d and be a multiple of power of two", i, cur, i-1, prev)
+		if cur <= prev {
+			return fmt.Errorf("blockSizes[%d]=%d must be greater than blockSizes[%d]=%d", i, cur, i-1, prev)
+		}
+		if cur%prev != 0 {
+			return fmt.Errorf("blockSizes[%d]=%d must be a multiple of blockSizes[%d]=%d", i, cur, i-1, prev)
 		}
 		ratio := cur / prev
 		if ratio&(ratio-1) != 0 {
-			return fmt.Errorf("blockSizes[%d]/blockSizes[%d]=%d must be a multiple of power of two", i, i-1, ratio)
+			return fmt.Errorf("blockSizes[%d]=%d must be a power-of-two multiple of blockSizes[%d]=%d", i, cur, i-1, prev)
 		}
 		prev = cur
 	}

@@ -16,9 +16,9 @@ import (
 )
 
 // TestComplementMissingBaseBlock verifies that when an accelerator domain is absent
-// from the graph, the remaining blocks renumber sequentially with no empty placeholder.
-// maxAcceleratorSize=3 ≤ baseBlockSize=4, so groupSize=1 (no padding) and complement
-// is a no-op; the original 3-block list is returned unchanged.
+// from the graph the complement tree pads to the next valid blockSizes capacity. With
+// blockSizes=[4,8,16] and 3 domains each holding ≤4 nodes, a 4th empty block is added
+// to reach the 16-node lastBS boundary.
 func TestComplementMissingBaseBlock(t *testing.T) {
 	root, _ := getBlockWithIBTestSet()
 	delete(root.Domains, "B2")
@@ -40,6 +40,7 @@ func TestComplementMissingBaseBlock(t *testing.T) {
 		"BlockName=block002 Nodes=Node[304-306]",
 		"# block003=B4",
 		"BlockName=block003 Nodes=Node[401-403]",
+		"BlockName=block004",
 		"BlockSizes=4,8,16",
 		"",
 	}, "\n")
@@ -47,9 +48,8 @@ func TestComplementMissingBaseBlock(t *testing.T) {
 }
 
 // TestComplementMissingLeafSegment verifies the asymmetric-spine case: one spine has
-// 4 leaf switches and the other has 3. maxAcceleratorSize=3 ≤ baseBlockSize=4, so
-// groupSize=1 (no padding) and complement is a no-op; all 7 accelerators appear as
-// 7 sequential blocks with no trailing placeholders.
+// 4 leaf switches and the other has 3. With blockSizes=[4,16,32] and 7 domains, the
+// tree pads to the next 32-node boundary, adding one empty block008 placeholder.
 func TestComplementMissingLeafSegment(t *testing.T) {
 	root, _ := getBlockWithIBAsymmetricSpineTestSet()
 
@@ -78,6 +78,7 @@ func TestComplementMissingLeafSegment(t *testing.T) {
 		"BlockName=block006 Nodes=Node[601-603]",
 		"# block007=B7",
 		"BlockName=block007 Nodes=Node[701-703]",
+		"BlockName=block008",
 		"BlockSizes=4,16,32",
 		"",
 	}, "\n")
@@ -116,35 +117,6 @@ func TestNoComplementSingleBlockSize(t *testing.T) {
 	var buf bytes.Buffer
 	require.Nil(t, nt.toBlockTopology(&buf, false))
 	require.Equal(t, testBlockConfig1_2, buf.String())
-}
-
-func TestFanoutsPerLevel(t *testing.T) {
-	fanouts, ok := fanoutsPerLevel([]int{4, 8, 16})
-	require.True(t, ok)
-	require.Equal(t, []int{2, 2}, fanouts)
-
-	_, ok = fanoutsPerLevel([]int{4})
-	require.False(t, ok)
-}
-
-// TestHasEmptyBlockSlots verifies the interior-only rule: trailing empty blocks are
-// not counted as complement slots (they arise from tree-capacity rounding), but an
-// empty block that appears before the last non-empty block is a structural gap.
-func TestHasEmptyBlockSlots(t *testing.T) {
-	require.False(t, hasEmptyBlockSlots([]*blockInfo{{name: "B1", nodes: []string{"n1"}}}))
-	// Single trailing empty: not a structural gap.
-	require.False(t, hasEmptyBlockSlots([]*blockInfo{{name: "B1", nodes: []string{"n1"}}, {}}))
-	// Multiple trailing empties: all are trailing, none are structural gaps.
-	require.False(t, hasEmptyBlockSlots([]*blockInfo{{name: "B1"}, {}, {}}))
-	// Interior empty between B1 and B3: structural gap.
-	require.True(t, hasEmptyBlockSlots([]*blockInfo{{name: "B1"}, {}, {name: "B3"}}))
-	// Interior empty followed by further trailing empties: gap is detected.
-	require.True(t, hasEmptyBlockSlots([]*blockInfo{{name: "B1"}, {}, {name: "B3"}, {}, {}}))
-	// Trailing empties after 7 filled blocks: tree-capacity artifact, not a gap.
-	require.False(t, hasEmptyBlockSlots([]*blockInfo{
-		{name: "B1"}, {name: "B2"}, {name: "B3"}, {name: "B4"},
-		{name: "B5"}, {name: "B6"}, {name: "B7"}, {}, {},
-	}))
 }
 
 // TestComplementKeepsSeparateAccelerators verifies that two undersized accelerators are
@@ -206,7 +178,7 @@ func TestComplementExcessHostsPerAccelerator(t *testing.T) {
 	}
 
 	out := nt.complementBlocks(nt.blocks, []int{4, 8, 16})
-	// 3 base blocks (ceil(12/4)) padded to 4 (groupSize=2, ceil(3/2)*2=4).
+	// 3 base blocks (ceil(12/4)) padded to 4 (groupSize=4, ceil(3/4)*4=4).
 	require.Len(t, out, 4)
 	require.True(t, isEmptyBlock(out[3]), "out[3] should be the group-alignment padding block")
 
@@ -242,10 +214,12 @@ func TestComplementPartitionLocalDomainsOnly(t *testing.T) {
 	}
 
 	out := nt.complementBlocks(partitionBlocks, []int{4, 8, 16})
-	require.Len(t, out, 3)
+	// 3 real domains padded to 4 to reach the 16-node lastBS boundary.
+	require.Len(t, out, 4)
 	require.Equal(t, "B1", out[0].name)
 	require.Equal(t, "B3", out[1].name)
 	require.Equal(t, "B4", out[2].name)
+	require.True(t, isEmptyBlock(out[3]))
 }
 
 // TestDomainsForBlocksFilteredToPartitionNodes is a regression test for cross-partition
@@ -286,13 +260,10 @@ func TestDomainsForBlocksFilteredToPartitionNodes(t *testing.T) {
 	require.False(t, seen["n4"], "n4 belongs to another partition and must not appear")
 }
 
-// TestComplementPreservesInputWhenDomainsMissing verifies that complementBlocks
-// returns the original block list unchanged when domainsForBlocks produces fewer
-// packed blocks than the input. This happens when some blocks have no matching
-// entry in the global domain map (e.g. the block name was never registered).
-// Before the fix, shouldUseComplementedBlocks treated len(out) < len(input) as a
-// count mismatch warranting replacement, silently dropping the unmatched blocks.
-func TestComplementPreservesInputWhenDomainsMissing(t *testing.T) {
+// TestComplementWithMissingDomain verifies that when B2 has no entry in the domain map,
+// domainsForBlocks only sees B1. The complement tree produces block001 with B1's nodes
+// and an empty block002 padding slot (root-padded to reach blockSizes[last]=4).
+func TestComplementWithMissingDomain(t *testing.T) {
 	domains := topology.NewDomainMap()
 	// Only B1 is in the domain map; B2 is not.
 	for _, n := range []string{"n1", "n2"} {
@@ -306,9 +277,10 @@ func TestComplementPreservesInputWhenDomainsMissing(t *testing.T) {
 		{id: "block002", name: "B2", nodes: []string{"n3", "n4"}}, // no domain entry
 	}
 	out := nt.complementBlocks(input, []int{2, 4})
-	// B2 is absent from the global domain map, so packed has only 1 block vs 2 input
-	// blocks. The complement output would be shorter — must fall back to original input.
-	require.Equal(t, input, out)
+	require.Len(t, out, 2)
+	require.Equal(t, "B1", out[0].name)
+	require.Equal(t, []string{"n1", "n2"}, out[0].nodes)
+	require.True(t, isEmptyBlock(out[1]))
 }
 
 // TestGetBlockTopologyUnitWithMultiAcceleratorDomains verifies the YAML per-partition
@@ -363,8 +335,65 @@ func TestGetBlockTopologyUnitWithMultiAcceleratorDomains(t *testing.T) {
 		"          nodes: n[31-32]",
 		"        - block: block6",
 		"          nodes: n33",
-		"        - block: block7",
-		"        - block: block8",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestGetBlockTopologyUnitSingleBlockSize verifies that a TopologySpec with a single
+// BlockSizes entry still splits domains that exceed baseBlockSize, but applies no
+// empty padding slots. With blockSizes=[2] and lastBS=2, all domain aggregates have
+// totalCount >= 2 (a1:4, a2:2, a3:4), so the siblings-of-equal-size rule is skipped
+// entirely — no group-alignment or root padding is added. The result is the 5-block
+// split list replacing the original 3-block input.
+func TestGetBlockTopologyUnitSingleBlockSize(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for _, n := range []string{"n10", "n11", "n12"} {
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a1", HostName: n, InstanceID: n})
+	}
+	for _, n := range []string{"n20", "n21"} {
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a2", HostName: n, InstanceID: n})
+	}
+	for _, n := range []string{"n31", "n32", "n33"} {
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a3", HostName: n, InstanceID: n})
+	}
+
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo1": {
+				Plugin:     topology.TopologyBlock,
+				Nodes:      []string{"n[10-12]", "n[20-21]", "n[31-33]"},
+				BlockSizes: []int{2},
+			},
+		},
+	}
+
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.Generate(&buf))
+
+	// lastBS=2; all domain aggregates have totalCount >= 2, so padActualTree is a no-op.
+	// Only the split of oversized domains (a1, a3 → 2 blocks each) produces new output.
+	expected := strings.Join([]string{
+		"- topology: topo1",
+		"  cluster_default: false",
+		"  block:",
+		"    block_sizes:",
+		"        - 2",
+		"    blocks:",
+		"        - block: block1",
+		"          nodes: n[10-11]",
+		"        - block: block2",
+		"          nodes: n12",
+		"        - block: block3",
+		"          nodes: n[20-21]",
+		"        - block: block4",
+		"          nodes: n[31-32]",
+		"        - block: block5",
+		"          nodes: n33",
 		"",
 	}, "\n")
 	require.Equal(t, expected, buf.String())

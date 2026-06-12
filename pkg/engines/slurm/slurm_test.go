@@ -257,7 +257,7 @@ func TestGetTranslateConfig(t *testing.T) {
 				Plugin:     topology.TopologyBlock,
 				BlockSizes: []int{2, 6},
 			},
-			err: "blockSizes[1]/blockSizes[0]=3 must be a multiple of power of two",
+			err: "blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2",
 		},
 		{
 			name: "Case 4: invalid top-level blocksize multiple",
@@ -265,7 +265,7 @@ func TestGetTranslateConfig(t *testing.T) {
 				Plugin:     topology.TopologyBlock,
 				BlockSizes: []int{2, 5},
 			},
-			err: "blockSizes[1]=5 must be greater than blockSizes[0]=2 and be a multiple of power of two",
+			err: "blockSizes[1]=5 must be a multiple of blockSizes[0]=2",
 		},
 		{
 			name:   "Case 5: invalid partition topology",
@@ -341,7 +341,7 @@ func TestGetTranslateConfig(t *testing.T) {
 					Nodes:      []string{"node[001-100]"},
 				},
 			},
-			err: `topology "topo": blockSizes[1]/blockSizes[0]=3 must be a multiple of power of two`,
+			err: `topology "topo": blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2`,
 		},
 	}
 
@@ -391,7 +391,7 @@ SwitchName=S3 Nodes=Node[304-306]
 			name:   "Case 3: invalid semantic blocksize",
 			graph:  graph,
 			params: map[string]any{"blockSizes": []int{2, 6}},
-			err:    "blockSizes[1]/blockSizes[0]=3 must be a multiple of power of two",
+			err:    "blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2",
 			code:   http.StatusBadRequest,
 		},
 		{

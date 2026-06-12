@@ -29,9 +29,10 @@ func (*hostNode) blockTreeNode() {}
 // baseBlockNode is the Slurm base block level. It always holds exactly baseBlockSize
 // host nodes; missing positions or hosts are nil-host placeholders.
 type baseBlockNode struct {
-	id     string
-	domain string // primary domain ID, pre-computed from id at construction
-	leaves []*hostNode
+	id        string
+	domain    string // primary domain ID, pre-computed from id at construction
+	leaves    []*hostNode
+	nodeCount int // live host count (leaves with non-empty HostName)
 }
 
 func (*baseBlockNode) blockTreeNode() {}
@@ -41,103 +42,11 @@ func (n *baseBlockNode) domainIdentifier() string { return n.domain }
 // aggregateBlockNode groups base blocks or other aggregates. An domain with
 // multiple base blocks is represented as an aggregate of baseBlockNode children.
 type aggregateBlockNode struct {
-	children []blockTreeNode
+	children  []blockTreeNode
+	nodeCount int // sum of nodeCount across all children
 }
 
 func (*aggregateBlockNode) blockTreeNode() {}
-
-// buildAggregateShape wraps the recursive shape builder so callers always receive an
-// *aggregateBlockNode. When fanouts produces a single base block (no intermediate
-// tiers), the base block is wrapped in a one-child aggregate.
-func buildAggregateShape(fanouts []int, baseBlockSize int) *aggregateBlockNode {
-	node := buildShapeLevel(fanouts, 0, baseBlockSize)
-	agg, ok := node.(*aggregateBlockNode)
-	if !ok {
-		return &aggregateBlockNode{children: []blockTreeNode{node}}
-	}
-	return agg
-}
-
-// buildShapeLevel recurses top-down through the fanout tiers. level == len(fanouts)
-// is the base case; it emits an empty base block. Returns blockTreeNode because the
-// base case produces *baseBlockNode while all other levels produce *aggregateBlockNode.
-func buildShapeLevel(fanouts []int, level int, baseBlockSize int) blockTreeNode {
-	if level == len(fanouts) {
-		return newEmptyBaseBlock(baseBlockSize)
-	}
-	count := fanoutAtLevel(level, fanouts)
-	children := make([]blockTreeNode, count)
-	for i := range children {
-		children[i] = buildShapeLevel(fanouts, level+1, baseBlockSize)
-	}
-	return &aggregateBlockNode{children: children}
-}
-
-// totalBaseBlockSlots returns the product of all fanout tiers, which equals the
-// total number of base-block leaves in the shaped tree.
-func totalBaseBlockSlots(fanouts []int) int {
-	n := 1
-	for _, f := range fanouts {
-		n *= f
-	}
-	return n
-}
-
-// expandFanoutsForCapacity grows the last fanout tier (power-of-two steps) until the
-// tree has at least required base-block leaves. Returns fanouts unchanged when it is
-// empty or required is non-positive — an empty slice would panic on the index write.
-func expandFanoutsForCapacity(fanouts []int, required int) []int {
-	if required <= 0 || len(fanouts) == 0 {
-		return fanouts
-	}
-	out := append([]int(nil), fanouts...)
-	for totalBaseBlockSlots(out) < required {
-		out[len(out)-1] *= 2
-	}
-	return out
-}
-
-// mergeBaseBlocksIntoTree fills tree leaf slots left-to-right from the ordered packed list.
-func mergeBaseBlocksIntoTree(tree *aggregateBlockNode, packed []*baseBlockNode) {
-	slots := collectBaseBlockSlots(tree)
-	for i, bb := range packed {
-		if i >= len(slots) {
-			break
-		}
-		*slots[i] = *bb
-	}
-}
-
-// packDomainsIntoBaseBlocks packs all domain hosts into baseBlockSize-sized blocks.
-// Each domain's hosts are split into base blocks independently; no merging across
-// domains is performed. When groupSize > 1, each domain's base block count is
-// rounded up to the nearest multiple of groupSize by appending empty base blocks, so
-// that each domain occupies complete aggregate groups within the tree.
-func packDomainsIntoBaseBlocks(domains topology.DomainMap, baseBlockSize, groupSize int) []*baseBlockNode {
-	if baseBlockSize <= 0 {
-		return nil
-	}
-	domainIDs := slices.Sorted(maps.Keys(domains))
-	if len(domainIDs) == 0 {
-		return nil
-	}
-
-	var blocks []*baseBlockNode
-	for _, domainID := range domainIDs {
-		hosts := hostsSorted(domains[domainID])
-		baseBlocks := splitIntoBaseBlocks(domainID, hosts, baseBlockSize)
-		blocks = append(blocks, baseBlocks...)
-		// Pad to a multiple of groupSize so the domain fills complete aggregate groups.
-		if groupSize > 1 {
-			n := len(baseBlocks)
-			padded := ((n + groupSize - 1) / groupSize) * groupSize
-			for i := n; i < padded; i++ {
-				blocks = append(blocks, newEmptyBaseBlock(baseBlockSize))
-			}
-		}
-	}
-	return blocks
-}
 
 // splitIntoBaseBlocks splits a sorted host list into one or more base blocks of at
 // most baseBlockSize leaves each. Overflow blocks get a "#N" suffix on the ID.
@@ -169,8 +78,6 @@ func hostsSorted(hosts map[string]*topology.HostInfo) []*topology.HostInfo {
 }
 
 // collectBaseBlockSlots returns all base blocks in the tree via a left-to-right DFS.
-// The returned order is identical to the slot order used by mergeBaseBlocksIntoTree,
-// so the slice can be indexed by the same position numbers.
 func collectBaseBlockSlots(tree *aggregateBlockNode) []*baseBlockNode {
 	var slots []*baseBlockNode
 	var walk func(blockTreeNode)
@@ -186,20 +93,6 @@ func collectBaseBlockSlots(tree *aggregateBlockNode) []*baseBlockNode {
 	}
 	walk(tree)
 	return slots
-}
-
-// blocksFromShapedTree converts the tree's filled base-block slots to named blockInfo
-// records, stopping at required slots so unused trailing capacity is not emitted.
-func blocksFromShapedTree(tree *aggregateBlockNode, byName map[string]*blockInfo, required int) []*blockInfo {
-	slots := collectBaseBlockSlots(tree)
-	out := make([]*blockInfo, 0, required)
-	for i, bb := range slots {
-		if i >= required {
-			break
-		}
-		out = append(out, baseBlockToBlockInfo(bb, byName, i+1))
-	}
-	return out
 }
 
 // isEmptyBlock reports whether a block carries neither a name nor any nodes.
@@ -296,13 +189,17 @@ func newBaseBlock(id string, hosts []*topology.HostInfo, baseBlockSize int) *bas
 	for i := range leaves {
 		leaves[i] = &hostNode{}
 	}
+	nodeCount := 0
 	for i, h := range hosts {
 		if i >= baseBlockSize {
 			break
 		}
 		leaves[i] = &hostNode{host: h}
+		if h.HostName != "" {
+			nodeCount++
+		}
 	}
-	return &baseBlockNode{id: id, domain: extractDomainID(id), leaves: leaves}
+	return &baseBlockNode{id: id, domain: extractDomainID(id), leaves: leaves, nodeCount: nodeCount}
 }
 
 func newEmptyBaseBlock(baseBlockSize int) *baseBlockNode {
@@ -316,6 +213,161 @@ func newEmptyBaseBlock(baseBlockSize int) *baseBlockNode {
 	return &baseBlockNode{leaves: leaves}
 }
 
+// buildBlockTree packs domains into a padded block tree shaped by blockSizes.
+//
+// packDomainNodes handles all domain-level work (packing, equalization, root
+// padding) and returns both the fully padded domain nodes and the live bb count.
+// buildBlockTree uses the capacity recorded on each domain node to decide whether
+// higher-tier aggregation is needed, then delegates to packAggregateNodes.
+func buildBlockTree(domains topology.DomainMap, blockSizes []int) *aggregateBlockNode {
+	baseBlockSize := blockSizes[0]
+	groupSize := groupSizeFromDomains(domains, baseBlockSize, blockSizes[len(blockSizes)-1])
+
+	//Pad each domain to a multiple of groupSize base blocks,
+	//then pack those blocks into aggregate nodes of size groupSize until we reach the top tier or satisfy blockSizes[last].
+	domainNodes := packDomainNodes(domains, baseBlockSize, groupSize)
+	if len(domainNodes) == 0 {
+		return nil
+	}
+
+	// All domain nodes returned by packDomainNodes are aggregateBlockNodes whose
+	// nodeCount reflects the slot capacity of that domain (not just live hosts).
+	// When all domains are complete, their capacity is already >= lastBS so
+	// getRemainingBlocks returns nil and we return the flat tree unchanged.
+	domCapacity := getNodeCount(domainNodes[0])
+	remaining := getRemainingBlocks(blockSizes, domCapacity)
+	if len(remaining) == 0 {
+		total := 0
+		for _, n := range domainNodes {
+			total += getNodeCount(n)
+		}
+		return &aggregateBlockNode{children: domainNodes, nodeCount: total}
+	}
+
+	//Build a higher-tier tree above the domain nodes with groupSize fanout and enough levels to satisfy blockSizes[last].
+	//The tree is padded with empty aggregate nodes as needed to reach the next power-of-two multiple of groupSize,
+	//so every domain occupies complete groups at every tier.
+	//The final tree may be wider than blockSizes[last] but is guaranteed to have at least that capacity.
+	completed := []int{baseBlockSize, domCapacity}
+	desiredGroupSize := remaining[len(remaining)-1] / domCapacity
+	nodesMap := map[string][]blockTreeNode{"root": domainNodes}
+	aggregateNodes, aggCount := packAggregateNodes(nodesMap, completed, desiredGroupSize)
+	return &aggregateBlockNode{children: aggregateNodes, nodeCount: aggCount}
+}
+
+func packDomainNodes(domains topology.DomainMap, baseBlockSize, groupSize int) []blockTreeNode {
+	if baseBlockSize <= 0 {
+		return nil
+	}
+	domainIDs := slices.Sorted(maps.Keys(domains))
+	if len(domainIDs) == 0 {
+		return nil
+	}
+
+	blockNodes := make([]blockTreeNode, 0, len(domainIDs))
+
+	for _, domainID := range domainIDs {
+		hosts := hostsSorted(domains[domainID])
+		blocks := splitIntoBaseBlocks(domainID, hosts, baseBlockSize)
+		for i := len(blocks); i < groupSize; i++ {
+			blocks = append(blocks, newEmptyBaseBlock(baseBlockSize))
+		}
+
+		aggregateNode := &aggregateBlockNode{}
+		for _, b := range blocks {
+			aggregateNode.nodeCount += baseBlockSize
+			aggregateNode.children = append(aggregateNode.children, b)
+		}
+
+		blockNodes = append(blockNodes, aggregateNode)
+	}
+
+	return blockNodes
+}
+
+func packAggregateNodes(nodesMap map[string][]blockTreeNode, completed []int, groupSize int) ([]blockTreeNode, int) {
+	if groupSize <= 0 || len(completed) == 0 {
+		return nil, 0
+	}
+	nodeIDs := slices.Sorted(maps.Keys(nodesMap))
+	if len(nodeIDs) == 0 {
+		return nil, 0
+	}
+	aggregateNodes := make([]blockTreeNode, 0, len(nodeIDs))
+	total := 0
+	for _, nodeID := range nodeIDs {
+		children := nodesMap[nodeID]
+		blocks := make([]blockTreeNode, 0, (len(children)+groupSize-1)/groupSize)
+		for start := 0; start < len(children); start += groupSize {
+			end := start + groupSize
+			if end > len(children) {
+				end = len(children)
+			}
+			blocks = append(blocks, newAggregateBlock(children[start:end], groupSize, completed))
+		}
+		// compute this node's capacity only from its blocks
+		localCount := 0
+		for _, b := range blocks {
+			localCount += getNodeCount(b)
+		}
+		aggregateNodes = append(aggregateNodes, &aggregateBlockNode{children: blocks, nodeCount: localCount})
+		total += localCount
+	}
+	return aggregateNodes, total
+}
+
+func newAggregateBlock(children []blockTreeNode, size int, blockSizes []int) blockTreeNode {
+	if size <= 0 {
+		return nil
+	}
+	result := make([]blockTreeNode, size)
+	count := 0
+	for i := 0; i < size; i++ {
+		var child blockTreeNode
+		if i < len(children) {
+			child = children[i]
+		} else {
+			child = newEmptyAggregateBlock(blockSizes)
+		}
+		result[i] = child
+		switch c := child.(type) {
+		case *aggregateBlockNode:
+			count += c.nodeCount
+		case *baseBlockNode:
+			count += c.nodeCount
+		}
+	}
+	return &aggregateBlockNode{children: result, nodeCount: count}
+}
+
+func newEmptyAggregateBlock(blockSizes []int) blockTreeNode {
+	levels := len(blockSizes)
+	if levels <= 0 {
+		return &aggregateBlockNode{}
+	}
+	if levels == 1 {
+		return newEmptyBaseBlock(blockSizes[0])
+	}
+	fanout := blockSizes[levels-1] / blockSizes[levels-2]
+	children := make([]blockTreeNode, fanout)
+	count := 0
+	for i := 0; i < fanout; i++ {
+		child := newEmptyAggregateBlock(blockSizes[:levels-1])
+		children[i] = child
+		count += getNodeCount(child)
+	}
+	return &aggregateBlockNode{children: children, nodeCount: count}
+}
+
+func getRemainingBlocks(blockSizes []int, aggregateSize int) []int {
+	for i, bs := range blockSizes {
+		if bs > aggregateSize {
+			return blockSizes[i:]
+		}
+	}
+	return nil
+}
+
 // sortHostsByName sorts hosts alphabetically by HostName for deterministic packing.
 func sortHostsByName(hosts []*topology.HostInfo) {
 	sort.Slice(hosts, func(i, j int) bool {
@@ -323,13 +375,13 @@ func sortHostsByName(hosts []*topology.HostInfo) {
 	})
 }
 
-// fanoutAtLevel returns the child count for the given tree level. fanouts is ordered
-// leaf-to-root (bottom-up), but the tree is built top-down, so level 0 reads from the
-// end of the slice (the outermost tier) and deeper levels read toward the front.
-func fanoutAtLevel(level int, fanouts []int) int {
-	idx := len(fanouts) - 1 - level
-	if idx < 0 {
-		idx = 0
+func getNodeCount(tree blockTreeNode) int {
+	switch n := tree.(type) {
+	case *baseBlockNode:
+		return n.nodeCount
+	case *aggregateBlockNode:
+		return n.nodeCount
+	default:
+		return 0
 	}
-	return fanouts[idx]
 }
