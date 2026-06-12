@@ -39,8 +39,8 @@ type Switch struct {
 
 // CapacityBlock is the capacity_blocks entry shape in simulation model YAML.
 type CapacityBlock struct {
-	Nodes      []string                     `yaml:"nodes"`
-	Attributes topology.BasicNodeAttributes `yaml:"attributes"`
+	Nodes      []string                `yaml:"nodes"`
+	Attributes topology.NodeAttributes `yaml:"attributes"`
 }
 
 type Model struct {
@@ -208,7 +208,7 @@ func (m *Model) completeCapacityBlocks() error {
 				}
 				m.Nodes[name] = &topology.Instance{
 					ID:            name,
-					Attributes:    copyNodeAttributes(capacityBlock.Attributes),
+					Attributes:    capacityBlock.Attributes,
 					CapacityBlock: capacityBlockID,
 				}
 				continue
@@ -245,13 +245,7 @@ func (m *Model) completeCapacityBlocks() error {
 	return nil
 }
 
-func copyNodeAttributes(attributes topology.BasicNodeAttributes) topology.NodeAttributes {
-	return topology.NodeAttributes{
-		BasicNodeAttributes: attributes,
-	}
-}
-
-func applyCapacityBlockAttributes(node *topology.Instance, attributes topology.BasicNodeAttributes) {
+func applyCapacityBlockAttributes(node *topology.Instance, attributes topology.NodeAttributes) {
 	if attributes.NVLink != "" {
 		node.Attributes.NVLink = attributes.NVLink
 	}
