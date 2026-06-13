@@ -88,6 +88,79 @@ func TestVaryingPayload(t *testing.T) {
 	queue.Shutdown()
 }
 
+func TestVaryingPayloadByNodesAndCredentials(t *testing.T) {
+	processItem := func(item any) (any, *httperr.Error) {
+		return item, nil
+	}
+
+	queue := NewTrailingDelayQueue(processItem, 10*time.Millisecond)
+	defer queue.Shutdown()
+
+	requests := []*topology.Request{
+		{
+			Provider: topology.Provider{
+				Name:  "test",
+				Creds: map[string]any{"token": "a"},
+			},
+			Engine: topology.Engine{Name: "slurm"},
+			Nodes: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"instance-1": "node-1"},
+				},
+			},
+		},
+		{
+			Provider: topology.Provider{
+				Name:  "test",
+				Creds: map[string]any{"token": "a"},
+			},
+			Engine: topology.Engine{Name: "slurm"},
+			Nodes: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"instance-2": "node-2"},
+				},
+			},
+		},
+		{
+			Provider: topology.Provider{
+				Name:  "test",
+				Creds: map[string]any{"token": "b"},
+			},
+			Engine: topology.Engine{Name: "slurm"},
+			Nodes: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"instance-1": "node-1"},
+				},
+			},
+		},
+	}
+
+	submissions := make([]string, 0, len(requests))
+	for _, request := range requests {
+		uid, err := queue.Submit(request)
+		require.NoError(t, err)
+		submissions = append(submissions, uid)
+	}
+
+	for i := 1; i < len(submissions); i++ {
+		require.NotEqual(t, submissions[i], submissions[i-1])
+	}
+	require.NotEqual(t, submissions[0], submissions[2])
+
+	require.Eventually(t, func() bool {
+		for i, uid := range submissions {
+			res := queue.Get(uid)
+			if res.Status != http.StatusOK || res.Ret != requests[i] {
+				return false
+			}
+		}
+		return true
+	}, time.Second, 10*time.Millisecond)
+}
+
 func TestLRU(t *testing.T) {
 	cache, _ := lru.New(3)
 

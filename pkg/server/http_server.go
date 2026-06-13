@@ -204,6 +204,8 @@ func readRequest(w http.ResponseWriter, r *http.Request) *topology.Request {
 		}
 	}
 
+	tr.Provider.Creds = checkCredentials(tr.Provider.Creds, srv.cfg.Credentials)
+
 	klog.Info(tr.String())
 
 	if err = validate(tr); err != nil {

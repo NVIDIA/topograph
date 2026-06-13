@@ -177,3 +177,108 @@ func TestGetNodeNames(t *testing.T) {
 	require.ElementsMatch(t, nodeList, GetNodeNameList(cis))
 	require.Equal(t, nodeMap, GetNodeNameMap(cis))
 }
+
+func TestRequestHashIncludesCanonicalNodes(t *testing.T) {
+	newRequest := func(nodes []ComputeInstances) *Request {
+		return &Request{
+			Provider: Provider{
+				Name:   "test",
+				Params: map[string]any{"providerParam": "value"},
+			},
+			Engine: Engine{
+				Name:   "slurm",
+				Params: map[string]any{"engineParam": "value"},
+			},
+			Nodes: nodes,
+		}
+	}
+
+	nodes := []ComputeInstances{
+		{
+			Region:    "region-b",
+			Instances: map[string]string{"instance-2": "node-2", "instance-1": "node-1"},
+		},
+		{
+			Region:    "region-a",
+			Instances: map[string]string{"instance-3": "node-3"},
+		},
+	}
+	reorderedNodes := []ComputeInstances{
+		{
+			Region:    "region-a",
+			Instances: map[string]string{"instance-3": "node-3"},
+		},
+		{
+			Region:    "region-b",
+			Instances: map[string]string{"instance-1": "node-1", "instance-2": "node-2"},
+		},
+	}
+	differentNodes := []ComputeInstances{
+		{
+			Region:    "region-b",
+			Instances: map[string]string{"instance-2": "node-20", "instance-1": "node-1"},
+		},
+		{
+			Region:    "region-a",
+			Instances: map[string]string{"instance-3": "node-3"},
+		},
+	}
+	emptyNodeGroup := []ComputeInstances{{Region: "region-empty"}}
+
+	hash, err := newRequest(nodes).Hash()
+	require.NoError(t, err)
+	reorderedHash, err := newRequest(reorderedNodes).Hash()
+	require.NoError(t, err)
+	differentHash, err := newRequest(differentNodes).Hash()
+	require.NoError(t, err)
+	noNodesHash, err := newRequest(nil).Hash()
+	require.NoError(t, err)
+	emptyNodeGroupHash, err := newRequest(emptyNodeGroup).Hash()
+	require.NoError(t, err)
+
+	require.Equal(t, hash, reorderedHash)
+	require.NotEqual(t, hash, differentHash)
+	require.NotEqual(t, noNodesHash, emptyNodeGroupHash)
+}
+
+func TestRequestHashIncludesCredentialDigest(t *testing.T) {
+	newRequest := func(creds map[string]any) *Request {
+		return &Request{
+			Provider: Provider{
+				Name:   "aws",
+				Creds:  creds,
+				Params: map[string]any{"trimTiers": 1},
+			},
+			Engine: Engine{
+				Name:   "slurm",
+				Params: map[string]any{"plugin": TopologyBlock},
+			},
+		}
+	}
+
+	creds := map[string]any{
+		"accessKeyId":     "id",
+		"secretAccessKey": "secret",
+	}
+	reorderedCreds := map[string]any{
+		"secretAccessKey": "secret",
+		"accessKeyId":     "id",
+	}
+	differentCreds := map[string]any{
+		"accessKeyId":     "id",
+		"secretAccessKey": "other-secret",
+	}
+
+	hash, err := newRequest(creds).Hash()
+	require.NoError(t, err)
+	reorderedHash, err := newRequest(reorderedCreds).Hash()
+	require.NoError(t, err)
+	differentHash, err := newRequest(differentCreds).Hash()
+	require.NoError(t, err)
+	noCredsHash, err := newRequest(nil).Hash()
+	require.NoError(t, err)
+
+	require.Equal(t, hash, reorderedHash)
+	require.NotEqual(t, hash, differentHash)
+	require.NotEqual(t, hash, noCredsHash)
+}

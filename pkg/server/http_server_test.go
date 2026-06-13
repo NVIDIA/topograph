@@ -621,6 +621,61 @@ func TestReadRequest(t *testing.T) {
 	}
 }
 
+func TestReadRequestAppliesEffectiveCredentials(t *testing.T) {
+	configCreds := map[string]any{"token": "config-token"}
+	payloadCreds := map[string]any{"token": "payload-token"}
+
+	srv = &HttpServer{
+		cfg: &config.Config{
+			Provider:    "test",
+			Engine:      "slurm",
+			Credentials: configCreds,
+		},
+	}
+
+	testCases := []struct {
+		name     string
+		payload  string
+		expected map[string]any
+	}{
+		{
+			name:     "Test readRequest with config credentials",
+			payload:  fmt.Sprintf(simpleSlurmPayload, "test"),
+			expected: configCreds,
+		},
+		{
+			name: "Test readRequest with payload credentials",
+			payload: `{
+			  "provider": {
+			    "name": "test",
+			    "creds": {
+			      "token": "payload-token"
+			    }
+			  },
+			  "engine": {
+			    "name": "slurm"
+			  }
+			}`,
+			expected: payloadCreds,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &http.Request{
+				Method: http.MethodPost,
+				Body:   io.NopCloser(bytes.NewBuffer([]byte(tc.payload))),
+			}
+
+			w := httptest.NewRecorder()
+			req := readRequest(w, r)
+
+			require.NotNil(t, req)
+			require.Equal(t, tc.expected, req.Provider.Creds)
+		})
+	}
+}
+
 func readInvalidRequest(t *testing.T, payload, msg string) {
 	r := &http.Request{
 		Method: http.MethodPost,

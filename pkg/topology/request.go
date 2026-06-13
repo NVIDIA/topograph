@@ -17,11 +17,22 @@
 package topology
 
 import (
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"sort"
 	"strings"
+	"sync"
+)
+
+var (
+	credentialHashKey     []byte
+	credentialHashKeyErr  error
+	credentialHashKeyOnce sync.Once
 )
 
 type Request struct {
@@ -44,6 +55,28 @@ type Engine struct {
 type ComputeInstances struct {
 	Region    string            `json:"region"`
 	Instances map[string]string `json:"instances"` // <instance ID>:<node name> map
+}
+
+type requestHashData struct {
+	Provider providerHashData       `json:"provider"`
+	Engine   Engine                 `json:"engine"`
+	Nodes    []computeInstancesHash `json:"nodes,omitempty"`
+}
+
+type providerHashData struct {
+	Name             string         `json:"name"`
+	Params           map[string]any `json:"params,omitempty"`
+	CredentialDigest string         `json:"credentialDigest,omitempty"`
+}
+
+type computeInstancesHash struct {
+	Region    string         `json:"region"`
+	Instances []instanceHash `json:"instances"`
+}
+
+type instanceHash struct {
+	ID   string `json:"id"`
+	Node string `json:"node"`
 }
 
 func NewRequest(prv Provider, eng Engine) *Request {
@@ -141,17 +174,110 @@ func GetNodeNameMap(cis []ComputeInstances) map[string]bool {
 }
 
 func (p *Request) Hash() (string, error) {
-	dataToHash := Request{
-		Provider: Provider{
-			Name:   p.Provider.Name,
-			Params: p.Provider.Params,
+	credentialDigest, err := getCredentialDigest(p.Provider.Creds)
+	if err != nil {
+		return "", err
+	}
+
+	dataToHash := requestHashData{
+		Provider: providerHashData{
+			Name:             p.Provider.Name,
+			Params:           p.Provider.Params,
+			CredentialDigest: credentialDigest,
 		},
 		Engine: Engine{
 			Name:   p.Engine.Name,
 			Params: p.Engine.Params,
 		},
+		Nodes: canonicalComputeInstances(p.Nodes),
 	}
 	return GetHash(dataToHash)
+}
+
+func canonicalComputeInstances(nodes []ComputeInstances) []computeInstancesHash {
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	canonical := make([]computeInstancesHash, 0, len(nodes))
+	for _, nodeGroup := range nodes {
+		instances := make([]instanceHash, 0, len(nodeGroup.Instances))
+		for id, node := range nodeGroup.Instances {
+			instances = append(instances, instanceHash{
+				ID:   id,
+				Node: node,
+			})
+		}
+		sort.Slice(instances, func(i, j int) bool {
+			if instances[i].ID != instances[j].ID {
+				return instances[i].ID < instances[j].ID
+			}
+			return instances[i].Node < instances[j].Node
+		})
+
+		canonical = append(canonical, computeInstancesHash{
+			Region:    nodeGroup.Region,
+			Instances: instances,
+		})
+	}
+
+	sort.Slice(canonical, func(i, j int) bool {
+		if canonical[i].Region != canonical[j].Region {
+			return canonical[i].Region < canonical[j].Region
+		}
+		if len(canonical[i].Instances) != len(canonical[j].Instances) {
+			return len(canonical[i].Instances) < len(canonical[j].Instances)
+		}
+		for idx := range canonical[i].Instances {
+			if canonical[i].Instances[idx].ID != canonical[j].Instances[idx].ID {
+				return canonical[i].Instances[idx].ID < canonical[j].Instances[idx].ID
+			}
+			if canonical[i].Instances[idx].Node != canonical[j].Instances[idx].Node {
+				return canonical[i].Instances[idx].Node < canonical[j].Instances[idx].Node
+			}
+		}
+		return false
+	})
+
+	return canonical
+}
+
+func getCredentialDigest(creds map[string]any) (string, error) {
+	if len(creds) == 0 {
+		return "", nil
+	}
+
+	data, err := json.Marshal(creds)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal credentials for hashing: %v", err)
+	}
+
+	key, err := getCredentialHashKey()
+	if err != nil {
+		return "", err
+	}
+
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write(data)
+	return hex.EncodeToString(mac.Sum(nil)), nil
+}
+
+func getCredentialHashKey() ([]byte, error) {
+	credentialHashKeyOnce.Do(func() {
+		credentialHashKey, credentialHashKeyErr = newCredentialHashKey()
+	})
+	if credentialHashKeyErr != nil {
+		return nil, credentialHashKeyErr
+	}
+	return credentialHashKey, nil
+}
+
+func newCredentialHashKey() ([]byte, error) {
+	key := make([]byte, sha256.Size)
+	if _, err := rand.Read(key); err != nil {
+		return nil, fmt.Errorf("failed to generate credential hash key: %v", err)
+	}
+	return key, nil
 }
 
 func GetHash(obj any) (string, error) {
