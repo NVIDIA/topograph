@@ -122,7 +122,8 @@ func (q *TrailingDelayQueue) Get(hash string) *Completion {
 	defer q.mutex.Unlock()
 
 	if res, ok := q.store.Get(hash); ok {
-		return res.(*Completion)
+		completion := *(res.(*Completion))
+		return &completion
 	}
 
 	return &Completion{

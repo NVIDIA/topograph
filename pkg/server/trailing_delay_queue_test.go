@@ -166,3 +166,42 @@ func TestSubmitRunningCallbackDoesNotDeleteReplacementTimer(t *testing.T) {
 	defer queue.mutex.Unlock()
 	require.Same(t, replacement, queue.timers[hash])
 }
+
+func TestGetReturnsCompletionSnapshot(t *testing.T) {
+	const hash = "same-request"
+
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+
+	queue := NewTrailingDelayQueue(func(item any) (any, *httperr.Error) {
+		close(started)
+		<-unblock
+		return item, nil
+	}, 10*time.Millisecond)
+	defer queue.Shutdown()
+
+	uid, err := queue.Submit(trailingDelayQueueTestItem{hash: hash})
+	require.NoError(t, err)
+	require.Equal(t, hash, uid)
+
+	require.Eventually(t, func() bool {
+		select {
+		case <-started:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 10*time.Millisecond)
+
+	pending := queue.Get(uid)
+	require.Equal(t, http.StatusAccepted, pending.Status)
+	require.Nil(t, pending.Ret)
+
+	close(unblock)
+	require.Eventually(t, func() bool {
+		return queue.Get(uid).Status == http.StatusOK
+	}, time.Second, 10*time.Millisecond)
+
+	require.Equal(t, http.StatusAccepted, pending.Status)
+	require.Nil(t, pending.Ret)
+}
