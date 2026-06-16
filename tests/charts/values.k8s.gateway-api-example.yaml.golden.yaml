@@ -4,6 +4,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: chart-ci-node-data-broker
+  namespace: topograph
   labels:
     helm.sh/chart: node-data-broker-0.4.0
     app.kubernetes.io/name: node-data-broker
@@ -11,12 +12,14 @@ metadata:
     app.kubernetes.io/version: "v0.4.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
+
 ---
 # Source: topograph/charts/node-observer/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: chart-ci-node-observer
+  namespace: topograph
   labels:
     helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
@@ -24,12 +27,14 @@ metadata:
     app.kubernetes.io/version: "v0.4.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
+
 ---
 # Source: topograph/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -37,12 +42,14 @@ metadata:
     app.kubernetes.io/version: "v0.4.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
+
 ---
 # Source: topograph/charts/node-observer/templates/configmap.yml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: chart-ci-node-observer
+  namespace: topograph
   labels:
     helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
@@ -58,12 +65,14 @@ data:
       name: k8s
     trigger:
       null
+
 ---
 # Source: topograph/templates/configmap.yml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -76,6 +85,7 @@ data:
       port: 49021
       ssl: false
     requestAggregationDelay: 15s
+
 ---
 # Source: topograph/charts/node-data-broker/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -127,6 +137,7 @@ roleRef:
   kind: ClusterRole
   name: chart-ci-node-data-broker
   apiGroup: ""
+
 ---
 # Source: topograph/charts/node-observer/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -142,6 +153,7 @@ roleRef:
   kind: ClusterRole
   name: chart-ci-node-observer
   apiGroup: ""
+
 ---
 # Source: topograph/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -157,12 +169,14 @@ roleRef:
   kind: ClusterRole
   name: chart-ci-topograph
   apiGroup: ""
+
 ---
 # Source: topograph/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -179,12 +193,14 @@ spec:
   selector:
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
+
 ---
 # Source: topograph/charts/node-data-broker/templates/daemonset.yaml
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: chart-ci-node-data-broker
+  namespace: topograph
   labels:
     helm.sh/chart: node-data-broker-0.4.0
     app.kubernetes.io/name: node-data-broker
@@ -240,12 +256,14 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
+
 ---
 # Source: topograph/charts/node-observer/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chart-ci-node-observer
+  namespace: topograph
   labels:
     helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
@@ -310,12 +328,14 @@ spec:
           configMap:
             defaultMode: 420
             name: chart-ci-node-observer
+
 ---
 # Source: topograph/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -384,12 +404,14 @@ spec:
           configMap:
             defaultMode: 420
             name: chart-ci-topograph
+
 ---
 # Source: topograph/templates/httproute.yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -412,6 +434,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: "chart-ci-topograph-test-healthz"
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -437,12 +460,14 @@ spec:
           set -eu
           wget -q -O /dev/null -T 10 \
             "http://chart-ci-topograph:49021/healthz"
+
 ---
 # Source: topograph/templates/tests/test-metrics.yaml
 apiVersion: v1
 kind: Pod
 metadata:
   name: "chart-ci-topograph-test-metrics"
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -469,3 +494,4 @@ spec:
           body=$(wget -q -O - -T 10 \
             "http://chart-ci-topograph:49021/metrics")
           echo "$body" | grep -q '^topograph_version'
+
