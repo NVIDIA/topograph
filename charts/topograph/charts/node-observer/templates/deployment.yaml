@@ -2,9 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "node-observer.fullname" . }}
-  {{- if ne .Release.Namespace "default" }}
   namespace: {{ .Release.Namespace }}
-  {{- end}}
   labels:
     {{- include "node-observer.labels" . | nindent 4 }}
 spec:
