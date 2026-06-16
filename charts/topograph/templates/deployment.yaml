@@ -5,6 +5,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "topograph.fullname" . }}
+  {{- if ne .Release.Namespace "default" }}
+  namespace: {{ .Release.Namespace }}
+  {{- end}}
   labels:
     {{- include "topograph.labels" . | nindent 4 }}
 spec:

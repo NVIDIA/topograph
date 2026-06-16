@@ -16,6 +16,9 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{ $fullName }}
+  {{- if ne .Release.Namespace "default" }}
+  namespace: {{ .Release.Namespace }}
+  {{- end}}
   labels:
     {{- include "topograph.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
