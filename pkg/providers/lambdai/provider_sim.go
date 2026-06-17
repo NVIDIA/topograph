@@ -56,9 +56,13 @@ func (c *simClient) InstanceList(ctx context.Context, req *InstanceListRequest) 
 		if !exists {
 			continue
 		}
+		netPath := make([]NetworkHop, len(node.NetLayers))
+		for i, layer := range node.NetLayers {
+			netPath[i] = NetworkHop{ID: layer}
+		}
 		instance := InstanceTopology{
 			ID:          node.ID,
-			NetworkPath: node.NetLayers,
+			NetworkPath: netPath,
 			//TODO: check whether the below mapping is correct
 			NVLink: &NVLinkInfo{
 				DomainID: node.Attributes.NVLink,
