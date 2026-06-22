@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/mitchellh/mapstructure"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/config"
@@ -30,8 +31,8 @@ type ProviderParams struct {
 }
 
 type Credentials struct {
-	user   string
-	passwd string
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -56,17 +57,18 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 }
 
 func getCreds(creds map[string]any) (*Credentials, error) {
-	user, err := providers.StringFromMap("username", creds, true)
-	if err != nil {
-		return nil, err
+	c := &Credentials{}
+	if err := mapstructure.Decode(creds, c); err != nil {
+		return nil, fmt.Errorf("failed to decode creds: %w", err)
 	}
 
-	passwd, err := providers.StringFromMap("password", creds, true)
-	if err != nil {
-		return nil, err
+	for _, key := range []string{"username", "password"} {
+		if v, ok := creds[key]; !ok || v == nil {
+			return nil, fmt.Errorf("missing '%s'", key)
+		}
 	}
 
-	return &Credentials{user: user, passwd: passwd}, nil
+	return c, nil
 }
 
 func getParams(params map[string]any) (*ProviderParams, error) {

@@ -116,28 +116,6 @@ func ReadFile(path string) (string, error) {
 	return string(data), nil
 }
 
-func FromMap[T any](key string, m map[string]any, must bool) (T, error) {
-	var zero T
-
-	v, ok := m[key]
-	if !ok || v == nil {
-		if must {
-			return zero, fmt.Errorf("missing '%s'", key)
-		}
-		return zero, nil
-	}
-
-	if val, ok := v.(T); ok {
-		return val, nil
-	}
-
-	return zero, fmt.Errorf("'%s' must be of type %T", key, zero)
-}
-
-func StringFromMap(key string, m map[string]any, must bool) (string, error) {
-	return FromMap[string](key, m, must)
-}
-
 func GetTrimTiers(params map[string]any) (int, error) {
 	v, ok := params[topology.KeyTrimTiers]
 	if !ok || v == nil {

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/common/auth"
 	"github.com/oracle/oci-go-sdk/v65/core"
@@ -47,6 +48,15 @@ const (
 type apiProvider struct {
 	baseProvider
 	clientFactory ClientFactory
+}
+
+type credentialsConfig struct {
+	TenancyID   string `mapstructure:"tenancyId"`
+	UserID      string `mapstructure:"userId"`
+	Region      string `mapstructure:"region"`
+	Fingerprint string `mapstructure:"fingerprint"`
+	PrivateKey  string `mapstructure:"privateKey"`
+	Passphrase  string `mapstructure:"passphrase"`
 }
 
 type ClientFactory func(region string, pageSize *int) (Client, error)
@@ -124,32 +134,12 @@ func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider
 func getConfigurationProvider(creds map[string]any) (common.ConfigurationProvider, *httperr.Error) {
 	if len(creds) != 0 {
 		klog.Info("Using provided credentials")
-		tenancyID, err := providers.StringFromMap(authTenancyID, creds, true)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		userID, err := providers.StringFromMap(authUserID, creds, true)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		region, err := providers.StringFromMap(authRegion, creds, true)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		fingerprint, err := providers.StringFromMap(authFingerprint, creds, true)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		privateKey, err := providers.StringFromMap(authPrivateKey, creds, true)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		passphrase, err := providers.StringFromMap(authPassphrase, creds, false)
+		c, err := decodeCredentials(creds)
 		if err != nil {
 			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
 
-		return common.NewRawConfigurationProvider(tenancyID, userID, region, fingerprint, privateKey, &passphrase), nil
+		return common.NewRawConfigurationProvider(c.TenancyID, c.UserID, c.Region, c.Fingerprint, c.PrivateKey, &c.Passphrase), nil
 	}
 
 	klog.Info("No credentials provided, trying default configuration provider")
@@ -166,6 +156,21 @@ func getConfigurationProvider(creds map[string]any) (common.ConfigurationProvide
 	}
 
 	return configProvider, nil
+}
+
+func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
+	c := &credentialsConfig{}
+	if err := mapstructure.Decode(creds, c); err != nil {
+		return nil, err
+	}
+
+	for _, key := range []string{authTenancyID, authUserID, authRegion, authFingerprint, authPrivateKey} {
+		if v, ok := creds[key]; !ok || v == nil {
+			return nil, fmt.Errorf("missing '%s'", key)
+		}
+	}
+
+	return c, nil
 }
 
 func NewAPI(clientFactory ClientFactory, trimTiers int) *apiProvider {

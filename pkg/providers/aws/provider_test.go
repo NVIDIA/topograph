@@ -46,12 +46,12 @@ func TestGetCredentials(t *testing.T) {
 		{
 			name:  "Case 3: invalid secretAccessKey",
 			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": false},
-			err:   "credentials error: 'secretAccessKey' must be of type string",
+			err:   "* 'secretAccessKey' expected type 'string'",
 		},
 		{
 			name:  "Case 4: invalid token",
 			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": "secret", "token": false},
-			err:   "credentials error: 'token' must be of type string",
+			err:   "* 'token' expected type 'string'",
 		},
 		{
 			name:  "Case 5: valid provided creds",
@@ -84,7 +84,7 @@ func TestGetCredentials(t *testing.T) {
 			}
 			creds, err := getCredentials(ctx, tc.creds)
 			if len(tc.err) != 0 {
-				require.EqualError(t, err, tc.err)
+				require.ErrorContains(t, err, tc.err)
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, tc.ret, creds)

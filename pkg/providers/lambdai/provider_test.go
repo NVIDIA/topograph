@@ -26,11 +26,11 @@ func TestLoader(t *testing.T) {
 			name: "Case 1: success",
 			config: providers.Config{
 				Creds: map[string]any{
-					authWorkspaceID: "workspace-123",
-					authToken:       "token-abc",
+					"workspaceId": "workspace-123",
+					"token":       "token-abc",
 				},
 				Params: map[string]any{
-					apiBaseURL: "https://api.example.com",
+					"url": "https://api.example.com",
 				},
 			},
 		},
@@ -38,10 +38,10 @@ func TestLoader(t *testing.T) {
 			name: "Case 2: missing workspaceID",
 			config: providers.Config{
 				Creds: map[string]any{
-					authToken: "token-abc",
+					"token": "token-abc",
 				},
 				Params: map[string]any{
-					apiBaseURL: "https://api.example.com",
+					"url": "https://api.example.com",
 				},
 			},
 			err: "credentials error: missing 'workspaceId'",
@@ -50,10 +50,10 @@ func TestLoader(t *testing.T) {
 			name: "Case 3: missing token",
 			config: providers.Config{
 				Creds: map[string]any{
-					authWorkspaceID: "workspace-123",
+					"workspaceId": "workspace-123",
 				},
 				Params: map[string]any{
-					apiBaseURL: "https://api.example.com",
+					"url": "https://api.example.com",
 				},
 			},
 			err: "credentials error: missing 'token'",
@@ -62,8 +62,8 @@ func TestLoader(t *testing.T) {
 			name: "Case 4: missing baseURL",
 			config: providers.Config{
 				Creds: map[string]any{
-					authWorkspaceID: "workspace-123",
-					authToken:       "token-abc",
+					"workspaceId": "workspace-123",
+					"token":       "token-abc",
 				},
 			},
 			err: "parameters error: missing 'url'",
@@ -72,15 +72,28 @@ func TestLoader(t *testing.T) {
 			name: "Case 5: invalid trimTiers",
 			config: providers.Config{
 				Creds: map[string]any{
-					authWorkspaceID: "workspace-123",
-					authToken:       "token-abc",
+					"workspaceId": "workspace-123",
+					"token":       "token-abc",
 				},
 				Params: map[string]any{
-					apiBaseURL:            "https://api.example.com",
+					"url":                 "https://api.example.com",
 					topology.KeyTrimTiers: false,
 				},
 			},
 			err: "parameters error: invalid 'trimTiers' value 'false': unsupported type bool",
+		},
+		{
+			name: "Case 6: empty baseURL",
+			config: providers.Config{
+				Creds: map[string]any{
+					"workspaceId": "workspace-123",
+					"token":       "token-abc",
+				},
+				Params: map[string]any{
+					"url": "",
+				},
+			},
+			err: "parameters error: missing 'url'",
 		},
 	}
 
