@@ -15,7 +15,7 @@ Nebius credentials consist of the following fields:
 * `publicKeyId`
 * `privateKey`
 
-The `projectId` field is optional. If it is omitted, the project ID is retrieved from `/mnt/cloud-metadata/parent-id`.
+The `projectId` field is optional. If it is omitted, the project ID is retrieved from Nebius IMDS at `http://metadata.nebius.internal/v1/instance-data/parent_id` with the `Metadata: true` header.
 
 You can provide credentials either in the Topology configuration file or directly in the topology request payload.
 
@@ -62,6 +62,6 @@ Pass credentials directly in the topology request payload:
 
 ## Using authorization token
 
-You can provide an authorization token in one of two ways:
+You can provide an authorization token in either of these ways:
 * Via the environment variable `IAM_TOKEN`
-* By placing the token in the file `/mnt/cloud-metadata/token`
+* Via Nebius IMDS at `http://metadata.nebius.internal/v1/iam/sa/token/access_token` with the `Metadata: true` header

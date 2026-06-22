@@ -31,7 +31,6 @@ const (
 	authServiceAccountID = "serviceAccountId"
 	authPublicKeyID      = "publicKeyId"
 	authPrivateKey       = "privateKey"
-	authTokenPath        = "/mnt/cloud-metadata/token"
 	authTokenEnvVar      = "IAM_TOKEN"
 
 	defaultPageSize  int    = 200
@@ -51,7 +50,7 @@ type baseProvider struct {
 	trimTiers     int
 }
 
-type credentialsConfig struct {
+type credentials struct {
 	ProjectID        string `mapstructure:"projectId"`
 	ServiceAccountID string `mapstructure:"serviceAccountId"`
 	PublicKeyID      string `mapstructure:"publicKeyId"`
@@ -81,7 +80,12 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
-	sdk, httpErr := getSDK(ctx, config.Creds)
+	creds, err := decodeCredentials(config.Creds)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
+	}
+
+	sdk, httpErr := getSDK(ctx, creds)
 	if httpErr != nil {
 		return nil, httpErr
 	}
@@ -91,15 +95,11 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
 	}
 
-	// if project ID is not passed in credentials, get it from file
-	creds, err := decodeCredentials(config.Creds)
-	if err != nil {
-		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-	}
+	// if project ID is not passed in credentials, get it from IMDS
 	projectID := creds.ProjectID
 	if len(projectID) == 0 {
-		klog.Info("Project ID is not in credentials; getting from file")
-		if projectID, err = getParentID(); err != nil {
+		klog.Info("Project ID is not in credentials; getting from IMDS")
+		if projectID, err = getParentID(ctx); err != nil {
 			return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to get project ID: %v", err))
 		}
 	}
@@ -118,18 +118,39 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	return New(clientFactory, trimTiers), nil
 }
 
-func getAuthOption(creds map[string]any) (gosdk.Option, *httperr.Error) {
-	if len(creds) != 0 {
+func decodeCredentials(creds map[string]any) (*credentials, error) {
+	c := &credentials{}
+	if len(creds) == 0 {
+		return c, nil
+	}
+
+	if err := mapstructure.Decode(creds, c); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func getAuthOption(ctx context.Context, creds *credentials) (gosdk.Option, *httperr.Error) {
+	if creds != nil && (creds.ServiceAccountID != "" || creds.PublicKeyID != "" || creds.PrivateKey != "") {
 		klog.Info("Authentication with provided credentials")
+		missing := []string{}
 
-		c, err := decodeCredentials(creds)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
+		if creds.ServiceAccountID == "" {
+			missing = append(missing, authServiceAccountID)
 		}
-
+		if creds.PublicKeyID == "" {
+			missing = append(missing, authPublicKeyID)
+		}
+		if creds.PrivateKey == "" {
+			missing = append(missing, authPrivateKey)
+		}
+		if len(missing) != 0 {
+			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: missing "+strings.Join(missing, ","))
+		}
 		return gosdk.WithCredentials(
 			gosdk.ServiceAccountReader(
-				auth.NewPrivateKeyParser([]byte(c.PrivateKey), c.PublicKeyID, c.ServiceAccountID))), nil
+				auth.NewPrivateKeyParser([]byte(creds.PrivateKey), creds.PublicKeyID, creds.ServiceAccountID))), nil
 	}
 
 	if token := os.Getenv(authTokenEnvVar); len(token) != 0 {
@@ -137,38 +158,17 @@ func getAuthOption(creds map[string]any) (gosdk.Option, *httperr.Error) {
 		return gosdk.WithCredentials(gosdk.IAMToken(token)), nil
 	}
 
-	if _, err := os.Stat(authTokenPath); err == nil || !os.IsNotExist(err) {
-		klog.Infof("Authentication with %s", authTokenPath)
-		token, err := providers.ReadFile(authTokenPath)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
-		}
-		return gosdk.WithCredentials(gosdk.IAMToken(token)), nil
+	klog.Infof("Authentication with %s", IMDSTokenURL)
+	token, err := getAccessToken(ctx)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to get IAM token from IMDS: %v", err))
 	}
 
-	return nil, httperr.NewError(http.StatusBadRequest, "missing authentication credentials")
+	return gosdk.WithCredentials(gosdk.IAMToken(token)), nil
 }
 
-func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
-	c := &credentialsConfig{}
-	if len(creds) == 0 {
-		return c, nil
-	}
-	if err := mapstructure.Decode(creds, c); err != nil {
-		return nil, err
-	}
-
-	for _, key := range []string{authServiceAccountID, authPublicKeyID, authPrivateKey} {
-		if v, ok := creds[key]; !ok || v == nil {
-			return nil, fmt.Errorf("missing '%s'", key)
-		}
-	}
-
-	return c, nil
-}
-
-func getSDK(ctx context.Context, creds map[string]any) (*gosdk.SDK, *httperr.Error) {
-	opt, httpErr := getAuthOption(creds)
+func getSDK(ctx context.Context, creds *credentials) (*gosdk.SDK, *httperr.Error) {
+	opt, httpErr := getAuthOption(ctx, creds)
 	if httpErr != nil {
 		return nil, httpErr
 	}

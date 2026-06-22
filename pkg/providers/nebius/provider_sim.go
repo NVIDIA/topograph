@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 
+	common "github.com/nebius/gosdk/proto/nebius/common/v1"
 	compute "github.com/nebius/gosdk/proto/nebius/compute/v1"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -26,7 +27,7 @@ const (
 	errClientFactory
 	errInstances
 	errTopologyPath
-	errNetworkIntf
+	errMetadata
 )
 
 type simClient struct {
@@ -57,7 +58,17 @@ func (c *simClient) GetComputeInstanceList(ctx context.Context, req *compute.Lis
 	from := getStartIndex(req.PageToken)
 	for indx = from; indx < len(c.instanceIDs) && indx < from+c.pageSize; indx++ {
 		node := c.model.Nodes[c.instanceIDs[indx]]
-		instance := &compute.Instance{Status: &compute.InstanceStatus{}}
+		instance := &compute.Instance{
+			Spec: &compute.InstanceSpec{
+				NvlInstanceGroupId: node.Attributes.NVLink,
+			},
+			Status: &compute.InstanceStatus{},
+		}
+		if c.apiErr != errMetadata {
+			instance.Metadata = &common.ResourceMetadata{
+				Id: node.ID,
+			}
+		}
 
 		var path []string
 		if c.apiErr == errTopologyPath {
@@ -71,14 +82,12 @@ func (c *simClient) GetComputeInstanceList(ctx context.Context, req *compute.Lis
 			},
 		}
 
-		if c.apiErr != errNetworkIntf {
-			instance.Status.NetworkInterfaces = []*compute.NetworkInterfaceStatus{
-				{
-					Name:       "eth0",
-					MacAddress: node.ID,
-				},
-			}
-		}
+		/*instance.Status.NetworkInterfaces = []*compute.NetworkInterfaceStatus{
+			{
+				Name:       "eth0",
+				MacAddress: node.ID,
+			},
+		}*/
 
 		resp.Items = append(resp.Items, instance)
 	}

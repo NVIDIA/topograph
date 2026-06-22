@@ -7,7 +7,9 @@ package nebius
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/NVIDIA/topograph/internal/exec"
@@ -16,15 +18,24 @@ import (
 )
 
 const (
-	IMDSPath       = "/mnt/cloud-metadata/"
-	IMDSParentID   = IMDSPath + "parent-id"
-	IMDSRegionPath = IMDSPath + "region-name"
-
-	MACCmd = "iface=$(awk '$2=='00000000' {print $1, $8}' /proc/net/route | sort -k2n | head -n1 | cut -d' ' -f1); cat /sys/class/net/$iface/address | tr '[:lower:]' '[:upper:]'"
+	IMDSURL           = "http://metadata.nebius.internal/v1"
+	IMDSInstanceURL   = IMDSURL + "/instance-data"
+	IMDSInstanceIDURL = IMDSInstanceURL + "/id"
+	IMDSParentIDURL   = IMDSInstanceURL + "/parent_id"
+	IMDSRegionURL     = IMDSInstanceURL + "/region"
+	IMDSTokenURL      = IMDSURL + "/iam/sa/token/access_token"
+	IMDSHeaderKey     = "Metadata"
+	IMDSHeaderVal     = "true"
+	IMDSHeader        = IMDSHeaderKey + ": " + IMDSHeaderVal
 )
 
+type instanceData struct {
+	ID     string `json:"id"`
+	Region string `json:"region"`
+}
+
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	stdout, err := exec.Pdsh(ctx, MACCmd, nodes)
+	stdout, err := exec.Pdsh(ctx, imdsCmd(IMDSInstanceIDURL), nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +44,7 @@ func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, 
 }
 
 func getRegions(ctx context.Context, nodes []string) (map[string]string, error) {
-	stdout, err := exec.Pdsh(ctx, fmt.Sprintf("echo $(cat %s)", IMDSRegionPath), nodes)
+	stdout, err := exec.Pdsh(ctx, imdsCmd(IMDSRegionURL), nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -41,23 +52,31 @@ func getRegions(ctx context.Context, nodes []string) (map[string]string, error) 
 	return providers.ParsePdshOutput(stdout, true)
 }
 
-func getParentID() (string, error) {
-	return providers.ReadFile(IMDSParentID)
+func imdsCmd(url string) string {
+	return fmt.Sprintf("v=$(curl -fsS -H %q %s) && printf '%%s\\n' \"$v\"", IMDSHeader, url)
+}
+
+func getParentID(ctx context.Context) (string, error) {
+	return providers.HttpReq(ctx, http.MethodGet, IMDSParentIDURL, map[string]string{IMDSHeaderKey: IMDSHeaderVal})
+}
+
+func getAccessToken(ctx context.Context) (string, error) {
+	return providers.HttpReq(ctx, http.MethodGet, IMDSTokenURL, map[string]string{IMDSHeaderKey: IMDSHeaderVal})
 }
 
 func GetNodeAnnotations(ctx context.Context) (map[string]string, error) {
-	mac, err := exec.Exec(ctx, "sh", []string{"-c", MACCmd}, nil)
+	data, err := providers.HttpReq(ctx, http.MethodGet, IMDSInstanceURL, map[string]string{IMDSHeaderKey: IMDSHeaderVal})
 	if err != nil {
 		return nil, err
 	}
 
-	region, err := providers.ReadFile(IMDSRegionPath)
-	if err != nil {
-		return nil, err
+	metadata := &instanceData{}
+	if err := json.Unmarshal([]byte(data), metadata); err != nil {
+		return nil, fmt.Errorf("failed to parse instance data IMDS response: %v", err)
 	}
 
 	return map[string]string{
-		topology.KeyNodeInstance: strings.TrimSpace(mac.String()),
-		topology.KeyNodeRegion:   strings.TrimSpace(region),
+		topology.KeyNodeInstance: strings.TrimSpace(metadata.ID),
+		topology.KeyNodeRegion:   strings.TrimSpace(metadata.Region),
 	}, nil
 }
