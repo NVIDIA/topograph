@@ -244,15 +244,31 @@ func TestGetTranslateConfig(t *testing.T) {
 			name: "Case 2: valid blocksize",
 			params: &BaseParams{
 				Plugin:     topology.TopologyBlock,
-				BlockSizes: []int{2, 4, 8},
+				BlockSizes: []int{2, 8, 32},
 			},
 			cfg: &translate.Config{
 				Plugin:     topology.TopologyBlock,
-				BlockSizes: []int{2, 4, 8},
+				BlockSizes: []int{2, 8, 32},
 			},
 		},
 		{
-			name:   "Case 3: with invalid partition topology",
+			name: "Case 3: invalid top-level blocksize ratio",
+			params: &BaseParams{
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{2, 6},
+			},
+			err: "blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2",
+		},
+		{
+			name: "Case 4: invalid top-level blocksize multiple",
+			params: &BaseParams{
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{2, 5},
+			},
+			err: "blockSizes[1]=5 must be a multiple of blockSizes[0]=2",
+		},
+		{
+			name:   "Case 5: invalid partition topology",
 			params: &BaseParams{},
 			topologies: map[string]*Topology{
 				"topo1": {
@@ -266,7 +282,7 @@ func TestGetTranslateConfig(t *testing.T) {
 			err: "missing partition name",
 		},
 		{
-			name:   "Case 4: with valid partition topology",
+			name:   "Case 6: with valid partition topology",
 			params: &BaseParams{},
 			topologies: map[string]*Topology{
 				"default": {
@@ -292,7 +308,7 @@ func TestGetTranslateConfig(t *testing.T) {
 			},
 		},
 		{
-			name:   "Case 5: explicit empty nodes do not use partition discovery",
+			name:   "Case 7: explicit empty nodes do not use partition discovery",
 			params: &BaseParams{},
 			topologies: map[string]*Topology{
 				"topo": {
@@ -315,6 +331,18 @@ func TestGetTranslateConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "Case 8: invalid partition blocksize ratio",
+			params: &BaseParams{},
+			topologies: map[string]*Topology{
+				"topo": {
+					Plugin:     topology.TopologyBlock,
+					BlockSizes: []int{2, 6},
+					Nodes:      []string{"node[001-100]"},
+				},
+			},
+			err: `topology "topo": blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2`,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -323,7 +351,7 @@ func TestGetTranslateConfig(t *testing.T) {
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)
 			} else {
-				require.NoError(t, err)
+				require.Nil(t, err)
 				require.Equal(t, tc.cfg, cfg)
 			}
 		})
@@ -360,7 +388,14 @@ SwitchName=S3 Nodes=Node[304-306]
 			code:   http.StatusBadRequest,
 		},
 		{
-			name:  "Case 3: valid input",
+			name:   "Case 3: invalid semantic blocksize",
+			graph:  graph,
+			params: map[string]any{"blockSizes": []int{2, 6}},
+			err:    "blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2",
+			code:   http.StatusBadRequest,
+		},
+		{
+			name:  "Case 4: valid input",
 			graph: graph,
 			cfg:   cfg,
 		},

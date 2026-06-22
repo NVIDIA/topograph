@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
 
@@ -199,6 +200,132 @@ func TestGetBlockSizes(t *testing.T) {
 			blockSize := getBlockSizes(populateBlockInfo(tc.blocks), tc.blockSize)
 			require.Equal(t, tc.expectedOutput, blockSize)
 		})
+	}
+}
+
+// TestGenerateTopologyConfig exercises GenerateTopologyConfig directly for a
+// cluster-wide block topology. For cluster-wide mode (no per-partition Topologies
+// map), the returned []*TopologyUnit slice is always empty — the topology is written
+// to the writer rather than returned.
+//
+// BlockSizes={2,4,8} triggers node complementing: baseBlockSize=2,
+// maxAcceleratorSize=3, so groupSize=2 (2^1×2=4≥3). Each 3-node accelerator is
+// split into 2 base blocks (no empty padding needed since 2 is already a multiple of
+// groupSize). The 4 accelerators × 2 blocks each = 8 output blocks total.
+//
+// The test covers both full output (with node lists compacted to ranges) and
+// skeleton-only output (block structure without node lists).
+func TestGenerateTopologyConfig(t *testing.T) {
+	root, _ := getBlockWithIBTestSet()
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{2, 4, 8},
+	}
+	nt, err := NewNetworkTopology(root, cfg)
+	require.NoError(t, err)
+
+	t.Run("full output", func(t *testing.T) {
+		var buf bytes.Buffer
+		topologies, httpErr := nt.GenerateTopologyConfig(&buf, false)
+		require.Nil(t, httpErr)
+		// Cluster-wide block topology: topology is written to the writer, not
+		// returned in the TopologyUnit slice.
+		require.Empty(t, topologies)
+		// Each accelerator is split into 2 base blocks (nodes sorted alphabetically,
+		// then chunked at baseBlockSize=2): first chunk gets the lower 2, second
+		// gets the remaining 1.
+		expected := strings.Join([]string{
+			"# block001=B1",
+			"BlockName=block001 Nodes=Node[104-105]",
+			"# block002=B1",
+			"BlockName=block002 Nodes=Node106",
+			"# block003=B2",
+			"BlockName=block003 Nodes=Node[201-202]",
+			"# block004=B2",
+			"BlockName=block004 Nodes=Node205",
+			"# block005=B3",
+			"BlockName=block005 Nodes=Node[304-305]",
+			"# block006=B3",
+			"BlockName=block006 Nodes=Node306",
+			"# block007=B4",
+			"BlockName=block007 Nodes=Node[401-402]",
+			"# block008=B4",
+			"BlockName=block008 Nodes=Node403",
+			"BlockSizes=2,4,8",
+			"",
+		}, "\n")
+		require.Equal(t, expected, buf.String())
+	})
+
+	t.Run("skeleton only", func(t *testing.T) {
+		var buf bytes.Buffer
+		topologies, httpErr := nt.GenerateTopologyConfig(&buf, true)
+		require.Nil(t, httpErr)
+		require.Empty(t, topologies)
+		// Same 8-block structure but Nodes= is omitted from every line.
+		expected := strings.Join([]string{
+			"# block001=B1",
+			"BlockName=block001",
+			"# block002=B1",
+			"BlockName=block002",
+			"# block003=B2",
+			"BlockName=block003",
+			"# block004=B2",
+			"BlockName=block004",
+			"# block005=B3",
+			"BlockName=block005",
+			"# block006=B3",
+			"BlockName=block006",
+			"# block007=B4",
+			"BlockName=block007",
+			"# block008=B4",
+			"BlockName=block008",
+			"BlockSizes=2,4,8",
+			"",
+		}, "\n")
+		require.Equal(t, expected, buf.String())
+	})
+}
+
+// TestGetNodeTopologySpecAfterComplement verifies that GetNodeTopologySpec returns
+// block IDs that match the emitted topology file after complement splits domains
+// across multiple base blocks.
+func TestGetNodeTopologySpecAfterComplement(t *testing.T) {
+	root, _ := getBlockWithIBTestSet()
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{2, 4, 8},
+	}
+	nt, err := NewNetworkTopology(root, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	_, httpErr := nt.GenerateTopologyConfig(&buf, false)
+	require.Nil(t, httpErr)
+
+	// Expected mapping: first two nodes of each domain go to the first base block,
+	// the third node goes to the second (sorted alphabetically within the domain).
+	cases := []struct {
+		node    string
+		blockID string
+	}{
+		{"Node104", "block001"}, // B1 first chunk
+		{"Node105", "block001"}, // B1 first chunk
+		{"Node106", "block002"}, // B1 second chunk — stale before fix
+		{"Node201", "block003"}, // B2 first chunk — stale before fix
+		{"Node202", "block003"}, // B2 first chunk — stale before fix
+		{"Node205", "block004"}, // B2 second chunk — stale before fix
+		{"Node304", "block005"}, // B3 first chunk
+		{"Node305", "block005"}, // B3 first chunk
+		{"Node306", "block006"}, // B3 second chunk
+		{"Node401", "block007"}, // B4 first chunk
+		{"Node402", "block007"}, // B4 first chunk
+		{"Node403", "block008"}, // B4 second chunk
+	}
+	for _, tc := range cases {
+		spec, specErr := nt.GetNodeTopologySpec(tc.node, nil)
+		require.Nil(t, specErr, "node %s", tc.node)
+		require.Equal(t, "default:"+tc.blockID, spec, "node %s", tc.node)
 	}
 }
 

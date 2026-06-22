@@ -31,7 +31,12 @@ func TestDomainMapAddHost(t *testing.T) {
 	domainMap.AddHost("", "instance4", "host4")
 
 	require.Equal(t, DomainMap{
-		"domain1": map[string]string{"host1": "instance1", "host2": "instance2"},
-		"domain2": map[string]string{"host3": "instance3"},
+		"domain1": map[string]*HostInfo{
+			"host1": {Domain: "domain1", InstanceID: "instance1", HostName: "host1"},
+			"host2": {Domain: "domain1", InstanceID: "instance2", HostName: "host2"},
+		},
+		"domain2": map[string]*HostInfo{
+			"host3": {Domain: "domain2", InstanceID: "instance3", HostName: "host3"},
+		},
 	}, domainMap)
 }

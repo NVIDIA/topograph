@@ -23,25 +23,21 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// DomainMap maps domain name to a map of hostname:instance
-type DomainMap map[string]map[string]string
+type HostInfo struct {
+	Domain     string
+	InstanceID string
+	HostName   string
+}
+
+// DomainMap maps accelerator domain name to host metadata.
+type DomainMap map[string]map[string]*HostInfo
 
 func NewDomainMap() DomainMap {
 	return make(DomainMap)
 }
 
 func (m DomainMap) AddHost(domain, instance, host string) {
-	if domain == "" {
-		klog.Warningf("skipping topology domain with empty name for host %q (instance %q)", host, instance)
-		return
-	}
-
-	if hosts, ok := m[domain]; ok {
-		hosts[host] = instance
-		return
-	}
-
-	m[domain] = map[string]string{host: instance}
+	m.AddHostInfo(&HostInfo{Domain: domain, InstanceID: instance, HostName: host})
 }
 
 func (m DomainMap) String() string {
@@ -51,4 +47,20 @@ func (m DomainMap) String() string {
 		fmt.Fprintf(&str, " %s : %v\n", name, nodes)
 	}
 	return str.String()
+}
+
+func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
+	if hostInfo == nil {
+		return
+	}
+	if hostInfo.Domain == "" {
+		klog.Warningf("skipping topology domain with empty name for host %q (instance %q)", hostInfo.HostName, hostInfo.InstanceID)
+		return
+	}
+
+	if hosts, ok := m[hostInfo.Domain]; ok {
+		hosts[hostInfo.HostName] = hostInfo
+	} else {
+		m[hostInfo.Domain] = map[string]*HostInfo{hostInfo.HostName: hostInfo}
+	}
 }

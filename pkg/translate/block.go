@@ -51,16 +51,27 @@ func getBlockSizes(blocks []*blockInfo, requestedBlockSizes []int) []int {
 }
 
 func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *httperr.Error {
-	blockSizes := getBlockSizes(nt.blocks, nt.config.BlockSizes)
+	blocks := nt.complementBlocks(nt.blocks, nt.config.BlockSizes)
+	// Refresh nodeInfo.blockID so GetNodeTopologySpec returns IDs that match the
+	// emitted topology file. complementBlocks may renumber blocks when it splits
+	// a domain across multiple base blocks, invalidating the IDs set by initBlocks.
+	for _, b := range blocks {
+		for _, node := range b.nodes {
+			if info, ok := nt.nodeInfo[node]; ok {
+				info.blockID = b.id
+			}
+		}
+	}
+	blockSizes := getBlockSizes(blocks, nt.config.BlockSizes)
 
-	for _, bInfo := range nt.blocks {
+	for _, bInfo := range blocks {
 		var comment string
 		if len(bInfo.name) != 0 {
 			comment = fmt.Sprintf("# %s=%s\n", bInfo.id, bInfo.name)
 		}
 
 		var err error
-		if skeletonOnly {
+		if skeletonOnly || len(bInfo.nodes) == 0 {
 			_, err = fmt.Fprintf(wr, "%sBlockName=%s\n", comment, bInfo.id)
 		} else {
 			outputNodeNames := strings.Join(cluset.Compact(bInfo.nodes), ",")

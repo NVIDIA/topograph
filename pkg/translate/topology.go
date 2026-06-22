@@ -35,6 +35,7 @@ type TopologySpec struct {
 type NetworkTopology struct {
 	config   *Config
 	tree     map[string][]string         // adjacency list
+	domains  topology.DomainMap          // accelerator domains from provider graph
 	blocks   []*blockInfo                // blocks
 	vertices map[string]*topology.Vertex // object ID to Vertex map
 	nodeInfo map[string]*nodeInfo        // node name to nodeInfo map
@@ -184,6 +185,7 @@ func (nt *NetworkTopology) initBlocks(graph *topology.Graph) {
 		return
 	}
 
+	nt.domains = graph.Domains
 	domainBlocks := toBlockInfos(graph.Domains)
 	nt.blocks = make([]*blockInfo, 0, len(domainBlocks))
 	indx := 0
@@ -192,8 +194,13 @@ func (nt *NetworkTopology) initBlocks(graph *topology.Graph) {
 		for _, bInfo := range domainBlocks {
 			bInfo.indx = indx
 			for _, node := range bInfo.nodes {
+				hostInfo := graph.Domains[bInfo.name][node]
+				if hostInfo == nil {
+					klog.Warningf("initBlocks: missing host info for node %q in domain %q", node, bInfo.name)
+					continue
+				}
 				nt.nodeInfo[node] = &nodeInfo{
-					instanceID: graph.Domains[bInfo.name][node],
+					instanceID: hostInfo.InstanceID,
 					blockID:    bInfo.id,
 					blockIndx:  ptr.Int(indx),
 				}

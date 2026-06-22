@@ -234,9 +234,9 @@ func GenerateOutputParams(ctx context.Context, graph *topology.Graph, params *Pa
 		params.Plugin = topology.TopologyTree
 	}
 
-	cfg, err := GetTranslateConfig(ctx, &params.BaseParams, params.Topologies, &TopologyNodeFinder{GetPartitionNodes: getPartitionNodes})
-	if err != nil {
-		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
+	cfg, httpErr := GetTranslateConfig(ctx, &params.BaseParams, params.Topologies, &TopologyNodeFinder{GetPartitionNodes: getPartitionNodes})
+	if httpErr != nil {
+		return nil, httpErr
 	}
 
 	nt, err := translate.NewNetworkTopology(graph, cfg)
@@ -252,7 +252,7 @@ func GenerateOutputParams(ctx context.Context, graph *topology.Graph, params *Pa
 		}
 	}
 
-	if httpErr := nt.Generate(buf); httpErr != nil {
+	if httpErr = nt.Generate(buf); httpErr != nil {
 		return nil, httpErr
 	}
 
@@ -276,7 +276,11 @@ func GenerateOutputParams(ctx context.Context, graph *topology.Graph, params *Pa
 	return []byte("OK\n"), nil
 }
 
-func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[string]*Topology, f *TopologyNodeFinder) (*translate.Config, error) {
+func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[string]*Topology, f *TopologyNodeFinder) (*translate.Config, *httperr.Error) {
+	if err := validateBlockSizes(params.BlockSizes); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+
 	cfg := &translate.Config{
 		Plugin:     params.Plugin,
 		BlockSizes: params.BlockSizes,
@@ -286,6 +290,9 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 	if len(topologies) != 0 {
 		cfg.Topologies = make(map[string]*translate.TopologySpec)
 		for topo, sect := range topologies {
+			if err := validateBlockSizes(sect.BlockSizes); err != nil {
+				return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topo, err))
+			}
 			spec := &translate.TopologySpec{
 				Plugin:         sect.Plugin,
 				BlockSizes:     sect.BlockSizes,
@@ -302,7 +309,7 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 					klog.V(4).Infof("%s %q discovered nodes %v", sect.Plugin, topo, nodes)
 					spec.Nodes = nodes
 				} else {
-					return nil, err
+					return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 				}
 			}
 			cfg.Topologies[topo] = spec
@@ -310,6 +317,34 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 	}
 
 	return cfg, nil
+}
+
+func validateBlockSizes(blockSizes []int) error {
+	if len(blockSizes) == 0 {
+		return nil
+	}
+	prev := blockSizes[0]
+	if prev <= 0 {
+		return fmt.Errorf("blockSizes[0]=%d must be positive", prev)
+	}
+	for i := 1; i < len(blockSizes); i++ {
+		cur := blockSizes[i]
+		if cur <= 0 {
+			return fmt.Errorf("blockSizes[%d]=%d must be positive", i, cur)
+		}
+		if cur <= prev {
+			return fmt.Errorf("blockSizes[%d]=%d must be greater than blockSizes[%d]=%d", i, cur, i-1, prev)
+		}
+		if cur%prev != 0 {
+			return fmt.Errorf("blockSizes[%d]=%d must be a multiple of blockSizes[%d]=%d", i, cur, i-1, prev)
+		}
+		ratio := cur / prev
+		if ratio&(ratio-1) != 0 {
+			return fmt.Errorf("blockSizes[%d]=%d must be a power-of-two multiple of blockSizes[%d]=%d", i, cur, i-1, prev)
+		}
+		prev = cur
+	}
+	return nil
 }
 
 func getParams(params map[string]any) (*Params, error) {
