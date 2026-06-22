@@ -40,7 +40,6 @@ func TestBaseBlockFillsSlotLeftToRight(t *testing.T) {
 	require.Nil(t, bb.leaves[3].host)
 }
 
-
 // TestSplitIntoBaseBlocksChunksExcessHosts verifies that 12 hosts with a blockSize of 4
 // produce exactly 3 blocks, each fully populated, filling slots left-to-right.
 func TestSplitIntoBaseBlocksChunksExcessHosts(t *testing.T) {
@@ -59,4 +58,3 @@ func TestSplitIntoBaseBlocksChunksExcessHosts(t *testing.T) {
 	require.Len(t, hostNamesFromLeaves(blocks[1].leaves), 4)
 	require.Len(t, hostNamesFromLeaves(blocks[2].leaves), 4)
 }
-
