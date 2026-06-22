@@ -281,7 +281,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 9d0e2685aae302184e282786d4365262d8f1b2a4b1c6278e819572f234abe0fd
+        checksum/config: e6e7cfe64a6c1781c7493debb7e78cc109d28227f8acf113a69f0896e794a076
       labels:
         helm.sh/chart: node-observer-0.4.0
         app.kubernetes.io/name: node-observer
