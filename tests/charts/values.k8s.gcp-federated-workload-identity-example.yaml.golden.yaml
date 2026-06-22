@@ -267,6 +267,8 @@ spec:
       app.kubernetes.io/instance: chart-ci
   template:
     metadata:
+      annotations:
+        checksum/config: b795bbb9a6c84b7e4d2bd5c6cde293223296918ad3882405cf3fee6fa6166c87
       labels:
         helm.sh/chart: node-observer-0.4.0
         app.kubernetes.io/name: node-observer
@@ -335,6 +337,8 @@ spec:
       app.kubernetes.io/instance: chart-ci
   template:
     metadata:
+      annotations:
+        checksum/config: 836840c11e383b7f18a9085db3cb4c200b27cc1744b098bc46b7951f0ff22471
       labels:
         helm.sh/chart: topograph-0.4.0
         app.kubernetes.io/name: topograph
