@@ -8,8 +8,11 @@ package lambdai
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/httpreq"
@@ -38,6 +41,15 @@ type ClientFactory func(pageSize *int) (Client, error)
 type baseProvider struct {
 	clientFactory ClientFactory
 	trimTiers     int
+}
+
+type credentialsConfig struct {
+	WorkspaceID string `mapstructure:"workspaceId"`
+	Token       string `mapstructure:"token"`
+}
+
+type paramsConfig struct {
+	BaseURL string `mapstructure:"url"`
 }
 
 // lambdaiClient is a Topology API client.
@@ -112,15 +124,11 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
-	workspaceID, err := providers.StringFromMap(authWorkspaceID, config.Creds, true)
+	creds, err := decodeCredentials(config.Creds)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 	}
-	token, err := providers.StringFromMap(authToken, config.Creds, true)
-	if err != nil {
-		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-	}
-	baseURL, err := providers.StringFromMap(apiBaseURL, config.Params, true)
+	params, err := decodeParams(config.Params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
 	}
@@ -131,14 +139,42 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 
 	clientFactory := func(pageSize *int) (Client, error) {
 		return &lambdaiClient{
-			workspaceID: workspaceID,
-			bearerToken: token,
-			baseURL:     baseURL,
+			workspaceID: creds.WorkspaceID,
+			bearerToken: creds.Token,
+			baseURL:     params.BaseURL,
 			pageSize:    getPageSize(pageSize),
 		}, nil
 	}
 
 	return New(clientFactory, trimTiers), nil
+}
+
+func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
+	c := &credentialsConfig{}
+	if err := mapstructure.Decode(creds, c); err != nil {
+		return nil, err
+	}
+
+	for _, key := range []string{authWorkspaceID, authToken} {
+		if v, ok := creds[key]; !ok || v == nil {
+			return nil, fmt.Errorf("missing '%s'", key)
+		}
+	}
+
+	return c, nil
+}
+
+func decodeParams(params map[string]any) (*paramsConfig, error) {
+	p := &paramsConfig{}
+	if err := mapstructure.Decode(params, p); err != nil {
+		return nil, err
+	}
+
+	if p.BaseURL == "" {
+		return nil, fmt.Errorf("missing '%s'", apiBaseURL)
+	}
+
+	return p, nil
 }
 
 func getPageSize(sz *int) int {

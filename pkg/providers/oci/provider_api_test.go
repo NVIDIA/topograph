@@ -47,7 +47,7 @@ func TestGetConfigurationProvider(t *testing.T) {
 		{
 			name:  "Case 1: invalid tenancyId",
 			creds: map[string]any{"tenancyId": false},
-			err:   "credentials error: 'tenancyId' must be of type string",
+			err:   "* 'tenancyId' expected type 'string'",
 		},
 		{
 			name:  "Case 2: missing userId",
@@ -98,7 +98,7 @@ func TestGetConfigurationProvider(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			provider, err := getConfigurationProvider(tc.creds)
 			if len(tc.err) != 0 {
-				require.EqualError(t, err, tc.err)
+				require.ErrorContains(t, err, tc.err)
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, tc.provider, provider)

@@ -28,6 +28,7 @@ import (
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	"cloud.google.com/go/compute/metadata"
 	gax "github.com/googleapis/gax-go/v2"
+	"github.com/mitchellh/mapstructure"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -40,6 +41,10 @@ const NAME = "gcp"
 type baseProvider struct {
 	clientFactory ClientFactory
 	trimTiers     int
+}
+
+type projectConfig struct {
+	ProjectID string `mapstructure:"project_id"`
 }
 
 type ClientFactory func(pageSize *int) (Client, error)
@@ -106,7 +111,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 
 func getProjectID(ctx context.Context, params map[string]any) (string, error) {
 	// check project ID in params
-	projectID, err := providers.StringFromMap("project_id", params, false)
+	projectID, err := decodeProjectID(params, false)
 	if err != nil {
 		return "", fmt.Errorf("error in topology request parameters: %v", err)
 	}
@@ -127,7 +132,7 @@ func getProjectID(ctx context.Context, params map[string]any) (string, error) {
 			return "", fmt.Errorf("failed to parse GOOGLE_APPLICATION_CREDENTIALS %s: %v", filePath, err)
 		}
 
-		projectID, err = providers.StringFromMap("project_id", creds, true)
+		projectID, err = decodeProjectID(creds, true)
 		if err != nil {
 			return "", fmt.Errorf("error in GOOGLE_APPLICATION_CREDENTIALS: %v", err)
 		}
@@ -139,6 +144,19 @@ func getProjectID(ctx context.Context, params map[string]any) (string, error) {
 	// otherwise get it from node metadata
 	klog.Info("Getting project_id from node metadata")
 	return metadata.ProjectIDWithContext(ctx)
+}
+
+func decodeProjectID(input map[string]any, must bool) (string, error) {
+	c := &projectConfig{}
+	if err := mapstructure.Decode(input, c); err != nil {
+		return "", err
+	}
+
+	if must && c.ProjectID == "" {
+		return "", fmt.Errorf("missing 'project_id'")
+	}
+
+	return c.ProjectID, nil
 }
 
 func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {

@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/mitchellh/mapstructure"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -35,7 +36,12 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const NAME = "aws"
+const (
+	NAME = "aws"
+
+	authAccessKeyId     = "accessKeyId"
+	authSecretAccessKey = "secretAccessKey"
+)
 
 type baseProvider struct {
 	clientFactory ClientFactory
@@ -62,9 +68,9 @@ func (c *Client) PageSize() *int32 {
 }
 
 type Credentials struct {
-	AccessKeyId     string
-	SecretAccessKey string
-	Token           string // Token is optional
+	AccessKeyId     string `mapstructure:"accessKeyId"`
+	SecretAccessKey string `mapstructure:"secretAccessKey"`
+	Token           string `mapstructure:"token"` // Token is optional
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -109,20 +115,14 @@ func getCredentials(ctx context.Context, creds map[string]any) (*Credentials, *h
 	var accessKeyID, secretAccessKey, sessionToken string
 
 	if len(creds) != 0 {
-		var err error
 		klog.Infof("Using provided AWS credentials")
-		accessKeyID, err = providers.StringFromMap("accessKeyId", creds, true)
+		parsedCreds, err := decodeCredentials(creds)
 		if err != nil {
 			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
-		secretAccessKey, err = providers.StringFromMap("secretAccessKey", creds, true)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		sessionToken, err = providers.StringFromMap("token", creds, false)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
+		accessKeyID = parsedCreds.AccessKeyId
+		secretAccessKey = parsedCreds.SecretAccessKey
+		sessionToken = parsedCreds.Token
 	} else if len(os.Getenv("AWS_ACCESS_KEY_ID")) != 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) != 0 {
 		klog.Infof("Using shell AWS credentials")
 		accessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
@@ -144,6 +144,21 @@ func getCredentials(ctx context.Context, creds map[string]any) (*Credentials, *h
 		SecretAccessKey: secretAccessKey,
 		Token:           sessionToken,
 	}, nil
+}
+
+func decodeCredentials(creds map[string]any) (*Credentials, error) {
+	c := &Credentials{}
+	if err := mapstructure.Decode(creds, c); err != nil {
+		return nil, err
+	}
+
+	for _, key := range []string{authAccessKeyId, authSecretAccessKey} {
+		if v, ok := creds[key]; !ok || v == nil {
+			return nil, fmt.Errorf("missing '%s'", key)
+		}
+	}
+
+	return c, nil
 }
 
 func getCredentialsFromProvider(ctx context.Context) (creds aws.Credentials, err error) {

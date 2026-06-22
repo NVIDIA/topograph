@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/nebius/gosdk"
 	"github.com/nebius/gosdk/auth"
 	compute "github.com/nebius/gosdk/proto/nebius/compute/v1"
@@ -27,7 +28,6 @@ import (
 const (
 	NAME = "nebius"
 
-	authProjectID        = "projectId"
 	authServiceAccountID = "serviceAccountId"
 	authPublicKeyID      = "publicKeyId"
 	authPrivateKey       = "privateKey"
@@ -49,6 +49,13 @@ type ClientFactory func(pageSize *int) (Client, error)
 type baseProvider struct {
 	clientFactory ClientFactory
 	trimTiers     int
+}
+
+type credentialsConfig struct {
+	ProjectID        string `mapstructure:"projectId"`
+	ServiceAccountID string `mapstructure:"serviceAccountId"`
+	PublicKeyID      string `mapstructure:"publicKeyId"`
+	PrivateKey       string `mapstructure:"privateKey"`
 }
 
 type nebiusClient struct {
@@ -85,10 +92,11 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	}
 
 	// if project ID is not passed in credentials, get it from file
-	projectID, err := providers.StringFromMap(authProjectID, config.Creds, false)
+	creds, err := decodeCredentials(config.Creds)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 	}
+	projectID := creds.ProjectID
 	if len(projectID) == 0 {
 		klog.Info("Project ID is not in credentials; getting from file")
 		if projectID, err = getParentID(); err != nil {
@@ -114,22 +122,14 @@ func getAuthOption(creds map[string]any) (gosdk.Option, *httperr.Error) {
 	if len(creds) != 0 {
 		klog.Info("Authentication with provided credentials")
 
-		serviceAccountID, err := providers.StringFromMap(authServiceAccountID, creds, true)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		publicKeyID, err := providers.StringFromMap(authPublicKeyID, creds, true)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		privateKey, err := providers.StringFromMap(authPrivateKey, creds, true)
+		c, err := decodeCredentials(creds)
 		if err != nil {
 			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
 
 		return gosdk.WithCredentials(
 			gosdk.ServiceAccountReader(
-				auth.NewPrivateKeyParser([]byte(privateKey), publicKeyID, serviceAccountID))), nil
+				auth.NewPrivateKeyParser([]byte(c.PrivateKey), c.PublicKeyID, c.ServiceAccountID))), nil
 	}
 
 	if token := os.Getenv(authTokenEnvVar); len(token) != 0 {
@@ -147,6 +147,24 @@ func getAuthOption(creds map[string]any) (gosdk.Option, *httperr.Error) {
 	}
 
 	return nil, httperr.NewError(http.StatusBadRequest, "missing authentication credentials")
+}
+
+func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
+	c := &credentialsConfig{}
+	if len(creds) == 0 {
+		return c, nil
+	}
+	if err := mapstructure.Decode(creds, c); err != nil {
+		return nil, err
+	}
+
+	for _, key := range []string{authServiceAccountID, authPublicKeyID, authPrivateKey} {
+		if v, ok := creds[key]; !ok || v == nil {
+			return nil, fmt.Errorf("missing '%s'", key)
+		}
+	}
+
+	return c, nil
 }
 
 func getSDK(ctx context.Context, creds map[string]any) (*gosdk.SDK, *httperr.Error) {
