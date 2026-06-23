@@ -310,7 +310,9 @@ The chart ships two `helm test` hook pods (`charts/topograph/templates/tests/`) 
 Run the suite after installation:
 
 ```bash
-helm install topograph oci://ghcr.io/nvidia/topograph/topograph \
+helm repo add topograph https://NVIDIA.github.io/topograph
+helm repo update
+helm install topograph topograph/topograph \
   --namespace topograph --create-namespace
 helm test topograph --namespace topograph
 ```
@@ -344,4 +346,4 @@ tests:
 
 ### Chart README
 
-For installation, prerequisites, values reference, and configuration examples, see [`charts/topograph/README.md`](../../charts/topograph/README.md) — also surfaced via `helm show readme oci://ghcr.io/nvidia/topograph/topograph`.
+For installation, prerequisites, values reference, and configuration examples, see [`charts/topograph/README.md`](../../charts/topograph/README.md) — also surfaced via `helm show readme topograph/topograph`.

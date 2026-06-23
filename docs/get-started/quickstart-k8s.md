@@ -20,8 +20,9 @@ Prerequisites, install flow, and verification are common to both — the engines
 Base install command (pick the engine-specific flags from the two sections below):
 
 ```bash
-helm install topograph \
-  oci://ghcr.io/nvidia/topograph/topograph \
+helm repo add topograph https://NVIDIA.github.io/topograph
+helm repo update
+helm install topograph topograph/topograph \
   --version <chart-version> \
   --namespace topograph --create-namespace \
   --set global.provider.name=<provider> \
@@ -29,7 +30,7 @@ helm install topograph \
   # ... engine-specific flags ...
 ```
 
-Replace `<provider>` with one of the supported values (`aws`, `gcp`, `oci`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `lambdai`, `cw`). To see available chart versions, run `helm show chart oci://ghcr.io/nvidia/topograph/topograph`.
+Replace `<provider>` with one of the supported values (`aws`, `gcp`, `oci`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `lambdai`, `cw`). To see available chart versions, run `helm search repo topograph/topograph --versions`.
 
 Provider-specific credentials and parameters are passed via Helm values. See the [chart README](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/README.md) and [`values.yaml`](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/values.yaml) for the full values shape, plus the example values files shipped in the chart directory.
 
