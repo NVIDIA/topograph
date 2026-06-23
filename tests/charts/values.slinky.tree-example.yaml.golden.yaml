@@ -292,7 +292,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 6acc8cb0fdf4b308b7443ce28c6b59ad5277fd5993aee91b25c506a2f452b4e2
+        checksum/config: e88cb76b7723a2c35f9be15754210a1c774852ec026c272286ad0eb2a74e101c
       labels:
         helm.sh/chart: node-observer-0.4.0
         app.kubernetes.io/name: node-observer
@@ -366,7 +366,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 836840c11e383b7f18a9085db3cb4c200b27cc1744b098bc46b7951f0ff22471
+        checksum/config: 6615a1097d9fd3e7ef47d6aa0548012d7f5c049090edbfb691e12e23b64ae573
       labels:
         helm.sh/chart: topograph-0.4.0
         app.kubernetes.io/name: topograph
