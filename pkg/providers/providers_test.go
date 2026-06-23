@@ -18,6 +18,9 @@ package providers
 
 import (
 	"bytes"
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -42,6 +45,51 @@ node4: instance4
 	output, err = ParsePdshOutput(bytes.NewBufferString(input), true)
 	require.NoError(t, err)
 	require.Equal(t, expected, output)
+}
+
+func TestHttpReqRetries(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if r.Header.Get("X-Test-Header") != "test-value" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("missing header"))
+			return
+		}
+		if attempts < 3 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("try again"))
+			return
+		}
+
+		_, _ = w.Write([]byte("instance-123\n"))
+	}))
+	defer server.Close()
+
+	body, err := HttpReq(context.Background(), http.MethodGet, server.URL, map[string]string{
+		"X-Test-Header": "test-value",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "instance-123", body)
+	require.Equal(t, 3, attempts)
+}
+
+func TestHttpReqReturnsHTTPError(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("not found"))
+	}))
+	defer server.Close()
+
+	body, err := HttpReq(context.Background(), http.MethodGet, server.URL, nil)
+
+	require.Empty(t, body)
+	require.EqualError(t, err, "not found")
+	require.Equal(t, 1, attempts)
 }
 
 func TestReadFile(t *testing.T) {
