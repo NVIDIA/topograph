@@ -12,11 +12,13 @@ Topograph discovers the physical network topology of a cluster (NVLink domains, 
 
 ## Installation
 
-From the OCI registry (recommended):
+From the Helm chart repository:
 
 ```bash
+helm repo add topograph https://NVIDIA.github.io/topograph
+helm repo update
 helm install topograph \
-  oci://ghcr.io/nvidia/topograph/topograph \
+  topograph/topograph \
   --version <chart-version> \
   --namespace topograph --create-namespace
 ```
@@ -31,7 +33,7 @@ helm install topograph charts/topograph \
 To see available chart versions:
 
 ```bash
-helm show chart oci://ghcr.io/nvidia/topograph/topograph
+helm search repo topograph/topograph --versions
 ```
 
 ## Configuration
