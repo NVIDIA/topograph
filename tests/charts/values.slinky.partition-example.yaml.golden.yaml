@@ -12,7 +12,6 @@ metadata:
     app.kubernetes.io/version: "v0.4.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
-
 ---
 # Source: topograph/charts/node-observer/templates/serviceaccount.yaml
 apiVersion: v1
@@ -27,7 +26,6 @@ metadata:
     app.kubernetes.io/version: "v0.4.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
-
 ---
 # Source: topograph/templates/serviceaccount.yaml
 apiVersion: v1
@@ -42,7 +40,6 @@ metadata:
     app.kubernetes.io/version: "v0.4.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
-
 ---
 # Source: topograph/charts/node-observer/templates/configmap.yml
 apiVersion: v1
@@ -100,7 +97,6 @@ data:
       podSelector:
         matchLabels:
           app.kubernetes.io/component: compute
-
 ---
 # Source: topograph/templates/configmap.yml
 apiVersion: v1
@@ -120,7 +116,6 @@ data:
       port: 49021
       ssl: false
     requestAggregationDelay: 15s
-
 ---
 # Source: topograph/charts/node-data-broker/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -175,7 +170,6 @@ roleRef:
   kind: ClusterRole
   name: chart-ci-node-data-broker
   apiGroup: ""
-
 ---
 # Source: topograph/charts/node-observer/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -191,7 +185,6 @@ roleRef:
   kind: ClusterRole
   name: chart-ci-node-observer
   apiGroup: ""
-
 ---
 # Source: topograph/templates/rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -207,7 +200,6 @@ roleRef:
   kind: ClusterRole
   name: chart-ci-topograph
   apiGroup: ""
-
 ---
 # Source: topograph/templates/service.yaml
 apiVersion: v1
@@ -231,7 +223,6 @@ spec:
   selector:
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
-
 ---
 # Source: topograph/charts/node-data-broker/templates/daemonset.yaml
 apiVersion: apps/v1
@@ -294,7 +285,6 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-
 ---
 # Source: topograph/charts/node-observer/templates/deployment.yaml
 apiVersion: apps/v1
@@ -368,7 +358,6 @@ spec:
             name: chart-ci-node-observer
       nodeSelector:
         dedicated: user-workload
-
 ---
 # Source: topograph/templates/deployment.yaml
 apiVersion: apps/v1
@@ -480,7 +469,6 @@ spec:
           set -eu
           wget -q -O /dev/null -T 10 \
             "http://chart-ci-topograph:49021/healthz"
-
 ---
 # Source: topograph/templates/tests/test-metrics.yaml
 apiVersion: v1
@@ -514,4 +502,3 @@ spec:
           body=$(wget -q -O - -T 10 \
             "http://chart-ci-topograph:49021/metrics")
           echo "$body" | grep -q '^topograph_version'
-
