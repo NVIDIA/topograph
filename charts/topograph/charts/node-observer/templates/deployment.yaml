@@ -32,8 +32,8 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
         - name: wait
-          image: curlimages/curl:8.13.0
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.waitImage.repository }}:{{ .Values.waitImage.tag }}
+          imagePullPolicy: {{ .Values.waitImage.pullPolicy }}
           command:
             - sh
           args:

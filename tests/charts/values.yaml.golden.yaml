@@ -6,10 +6,10 @@ metadata:
   name: chart-ci-node-data-broker
   namespace: topograph
   labels:
-    helm.sh/chart: node-data-broker-0.4.0
+    helm.sh/chart: node-data-broker-0.4.1
     app.kubernetes.io/name: node-data-broker
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
 ---
@@ -20,10 +20,10 @@ metadata:
   name: chart-ci-node-observer
   namespace: topograph
   labels:
-    helm.sh/chart: node-observer-0.4.0
+    helm.sh/chart: node-observer-0.4.1
     app.kubernetes.io/name: node-observer
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
 ---
@@ -34,10 +34,10 @@ metadata:
   name: chart-ci-topograph
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.0
+    helm.sh/chart: topograph-0.4.1
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
 ---
@@ -48,10 +48,10 @@ metadata:
   name: chart-ci-node-observer
   namespace: topograph
   labels:
-    helm.sh/chart: node-observer-0.4.0
+    helm.sh/chart: node-observer-0.4.1
     app.kubernetes.io/name: node-observer
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 data:
   node-observer-config.yaml: |-
@@ -70,10 +70,10 @@ metadata:
   name: chart-ci-topograph
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.0
+    helm.sh/chart: topograph-0.4.1
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 data:
   topograph-config.yaml: |-
@@ -170,10 +170,10 @@ metadata:
   name: chart-ci-topograph
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.0
+    helm.sh/chart: topograph-0.4.1
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -193,10 +193,10 @@ metadata:
   name: chart-ci-node-data-broker
   namespace: topograph
   labels:
-    helm.sh/chart: node-data-broker-0.4.0
+    helm.sh/chart: node-data-broker-0.4.1
     app.kubernetes.io/name: node-data-broker
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 spec:
   selector:
@@ -206,10 +206,10 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: node-data-broker-0.4.0
+        helm.sh/chart: node-data-broker-0.4.1
         app.kubernetes.io/name: node-data-broker
         app.kubernetes.io/instance: chart-ci
-        app.kubernetes.io/version: "v0.4.0"
+        app.kubernetes.io/version: "v0.4.1"
         app.kubernetes.io/managed-by: Helm
     spec:
       serviceAccountName: chart-ci-node-data-broker
@@ -217,7 +217,7 @@ spec:
         {}
       initContainers:
         - name: init-node-labels
-          image: "ghcr.io/nvidia/topograph:v0.4.0"
+          image: "ghcr.io/nvidia/topograph:v0.4.1"
           imagePullPolicy: IfNotPresent
           command:
             - /usr/local/bin/node-data-broker-initc
@@ -255,10 +255,10 @@ metadata:
   name: chart-ci-node-observer
   namespace: topograph
   labels:
-    helm.sh/chart: node-observer-0.4.0
+    helm.sh/chart: node-observer-0.4.1
     app.kubernetes.io/name: node-observer
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -269,12 +269,12 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 8142bb18d64df0ccc94239a2a6abdb04adb6a4bd6707486e2ece267fda13df9b
+        checksum/config: 13e42839f1009e4f0f19067aaa523bc26cc22ad86dedbe01250ddab4203e4380
       labels:
-        helm.sh/chart: node-observer-0.4.0
+        helm.sh/chart: node-observer-0.4.1
         app.kubernetes.io/name: node-observer
         app.kubernetes.io/instance: chart-ci
-        app.kubernetes.io/version: "v0.4.0"
+        app.kubernetes.io/version: "v0.4.1"
         app.kubernetes.io/managed-by: Helm
     spec:
       serviceAccountName: chart-ci-node-observer
@@ -297,7 +297,7 @@ spec:
         - name: node-observer
           securityContext:
             {}
-          image: "ghcr.io/nvidia/topograph:v0.4.0"
+          image: "ghcr.io/nvidia/topograph:v0.4.1"
           imagePullPolicy: IfNotPresent
           command:
             - /usr/local/bin/node-observer
@@ -326,10 +326,10 @@ metadata:
   name: chart-ci-topograph
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.0
+    helm.sh/chart: topograph-0.4.1
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -340,12 +340,12 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 6615a1097d9fd3e7ef47d6aa0548012d7f5c049090edbfb691e12e23b64ae573
+        checksum/config: 39b038c65adc3cfc2929b8f5d532baa309d4d8cd0cbefaae25231b298af50c43
       labels:
-        helm.sh/chart: topograph-0.4.0
+        helm.sh/chart: topograph-0.4.1
         app.kubernetes.io/name: topograph
         app.kubernetes.io/instance: chart-ci
-        app.kubernetes.io/version: "v0.4.0"
+        app.kubernetes.io/version: "v0.4.1"
         app.kubernetes.io/managed-by: Helm
     spec:
       serviceAccountName: chart-ci-topograph
@@ -355,7 +355,7 @@ spec:
         - name: topograph
           securityContext:
             {}
-          image: "ghcr.io/nvidia/topograph:v0.4.0"
+          image: "ghcr.io/nvidia/topograph:v0.4.1"
           imagePullPolicy: IfNotPresent
           command:
             - /usr/local/bin/topograph
@@ -401,10 +401,10 @@ metadata:
   name: "chart-ci-topograph-test-healthz"
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.0
+    helm.sh/chart: topograph-0.4.1
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
   annotations:
     "helm.sh/hook": test
@@ -417,7 +417,7 @@ spec:
     - name: healthz
       securityContext:
         {}
-      image: "ghcr.io/nvidia/topograph:v0.4.0"
+      image: "ghcr.io/nvidia/topograph:v0.4.1"
       imagePullPolicy: IfNotPresent
       command: ["sh", "-c"]
       args:
@@ -433,10 +433,10 @@ metadata:
   name: "chart-ci-topograph-test-metrics"
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.0
+    helm.sh/chart: topograph-0.4.1
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
-    app.kubernetes.io/version: "v0.4.0"
+    app.kubernetes.io/version: "v0.4.1"
     app.kubernetes.io/managed-by: Helm
   annotations:
     "helm.sh/hook": test
@@ -449,7 +449,7 @@ spec:
     - name: metrics
       securityContext:
         {}
-      image: "ghcr.io/nvidia/topograph:v0.4.0"
+      image: "ghcr.io/nvidia/topograph:v0.4.1"
       imagePullPolicy: IfNotPresent
       command: ["sh", "-c"]
       args:

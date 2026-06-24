@@ -28,7 +28,7 @@ spec:
       {{- if .Values.initc.enabled }}
       initContainers:
         - name: init-node-labels
-          image: "{{ .Values.initc.image.repository }}:{{ .Values.initc.image.tag }}"
+          image: "{{ .Values.initc.image.repository }}:{{ .Values.initc.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.initc.image.pullPolicy }}
           command:
             - /usr/local/bin/node-data-broker-initc

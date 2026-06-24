@@ -19,7 +19,8 @@ initc:
   image:
     repository: ghcr.io/nvidia/topograph
     pullPolicy: IfNotPresent
-    tag: v0.4.0
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
   extraArgs:
   #  - key=val
 
