@@ -1,0 +1,35 @@
+suite: helm test hook pods
+templates:
+  - templates/tests/test-healthz.yaml
+  - templates/tests/test-metrics.yaml
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: renders the healthz probe pod as a helm test hook
+    templates:
+      - templates/tests/test-healthz.yaml
+    asserts:
+      - isKind:
+          of: Pod
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: test
+
+  - it: renders the metrics probe pod as a helm test hook
+    templates:
+      - templates/tests/test-metrics.yaml
+    asserts:
+      - isKind:
+          of: Pod
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: test
+
+  - it: are omitted when tests.enabled is false
+    set:
+      tests:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

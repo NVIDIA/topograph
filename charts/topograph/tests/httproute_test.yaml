@@ -1,0 +1,39 @@
+suite: gateway api httproute
+templates:
+  - templates/httproute.yaml
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: is not rendered by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders an HTTPRoute when gatewayAPI is enabled
+    set:
+      gatewayAPI:
+        enabled: true
+        parentRefs:
+          - name: example-gateway
+    asserts:
+      - isKind:
+          of: HTTPRoute
+      - equal:
+          path: apiVersion
+          value: gateway.networking.k8s.io/v1
+      - contains:
+          path: spec.parentRefs
+          content:
+            name: example-gateway
+
+  - it: emits a default catch-all backend rule to the Service
+    set:
+      gatewayAPI:
+        enabled: true
+        parentRefs:
+          - name: example-gateway
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: chart-ci-topograph

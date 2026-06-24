@@ -21,3 +21,6 @@
 .idea/
 *.tmproj
 .vscode/
+# helm-unittest suites and snapshots (not shipped in the packaged chart).
+# Anchored to the chart root so it does not match templates/tests/.
+/tests/

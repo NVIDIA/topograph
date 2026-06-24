@@ -1,0 +1,35 @@
+suite: ingress
+templates:
+  - templates/ingress.yaml
+release:
+  name: chart-ci
+  namespace: topograph
+capabilities:
+  majorVersion: "1"
+  minorVersion: "30"
+tests:
+  - it: is not rendered by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders an Ingress when enabled
+    set:
+      ingress:
+        enabled: true
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: apiVersion
+          value: networking.k8s.io/v1
+
+  - it: sets ingressClassName when provided
+    set:
+      ingress:
+        enabled: true
+        className: nginx
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: nginx

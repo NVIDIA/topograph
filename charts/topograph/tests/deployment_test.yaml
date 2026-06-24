@@ -1,0 +1,69 @@
+suite: topograph deployment
+# configmap.yml is rendered alongside deployment.yaml because the Deployment
+# references it for its checksum/config pod annotation. Assertions are scoped
+# to the Deployment via the per-assert `template` selector.
+templates:
+  - templates/deployment.yaml
+  - templates/configmap.yml
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: renders a Deployment with a single replica by default
+    asserts:
+      - isKind:
+          of: Deployment
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.replicas
+          value: 1
+        template: templates/deployment.yaml
+
+  - it: image tag falls back to the chart appVersion when empty
+    set:
+      image:
+        tag: ""
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: "^ghcr.io/nvidia/topograph:v[0-9]+\\.[0-9]+\\.[0-9]+$"
+        template: templates/deployment.yaml
+
+  - it: GCP workload identity federation wires the credentials env and volumes
+    set:
+      global:
+        provider:
+          name: gcp
+          params:
+            workloadIdentityFederation:
+              credentialsConfigmap: gcp-creds
+              audience: //iam.googleapis.com/projects/1/locations/global/workloadIdentityPools/p/providers/pr
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GOOGLE_APPLICATION_CREDENTIALS
+            value: /etc/topograph/gcp/credentials-config.json
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: credentials-config
+            configMap:
+              name: gcp-creds
+        template: templates/deployment.yaml
+
+  - it: GCP service account keys mount the secret-backed credentials file
+    set:
+      global:
+        provider:
+          name: gcp
+          params:
+            serviceAccountKeysSecret: gcp-sa-keys
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GOOGLE_APPLICATION_CREDENTIALS
+            value: /etc/topograph/gcp/service-account-keys.json
+        template: templates/deployment.yaml
