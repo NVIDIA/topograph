@@ -7,3 +7,4 @@
 /deb/topograph/lib
 /rpmbuild
 .vscode
+/.helm-binaries
