@@ -11,13 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-    - uses: actions/checkout@v6
+    - name: Checkout repository
+      uses: actions/checkout@v5
 
     - name: Set up Helm
       uses: azure/setup-helm@v5
-
-    - name: Install helm-unittest plugin
-      run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.1.1 --verify=false
 
     - name: Helm chart tests
       run: make chart-test
