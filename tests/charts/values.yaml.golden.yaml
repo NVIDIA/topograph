@@ -4,6 +4,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: chart-ci-node-data-broker
+  namespace: topograph
   labels:
     helm.sh/chart: node-data-broker-0.4.0
     app.kubernetes.io/name: node-data-broker
@@ -17,6 +18,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: chart-ci-node-observer
+  namespace: topograph
   labels:
     helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
@@ -30,6 +32,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -43,6 +46,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: chart-ci-node-observer
+  namespace: topograph
   labels:
     helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
@@ -64,6 +68,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -163,6 +168,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -185,6 +191,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: chart-ci-node-data-broker
+  namespace: topograph
   labels:
     helm.sh/chart: node-data-broker-0.4.0
     app.kubernetes.io/name: node-data-broker
@@ -246,6 +253,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chart-ci-node-observer
+  namespace: topograph
   labels:
     helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
@@ -261,7 +269,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 8c86665b467e950f383a161291a425c6a1a14dec5f55811a050a1365664b98bb
+        checksum/config: 8142bb18d64df0ccc94239a2a6abdb04adb6a4bd6707486e2ece267fda13df9b
       labels:
         helm.sh/chart: node-observer-0.4.0
         app.kubernetes.io/name: node-observer
@@ -316,6 +324,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chart-ci-topograph
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -331,7 +340,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 836840c11e383b7f18a9085db3cb4c200b27cc1744b098bc46b7951f0ff22471
+        checksum/config: 6615a1097d9fd3e7ef47d6aa0548012d7f5c049090edbfb691e12e23b64ae573
       labels:
         helm.sh/chart: topograph-0.4.0
         app.kubernetes.io/name: topograph
@@ -390,6 +399,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: "chart-ci-topograph-test-healthz"
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
@@ -421,6 +431,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: "chart-ci-topograph-test-metrics"
+  namespace: topograph
   labels:
     helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
