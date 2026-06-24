@@ -16,7 +16,10 @@
 # Helm chart smoke tests: topograph umbrella chart, local subcharts
 # (node-data-broker, node-observer), validation.tpl negative cases, and
 # golden-file comparison for tracked values fixtures.
-# Requires Helm 3.10+ on PATH.
+#
+# A pinned Helm binary is downloaded automatically if the cached copy is
+# absent; override the version with HELM_VERSION=x.y.z.
+# Cache lives in .helm-binaries/ (gitignored).
 #
 # Golden outputs:
 #   tests/charts/*.golden.yaml — full umbrella render
@@ -30,20 +33,65 @@ CHART="${ROOT}/charts/topograph"
 RELEASE="chart-ci"
 NS="topograph"
 KUBE_VER="${KUBE_VER:-1.30}"
+HELM_VERSION="${HELM_VERSION:-4.1.1}"
+HELM_CACHE_DIR="${ROOT}/.helm-binaries"
 
 TOPOGRAPH_GOLDEN_DIR="${ROOT}/tests/charts"
 
 helm_common=(template "${RELEASE}" "${CHART}" --namespace "${NS}" --kube-version "${KUBE_VER}")
 
-if ! command -v helm >/dev/null 2>&1; then
-  echo "helm is not installed or not on PATH" >&2
-  exit 1
-fi
-
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
   exit 1
 }
+
+# Ensure the pinned helm binary exists in HELM_CACHE_DIR, downloading it if
+# necessary. Prints the path to the binary on stdout.
+ensure_helm() {
+  local version="$1"
+  local cached="${HELM_CACHE_DIR}/helm-${version}"
+
+  if [[ -x "${cached}" ]]; then
+    printf '%s\n' "${cached}"
+    return
+  fi
+
+  local os arch
+  os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  arch="$(uname -m)"
+  case "${arch}" in
+    x86_64)        arch="amd64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *)             fail "unsupported architecture: ${arch}" ;;
+  esac
+
+  mkdir -p "${HELM_CACHE_DIR}"
+  local tarball="helm-v${version}-${os}-${arch}.tar.gz"
+  local url="https://get.helm.sh/${tarball}"
+  printf 'Downloading helm %s (%s/%s)...\n' "${version}" "${os}" "${arch}" >&2
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  (
+    trap 'rm -rf "${tmpdir}"' EXIT
+    curl -fsSL "${url}"               -o "${tmpdir}/${tarball}"
+    curl -fsSL "${url}.sha256sum"     -o "${tmpdir}/${tarball}.sha256sum"
+    if command -v sha256sum >/dev/null 2>&1; then
+      (cd "${tmpdir}" && sha256sum -c "${tarball}.sha256sum") >&2
+    elif command -v shasum >/dev/null 2>&1; then
+      (cd "${tmpdir}" && shasum -a 256 -c "${tarball}.sha256sum") >&2
+    else
+      printf 'WARNING: no sha256sum or shasum found; skipping checksum verification\n' >&2
+    fi
+    tar -xz -C "${tmpdir}" -f "${tmpdir}/${tarball}"
+    mv "${tmpdir}/${os}-${arch}/helm" "${cached}"
+  )
+  chmod +x "${cached}"
+  printf '%s\n' "${cached}"
+}
+
+HELM_BIN="$(ensure_helm "${HELM_VERSION}")"
+helm() { "${HELM_BIN}" "$@"; }
 
 assert_output_contains() {
   local haystack="$1"
