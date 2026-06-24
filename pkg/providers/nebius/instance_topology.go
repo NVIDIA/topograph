@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	compute "github.com/nebius/gosdk/proto/nebius/compute/v1"
 	"k8s.io/klog/v2"
@@ -53,7 +52,8 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 		}
 
 		for _, instance := range resp.Items {
-			hostname, intf, ok := hasNetIntf(ci, instance.GetStatus().GetNetworkInterfaces())
+			instanceID := instance.GetMetadata().GetId()
+			hostname, ok := ci.Instances[instanceID]
 			if !ok {
 				klog.V(4).Infof("Skipping instance %s", instance.String())
 				continue
@@ -65,7 +65,8 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			}
 
 			inst := &topology.InstanceTopology{
-				InstanceID: intf,
+				InstanceID:    instanceID,
+				AcceleratorID: instance.GetSpec().GetNvlInstanceGroupId(),
 			}
 
 			path := ibTopology.GetPath()
@@ -89,14 +90,4 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 		}
 		req.PageToken = resp.NextPageToken
 	}
-}
-
-func hasNetIntf(ci *topology.ComputeInstances, nw []*compute.NetworkInterfaceStatus) (string, string, bool) {
-	for _, status := range nw {
-		if hostname, ok := ci.Instances[strings.ToUpper(status.MacAddress)]; ok {
-			return hostname, status.MacAddress, true
-		}
-	}
-
-	return "", "", false
 }

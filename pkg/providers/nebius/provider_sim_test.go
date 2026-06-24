@@ -127,7 +127,7 @@ func TestProviderSim(t *testing.T) {
 `,
 		},
 		{
-			name:  "Case 5: missing network interface",
+			name:  "Case 5: missing metadata",
 			model: nodeModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -135,7 +135,7 @@ func TestProviderSim(t *testing.T) {
 					Instances: map[string]string{"11": "node11"},
 				},
 			},
-			apiErr: errNetworkIntf,
+			apiErr: errMetadata,
 			topology: `SwitchName=no-topology Nodes=node11
 `,
 		},
