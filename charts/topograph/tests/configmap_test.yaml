@@ -1,0 +1,54 @@
+suite: config configmap
+templates:
+  - templates/configmap.yml
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: renders the topograph config with the service port and SSL disabled
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph
+      - matchRegex:
+          path: data["topograph-config.yaml"]
+          pattern: "port: 49021"
+      - matchRegex:
+          path: data["topograph-config.yaml"]
+          pattern: "ssl: false"
+
+  - it: wires the request aggregation delay from values
+    set:
+      config:
+        requestAggregationDelay: 42s
+    asserts:
+      - matchRegex:
+          path: data["topograph-config.yaml"]
+          pattern: "requestAggregationDelay: 42s"
+
+  - it: tracks the global service port override
+    set:
+      global:
+        service:
+          port: 30000
+    asserts:
+      - matchRegex:
+          path: data["topograph-config.yaml"]
+          pattern: "port: 30000"
+
+  - it: omits credentialsPath unless a credentials secret is configured
+    asserts:
+      - notMatchRegex:
+          path: data["topograph-config.yaml"]
+          pattern: "credentialsPath"
+
+  - it: emits credentialsPath when a credentials secret is configured
+    set:
+      config:
+        credentialsSecret: topograph-creds
+    asserts:
+      - matchRegex:
+          path: data["topograph-config.yaml"]
+          pattern: "credentialsPath: /etc/topograph/credentials/credentials.yaml"

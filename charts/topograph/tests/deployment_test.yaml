@@ -67,3 +67,167 @@ tests:
             name: GOOGLE_APPLICATION_CREDENTIALS
             value: /etc/topograph/gcp/service-account-keys.json
         template: templates/deployment.yaml
+
+  - it: carries the standard recommended labels and selector
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: topograph
+        template: templates/deployment.yaml
+      - equal:
+          path: metadata.labels["app.kubernetes.io/managed-by"]
+          value: Helm
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: topograph
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/instance"]
+          value: chart-ci
+        template: templates/deployment.yaml
+
+  - it: wires the service account and a config checksum annotation
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: chart-ci-topograph
+        template: templates/deployment.yaml
+      - isNotNullOrEmpty:
+          path: spec.template.metadata.annotations["checksum/config"]
+        template: templates/deployment.yaml
+
+  - it: exposes the container port from the global service port
+    set:
+      global:
+        service:
+          port: 30000
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 30000
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: http
+        template: templates/deployment.yaml
+
+  - it: injects the node-data-broker coordinates as environment variables
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_DATA_BROKER_NAME
+            value: chart-ci-node-data-broker
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_DATA_BROKER_NAMESPACE
+            value: topograph
+        template: templates/deployment.yaml
+
+  - it: passes the verbosity flag and topology key args
+    set:
+      verbosity: 5
+      topologyNodeLabels:
+        accelerator: network.topology.nvidia.com/accelerator
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: -v=5
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: -k8s-topology-key-accelerator=network.topology.nvidia.com/accelerator
+        template: templates/deployment.yaml
+
+  - it: renders user-supplied environment variables
+    set:
+      env:
+        HTTP_PROXY: http://proxy.example.com:3128
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HTTP_PROXY
+            value: "http://proxy.example.com:3128"
+        template: templates/deployment.yaml
+
+  - it: mounts a credentials secret volume when configured
+    set:
+      config:
+        credentialsSecret: topograph-creds
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: credentials
+            secret:
+              secretName: topograph-creds
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: credentials
+            mountPath: /etc/topograph/credentials
+            readOnly: true
+        template: templates/deployment.yaml
+
+  - it: propagates pod metadata, scheduling, and image pull secrets
+    set:
+      podAnnotations:
+        prometheus.io/scrape: "true"
+      podLabels:
+        team: platform
+      imagePullSecrets:
+        - name: ghcr-creds
+      nodeSelector:
+        disktype: ssd
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: topograph
+          effect: NoSchedule
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["prometheus.io/scrape"]
+          value: "true"
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.metadata.labels["team"]
+          value: platform
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.imagePullSecrets
+          content:
+            name: ghcr-creds
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.nodeSelector.disktype
+          value: ssd
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: dedicated
+            operator: Equal
+            value: topograph
+            effect: NoSchedule
+        template: templates/deployment.yaml
+
+  - it: honors an explicit image tag and pull policy
+    set:
+      image:
+        repository: example.com/topograph
+        tag: v9.9.9
+        pullPolicy: Always
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: example.com/topograph:v9.9.9
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+        template: templates/deployment.yaml

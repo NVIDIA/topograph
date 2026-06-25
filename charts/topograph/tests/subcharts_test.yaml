@@ -18,13 +18,28 @@ tests:
           path: spec.replicas
           value: 2
 
-  - it: node-observer wait init container image is configurable
+  - it: node-observer wait init container polls the topograph healthz endpoint
     templates:
       - charts/node-observer/templates/deployment.yaml
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].name
           value: wait
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: "http://chart-ci\\.topograph\\.svc\\.cluster\\.local:49021/healthz"
+
+  - it: node-observer image tag falls back to the chart appVersion when empty
+    templates:
+      - charts/node-observer/templates/deployment.yaml
+    set:
+      node-observer:
+        image:
+          tag: ""
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: "^ghcr.io/nvidia/topograph:v[0-9]+\\.[0-9]+\\.[0-9]+$"
 
   - it: node-data-broker renders the init container by default
     templates:
@@ -35,6 +50,46 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[0].name
           value: init-node-labels
+
+  - it: node-data-broker init container passes the provider and NODE_NAME
+    templates:
+      - charts/node-data-broker/templates/daemonset.yaml
+    set:
+      global:
+        provider:
+          name: infiniband-k8s
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].args
+          content: --provider=infiniband-k8s
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+
+  - it: node-data-broker init container forwards the GPU clique label flag and extra args
+    templates:
+      - charts/node-data-broker/templates/daemonset.yaml
+    set:
+      global:
+        provider:
+          name: infiniband-k8s
+          params:
+            useGpuCliqueLabel: true
+      node-data-broker:
+        initc:
+          extraArgs:
+            - foo=bar
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].args
+          content: --set=useGpuCliqueLabel=true
+      - contains:
+          path: spec.template.spec.initContainers[0].args
+          content: --set=foo=bar
 
   - it: node-data-broker initc.enabled=false omits the init container
     templates:
