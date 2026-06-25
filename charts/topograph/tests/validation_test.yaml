@@ -1,0 +1,54 @@
+suite: values validation
+# topograph.validation is invoked from templates/deployment.yaml, so failures
+# surface when that template is rendered.
+templates:
+  - templates/deployment.yaml
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: rejects ingress and gatewayAPI enabled together
+    set:
+      ingress:
+        enabled: true
+      gatewayAPI:
+        enabled: true
+        parentRefs:
+          - name: gw
+    asserts:
+      - failedTemplate:
+          errorMessage: "ingress.enabled and gatewayAPI.enabled are mutually exclusive; deploying both routing resources against the same Service is almost always a misconfiguration. Pick one."
+
+  - it: rejects gatewayAPI enabled without parentRefs
+    set:
+      gatewayAPI:
+        enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "gatewayAPI.enabled=true requires at least one entry in gatewayAPI.parentRefs referencing the existing Gateway resource this HTTPRoute should attach to. See charts/topograph/values.k8s.gateway-api-example.yaml for a complete example."
+
+  - it: rejects GCP service account keys and workload identity federation together
+    set:
+      global:
+        provider:
+          name: gcp
+          params:
+            serviceAccountKeysSecret: keys
+            workloadIdentityFederation:
+              credentialsConfigmap: cm
+              audience: aud
+    asserts:
+      - failedTemplate:
+          errorMessage: "serviceAccountKeysSecret and workloadIdentityFederation in global.provider.params are mutually exclusive"
+
+  - it: rejects incomplete GCP workload identity federation config
+    set:
+      global:
+        provider:
+          name: gcp
+          params:
+            workloadIdentityFederation:
+              audience: aud
+    asserts:
+      - failedTemplate:
+          errorMessage: "workloadIdentityFederation requires both credentialsConfigmap and audience"

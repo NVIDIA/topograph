@@ -1,0 +1,25 @@
+# Helm chart tests: lints the umbrella chart and runs the helm-unittest suites
+# under charts/topograph/tests/ (assertions + full-render snapshots).
+
+name: Chart Test
+
+on:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
+
+jobs:
+  chart-test:
+    runs-on: linux-amd64-cpu8
+    timeout-minutes: 5
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v5
+      with:
+        version: v4.1.1
+
+    - name: Helm chart tests
+      run: make chart-test

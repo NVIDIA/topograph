@@ -50,16 +50,31 @@ test:
 	@echo running tests
 	go test -coverprofile=coverage.out -covermode=atomic -race ./...
 
-# Helm 3.10+ required. Runs scripts/chart-test.sh (umbrella goldens, subchart smoke checks,
-# validation.tpl cases).
-.PHONY: chart-test
-chart-test:
-	scripts/chart-test.sh
+HELM_BIN ?= helm
+HELM_UNITTEST_VERSION ?= v1.1.1
 
-# Rewrite tests/charts/*.golden.yaml (review before commit).
-.PHONY: chart-test-update-golden
-chart-test-update-golden:
-	CHART_TEST_UPDATE_GOLDEN=1 scripts/chart-test.sh
+# Install the helm-unittest plugin if it is not already present. --verify=false
+# is required when installing from the git repo under Helm 4 (no webhook GPG
+# verification); it is harmless under Helm 3.
+.PHONY: helm-unittest-plugin
+helm-unittest-plugin:
+	@if ! $(HELM_BIN) plugin list 2>/dev/null | grep -qE '^unittest'; then \
+	  echo "Installing helm-unittest plugin $(HELM_UNITTEST_VERSION)..."; \
+	  $(HELM_BIN) plugin install https://github.com/helm-unittest/helm-unittest.git --version $(HELM_UNITTEST_VERSION) --verify=false; \
+	fi
+
+# Lint the umbrella chart and run the helm-unittest suites under
+# charts/topograph/tests/ (assertions + full-render snapshots).
+.PHONY: chart-test
+chart-test: helm-unittest-plugin
+	$(HELM_BIN) lint charts/topograph
+	$(HELM_BIN) unittest charts/topograph
+
+# Refresh the helm-unittest snapshots under charts/topograph/tests/__snapshot__/
+# after intentional template or values changes (review before commit).
+.PHONY: chart-test-update-snapshot
+chart-test-update-snapshot: helm-unittest-plugin
+	$(HELM_BIN) unittest -u charts/topograph
 
 .PHONY: fmt
 fmt:

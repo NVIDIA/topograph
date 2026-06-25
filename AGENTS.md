@@ -39,10 +39,9 @@ pkg/
   test/               # Cross-package test helpers
 internal/             # Shared utilities not part of the public API
   cluset, component, config, exec, files, httperr, httpreq, k8s, version
-charts/topograph/     # Helm chart (with node-data-broker subchart)
+charts/topograph/     # Helm chart (with node-data-broker subchart); tests/ holds the helm-unittest suites + snapshots
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
 tests/models/         # YAML simulation fixtures
-tests/charts/         # Helm golden outputs for chart values fixtures
 config/               # Sample topograph-config.yaml
 scripts/              # Build scripts (deb, rpm, SSL, clean)
 localdev/             # Developer-local workspace — not tracked; personal scratch files
@@ -65,6 +64,7 @@ These structures propagate across every provider and engine. Changing them in a 
 - **Go 1.25.9** (see `go.mod`) — newer minor versions are fine; older will not build
 - **make**
 - **golangci-lint** — `brew install golangci-lint` or via `go install`
+- **helm 3.10+ or 4.x** — required for `make chart-test`; the `helm-unittest` plugin is installed automatically by the target (`brew install helm`). CI pins helm `v4.1.1` in `.github/workflows/chart-test.yaml`.
 - **docker** — only for container image builds and the IB variant
 
 ### Clone and build
@@ -87,8 +87,8 @@ make fmt        # go fmt ./...
 make vet        # go vet ./...
 make lint       # golangci-lint run (only flags new issues vs. main)
 make test       # go test -race -coverprofile=coverage.out ./...
-make chart-test                 # helm chart smoke + golden tests (see scripts/chart-test.sh)
-make chart-test-update-golden   # refresh tests/charts/*.golden.yaml (review before commit)
+make chart-test                  # helm lint + helm-unittest suites (charts/topograph/tests/)
+make chart-test-update-snapshot  # refresh helm-unittest snapshots (review before commit)
 make coverage   # human-readable per-package summary
 ```
 
@@ -104,7 +104,8 @@ Coverage checks run on pull requests. A drop below target with no matching uplif
 
 ### CI workflows
 
-- `.github/workflows/go.yml` — build, test, lint, and Helm chart tests (`make chart-test`) on every push and PR
+- `.github/workflows/go.yml` — build, test, and lint on every push and PR
+- `.github/workflows/chart-test.yaml` — Helm chart lint + helm-unittest suites (`make chart-test`) on every push and PR
 - `.github/workflows/docker.yml` — container image build (manual trigger)
 - `.github/workflows/docker-ib.yml` — InfiniBand-variant container (manual trigger)
 - `.github/workflows/helm-release.yaml` — Helm chart release (manual trigger)
