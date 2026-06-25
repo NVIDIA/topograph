@@ -44,6 +44,29 @@ tests:
           value: registry.example.com/topograph:v1.2.3
         template: templates/deployment.yaml
 
+  - it: injects a fully custom image from a private registry
+    set:
+      image:
+        repository: private.registry.io/team/topograph
+        tag: 2024.10.1-rc3
+        pullPolicy: Always
+      imagePullSecrets:
+        - name: private-registry
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: private.registry.io/team/topograph:2024.10.1-rc3
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.imagePullSecrets
+          content:
+            name: private-registry
+        template: templates/deployment.yaml
+
   - it: GCP workload identity federation wires the credentials env and volumes
     set:
       global:
