@@ -6,7 +6,7 @@ metadata:
   name: chart-ci-node-data-broker
   namespace: topograph
   labels:
-    helm.sh/chart: node-data-broker-0.4.1
+    helm.sh/chart: node-data-broker-0.4.0
     app.kubernetes.io/name: node-data-broker
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -20,7 +20,7 @@ metadata:
   name: chart-ci-node-observer
   namespace: topograph
   labels:
-    helm.sh/chart: node-observer-0.4.1
+    helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -34,7 +34,7 @@ metadata:
   name: chart-ci-topograph
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.1
+    helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -48,7 +48,7 @@ metadata:
   name: chart-ci-node-observer
   namespace: topograph
   labels:
-    helm.sh/chart: node-observer-0.4.1
+    helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -73,7 +73,7 @@ metadata:
   name: chart-ci-topograph
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.1
+    helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -176,7 +176,7 @@ metadata:
   name: chart-ci-topograph
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.1
+    helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -199,7 +199,7 @@ metadata:
   name: chart-ci-node-data-broker
   namespace: topograph
   labels:
-    helm.sh/chart: node-data-broker-0.4.1
+    helm.sh/chart: node-data-broker-0.4.0
     app.kubernetes.io/name: node-data-broker
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -212,7 +212,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: node-data-broker-0.4.1
+        helm.sh/chart: node-data-broker-0.4.0
         app.kubernetes.io/name: node-data-broker
         app.kubernetes.io/instance: chart-ci
         app.kubernetes.io/version: "v0.4.0"
@@ -275,7 +275,7 @@ metadata:
   name: chart-ci-node-observer
   namespace: topograph
   labels:
-    helm.sh/chart: node-observer-0.4.1
+    helm.sh/chart: node-observer-0.4.0
     app.kubernetes.io/name: node-observer
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -289,9 +289,9 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 9bb552d279de117807b83da16992a99f358eecceaf0124f6bbd1d1ea276256e0
+        checksum/config: 8bd2c42b39a1e2e6c03756fc260e4c7f8f7f87b1f52230c15776613c3981a48f
       labels:
-        helm.sh/chart: node-observer-0.4.1
+        helm.sh/chart: node-observer-0.4.0
         app.kubernetes.io/name: node-observer
         app.kubernetes.io/instance: chart-ci
         app.kubernetes.io/version: "v0.4.0"
@@ -346,7 +346,7 @@ metadata:
   name: chart-ci-topograph
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.1
+    helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -360,9 +360,9 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 5472806ffb6403e89c3be43f56a0076db15134aecd039e4ffe281a76c2333792
+        checksum/config: 6615a1097d9fd3e7ef47d6aa0548012d7f5c049090edbfb691e12e23b64ae573
       labels:
-        helm.sh/chart: topograph-0.4.1
+        helm.sh/chart: topograph-0.4.0
         app.kubernetes.io/name: topograph
         app.kubernetes.io/instance: chart-ci
         app.kubernetes.io/version: "v0.4.0"
@@ -421,7 +421,7 @@ metadata:
   name: "chart-ci-topograph-test-healthz"
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.1
+    helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
@@ -453,7 +453,7 @@ metadata:
   name: "chart-ci-topograph-test-metrics"
   namespace: topograph
   labels:
-    helm.sh/chart: topograph-0.4.1
+    helm.sh/chart: topograph-0.4.0
     app.kubernetes.io/name: topograph
     app.kubernetes.io/instance: chart-ci
     app.kubernetes.io/version: "v0.4.0"
