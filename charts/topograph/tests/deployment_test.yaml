@@ -20,13 +20,28 @@ tests:
         template: templates/deployment.yaml
 
   - it: image tag falls back to the chart appVersion when empty
+    chart:
+      appVersion: v1.2.3
     set:
       image:
         tag: ""
     asserts:
-      - matchRegex:
+      - equal:
           path: spec.template.spec.containers[0].image
-          pattern: "^ghcr.io/nvidia/topograph:v[0-9]+\\.[0-9]+\\.[0-9]+$"
+          value: ghcr.io/nvidia/topograph:v1.2.3
+        template: templates/deployment.yaml
+
+  - it: a custom repository still derives its tag from the appVersion
+    chart:
+      appVersion: v1.2.3
+    set:
+      image:
+        repository: registry.example.com/topograph
+        tag: ""
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.example.com/topograph:v1.2.3
         template: templates/deployment.yaml
 
   - it: GCP workload identity federation wires the credentials env and volumes
@@ -216,7 +231,9 @@ tests:
             effect: NoSchedule
         template: templates/deployment.yaml
 
-  - it: honors an explicit image tag and pull policy
+  - it: an explicit image tag overrides the appVersion, with its pull policy
+    chart:
+      appVersion: v1.2.3
     set:
       image:
         repository: example.com/topograph

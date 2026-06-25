@@ -5,6 +5,14 @@ suite: umbrella full-render snapshots
 release:
   name: chart-ci
   namespace: topograph
+# Pin the chart version/appVersion so the snapshots are stable across release
+# bumps. The image tag derives from appVersion, so without this every version
+# bump would rewrite the image references and helm.sh/chart labels in all 153
+# snapshots. Tag both to a fixed sentinel; bumping the real chart version no
+# longer churns these fixtures.
+chart:
+  version: 0.0.0
+  appVersion: v0.0.0
 capabilities:
   majorVersion: "1"
   minorVersion: "30"
