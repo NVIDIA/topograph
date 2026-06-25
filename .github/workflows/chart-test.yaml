@@ -18,6 +18,8 @@ jobs:
 
     - name: Set up Helm
       uses: azure/setup-helm@v5
+      with:
+        version: v4.1.1
 
     - name: Helm chart tests
       run: make chart-test
