@@ -502,6 +502,76 @@ func slurmTopologiesForDynamicTest(plugins []string) map[string]*Topology {
 	return out
 }
 
+func TestGetPartitionNodes(t *testing.T) {
+	const namespace = "slurm"
+
+	// A controller pod that is not running, so getPartitionNodes never reaches
+	// ExecInPod and exercises the no-running-pods path deterministically.
+	pendingControllerClient := func() *fake.Clientset {
+		return fake.NewSimpleClientset(&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "slurm-controller-0",
+				Namespace: namespace,
+				Labels:    map[string]string{slurmComponentLabelKey: slurmComponentController},
+			},
+			Status: corev1.PodStatus{Phase: corev1.PodPending},
+		})
+	}
+
+	testCases := []struct {
+		name            string
+		useDynamicNodes bool
+		client          *fake.Clientset
+		params          []any
+		want            string
+		errMsg          string
+	}{
+		{
+			name:            "dynamic nodes short-circuits without listing pods",
+			useDynamicNodes: true,
+			client:          fake.NewSimpleClientset(),
+			params:          []any{namespace},
+			want:            dynamicShowPartitionNodes,
+		},
+		{
+			name:   "wrong parameter count",
+			client: fake.NewSimpleClientset(),
+			params: []any{namespace, "extra"},
+			errMsg: "expects a namespace as a parameter",
+		},
+		{
+			name:   "non-string parameter",
+			client: fake.NewSimpleClientset(),
+			params: []any{42},
+			errMsg: "expects a string parameter",
+		},
+		{
+			name:   "no running controller or login pods",
+			client: pendingControllerClient(),
+			params: []any{namespace},
+			errMsg: "no running controller or login pods found for partition discovery",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			eng := &SlinkyEngine{
+				client: tc.client,
+				params: &Params{Namespace: namespace, UseDynamicNodes: tc.useDynamicNodes},
+			}
+
+			got, err := eng.getPartitionNodes(context.Background(), "gpu", tc.params)
+			if tc.errMsg != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errMsg)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestGenerateDynamicNodesOutput(t *testing.T) {
 	slinkyPodSel := metav1.LabelSelector{MatchLabels: map[string]string{"app": "slinky"}}
 

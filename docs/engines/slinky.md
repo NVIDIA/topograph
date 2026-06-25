@@ -49,7 +49,7 @@ When per-partition topologies are configured, each entry may declare how its nod
 |---|---|
 | `nodes` | Explicit SLURM node list. Takes precedence over `podSelector`. |
 | `podSelector` | Kubernetes `LabelSelector` matching the slurmd pods in the partition. The engine lists pods in the engine's `namespace`, filters to `Ready` pods, and reads each pod's SLURM name from the `slurm.node.name` label (falling back to `pod.spec.hostname`). |
-| _neither_ | The engine falls back to running `scontrol show partition <name>` inside a login pod (legacy behavior). |
+| _neither_ | The engine falls back to running `scontrol show partition <name>` inside the controller pod, or a login pod when no controller pod is running (legacy behavior). The controller (`app.kubernetes.io/component: controller`) is always present; login pods are optional. |
 
 `nodes` and `podSelector` are mutually exclusive on the same entry; configuring both returns a validation error at engine load time.
 

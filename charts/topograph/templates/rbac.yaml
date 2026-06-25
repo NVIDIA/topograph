@@ -1,7 +1,8 @@
 {{- if .Values.serviceAccount.create -}}
 {{- /*
 pods/exec is needed by providers that exec inside pods, and by Slinky only for
-legacy partition discovery through `scontrol show partition` in a login pod.
+legacy partition discovery through `scontrol show partition` in the controller
+pod (falling back to a login pod when present).
 Slinky skips that path when dynamic nodes are enabled or when a topology entry
 already supplies nodes, a pod selector, or the default flat topology.
 */ -}}

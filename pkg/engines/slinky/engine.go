@@ -50,6 +50,13 @@ const (
 	ConfigUpdateModeSkeletonOnly = "skeleton-only"
 
 	dynamicShowPartitionNodes = "\tNodes=NONE"
+
+	// Slinky component labels used to locate a pod that can run
+	// `scontrol show partition`. The controller is always present; login pods
+	// are optional.
+	slurmComponentLabelKey   = "app.kubernetes.io/component"
+	slurmComponentController = "controller"
+	slurmComponentLogin      = "login"
 )
 
 type SlinkyEngine struct {
@@ -443,27 +450,33 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 		return "", fmt.Errorf("getPartitionNodes expects a string parameter")
 	}
 
-	labels := map[string]string{"app.kubernetes.io/component": "login"}
-	pods, err := k8s.GetPodsByLabels(ctx, eng.client, namespace, labels)
-	if err != nil {
-		return "", err
-	}
-
-	for _, pod := range pods.Items {
-		if pod.Status.Phase != corev1.PodRunning {
-			continue
-		}
-
-		cmd := []string{"scontrol", "show", "partition", partition}
-		buf, err := k8s.ExecInPod(ctx, eng.client, eng.config, pod.Name, pod.Namespace, cmd)
+	// A Slinky cluster always runs a controller (slurmctld) but login pods are
+	// optional, so prefer the controller for `scontrol show partition` and fall
+	// back to a login pod when one is present.
+	for _, component := range []string{slurmComponentController, slurmComponentLogin} {
+		labels := map[string]string{slurmComponentLabelKey: component}
+		pods, err := k8s.GetPodsByLabels(ctx, eng.client, namespace, labels)
 		if err != nil {
 			return "", err
 		}
 
-		return buf.String(), nil
+		for _, pod := range pods.Items {
+			if pod.Status.Phase != corev1.PodRunning {
+				continue
+			}
+
+			cmd := []string{"scontrol", "show", "partition", partition}
+			buf, err := k8s.ExecInPod(ctx, eng.client, eng.config, pod.Name, pod.Namespace, cmd)
+			if err != nil {
+				return "", err
+			}
+
+			return buf.String(), nil
+		}
 	}
 
-	return "", fmt.Errorf("no running pods with labels %v", labels)
+	return "", fmt.Errorf("no running %s or %s pods found for partition discovery in namespace %q",
+		slurmComponentController, slurmComponentLogin, namespace)
 }
 
 func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit) *httperr.Error {
