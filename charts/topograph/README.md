@@ -56,9 +56,21 @@ For the full list of values and their defaults, see [`values.yaml`](./values.yam
 - [`values.k8s.gateway-api-example.yaml`](./values.k8s.gateway-api-example.yaml) — exposing the Topograph API via Gateway API (`HTTPRoute`) instead of `Ingress`
 - [`values.slinky.tree-example.yaml`](./values.slinky.tree-example.yaml), [`values.slinky.block-example.yaml`](./values.slinky.block-example.yaml), [`values.slinky.partition-example.yaml`](./values.slinky.partition-example.yaml) — Slinky engine variants
 
+To use an existing Kubernetes ServiceAccount while still letting the chart create the required RBAC, disable only ServiceAccount creation and provide the existing account name:
+
+```yaml
+serviceAccount:
+  create: false
+  name: existing-topograph-sa
+rbac:
+  create: true
+```
+
+Set `rbac.create=false` only when ClusterRoles and ClusterRoleBindings are managed outside the chart.
+
 ### Values validation
 
-The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `global.provider.name` and `global.engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
+The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `global.provider.name` and `global.engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `serviceAccount`, `rbac`, `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
 
 The schema is deliberately narrow: per-provider credential requirements (which fields a given provider needs in its credentials map) are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because the credential field sets evolve with upstream provider changes and are hard to keep accurate in a schema.
 

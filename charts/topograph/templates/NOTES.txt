@@ -35,3 +35,12 @@
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
+{{- if not .Values.serviceAccount.create }}
+
+2. Topograph is configured to use the existing ServiceAccount "{{ include "topograph.serviceAccountName" . }}".
+{{- if .Values.rbac.create }}
+   RBAC resources were rendered and bound to that ServiceAccount.
+{{- else }}
+   RBAC rendering is disabled; make sure the ServiceAccount already has the required permissions.
+{{- end }}
+{{- end }}

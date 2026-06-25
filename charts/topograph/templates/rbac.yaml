@@ -1,4 +1,4 @@
-{{- if .Values.serviceAccount.create -}}
+{{- if .Values.rbac.create -}}
 {{- /*
 pods/exec is needed by providers that exec inside pods, and by Slinky only for
 legacy partition discovery through `scontrol show partition` in a login pod.
@@ -27,7 +27,7 @@ already supplies nodes, a pod selector, or the default flat topology.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "topograph.serviceAccountName" . }}
+  name: {{ include "topograph.rbacName" . }}
 rules:
 - apiGroups: [""]
   resources: [pods]
@@ -52,7 +52,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "topograph.serviceAccountName" . }}
+  name: {{ include "topograph.rbacName" . }}
 subjects:
 - kind: ServiceAccount
   name: {{ include "topograph.serviceAccountName" . }}
@@ -60,6 +60,6 @@ subjects:
   apiGroup: ""
 roleRef:
   kind: ClusterRole
-  name: {{ include "topograph.serviceAccountName" . }}
+  name: {{ include "topograph.rbacName" . }}
   apiGroup: ""
 {{- end }}
