@@ -31,6 +31,13 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Container image reference. The tag defaults to the chart appVersion when unset.
+*/}}
+{{- define "topograph.image" -}}
+{{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) -}}
+{{- end }}
+
+{{/*
 Common labels
 */}}
 {{- define "topograph.labels" -}}

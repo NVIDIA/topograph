@@ -31,6 +31,20 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Container image reference. The tag defaults to the chart appVersion when unset.
+*/}}
+{{- define "node-observer.image" -}}
+{{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) -}}
+{{- end }}
+
+{{/*
+Wait init container image reference.
+*/}}
+{{- define "node-observer.waitImage" -}}
+{{- printf "%s:%s" .Values.waitImage.repository .Values.waitImage.tag -}}
+{{- end }}
+
+{{/*
 Common labels
 */}}
 {{- define "node-observer.labels" -}}

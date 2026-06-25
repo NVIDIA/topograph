@@ -28,7 +28,7 @@ spec:
       {{- if .Values.initc.enabled }}
       initContainers:
         - name: init-node-labels
-          image: "{{ .Values.initc.image.repository }}:{{ .Values.initc.image.tag | default .Chart.AppVersion }}"
+          image: {{ include "node-data-broker.initImage" . | quote }}
           imagePullPolicy: {{ .Values.initc.image.pullPolicy }}
           command:
             - /usr/local/bin/node-data-broker-initc
@@ -65,7 +65,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: {{ include "node-data-broker.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.command }}
           command:
