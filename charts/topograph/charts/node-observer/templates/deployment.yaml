@@ -32,8 +32,8 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
         - name: wait
-          image: curlimages/curl:8.13.0
-          imagePullPolicy: IfNotPresent
+          image: {{ include "node-observer.waitImage" . | quote }}
+          imagePullPolicy: {{ .Values.waitImage.pullPolicy }}
           command:
             - sh
           args:
@@ -47,7 +47,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: {{ include "node-observer.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - /usr/local/bin/node-observer

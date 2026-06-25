@@ -31,6 +31,20 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Container image reference. The tag defaults to the chart appVersion when unset.
+*/}}
+{{- define "node-data-broker.image" -}}
+{{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) -}}
+{{- end }}
+
+{{/*
+Init container image reference. The tag defaults to the chart appVersion when unset.
+*/}}
+{{- define "node-data-broker.initImage" -}}
+{{- printf "%s:%s" .Values.initc.image.repository (.Values.initc.image.tag | default .Chart.AppVersion) -}}
+{{- end }}
+
+{{/*
 Common labels
 */}}
 {{- define "node-data-broker.labels" -}}
