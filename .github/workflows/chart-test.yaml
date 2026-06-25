@@ -4,11 +4,13 @@
 name: Chart Test
 
 on:
-  pull_request:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
 
 jobs:
   chart-test:
-    runs-on: ubuntu-latest
+    runs-on: linux-amd64-cpu8
     timeout-minutes: 5
     steps:
     - name: Checkout repository
