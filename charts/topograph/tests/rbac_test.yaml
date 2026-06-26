@@ -16,9 +16,34 @@ tests:
           of: ClusterRoleBinding
         documentIndex: 1
 
-  - it: is omitted entirely when serviceAccount.create is false
+  - it: still renders for an existing service account
     set:
       serviceAccount:
+        create: false
+        name: existing-topograph-sa
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph
+        documentIndex: 1
+      - equal:
+          path: roleRef.name
+          value: chart-ci-topograph
+        documentIndex: 1
+      - equal:
+          path: subjects[0].name
+          value: existing-topograph-sa
+        documentIndex: 1
+
+  - it: is omitted entirely when rbac.create is false
+    set:
+      rbac:
         create: false
     asserts:
       - hasDocuments:

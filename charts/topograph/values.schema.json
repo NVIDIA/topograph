@@ -98,6 +98,15 @@
         "name": { "type": "string" }
       }
     },
+    "rbac": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Create RBAC resources for the selected service account. Leave enabled when serviceAccount.create=false unless RBAC is managed outside the chart."
+        }
+      }
+    },
     "verbosity": {
       "type": "integer",
       "minimum": 0,

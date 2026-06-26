@@ -74,3 +74,10 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Create the name of the RBAC resources.
+*/}}
+{{- define "node-observer.rbacName" -}}
+{{- include "node-observer.fullname" . }}
+{{- end }}

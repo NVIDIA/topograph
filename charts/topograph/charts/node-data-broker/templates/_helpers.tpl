@@ -76,6 +76,13 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Create the name of the RBAC resources.
+*/}}
+{{- define "node-data-broker.rbacName" -}}
+{{- include "node-data-broker.fullname" . }}
+{{- end }}
+
+{{/*
 Create the name of a generated ConfigMap mount.
 */}}
 {{- define "node-data-broker.configMapMountName" -}}

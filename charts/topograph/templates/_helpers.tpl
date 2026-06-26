@@ -69,6 +69,13 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Create the name of the RBAC resources.
+*/}}
+{{- define "topograph.rbacName" -}}
+{{- include "topograph.fullname" . }}
+{{- end }}
+
+{{/*
 Create topograph service URL
 */}}
 {{- define "topograph.url" -}}

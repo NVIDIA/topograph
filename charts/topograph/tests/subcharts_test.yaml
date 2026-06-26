@@ -29,6 +29,19 @@ tests:
           path: spec.template.spec.initContainers[0].args[1]
           pattern: "http://chart-ci\\.topograph\\.svc\\.cluster\\.local:49021/healthz"
 
+  - it: node-observer uses an existing service account when creation is disabled
+    templates:
+      - charts/node-observer/templates/deployment.yaml
+    set:
+      node-observer:
+        serviceAccount:
+          create: false
+          name: existing-node-observer-sa
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: existing-node-observer-sa
+
   - it: node-observer image tag falls back to the chart appVersion when empty
     templates:
       - charts/node-observer/templates/deployment.yaml
@@ -50,6 +63,19 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[0].name
           value: init-node-labels
+
+  - it: node-data-broker uses an existing service account when creation is disabled
+    templates:
+      - charts/node-data-broker/templates/daemonset.yaml
+    set:
+      node-data-broker:
+        serviceAccount:
+          create: false
+          name: existing-node-data-broker-sa
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: existing-node-data-broker-sa
 
   - it: node-data-broker init container passes the provider and NODE_NAME
     templates:

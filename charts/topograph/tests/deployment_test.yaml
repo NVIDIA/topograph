@@ -135,6 +135,17 @@ tests:
           path: spec.template.metadata.annotations["checksum/config"]
         template: templates/deployment.yaml
 
+  - it: uses an existing service account when creation is disabled
+    set:
+      serviceAccount:
+        create: false
+        name: existing-topograph-sa
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: existing-topograph-sa
+        template: templates/deployment.yaml
+
   - it: exposes the container port from the global service port
     set:
       global:
