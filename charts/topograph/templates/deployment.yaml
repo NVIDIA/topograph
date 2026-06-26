@@ -22,9 +22,10 @@ spec:
         {{- end }}
       labels:
         {{- include "topograph.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
+        {{- with omit .Values.podLabels "app.kubernetes.io/component" }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        app.kubernetes.io/component: api-server
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

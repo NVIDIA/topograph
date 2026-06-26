@@ -38,13 +38,6 @@ Container image reference. The tag defaults to the chart appVersion when unset.
 {{- end }}
 
 {{/*
-Wait init container image reference.
-*/}}
-{{- define "node-observer.waitImage" -}}
-{{- printf "%s:%s" .Values.waitImage.repository .Values.waitImage.tag -}}
-{{- end }}
-
-{{/*
 Common labels
 */}}
 {{- define "node-observer.labels" -}}

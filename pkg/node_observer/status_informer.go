@@ -27,16 +27,19 @@ type StatusInformer struct {
 	client      kubernetes.Interface
 	nodeFactory informers.SharedInformerFactory
 	podFactory  informers.SharedInformerFactory
+	apiFactory  informers.SharedInformerFactory
 	reqFunc     httpreq.RequestFunc
 	reqExecFunc func(httpreq.RequestFunc, bool) ([]byte, *httperr.Error)
 	retryDelay  time.Duration
 	timer       *time.Timer
 	queue       chan struct{}
 	stopCh      chan struct{}
+
+	apiServerContainerName string
 }
 
-func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, retryDelay time.Duration, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
-	klog.InfoS("Configuring status informer", "trigger", trigger)
+func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, apiServer *APIServer, retryDelay time.Duration, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
+	klog.InfoS("Configuring status informer", "trigger", trigger, "apiServer", apiServer)
 
 	statusInformer := &StatusInformer{
 		ctx:         ctx,
@@ -48,7 +51,7 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 		stopCh:      make(chan struct{}),
 	}
 
-	if len(trigger.NodeSelector) != 0 {
+	if trigger != nil && len(trigger.NodeSelector) != 0 {
 		listOptionsFunc := func(options *metav1.ListOptions) {
 			options.LabelSelector = labels.Set(trigger.NodeSelector).AsSelector().String()
 		}
@@ -56,20 +59,44 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 			client, 0, informers.WithTweakListOptions(listOptionsFunc))
 	}
 
-	if trigger.PodSelector != nil {
-		selector, err := metav1.LabelSelectorAsSelector(trigger.PodSelector)
+	if trigger != nil && trigger.PodSelector != nil {
+		podFactory, err := newPodFactory(client, trigger.PodSelector, "")
 		if err != nil {
 			return nil, err
 		}
+		statusInformer.podFactory = podFactory
+	}
 
-		listOptionsFunc := func(options *metav1.ListOptions) {
-			options.LabelSelector = selector.String()
+	if apiServer != nil && apiServer.PodSelector != nil {
+		podFactory, err := newPodFactory(client, apiServer.PodSelector, apiServer.Namespace)
+		if err != nil {
+			return nil, err
 		}
-		statusInformer.podFactory = informers.NewSharedInformerFactoryWithOptions(
-			client, 0, informers.WithTweakListOptions(listOptionsFunc))
+		statusInformer.apiFactory = podFactory
+		statusInformer.apiServerContainerName = apiServer.ContainerName
 	}
 
 	return statusInformer, nil
+}
+
+func newPodFactory(client kubernetes.Interface, selector *metav1.LabelSelector, namespace string) (informers.SharedInformerFactory, error) {
+	s, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	listOptionsFunc := func(options *metav1.ListOptions) {
+		options.LabelSelector = s.String()
+	}
+
+	options := []informers.SharedInformerOption{
+		informers.WithTweakListOptions(listOptionsFunc),
+	}
+	if namespace != "" {
+		options = append(options, informers.WithNamespace(namespace))
+	}
+
+	return informers.NewSharedInformerFactoryWithOptions(client, 0, options...), nil
 }
 
 func (s *StatusInformer) Start() error {
@@ -80,6 +107,10 @@ func (s *StatusInformer) Start() error {
 	}
 
 	if err := s.startPodInformer(); err != nil {
+		return err
+	}
+
+	if err := s.startAPIServerInformer(); err != nil {
 		return err
 	}
 
@@ -95,6 +126,9 @@ func (s *StatusInformer) Stop(_ error) {
 	}
 	if s.podFactory != nil {
 		s.podFactory.Shutdown()
+	}
+	if s.apiFactory != nil {
+		s.apiFactory.Shutdown()
 	}
 	close(s.stopCh)
 }
@@ -128,6 +162,44 @@ func (s *StatusInformer) startNodeInformer() error {
 		}
 		s.nodeFactory.Start(s.ctx.Done())
 		s.nodeFactory.WaitForCacheSync(s.ctx.Done())
+	}
+	return nil
+}
+
+func (s *StatusInformer) startAPIServerInformer() error {
+	if s.apiFactory != nil {
+		informer := s.apiFactory.Core().V1().Pods().Informer()
+		_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj any) {
+				pod, ok := obj.(*corev1.Pod)
+				if !ok {
+					return
+				}
+				if isAPIServerPodReady(pod, s.apiServerContainerName) {
+					klog.V(4).Infof("Informer added ready API server pod %s/%s", pod.Namespace, pod.Name)
+					s.sendRequest()
+				}
+			},
+			UpdateFunc: func(oldObj, newObj any) {
+				oldPod, ok := oldObj.(*corev1.Pod)
+				if !ok {
+					return
+				}
+				newPod, ok := newObj.(*corev1.Pod)
+				if !ok {
+					return
+				}
+				if shouldRequestOnAPIServerUpdate(oldPod, newPod, s.apiServerContainerName) {
+					klog.V(4).Infof("Informer updated ready API server pod %s/%s", newPod.Namespace, newPod.Name)
+					s.sendRequest()
+				}
+			},
+		})
+		if err != nil {
+			return err
+		}
+		s.apiFactory.Start(s.ctx.Done())
+		s.apiFactory.WaitForCacheSync(s.ctx.Done())
 	}
 	return nil
 }
@@ -211,6 +283,56 @@ func (s *StatusInformer) run() {
 			s.process()
 		}
 	}
+}
+
+func shouldRequestOnAPIServerUpdate(oldPod, newPod *corev1.Pod, containerName string) bool {
+	if !isAPIServerPodReady(newPod, containerName) {
+		return false
+	}
+	if !isAPIServerPodReady(oldPod, containerName) {
+		return true
+	}
+
+	oldRestarts, oldFound := containerRestartCount(oldPod, containerName)
+	newRestarts, newFound := containerRestartCount(newPod, containerName)
+	return oldFound && newFound && newRestarts > oldRestarts
+}
+
+func isAPIServerPodReady(pod *corev1.Pod, containerName string) bool {
+	return k8s.IsPodReady(pod) && isContainerRunningAndReady(pod, containerName)
+}
+
+func isContainerRunningAndReady(pod *corev1.Pod, containerName string) bool {
+	found := false
+	for _, status := range pod.Status.ContainerStatuses {
+		if containerName != "" && status.Name != containerName {
+			continue
+		}
+		found = true
+		if status.Ready && status.State.Running != nil {
+			return true
+		}
+	}
+	return containerName == "" && !found
+}
+
+func containerRestartCount(pod *corev1.Pod, containerName string) (int32, bool) {
+	if containerName != "" {
+		for _, status := range pod.Status.ContainerStatuses {
+			if status.Name == containerName {
+				return status.RestartCount, true
+			}
+		}
+		return 0, false
+	}
+
+	var restarts int32
+	found := false
+	for _, status := range pod.Status.ContainerStatuses {
+		restarts += status.RestartCount
+		found = true
+	}
+	return restarts, found
 }
 
 func (s *StatusInformer) process() {

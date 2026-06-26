@@ -18,16 +18,26 @@ tests:
           path: spec.replicas
           value: 2
 
-  - it: node-observer wait init container polls the topograph healthz endpoint
+  - it: node-observer monitors the topograph API pod from the main container
     templates:
       - charts/node-observer/templates/deployment.yaml
+      - charts/node-observer/templates/configmap.yml
     asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].name
-          value: wait
+      - notExists:
+          path: spec.template.spec.initContainers
+        template: charts/node-observer/templates/deployment.yaml
       - matchRegex:
-          path: spec.template.spec.initContainers[0].args[1]
-          pattern: "http://chart-ci\\.topograph\\.svc\\.cluster\\.local:49021/healthz"
+          path: data["node-observer-config.yaml"]
+          pattern: "apiServer:"
+        template: charts/node-observer/templates/configmap.yml
+      - matchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "containerName: topograph"
+        template: charts/node-observer/templates/configmap.yml
+      - matchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "app.kubernetes.io/component: api-server"
+        template: charts/node-observer/templates/configmap.yml
 
   - it: node-observer uses an existing service account when creation is disabled
     templates:

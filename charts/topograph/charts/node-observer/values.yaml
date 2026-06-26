@@ -10,12 +10,6 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-# Image for the init container that waits for the topograph API to be ready.
-waitImage:
-  repository: curlimages/curl
-  pullPolicy: IfNotPresent
-  tag: 8.13.0
-
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -38,6 +32,13 @@ rbac:
 verbosity: 3
 
 topograph:
+  # Watches the Topograph API pod and triggers topology generation when the
+  # API becomes Ready after startup or a container restart.
+  apiServer:
+    enabled: true
+    # Leave podSelector empty to use the chart's release-scoped API pod labels.
+    podSelector: {}
+    containerName: topograph
   # Initiate topology request based on changes in selected nodes and pods
   trigger:
 #    nodeSelector: {}

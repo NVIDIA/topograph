@@ -100,7 +100,7 @@ If you run a topograph image variant without busybox `wget` (for example, the IB
 The chart depends on two subcharts, both managed as local file dependencies:
 
 - **`node-data-broker`** — DaemonSet that collects per-node attributes (NVLink clique IDs, etc.) as node annotations for the Kubernetes engine
-- **`node-observer`** — watches node status changes and triggers topology regeneration
+- **`node-observer`** — watches configured node/pod changes and Topograph API readiness, then triggers topology regeneration
 
 Both are installed together when you install this chart. Their values are accessible under the top-level keys `node-data-broker` and `node-observer` (enabled by default).
 

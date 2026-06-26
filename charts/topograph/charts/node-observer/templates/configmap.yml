@@ -12,5 +12,18 @@ data:
       {{- toYaml .Values.global.provider | nindent 6 }}
     engine:
       {{- toYaml .Values.global.engine | nindent 6 }}
+    {{- if .Values.topograph.apiServer.enabled }}
+    apiServer:
+      namespace: {{ .Release.Namespace }}
+      containerName: {{ .Values.topograph.apiServer.containerName | default "topograph" }}
+      podSelector:
+        {{- if .Values.topograph.apiServer.podSelector }}
+        {{- toYaml .Values.topograph.apiServer.podSelector | nindent 8 }}
+        {{- else }}
+        matchLabels:
+          app.kubernetes.io/component: api-server
+          app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- end }}
+    {{- end }}
     trigger:
       {{- toYaml .Values.topograph.trigger | nindent 6 }}

@@ -19,6 +19,13 @@ tests:
           value: 1
         template: templates/deployment.yaml
 
+  - it: labels the API server pod for node-observer monitoring
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: api-server
+        template: templates/deployment.yaml
+
   - it: image tag falls back to the chart appVersion when empty
     chart:
       appVersion: v1.2.3
