@@ -33,6 +33,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
 func TestGetParameters(t *testing.T) {
@@ -202,6 +203,24 @@ func TestGetParameters(t *testing.T) {
 				nodeListOpt: &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
+		{
+			name: "Case 10: use GPU clique label",
+			params: map[string]any{
+				topology.KeyNamespace:         "namespace",
+				topology.KeyPodSelector:       podSelector,
+				topology.KeyTopoConfigPath:    "path",
+				topology.KeyTopoConfigmapName: "name",
+				"useGpuCliqueLabel":           true,
+			},
+			ret: &Params{
+				Namespace:         "namespace",
+				PodSelector:       labelSelector,
+				ConfigPath:        "path",
+				ConfigMapName:     "name",
+				UseGPUCliqueLabel: true,
+				podListOpt:        &metav1.ListOptions{LabelSelector: "key=value"},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -278,6 +297,222 @@ func TestGetComputeInstances(t *testing.T) {
 				require.Equal(t, tc.cis, cis)
 			}
 		})
+	}
+}
+
+func TestWithGPUCliqueDomains(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	nodes := []*corev1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "k8s-node-0",
+				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-a"},
+				Annotations: map[string]string{topology.KeyNodeInstance: "instance-0"},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "k8s-node-1",
+				Labels:      map[string]string{topology.KeyNvidiaGPUClique: " clique-b "},
+				Annotations: map[string]string{topology.KeyNodeInstance: "instance-1"},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "k8s-node-no-instance",
+				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-c"},
+				Annotations: map[string]string{},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "k8s-node-no-pod",
+				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-d"},
+				Annotations: map[string]string{topology.KeyNodeInstance: "instance-3"},
+			},
+		},
+	}
+	for _, node := range nodes {
+		_, err := client.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	for _, pod := range []*corev1.Pod{
+		makeReadySlurmdPod("pod-0", "k8s-node-0", "slurm-0"),
+		makeReadySlurmdPod("pod-1", "k8s-node-1", "slurm-1"),
+		makeReadySlurmdPod("pod-no-instance", "k8s-node-no-instance", "slurm-no-instance"),
+	} {
+		_, err := client.CoreV1().Pods("test-ns").Create(ctx, pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	existingDomains := topology.NewDomainMap()
+	existingDomains.AddHost("provider-domain", "provider-instance", "provider-node")
+	graph := &topology.Graph{
+		Tiers:   &topology.Vertex{ID: "root"},
+		Domains: existingDomains,
+	}
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:  "test-ns",
+			podListOpt: &metav1.ListOptions{LabelSelector: "app=slinky"},
+		},
+	}
+
+	clusterNodes, httpErr := eng.getClusterNodes(ctx)
+	require.Nil(t, httpErr)
+	got, httpErr := withGPUCliqueDomains(graph, clusterNodes)
+	require.Nil(t, httpErr)
+	require.NotSame(t, graph, got)
+	require.Same(t, graph.Tiers, got.Tiers)
+
+	expectedDomains := topology.NewDomainMap()
+	expectedDomains.AddHost("clique-a", "instance-0", "slurm-0")
+	expectedDomains.AddHost("clique-b", "instance-1", "slurm-1")
+	require.Equal(t, expectedDomains, got.Domains)
+	require.Equal(t, existingDomains, graph.Domains)
+}
+
+func TestWithGPUCliqueDomainsNoMatchingNodes(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	_, err := client.CoreV1().Nodes().Create(ctx, &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "k8s-node-0",
+			Annotations: map[string]string{topology.KeyNodeInstance: "instance-0"},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	_, err = client.CoreV1().Pods("test-ns").Create(ctx, makeReadySlurmdPod("pod-0", "k8s-node-0", "slurm-0"), metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:  "test-ns",
+			podListOpt: &metav1.ListOptions{LabelSelector: "app=slinky"},
+		},
+	}
+
+	clusterNodes, httpErr := eng.getClusterNodes(ctx)
+	require.Nil(t, httpErr)
+	got, httpErr := withGPUCliqueDomains(&topology.Graph{}, clusterNodes)
+	require.Nil(t, got)
+	require.ErrorContains(t, httpErr, "useGpuCliqueLabel=true but no matching nodes found")
+}
+
+func TestGenerateOutputUsesGPUCliqueDomains(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	for _, node := range []*corev1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "k8s-node-0",
+				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-a"},
+				Annotations: map[string]string{topology.KeyNodeInstance: "instance-0"},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "k8s-node-1",
+				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-b"},
+				Annotations: map[string]string{topology.KeyNodeInstance: "instance-1"},
+			},
+		},
+	} {
+		_, err := client.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	for _, pod := range []*corev1.Pod{
+		makeReadySlurmdPod("pod-0", "k8s-node-0", "alpha"),
+		makeReadySlurmdPod("pod-1", "k8s-node-1", "beta"),
+	} {
+		_, err := client.CoreV1().Pods("test-ns").Create(ctx, pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	providerDomains := topology.NewDomainMap()
+	providerDomains.AddHost("provider-domain", "instance-0", "alpha")
+	providerDomains.AddHost("provider-domain", "instance-1", "beta")
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			BaseParams: slurm.BaseParams{
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{1},
+			},
+			Namespace:         "test-ns",
+			ConfigMapName:     "slurm-config",
+			ConfigPath:        "topology.conf",
+			UseGPUCliqueLabel: true,
+			podListOpt:        &metav1.ListOptions{LabelSelector: "app=slinky"},
+		},
+	}
+
+	result, httpErr := eng.GenerateOutput(ctx, &topology.Graph{Domains: providerDomains}, nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, []byte("OK\n"), result)
+
+	cm, err := client.CoreV1().ConfigMaps("test-ns").Get(ctx, "slurm-config", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, `# block001=clique-a
+BlockName=block001 Nodes=alpha
+# block002=clique-b
+BlockName=block002 Nodes=beta
+BlockSizes=1
+`, cm.Data["topology.conf"])
+}
+
+func TestUsesBlockTopology(t *testing.T) {
+	require.False(t, usesBlockTopology(nil))
+	require.False(t, usesBlockTopology(&translate.Config{Plugin: topology.TopologyTree}))
+	require.True(t, usesBlockTopology(&translate.Config{Plugin: topology.TopologyBlock}))
+	require.True(t, usesBlockTopology(&translate.Config{
+		Topologies: map[string]*translate.TopologySpec{
+			"block": {Plugin: topology.TopologyBlock},
+		},
+	}))
+	require.False(t, usesBlockTopology(&translate.Config{
+		Topologies: map[string]*translate.TopologySpec{
+			"flat": {Plugin: topology.TopologyFlat},
+			"nil":  nil,
+		},
+	}))
+}
+
+func makeReadySlurmdPod(name, nodeName, slurmName string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "test-ns",
+			Labels: map[string]string{
+				"app":                     "slinky",
+				topology.KeySlurmNodeName: slurmName,
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
+			Containers: []corev1.Container{
+				{Name: "test", Image: "test"},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
 	}
 }
 

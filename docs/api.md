@@ -92,6 +92,7 @@ Topograph exposes three endpoints for interacting with the service. Below are th
       - **nodeSelector**: (optional) Used in: [`k8s`, `slinky`]. A Kubernetes node label map that filters which nodes participate in topology generation.
       - **topologyConfigmapName**: Used in: [`slinky`]. The required name of the ConfigMap containing the topology config.
       - **useDynamicNodes**: (optional) Used in: [`slinky`]. If `true`, Kubernetes nodes matched by the Node Selector will be annotated with the topology spec.
+      - **useGpuCliqueLabel**: (optional) Used in: [`slinky`]. If `true`, `topology/block` domains are built from the GPU Operator's `nvidia.com/gpu.clique` node label instead of provider accelerator-domain data.
       - **configUpdateMode**: (optional) Used in: [`slinky`]. By default, the full topology YAML is written in the Slurm ConfigMap. `skeleton-only` overrides to include switches or blocks only (no node lines); `none` skips updating the topology key in the ConfigMap.
   - **nodes**: (optional) Supplies the cluster nodes used for topology generation as an array of regions mapping instance IDs to node names.
 

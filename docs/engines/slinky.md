@@ -76,6 +76,30 @@ global:
         clusterDefault: true                           # no podSelector, no nodes → scontrol fallback
 ```
 
+### Using `nvidia.com/gpu.clique` for block topology
+
+On MNNVL Kubernetes clusters, the NVIDIA GPU Operator can label nodes with `nvidia.com/gpu.clique`. When `useGpuCliqueLabel` is enabled, the Slinky engine uses that label as the source for `topology/block` domains instead of the accelerator domains returned by the provider. This is useful with cloud API providers whose `InstanceTopology.AcceleratorID` describes a broader provider domain than the GPU Operator clique label.
+
+The option only affects block topology. Tree topology still comes from the selected provider, and the engine still maps Kubernetes nodes to Slurm nodes through the configured slurmd pod selector.
+
+```yaml
+global:
+  engine:
+    name: slinky
+    params:
+      namespace: ns-slinky
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: compute
+      plugin: topology/block
+      blockSizes: [8, 16]
+      topologyConfigmapName: slurm-config
+      topologyConfigPath: topology.conf
+      useGpuCliqueLabel: true
+```
+
+If `useGpuCliqueLabel` is enabled for a block topology and no matching nodes have the `nvidia.com/gpu.clique` label plus the Topograph instance annotation, topology generation fails with a `502` error instead of falling back to provider accelerator domains.
+
 ## ConfigMap Annotations
 
 Slinky automatically adds metadata annotations to managed ConfigMaps for improved observability:

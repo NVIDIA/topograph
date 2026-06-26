@@ -50,6 +50,10 @@
               "type": "string",
               "description": "Scheduler-output engine. Must match a registered engine in pkg/registry/registry.go.",
               "enum": ["graph", "k8s", "slinky", "slurm"]
+            },
+            "params": {
+              "type": "object",
+              "description": "Engine-specific parameters. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
             }
           },
           "required": ["name"]
