@@ -516,6 +516,47 @@ func makeReadySlurmdPod(name, nodeName, slurmName string) *corev1.Pod {
 	}
 }
 
+func TestResolveSlurmNodeName(t *testing.T) {
+	testCases := []struct {
+		name string
+		pod  *corev1.Pod
+		want string
+	}{
+		{
+			name: "label takes precedence over hostname",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{topology.KeySlurmNodeName: "slurm-node-1"}},
+				Spec:       corev1.PodSpec{Hostname: "host-1"},
+			},
+			want: "slurm-node-1",
+		},
+		{
+			name: "present but empty label yields empty, no hostname fallback",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{topology.KeySlurmNodeName: ""}},
+				Spec:       corev1.PodSpec{Hostname: "host-1"},
+			},
+			want: "",
+		},
+		{
+			name: "falls back to hostname when label absent",
+			pod:  &corev1.Pod{Spec: corev1.PodSpec{Hostname: "host-1"}},
+			want: "host-1",
+		},
+		{
+			name: "empty when neither label nor hostname set",
+			pod:  &corev1.Pod{},
+			want: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, resolveSlurmNodeName(tc.pod))
+		})
+	}
+}
+
 // Helper for annotation checks
 func requireAnnotation(t *testing.T, annotations map[string]string, key, expected string) {
 	val, ok := annotations[key]

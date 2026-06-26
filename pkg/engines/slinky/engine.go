@@ -188,6 +188,15 @@ func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ any) ([]topo
 	return getComputeInstances(clusterNodes.nodes, clusterNodes.nodeMap)
 }
 
+// resolveSlurmNodeName resolves a slurmd pod's SLURM node name, preferring the
+// KeySlurmNodeName label and falling back to the pod's hostname.
+func resolveSlurmNodeName(pod *corev1.Pod) string {
+	if name, ok := pod.Labels[topology.KeySlurmNodeName]; ok {
+		return name
+	}
+	return pod.Spec.Hostname
+}
+
 // getClusterNodes returns the Kubernetes nodes selected for topology generation
 // and a map from Kubernetes node name to Slurm node name. The mapping is built
 // from Ready slurmd pods in the configured namespace and pod selector, using the
@@ -212,10 +221,7 @@ func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*clusterNodes, *h
 		if !k8s.IsPodReady(&pod) {
 			continue
 		}
-		host, ok := pod.Labels[topology.KeySlurmNodeName]
-		if !ok {
-			host = pod.Spec.Hostname
-		}
+		host := resolveSlurmNodeName(&pod)
 		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, host)
 		nodeMap[pod.Spec.NodeName] = host
 	}
@@ -513,10 +519,7 @@ func (eng *SlinkyEngine) listPartitionNodes(ctx context.Context, sel *metav1.Lab
 			klog.Warningf("topology: skipped not Ready pod %s/%s (selector %s)", pod.Namespace, pod.Name, s.String())
 			continue
 		}
-		host, ok := pod.Labels[topology.KeySlurmNodeName]
-		if !ok {
-			host = pod.Spec.Hostname
-		}
+		host := resolveSlurmNodeName(&pod)
 		if host == "" {
 			klog.Warningf("topology: cannot find Slurm hostname for pod %s/%s (selector %s)", pod.Namespace, pod.Name, s.String())
 			continue
