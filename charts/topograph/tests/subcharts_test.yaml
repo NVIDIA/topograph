@@ -26,6 +26,10 @@ tests:
       - notExists:
           path: spec.template.spec.initContainers
         template: charts/node-observer/templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].command[0]
+          value: /usr/local/bin/node-observer
+        template: charts/node-observer/templates/deployment.yaml
       - matchRegex:
           path: data["node-observer-config.yaml"]
           pattern: "apiServer:"
