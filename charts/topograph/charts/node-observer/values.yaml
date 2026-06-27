@@ -10,12 +10,6 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-# Image for the init container that waits for the topograph API to be ready.
-waitImage:
-  repository: curlimages/curl
-  pullPolicy: IfNotPresent
-  tag: 8.13.0
-
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""

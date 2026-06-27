@@ -170,19 +170,6 @@ renders default values.yaml:
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          initContainers:
-            - args:
-                - -c
-                - |
-                  until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
-                    echo "Waiting for topograph to start ..."
-                    sleep 2
-                  done
-              command:
-                - sh
-              image: curlimages/curl:8.13.0
-              imagePullPolicy: IfNotPresent
-              name: wait
           securityContext: {}
           serviceAccountName: chart-ci-node-observer
           volumes:
@@ -641,19 +628,6 @@ renders values.k8s.gateway-api-example.yaml:
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          initContainers:
-            - args:
-                - -c
-                - |
-                  until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
-                    echo "Waiting for topograph to start ..."
-                    sleep 2
-                  done
-              command:
-                - sh
-              image: curlimages/curl:8.13.0
-              imagePullPolicy: IfNotPresent
-              name: wait
           securityContext: {}
           serviceAccountName: chart-ci-node-observer
           volumes:
@@ -1141,19 +1115,6 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          initContainers:
-            - args:
-                - -c
-                - |
-                  until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
-                    echo "Waiting for topograph to start ..."
-                    sleep 2
-                  done
-              command:
-                - sh
-              image: curlimages/curl:8.13.0
-              imagePullPolicy: IfNotPresent
-              name: wait
           securityContext: {}
           serviceAccountName: chart-ci-node-observer
           volumes:
@@ -1635,19 +1596,6 @@ renders values.k8s.gcp-service-account-example.yaml:
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          initContainers:
-            - args:
-                - -c
-                - |
-                  until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
-                    echo "Waiting for topograph to start ..."
-                    sleep 2
-                  done
-              command:
-                - sh
-              image: curlimages/curl:8.13.0
-              imagePullPolicy: IfNotPresent
-              name: wait
           securityContext: {}
           serviceAccountName: chart-ci-node-observer
           volumes:
@@ -2132,19 +2080,6 @@ renders values.k8s.ib-example.yaml:
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          initContainers:
-            - args:
-                - -c
-                - |
-                  until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
-                    echo "Waiting for topograph to start ..."
-                    sleep 2
-                  done
-              command:
-                - sh
-              image: curlimages/curl:8.13.0
-              imagePullPolicy: IfNotPresent
-              name: wait
           securityContext: {}
           serviceAccountName: chart-ci-node-observer
           volumes:
@@ -2627,19 +2562,6 @@ renders values.slinky.block-example.yaml:
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          initContainers:
-            - args:
-                - -c
-                - |
-                  until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
-                    echo "Waiting for topograph to start ..."
-                    sleep 2
-                  done
-              command:
-                - sh
-              image: curlimages/curl:8.13.0
-              imagePullPolicy: IfNotPresent
-              name: wait
           nodeSelector:
             dedicated: user-workload
           securityContext: {}
@@ -3148,19 +3070,6 @@ renders values.slinky.partition-example.yaml:
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          initContainers:
-            - args:
-                - -c
-                - |
-                  until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
-                    echo "Waiting for topograph to start ..."
-                    sleep 2
-                  done
-              command:
-                - sh
-              image: curlimages/curl:8.13.0
-              imagePullPolicy: IfNotPresent
-              name: wait
           nodeSelector:
             dedicated: user-workload
           securityContext: {}
@@ -3644,19 +3553,6 @@ renders values.slinky.tree-example.yaml:
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          initContainers:
-            - args:
-                - -c
-                - |
-                  until curl -sf "http://chart-ci.topograph.svc.cluster.local:49021/healthz" ; do
-                    echo "Waiting for topograph to start ..."
-                    sleep 2
-                  done
-              command:
-                - sh
-              image: curlimages/curl:8.13.0
-              imagePullPolicy: IfNotPresent
-              name: wait
           nodeSelector:
             dedicated: user-workload
           securityContext: {}

@@ -18,16 +18,17 @@ tests:
           path: spec.replicas
           value: 2
 
-  - it: node-observer wait init container polls the topograph healthz endpoint
+  - it: node-observer runs as a single container without a wait init container
     templates:
       - charts/node-observer/templates/deployment.yaml
     asserts:
+      # The former `wait` init container was replaced by an in-process health
+      # check, so no init container should be rendered.
+      - notExists:
+          path: spec.template.spec.initContainers
       - equal:
-          path: spec.template.spec.initContainers[0].name
-          value: wait
-      - matchRegex:
-          path: spec.template.spec.initContainers[0].args[1]
-          pattern: "http://chart-ci\\.topograph\\.svc\\.cluster\\.local:49021/healthz"
+          path: spec.template.spec.containers[0].command[0]
+          value: /usr/local/bin/node-observer
 
   - it: node-observer uses an existing service account when creation is disabled
     templates:
