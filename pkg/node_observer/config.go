@@ -27,11 +27,15 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const defaultRetryDelay = 5 * time.Minute
+const (
+	defaultRetryDelay             = 5 * time.Minute
+	defaultAPIServerContainerName = "topograph"
+)
 
 type Config struct {
 	GenerateTopologyURL string            `yaml:"generateTopologyUrl"`
 	Trigger             Trigger           `yaml:"trigger"`
+	APIServer           APIServer         `yaml:"apiServer,omitempty"`
 	Provider            topology.Provider `yaml:"provider"`
 	Engine              topology.Engine   `yaml:"engine"`
 	RetryDelay          metav1.Duration   `yaml:"retryDelay"`
@@ -40,6 +44,12 @@ type Config struct {
 type Trigger struct {
 	NodeSelector map[string]string     `yaml:"nodeSelector,omitempty"`
 	PodSelector  *metav1.LabelSelector `yaml:"podSelector,omitempty"`
+}
+
+type APIServer struct {
+	Namespace     string                `yaml:"namespace,omitempty"`
+	PodSelector   *metav1.LabelSelector `yaml:"podSelector,omitempty"`
+	ContainerName string                `yaml:"containerName,omitempty"`
 }
 
 func NewConfigFromFile(fname string) (*Config, error) {
@@ -58,8 +68,12 @@ func NewConfigFromFile(fname string) (*Config, error) {
 		return nil, fmt.Errorf("must specify generateTopologyUrl")
 	}
 
-	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil {
-		return nil, fmt.Errorf("must specify nodeSelector and/or podSelector in trigger")
+	if cfg.APIServer.PodSelector != nil && len(cfg.APIServer.ContainerName) == 0 {
+		cfg.APIServer.ContainerName = defaultAPIServerContainerName
+	}
+
+	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil && cfg.APIServer.PodSelector == nil {
+		return nil, fmt.Errorf("must specify nodeSelector and/or podSelector in trigger, or apiServer.podSelector")
 	}
 
 	if cfg.RetryDelay.Duration == 0 {

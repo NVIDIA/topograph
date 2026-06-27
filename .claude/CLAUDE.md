@@ -9,7 +9,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 Topograph discovers the physical network topology of a cluster (NVLink domains, InfiniBand/Ethernet switch fabric, cloud rack topology) and exposes it to workload schedulers — Slurm, Kubernetes, and Slurm-on-Kubernetes (Slinky). It has five runtime components:
 
 - **API Server** — receives `/v1/generate` requests, aggregates bursts, dispatches to a Provider
-- **Node Observer** — Kubernetes-only; watches node status changes and triggers regeneration
+- **Node Observer** — Kubernetes-only; watches configured node/pod changes and Topograph API readiness, then triggers regeneration
 - **Node Data Broker** — Kubernetes-only DaemonSet; collects per-node attributes (NVLink clique IDs, etc.) as node annotations
 - **Provider** — per-environment adapter that queries a topology source (CSP API, NetQ, `ibnetdiscover`, DRA labels) and returns a canonical representation
 - **Engine** — per-scheduler translator that writes the canonical representation out as `topology.conf`, Kubernetes node labels, or a Slinky ConfigMap

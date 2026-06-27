@@ -15,6 +15,7 @@ import (
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/httpreq"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,10 +27,86 @@ func TestNewStatusInformer(t *testing.T) {
 			MatchLabels: map[string]string{"key": "val"},
 		},
 	}
-	informer, err := NewStatusInformer(ctx, nil, trigger, 0, nil)
+	apiServer := &APIServer{
+		Namespace: "topograph",
+		PodSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": "topograph"},
+		},
+		ContainerName: "topograph",
+	}
+	informer, err := NewStatusInformer(ctx, nil, trigger, apiServer, 0, nil)
 	require.NoError(t, err)
 	require.NotNil(t, informer.nodeFactory)
 	require.NotNil(t, informer.podFactory)
+	require.NotNil(t, informer.apiFactory)
+	require.Equal(t, "topograph", informer.apiServerContainerName)
+}
+
+func TestAPIServerPodUpdateTriggersOnReadyTransitionAndRestart(t *testing.T) {
+	testCases := []struct {
+		name      string
+		oldPod    *corev1.Pod
+		newPod    *corev1.Pod
+		triggered bool
+	}{
+		{
+			name:      "not ready after update",
+			oldPod:    makeAPIServerPod(false, makeContainerStatus("topograph", false, 0)),
+			newPod:    makeAPIServerPod(false, makeContainerStatus("topograph", false, 0)),
+			triggered: false,
+		},
+		{
+			name:      "becomes ready",
+			oldPod:    makeAPIServerPod(false, makeContainerStatus("topograph", false, 0)),
+			newPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 0)),
+			triggered: true,
+		},
+		{
+			name:      "target container restart count increases while ready",
+			oldPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 1)),
+			newPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 2)),
+			triggered: true,
+		},
+		{
+			name:      "ready update without restart",
+			oldPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 1)),
+			newPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 1)),
+			triggered: false,
+		},
+		{
+			name: "sidecar restart does not trigger",
+			oldPod: makeAPIServerPod(true,
+				makeContainerStatus("topograph", true, 1),
+				makeContainerStatus("sidecar", true, 1),
+			),
+			newPod: makeAPIServerPod(true,
+				makeContainerStatus("topograph", true, 1),
+				makeContainerStatus("sidecar", true, 2),
+			),
+			triggered: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.triggered, shouldRequestOnAPIServerUpdate(tc.oldPod, tc.newPod, "topograph"))
+		})
+	}
+}
+
+func TestAPIServerPodReadinessRequiresTargetContainer(t *testing.T) {
+	require.True(t, isAPIServerPodReady(
+		makeAPIServerPod(true, makeContainerStatus("topograph", true, 0)),
+		"topograph",
+	))
+	require.False(t, isAPIServerPodReady(
+		makeAPIServerPod(true, makeContainerStatus("topograph", false, 0)),
+		"topograph",
+	))
+	require.False(t, isAPIServerPodReady(
+		makeAPIServerPod(true, makeContainerStatus("sidecar", true, 0)),
+		"topograph",
+	))
 }
 
 func reqExecFunc(f httpreq.RequestFunc, _ bool) ([]byte, *httperr.Error) {
@@ -136,4 +213,38 @@ func TestRetryCancelledByNewRequest(t *testing.T) {
 	// - initial
 	// - immediate second (not waiting full retryDelay)
 	require.Equal(t, int32(2), atomic.LoadInt32(&calls))
+}
+
+func makeAPIServerPod(ready bool, statuses ...corev1.ContainerStatus) *corev1.Pod {
+	conditionStatus := corev1.ConditionFalse
+	if ready {
+		conditionStatus = corev1.ConditionTrue
+	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "topograph-abc",
+			Namespace: "topograph",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: conditionStatus,
+				},
+			},
+			ContainerStatuses: statuses,
+		},
+	}
+}
+
+func makeContainerStatus(name string, ready bool, restarts int32) corev1.ContainerStatus {
+	status := corev1.ContainerStatus{
+		Name:         name,
+		Ready:        ready,
+		RestartCount: restarts,
+	}
+	if ready {
+		status.State.Running = &corev1.ContainerStateRunning{}
+	}
+	return status
 }
