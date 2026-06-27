@@ -123,14 +123,20 @@ global:
     name: k8s
 ```
 
-When `useGpuCliqueLabel` is not set, the node-data-broker init container uses the GPU Operator device-plugin DaemonSet as before. To override the GPU Operator namespace or device plugin DaemonSet name (defaults: `gpu-operator` and `nvidia-device-plugin-daemonset`), set these via `node-data-broker.initc.extraArgs` in your Helm values — they are init container arguments, not provider request parameters:
+When `useGpuCliqueLabel` is not set, the node-data-broker uses the GPU Operator device-plugin DaemonSet as before. To override the GPU Operator namespace or device plugin DaemonSet name (defaults: `gpu-operator` and `nvidia-device-plugin-daemonset`), set these via `node-data-broker.extraArgs` in your Helm values — they are node-data-broker arguments, not provider request parameters:
 
 ```yaml
 node-data-broker:
-  initc:
-    extraArgs:
-      - gpu-operator-namespace=my-namespace
-      - device-plugin-daemonset=my-daemonset
+  extraArgs:
+    - gpu-operator-namespace=my-namespace
+    - device-plugin-daemonset=my-daemonset
+```
+
+By default the node-data-broker re-applies node annotations every 5 minutes after the initial startup apply. Adjust or disable periodic refresh with `node-data-broker.refreshInterval` (set to `0` to apply only at pod start):
+
+```yaml
+node-data-broker:
+  refreshInterval: 10m
 ```
 
 If `ibnetdiscover` needs extra config files, the chart can render ConfigMaps and mount them into the node-data-broker pods:

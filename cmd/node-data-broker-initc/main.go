@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"maps"
+	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
@@ -40,13 +45,24 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 )
 
+const (
+	defaultPort            = 8080
+	defaultRefreshInterval = 5 * time.Minute
+	readHeaderTimeout      = 5 * time.Second
+	shutdownTimeout        = 5 * time.Second
+)
+
 func main() {
 	var provider string
 	var ver bool
 	var sets []string
+	var port int
+	var refreshInterval time.Duration
 	pflag.StringVar(&provider, "provider", "", "API provider")
 	pflag.BoolVar(&ver, "version", false, "show the version")
 	pflag.StringArrayVar(&sets, "set", []string{}, "extra key=value parameters")
+	pflag.IntVar(&port, "port", defaultPort, "port for the health HTTP server")
+	pflag.DurationVar(&refreshInterval, "refresh-interval", defaultRefreshInterval, "interval between node annotation refreshes after startup (0 disables periodic refresh)")
 
 	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -58,14 +74,57 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := mainInternal(provider, sets); err != nil {
+	if err := mainInternal(provider, sets, port, refreshInterval); err != nil {
 		klog.Error(err.Error())
 		os.Exit(1)
 	}
 }
 
-func mainInternal(provider string, sets []string) error {
-	klog.InfoS("Starting node-data-broker", "provider", provider, "extras", sets)
+func mainInternal(provider string, sets []string, port int, refreshInterval time.Duration) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := applyNodeAnnotations(ctx, provider, sets); err != nil {
+		return err
+	}
+
+	if refreshInterval > 0 {
+		go refreshNodeAnnotations(ctx, provider, sets, refreshInterval)
+	}
+
+	// Keep the DaemonSet pod Running by serving a health endpoint until the pod
+	// is terminated. Periodic annotation refresh runs in the background.
+	return serveHealth(ctx, port)
+}
+
+type annotationApplier func(ctx context.Context) error
+
+// refreshNodeAnnotations re-applies node annotations on a fixed interval until
+// the context is cancelled. Failures are logged but do not terminate the pod.
+func refreshNodeAnnotations(ctx context.Context, provider string, sets []string, interval time.Duration) {
+	runRefreshLoop(ctx, interval, func(ctx context.Context) error {
+		return applyNodeAnnotations(ctx, provider, sets)
+	})
+}
+
+func runRefreshLoop(ctx context.Context, interval time.Duration, apply annotationApplier) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := apply(ctx); err != nil {
+				klog.ErrorS(err, "periodic node annotation refresh failed")
+			}
+		}
+	}
+}
+
+func applyNodeAnnotations(ctx context.Context, provider string, sets []string) error {
+	klog.InfoS("Applying node annotations", "provider", provider, "extras", sets)
 
 	extras, err := getExtras(sets)
 	if err != nil {
@@ -82,7 +141,6 @@ func mainInternal(provider string, sets []string) error {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	ctx := context.TODO()
 	nodeName := os.Getenv("NODE_NAME")
 
 	annotations, err := getAnnotations(ctx, clientset, config, provider, nodeName, extras)
@@ -106,6 +164,44 @@ func mainInternal(provider string, sets []string) error {
 	return nil
 }
 
+// serveHealth runs a minimal HTTP server exposing /healthz so the DaemonSet
+// pod stays Running after node annotations have been applied. It blocks until
+// the context is cancelled (SIGTERM/SIGINT), then shuts down gracefully.
+func serveHealth(ctx context.Context, port int) error {
+	srv := &http.Server{
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           healthHandler(),
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		klog.Infof("Serving health endpoint on %s", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		klog.Info("Shutting down health endpoint")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		return srv.Shutdown(shutdownCtx)
+	case err := <-errCh:
+		return err
+	}
+}
+
+func healthHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	return mux
+}
+
 func getExtras(sets []string) (map[string]string, error) {
 	extras := make(map[string]string)
 	for _, kv := range sets {
@@ -124,7 +220,7 @@ func getExtras(sets []string) (map[string]string, error) {
 	return extras, nil
 }
 
-func getAnnotations(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, provider, nodeName string, extras map[string]string) (map[string]string, error) {
+func getAnnotations(ctx context.Context, client kubernetes.Interface, config *rest.Config, provider, nodeName string, extras map[string]string) (map[string]string, error) {
 	switch provider {
 	case aws.NAME:
 		return aws.GetNodeAnnotations(ctx)

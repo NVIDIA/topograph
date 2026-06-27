@@ -64,15 +64,18 @@ tests:
           path: spec.template.spec.containers[0].image
           pattern: "^ghcr.io/nvidia/topograph:v[0-9]+\\.[0-9]+\\.[0-9]+$"
 
-  - it: node-data-broker renders the init container by default
+  - it: node-data-broker renders the broker as the main container by default
     templates:
       - charts/node-data-broker/templates/daemonset.yaml
     asserts:
       - isKind:
           of: DaemonSet
       - equal:
-          path: spec.template.spec.initContainers[0].name
-          value: init-node-labels
+          path: spec.template.spec.containers[0].name
+          value: node-data-broker
+      - equal:
+          path: spec.template.spec.containers[0].command[0]
+          value: /usr/local/bin/node-data-broker-initc
 
   - it: node-data-broker uses an existing service account when creation is disabled
     templates:
@@ -87,7 +90,7 @@ tests:
           path: spec.template.spec.serviceAccountName
           value: existing-node-data-broker-sa
 
-  - it: node-data-broker init container passes the provider and NODE_NAME
+  - it: node-data-broker container passes the provider and NODE_NAME
     templates:
       - charts/node-data-broker/templates/daemonset.yaml
     set:
@@ -96,17 +99,45 @@ tests:
           name: infiniband-k8s
     asserts:
       - contains:
-          path: spec.template.spec.initContainers[0].args
+          path: spec.template.spec.containers[0].args
           content: --provider=infiniband-k8s
       - contains:
-          path: spec.template.spec.initContainers[0].env
+          path: spec.template.spec.containers[0].env
           content:
             name: NODE_NAME
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
 
-  - it: node-data-broker init container forwards the GPU clique label flag and extra args
+  - it: node-data-broker container passes the refresh interval
+    templates:
+      - charts/node-data-broker/templates/daemonset.yaml
+    set:
+      node-data-broker:
+        refreshInterval: 10m
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --refresh-interval=10m
+
+  - it: node-data-broker container gates liveness behind a startup probe
+    templates:
+      - charts/node-data-broker/templates/daemonset.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /healthz
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 30
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+
+  - it: node-data-broker container forwards the GPU clique label flag and extra args
     templates:
       - charts/node-data-broker/templates/daemonset.yaml
     set:
@@ -116,27 +147,15 @@ tests:
           params:
             useGpuCliqueLabel: true
       node-data-broker:
-        initc:
-          extraArgs:
-            - foo=bar
+        extraArgs:
+          - foo=bar
     asserts:
       - contains:
-          path: spec.template.spec.initContainers[0].args
+          path: spec.template.spec.containers[0].args
           content: --set=useGpuCliqueLabel=true
       - contains:
-          path: spec.template.spec.initContainers[0].args
+          path: spec.template.spec.containers[0].args
           content: --set=foo=bar
-
-  - it: node-data-broker initc.enabled=false omits the init container
-    templates:
-      - charts/node-data-broker/templates/daemonset.yaml
-    set:
-      node-data-broker:
-        initc:
-          enabled: false
-    asserts:
-      - notExists:
-          path: spec.template.spec.initContainers
 
   - it: node-data-broker.enabled=false omits the DaemonSet entirely
     templates:
