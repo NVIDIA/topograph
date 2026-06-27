@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -186,11 +187,19 @@ func TestRunRefreshLoopAppliesOnInterval(t *testing.T) {
 
 	var applyCount int
 	done := make(chan struct{})
+	var finishOnce sync.Once
+	finish := func() {
+		finishOnce.Do(func() {
+			cancel()
+			close(done)
+		})
+	}
+
 	go func() {
 		runRefreshLoop(ctx, 20*time.Millisecond, func(context.Context) error {
 			applyCount++
 			if applyCount >= 2 {
-				close(done)
+				finish()
 			}
 			return nil
 		})
@@ -210,13 +219,21 @@ func TestRunRefreshLoopContinuesAfterApplyError(t *testing.T) {
 
 	var applyCount int
 	done := make(chan struct{})
+	var finishOnce sync.Once
+	finish := func() {
+		finishOnce.Do(func() {
+			cancel()
+			close(done)
+		})
+	}
+
 	go func() {
 		runRefreshLoop(ctx, 20*time.Millisecond, func(context.Context) error {
 			applyCount++
 			if applyCount == 1 {
 				return context.Canceled
 			}
-			close(done)
+			finish()
 			return nil
 		})
 	}()

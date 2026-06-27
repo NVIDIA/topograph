@@ -52,6 +52,14 @@ const (
 	shutdownTimeout        = 5 * time.Second
 )
 
+type nodeBroker struct {
+	clientset kubernetes.Interface
+	config    *rest.Config
+	provider  string
+	sets      []string
+	nodeName  string
+}
+
 func main() {
 	var provider string
 	var ver bool
@@ -84,12 +92,25 @@ func mainInternal(provider string, sets []string, port int, refreshInterval time
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := applyNodeAnnotations(ctx, provider, sets); err != nil {
+	clientset, config, err := newInClusterClientset()
+	if err != nil {
+		return err
+	}
+
+	broker := &nodeBroker{
+		clientset: clientset,
+		config:    config,
+		provider:  provider,
+		sets:      sets,
+		nodeName:  os.Getenv("NODE_NAME"),
+	}
+
+	if err := broker.apply(ctx); err != nil {
 		return err
 	}
 
 	if refreshInterval > 0 {
-		go refreshNodeAnnotations(ctx, provider, sets, refreshInterval)
+		go refreshNodeAnnotations(ctx, broker, refreshInterval)
 	}
 
 	// Keep the DaemonSet pod Running by serving a health endpoint until the pod
@@ -97,13 +118,27 @@ func mainInternal(provider string, sets []string, port int, refreshInterval time
 	return serveHealth(ctx, port)
 }
 
+func newInClusterClientset() (kubernetes.Interface, *rest.Config, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load in-cluster config: %v", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create clientset: %v", err)
+	}
+
+	return clientset, config, nil
+}
+
 type annotationApplier func(ctx context.Context) error
 
 // refreshNodeAnnotations re-applies node annotations on a fixed interval until
 // the context is cancelled. Failures are logged but do not terminate the pod.
-func refreshNodeAnnotations(ctx context.Context, provider string, sets []string, interval time.Duration) {
+func refreshNodeAnnotations(ctx context.Context, broker *nodeBroker, interval time.Duration) {
 	runRefreshLoop(ctx, interval, func(ctx context.Context) error {
-		return applyNodeAnnotations(ctx, provider, sets)
+		return broker.apply(ctx)
 	})
 }
 
@@ -123,40 +158,28 @@ func runRefreshLoop(ctx context.Context, interval time.Duration, apply annotatio
 	}
 }
 
-func applyNodeAnnotations(ctx context.Context, provider string, sets []string) error {
-	klog.InfoS("Applying node annotations", "provider", provider, "extras", sets)
+func (b *nodeBroker) apply(ctx context.Context) error {
+	klog.InfoS("Applying node annotations", "provider", b.provider, "extras", b.sets)
 
-	extras, err := getExtras(sets)
+	extras, err := getExtras(b.sets)
 	if err != nil {
 		return err
 	}
 
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load in-cluster config: %v", err)
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return fmt.Errorf("failed to create clientset: %v", err)
-	}
-
-	nodeName := os.Getenv("NODE_NAME")
-
-	annotations, err := getAnnotations(ctx, clientset, config, provider, nodeName, extras)
+	annotations, err := getAnnotations(ctx, b.clientset, b.config, b.provider, b.nodeName, extras)
 	if err != nil {
 		return err
 	}
-	klog.Infof("adding annotations %v in node %s for provider %s", annotations, nodeName, provider)
+	klog.Infof("adding annotations %v in node %s for provider %s", annotations, b.nodeName, b.provider)
 
-	node, err := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	node, err := b.clientset.CoreV1().Nodes().Get(ctx, b.nodeName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get node %q: %v", nodeName, err)
+		return fmt.Errorf("failed to get node %q: %v", b.nodeName, err)
 	}
 
 	mergeNodeAnnotations(node, annotations)
 
-	_, err = clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	_, err = b.clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update node: %v", err)
 	}
