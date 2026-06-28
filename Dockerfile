@@ -10,4 +10,6 @@ RUN make build-${TARGETOS}-${TARGETARCH}
 
 FROM alpine:3
 
+RUN apk add --no-cache rdma-core
+
 COPY --from=builder /go/src/github.com/NVIDIA/topograph/bin/* /usr/local/bin/

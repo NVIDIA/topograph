@@ -1016,7 +1016,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
                   valueFrom:
                     fieldRef:
                       fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph/ib:main
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
               livenessProbe:
                 httpGet:
@@ -1519,7 +1519,7 @@ renders values.k8s.gcp-service-account-example.yaml:
                   valueFrom:
                     fieldRef:
                       fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph/ib:main
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
               livenessProbe:
                 httpGet:
@@ -2011,7 +2011,7 @@ renders values.k8s.ib-example.yaml:
                   valueFrom:
                     fieldRef:
                       fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph/ib:main
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
               livenessProbe:
                 httpGet:
