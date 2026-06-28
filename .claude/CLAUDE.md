@@ -40,6 +40,7 @@ pkg/
 internal/             # Shared utilities not part of the public API
   cluset, component, config, exec, files, httperr, httpreq, k8s, version
 charts/topograph/     # Helm chart (with node-data-broker subchart); tests/ holds the helm-unittest suites + snapshots
+CHANGELOG.md          # Release history (Keep a Changelog format); update [Unreleased] for user-facing PRs
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
 tests/models/         # YAML simulation fixtures
 config/               # Sample topograph-config.yaml
@@ -234,6 +235,7 @@ Every PR should be evaluated for documentation impact before pre-push qualificat
 | New / changed label or annotation key | `docs/reference/node-labels.md` |
 | New / changed API endpoint, request parameter, or response field | `docs/api.md` |
 | New / changed config schema (`topograph-config.yaml` fields, defaults, validation) | `docs/api.md` |
+| User-facing feature, fix, breaking change, or Helm migration worth calling out in release notes | `CHANGELOG.md` under `[Unreleased]` (Added / Changed / Fixed / Removed); move entries into a version section at release time |
 | New invariant or "do not change without discussion" surface | `AGENTS.md` + `.claude/CLAUDE.md` in the same PR |
 | New Makefile target, top-level directory, or repository-layout change described by the repository map | `AGENTS.md` + `.claude/CLAUDE.md` in the same PR |
 
@@ -246,6 +248,7 @@ When filing a PR (`gh pr create` or the GitHub UI), `.github/PULL_REQUEST_TEMPLA
 - [ ] `make qualify` passes (runs fmt, vet, lint, test)
 - [ ] New or changed public behavior is covered by a test
 - [ ] Documentation impact evaluated per the table above — applicable doc updates are included in this PR
+- [ ] User-facing changes recorded in `CHANGELOG.md` `[Unreleased]` when applicable
 - [ ] `pkg/topology/` changes were discussed in an issue first
 - [ ] Every commit has a DCO sign-off
 
@@ -257,4 +260,4 @@ When filing a PR (`gh pr create` or the GitHub UI), `.github/PULL_REQUEST_TEMPLA
 
 ### When in doubt
 
-Read `docs/` before asking. Provider-specific questions usually have answers in `docs/providers/<name>.md`. Label semantics are in `docs/reference/node-labels.md`. The scenario-to-provider mapping is in the "Choosing a Provider" table in `docs/overview.md`. API endpoints and config schema live in `docs/api.md`.
+Read `docs/` before asking. Provider-specific questions usually have answers in `docs/providers/<name>.md`. Label semantics are in `docs/reference/node-labels.md`. The scenario-to-provider mapping is in the "Choosing a Provider" table in `docs/overview.md`. API endpoints and config schema live in `docs/api.md`. Release history and operator-facing migration notes live in `CHANGELOG.md`.
