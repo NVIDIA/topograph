@@ -79,6 +79,7 @@ For the Slurm engine, verify the generated `topology.conf` reflects the expected
 ### Prerequisites
 
 - Topograph deployed via Helm — the node-data-broker DaemonSet (a Topograph subchart, enabled by default) collects NVLink clique IDs from each node and stores them as Kubernetes node annotations (`topograph.nvidia.com/cluster-id`). If `useGpuCliqueLabel` is enabled, Topograph reads `nvidia.com/gpu.clique` directly instead and the node-data-broker skips NVLink clique collection.
+- The default **`ghcr.io/nvidia/topograph`** image includes **`ibnetdiscover`** (Alpine `rdma-core`). No separate InfiniBand image is required. IB deployments typically run the broker **privileged** and mount host **`/sys/class`** so `ibnetdiscover` can reach IB devices — see [`values.k8s.ib-example.yaml`](../../charts/topograph/values.k8s.ib-example.yaml).
 - NVIDIA GPU Operator — standard on NVIDIA GPU Kubernetes clusters; manages the device plugin DaemonSet used to read NVLink clique IDs. Required only for NVLink domain discovery; on clusters without NVLink-connected GPUs this does not apply and the provider will still discover the IB switch tree.
 
 ### How It Works
@@ -111,7 +112,7 @@ The following optional parameter can be passed in the topology request payload:
 | `nodeSelector` | `map[string]string` | — | Label selector to filter which nodes participate in topology discovery |
 | `useGpuCliqueLabel` | `bool` | `false` | Use `nvidia.com/gpu.clique` as the accelerator-domain ID source instead of the `topograph.nvidia.com/cluster-id` annotation. |
 
-With Helm, configure `useGpuCliqueLabel` under `global.provider.params`. The chart also passes it to the node-data-broker init container so it skips NVLink clique collection instead of exec-ing into the GPU Operator device-plugin DaemonSet to run `nvidia-smi`:
+With Helm, configure `useGpuCliqueLabel` under `global.provider.params`. The chart also passes it to the node-data-broker container so it skips NVLink clique collection instead of exec-ing into the GPU Operator device-plugin DaemonSet to run `nvidia-smi`:
 
 ```yaml
 global:
