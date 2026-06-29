@@ -32,7 +32,7 @@ spec:
           image: {{ include "node-data-broker.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - /usr/local/bin/node-data-broker-initc
+            - /usr/local/bin/node-data-broker
           args:
             - --provider={{ .Values.global.provider.name }}
             - -v={{ .Values.verbosity }}

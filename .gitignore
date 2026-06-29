@@ -3,7 +3,7 @@
 # Binaries built at the repo root by `go build ./cmd/...`
 /topograph
 /node-observer
-/node-data-broker-initc
+/node-data-broker
 /ssl
 /deb/topograph/DEBIAN/control
 /deb/topograph/usr/local/bin/

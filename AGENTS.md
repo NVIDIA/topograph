@@ -23,7 +23,7 @@ This separation is load-bearing. If you find yourself reading the fabric in an e
 ### Repository map
 
 ```
-cmd/                  # Four entry points: topograph, node-observer, node-data-broker-initc
+cmd/                  # Four entry points: topograph, node-observer, node-data-broker
 pkg/
   providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, cw, test
   engines/            # One directory per engine: k8s, slinky, slurm
@@ -73,7 +73,7 @@ These structures propagate across every provider and engine. Changing them in a 
 ```bash
 git clone https://github.com/NVIDIA/topograph.git
 cd topograph
-make build   # produces bin/topograph, bin/node-observer, bin/node-data-broker-initc
+make build   # produces bin/topograph, bin/node-observer, bin/node-data-broker
 ```
 
 Cross-compile with `make build-linux-amd64`, `make build-darwin-arm64`, etc.

@@ -34,12 +34,21 @@ func TestNewStatusInformer(t *testing.T) {
 		},
 		ContainerName: "topograph",
 	}
-	informer, err := NewStatusInformer(ctx, nil, trigger, apiServer, 0, nil)
+	nodeDataBroker := &NodeDataBroker{
+		Namespace: "topograph",
+		PodSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"app.kubernetes.io/name": "node-data-broker"},
+		},
+		ContainerName: "node-data-broker",
+	}
+	informer, err := NewStatusInformer(ctx, nil, trigger, apiServer, nodeDataBroker, 0, nil)
 	require.NoError(t, err)
 	require.NotNil(t, informer.nodeFactory)
 	require.NotNil(t, informer.podFactory)
 	require.NotNil(t, informer.apiFactory)
+	require.NotNil(t, informer.brokerFactory)
 	require.Equal(t, "topograph", informer.apiServerContainerName)
+	require.Equal(t, "node-data-broker", informer.brokerContainerName)
 }
 
 func TestAPIServerPodUpdateTriggersOnReadyTransitionAndRestart(t *testing.T) {
@@ -51,35 +60,35 @@ func TestAPIServerPodUpdateTriggersOnReadyTransitionAndRestart(t *testing.T) {
 	}{
 		{
 			name:      "not ready after update",
-			oldPod:    makeAPIServerPod(false, makeContainerStatus("topograph", false, 0)),
-			newPod:    makeAPIServerPod(false, makeContainerStatus("topograph", false, 0)),
+			oldPod:    makeWorkloadPod(false, makeContainerStatus("topograph", false, 0)),
+			newPod:    makeWorkloadPod(false, makeContainerStatus("topograph", false, 0)),
 			triggered: false,
 		},
 		{
 			name:      "becomes ready",
-			oldPod:    makeAPIServerPod(false, makeContainerStatus("topograph", false, 0)),
-			newPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 0)),
+			oldPod:    makeWorkloadPod(false, makeContainerStatus("topograph", false, 0)),
+			newPod:    makeWorkloadPod(true, makeContainerStatus("topograph", true, 0)),
 			triggered: true,
 		},
 		{
 			name:      "target container restart count increases while ready",
-			oldPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 1)),
-			newPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 2)),
+			oldPod:    makeWorkloadPod(true, makeContainerStatus("topograph", true, 1)),
+			newPod:    makeWorkloadPod(true, makeContainerStatus("topograph", true, 2)),
 			triggered: true,
 		},
 		{
 			name:      "ready update without restart",
-			oldPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 1)),
-			newPod:    makeAPIServerPod(true, makeContainerStatus("topograph", true, 1)),
+			oldPod:    makeWorkloadPod(true, makeContainerStatus("topograph", true, 1)),
+			newPod:    makeWorkloadPod(true, makeContainerStatus("topograph", true, 1)),
 			triggered: false,
 		},
 		{
 			name: "sidecar restart does not trigger",
-			oldPod: makeAPIServerPod(true,
+			oldPod: makeWorkloadPod(true,
 				makeContainerStatus("topograph", true, 1),
 				makeContainerStatus("sidecar", true, 1),
 			),
-			newPod: makeAPIServerPod(true,
+			newPod: makeWorkloadPod(true,
 				makeContainerStatus("topograph", true, 1),
 				makeContainerStatus("sidecar", true, 2),
 			),
@@ -96,15 +105,15 @@ func TestAPIServerPodUpdateTriggersOnReadyTransitionAndRestart(t *testing.T) {
 
 func TestAPIServerPodReadinessRequiresTargetContainer(t *testing.T) {
 	require.True(t, isAPIServerPodReady(
-		makeAPIServerPod(true, makeContainerStatus("topograph", true, 0)),
+		makeWorkloadPod(true, makeContainerStatus("topograph", true, 0)),
 		"topograph",
 	))
 	require.False(t, isAPIServerPodReady(
-		makeAPIServerPod(true, makeContainerStatus("topograph", false, 0)),
+		makeWorkloadPod(true, makeContainerStatus("topograph", false, 0)),
 		"topograph",
 	))
 	require.False(t, isAPIServerPodReady(
-		makeAPIServerPod(true, makeContainerStatus("sidecar", true, 0)),
+		makeWorkloadPod(true, makeContainerStatus("sidecar", true, 0)),
 		"topograph",
 	))
 }
@@ -215,7 +224,7 @@ func TestRetryCancelledByNewRequest(t *testing.T) {
 	require.Equal(t, int32(2), atomic.LoadInt32(&calls))
 }
 
-func makeAPIServerPod(ready bool, statuses ...corev1.ContainerStatus) *corev1.Pod {
+func makeWorkloadPod(ready bool, statuses ...corev1.ContainerStatus) *corev1.Pod {
 	conditionStatus := corev1.ConditionFalse
 	if ready {
 		conditionStatus = corev1.ConditionTrue

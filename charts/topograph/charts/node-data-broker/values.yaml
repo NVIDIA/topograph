@@ -19,7 +19,11 @@ port: 8080
 # Set to 0 to disable periodic refresh.
 refreshInterval: 5m
 
-# Extra key=value parameters passed to node-data-broker-initc via --set
+# When disabling this subchart, also set
+# node-observer.topograph.nodeDataBroker.enabled to false so topology
+# generation is not blocked waiting for broker pods.
+
+# Extra key=value parameters passed to node-data-broker via --set
 # (e.g. gpu-operator-namespace / device-plugin-daemonset for infiniband-k8s).
 extraArgs: []
 #  - key=val

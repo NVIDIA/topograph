@@ -38,6 +38,27 @@ tests:
           path: data["node-observer-config.yaml"]
           pattern: "app.kubernetes.io/component: api-server"
         template: charts/node-observer/templates/configmap.yml
+      - matchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "nodeDataBroker:"
+        template: charts/node-observer/templates/configmap.yml
+      - matchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "app.kubernetes.io/name: node-data-broker"
+        template: charts/node-observer/templates/configmap.yml
+
+  - it: node-observer omits node-data-broker gate when disabled
+    templates:
+      - charts/node-observer/templates/configmap.yml
+    set:
+      node-observer:
+        topograph:
+          nodeDataBroker:
+            enabled: false
+    asserts:
+      - notMatchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "nodeDataBroker:"
 
   - it: node-observer uses an existing service account when creation is disabled
     templates:
@@ -75,7 +96,7 @@ tests:
           value: node-data-broker
       - equal:
           path: spec.template.spec.containers[0].command[0]
-          value: /usr/local/bin/node-data-broker-initc
+          value: /usr/local/bin/node-data-broker
 
   - it: node-data-broker uses an existing service account when creation is disabled
     templates:
