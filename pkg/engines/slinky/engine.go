@@ -222,6 +222,10 @@ func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*clusterNodes, *h
 			continue
 		}
 		host := resolveSlurmNodeName(&pod)
+		if host == "" {
+			klog.Warningf("Cannot resolve SLURM node name for pod %s/%s, skipping", pod.Namespace, pod.Name)
+			continue
+		}
 		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, host)
 		nodeMap[pod.Spec.NodeName] = host
 	}
