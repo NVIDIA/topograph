@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -89,7 +88,7 @@ func TestVaryingPayload(t *testing.T) {
 }
 
 func TestLRU(t *testing.T) {
-	cache, _ := lru.New(3)
+	cache := newLRUCache[int, int](3)
 
 	_, ok := cache.Get(1)
 	require.False(t, ok) // not found
