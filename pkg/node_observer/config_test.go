@@ -198,6 +198,54 @@ apiServer:
 				RetryDelay: metav1.Duration{Duration: defaultRetryDelay},
 			},
 		},
+		{
+			name: "Case 8: valid with node-data-broker gate and default container name",
+			data: `
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+provider:
+  name: test
+engine:
+  name: test
+apiServer:
+  namespace: topograph
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-server
+      app.kubernetes.io/instance: topograph
+nodeDataBroker:
+  namespace: topograph
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: node-data-broker
+      app.kubernetes.io/instance: topograph
+`,
+			cfg: &Config{
+				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
+				Provider:            topology.Provider{Name: "test"},
+				Engine:              topology.Engine{Name: "test"},
+				APIServer: APIServer{
+					Namespace:     "topograph",
+					ContainerName: defaultAPIServerContainerName,
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/component": "api-server",
+							"app.kubernetes.io/instance":  "topograph",
+						},
+					},
+				},
+				NodeDataBroker: NodeDataBroker{
+					Namespace:     "topograph",
+					ContainerName: defaultNodeDataBrokerContainerName,
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":     "node-data-broker",
+							"app.kubernetes.io/instance": "topograph",
+						},
+					},
+				},
+				RetryDelay: metav1.Duration{Duration: defaultRetryDelay},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

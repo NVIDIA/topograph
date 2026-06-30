@@ -93,7 +93,7 @@ Both test pods are removed automatically on success (`helm.sh/hook-delete-policy
 
 By default, the test pods reuse the main topograph image. Topograph's default image is Alpine-based and ships with busybox `wget`, which the test probes use — so `helm test` works without pulling any additional image, including in air-gapped environments where only mirrored images are reachable.
 
-If you run a topograph image variant without busybox `wget` (for example, the IB variant built on `ubuntu`), override the test image to point at one that does, via `tests.image.repository` and `tests.image.tag`. You can also disable the tests entirely with `tests.enabled=false`.
+If your mirrored image lacks busybox `wget`, override the test image to point at one that does, via `tests.image.repository` and `tests.image.tag`. You can also disable the tests entirely with `tests.enabled=false`.
 
 ## Subcharts
 

@@ -3,26 +3,39 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: curlimages/curl
+  repository: ghcr.io/nvidia/topograph
   pullPolicy: IfNotPresent
-  tag: 8.13.0
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
 
 enabled: true
 
-command:
-  - tail
-  - -f
-  - /dev/null
+# Port the node-data-broker serves its /healthz endpoint on after applying
+# node annotations.
+port: 8080
 
-initc:
-  enabled: true
-  image:
-    repository: ghcr.io/nvidia/topograph
-    pullPolicy: IfNotPresent
-    # Overrides the image tag whose default is the chart appVersion.
-    tag: ""
-  extraArgs:
-  #  - key=val
+# How often to re-apply node annotations after the initial startup apply.
+# Slow providers (e.g. infiniband ibnetdiscover) may need a longer interval.
+# Set to 0 to disable periodic refresh.
+refreshInterval: 5m
+
+# When disabling this subchart, also set
+# node-observer.topograph.nodeDataBroker.enabled to false so topology
+# generation is not blocked waiting for broker pods.
+
+# Extra key=value parameters passed to node-data-broker via --set
+# (e.g. gpu-operator-namespace / device-plugin-daemonset for infiniband-k8s).
+extraArgs: []
+#  - key=val
+
+# Startup probe for the node-data-broker container. The broker applies node
+# annotations before it starts serving /healthz, so the startup probe gates the
+# liveness/readiness probes and gives slow providers (e.g. infiniband
+# ibnetdiscover) time to finish. The total startup budget is
+# failureThreshold * periodSeconds (default 30 * 10s = 5m).
+startupProbe:
+  failureThreshold: 30
+  periodSeconds: 10
 
 imagePullSecrets: []
 nameOverride: ""
@@ -67,8 +80,8 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-# Optional ConfigMaps rendered by the chart and mounted into both the
-# node-data-broker container and init container. Set subPath for file mounts;
+# Optional ConfigMaps rendered by the chart and mounted into the
+# node-data-broker container. Set subPath for file mounts;
 # omit it to mount the whole ConfigMap as a directory.
 configMapMounts: []
 # name is used as a Kubernetes resource and volume suffix; keep it DNS-label-safe.

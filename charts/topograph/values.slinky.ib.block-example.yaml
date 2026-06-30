@@ -70,17 +70,6 @@ node-observer:
           app.kubernetes.io/name: slurmd
 
 node-data-broker:
-  image:
-    # The IB image includes the runtime tooling needed by the infiniband-k8s
-    # provider, including ibnetdiscover.
-    repository: ghcr.io/nvidia/topograph/ib
-    pullPolicy: IfNotPresent
-    tag: main
-  initc:
-    # Annotates each node with Topograph instance/region metadata used by the
-    # engines. With useGpuCliqueLabel=true, it skips NVLink clique collection
-    # through the GPU Operator device-plugin DaemonSet.
-    enabled: true
   securityContext:
     # Required so ibnetdiscover in the broker pod can access host IB devices.
     privileged: true

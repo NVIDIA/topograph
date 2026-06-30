@@ -26,13 +26,33 @@ renders default values.yaml:
             helm.sh/chart: node-data-broker-0.0.0
         spec:
           containers:
-            - command:
-                - tail
-                - -f
-                - /dev/null
-              image: curlimages/curl:8.13.0
+            - args:
+                - --provider=test
+                - -v=3
+                - --port=8080
+                - --refresh-interval=5m
+              command:
+                - /usr/local/bin/node-data-broker
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               name: node-data-broker
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               resources:
                 limits:
                   cpu: 100m
@@ -41,20 +61,12 @@ renders default values.yaml:
                   cpu: 100m
                   memory: 128Mi
               securityContext: {}
-          initContainers:
-            - args:
-                - --provider=test
-                - -v=3
-              command:
-                - /usr/local/bin/node-data-broker-initc
-              env:
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph:v0.0.0
-              imagePullPolicy: IfNotPresent
-              name: init-node-labels
+              startupProbe:
+                failureThreshold: 30
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 10
           securityContext: {}
           serviceAccountName: chart-ci-node-data-broker
   2: |
@@ -117,6 +129,13 @@ renders default values.yaml:
             matchLabels:
               app.kubernetes.io/component: api-server
               app.kubernetes.io/instance: chart-ci
+        nodeDataBroker:
+          namespace: topograph
+          containerName: node-data-broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: node-data-broker
+              app.kubernetes.io/instance: chart-ci
         trigger:
           null
     kind: ConfigMap
@@ -150,7 +169,7 @@ renders default values.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: 3cc425d3ec78f0db280e91b8b2472c5d5cf6aa2470ac10cb8cfb527c1baa8dcf
+            checksum/config: d45ef247d5768db15ab821a2aa1691cf3bf9a91615e158cf4146db33d03a2b8b
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -492,13 +511,33 @@ renders values.k8s.gateway-api-example.yaml:
             helm.sh/chart: node-data-broker-0.0.0
         spec:
           containers:
-            - command:
-                - tail
-                - -f
-                - /dev/null
-              image: curlimages/curl:8.13.0
+            - args:
+                - --provider=test
+                - -v=3
+                - --port=8080
+                - --refresh-interval=5m
+              command:
+                - /usr/local/bin/node-data-broker
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               name: node-data-broker
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               resources:
                 limits:
                   cpu: 100m
@@ -507,20 +546,12 @@ renders values.k8s.gateway-api-example.yaml:
                   cpu: 100m
                   memory: 128Mi
               securityContext: {}
-          initContainers:
-            - args:
-                - --provider=test
-                - -v=3
-              command:
-                - /usr/local/bin/node-data-broker-initc
-              env:
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph:v0.0.0
-              imagePullPolicy: IfNotPresent
-              name: init-node-labels
+              startupProbe:
+                failureThreshold: 30
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 10
           securityContext: {}
           serviceAccountName: chart-ci-node-data-broker
   2: |
@@ -583,6 +614,13 @@ renders values.k8s.gateway-api-example.yaml:
             matchLabels:
               app.kubernetes.io/component: api-server
               app.kubernetes.io/instance: chart-ci
+        nodeDataBroker:
+          namespace: topograph
+          containerName: node-data-broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: node-data-broker
+              app.kubernetes.io/instance: chart-ci
         trigger:
           null
     kind: ConfigMap
@@ -616,7 +654,7 @@ renders values.k8s.gateway-api-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: 3cc425d3ec78f0db280e91b8b2472c5d5cf6aa2470ac10cb8cfb527c1baa8dcf
+            checksum/config: d45ef247d5768db15ab821a2aa1691cf3bf9a91615e158cf4146db33d03a2b8b
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -980,13 +1018,33 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
             helm.sh/chart: node-data-broker-0.0.0
         spec:
           containers:
-            - command:
-                - tail
-                - -f
-                - /dev/null
-              image: ghcr.io/nvidia/topograph/ib:main
+            - args:
+                - --provider=gcp
+                - -v=3
+                - --port=8080
+                - --refresh-interval=5m
+              command:
+                - /usr/local/bin/node-data-broker
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               name: node-data-broker
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               resources:
                 limits:
                   cpu: 100m
@@ -995,20 +1053,12 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
                   cpu: 100m
                   memory: 128Mi
               securityContext: {}
-          initContainers:
-            - args:
-                - --provider=gcp
-                - -v=3
-              command:
-                - /usr/local/bin/node-data-broker-initc
-              env:
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph:v0.0.0
-              imagePullPolicy: IfNotPresent
-              name: init-node-labels
+              startupProbe:
+                failureThreshold: 30
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 10
           nodeSelector:
             brightcomputing.com/node-category: dgx
           securityContext: {}
@@ -1077,6 +1127,13 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
             matchLabels:
               app.kubernetes.io/component: api-server
               app.kubernetes.io/instance: chart-ci
+        nodeDataBroker:
+          namespace: topograph
+          containerName: node-data-broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: node-data-broker
+              app.kubernetes.io/instance: chart-ci
         trigger:
           nodeSelector:
             brightcomputing.com/node-category: dgx
@@ -1111,7 +1168,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: 77ea06185a18a81c6857830fac1d6830a576db7e473a550fd8f4030ecf7a3fce
+            checksum/config: 76e93de3f45c394c0bb15b834c6bde8755f6b0de76378a391d12f3d1e3d5eb01
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -1471,13 +1528,33 @@ renders values.k8s.gcp-service-account-example.yaml:
             helm.sh/chart: node-data-broker-0.0.0
         spec:
           containers:
-            - command:
-                - tail
-                - -f
-                - /dev/null
-              image: ghcr.io/nvidia/topograph/ib:main
+            - args:
+                - --provider=gcp
+                - -v=3
+                - --port=8080
+                - --refresh-interval=5m
+              command:
+                - /usr/local/bin/node-data-broker
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               name: node-data-broker
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               resources:
                 limits:
                   cpu: 100m
@@ -1486,20 +1563,12 @@ renders values.k8s.gcp-service-account-example.yaml:
                   cpu: 100m
                   memory: 128Mi
               securityContext: {}
-          initContainers:
-            - args:
-                - --provider=gcp
-                - -v=3
-              command:
-                - /usr/local/bin/node-data-broker-initc
-              env:
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph:v0.0.0
-              imagePullPolicy: IfNotPresent
-              name: init-node-labels
+              startupProbe:
+                failureThreshold: 30
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 10
           nodeSelector:
             brightcomputing.com/node-category: dgx
           securityContext: {}
@@ -1566,6 +1635,13 @@ renders values.k8s.gcp-service-account-example.yaml:
             matchLabels:
               app.kubernetes.io/component: api-server
               app.kubernetes.io/instance: chart-ci
+        nodeDataBroker:
+          namespace: topograph
+          containerName: node-data-broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: node-data-broker
+              app.kubernetes.io/instance: chart-ci
         trigger:
           nodeSelector:
             brightcomputing.com/node-category: dgx
@@ -1600,7 +1676,7 @@ renders values.k8s.gcp-service-account-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: a8a5af905e6577b68b55b8ad1cb91ad96869c87ffd6bb5039d418ffe199c23ce
+            checksum/config: 184b1b21aaef0f9926f645ad124d2dd50f36f1eaaf746e47ba967b33ea7a74c8
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -1950,13 +2026,34 @@ renders values.k8s.ib-example.yaml:
             helm.sh/chart: node-data-broker-0.0.0
         spec:
           containers:
-            - command:
-                - tail
-                - -f
-                - /dev/null
-              image: ghcr.io/nvidia/topograph/ib:main
+            - args:
+                - --provider=infiniband-k8s
+                - -v=3
+                - --port=8080
+                - --refresh-interval=5m
+                - --set=useGpuCliqueLabel=true
+              command:
+                - /usr/local/bin/node-data-broker
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               name: node-data-broker
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               resources:
                 limits:
                   cpu: 100m
@@ -1966,24 +2063,12 @@ renders values.k8s.ib-example.yaml:
                   memory: 128Mi
               securityContext:
                 privileged: true
-              volumeMounts:
-                - mountPath: /sys/class
-                  name: sys-class-volume
-          initContainers:
-            - args:
-                - --provider=infiniband-k8s
-                - -v=3
-                - --set=useGpuCliqueLabel=true
-              command:
-                - /usr/local/bin/node-data-broker-initc
-              env:
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph:v0.0.0
-              imagePullPolicy: IfNotPresent
-              name: init-node-labels
+              startupProbe:
+                failureThreshold: 30
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 10
               volumeMounts:
                 - mountPath: /sys/class
                   name: sys-class-volume
@@ -2058,6 +2143,13 @@ renders values.k8s.ib-example.yaml:
             matchLabels:
               app.kubernetes.io/component: api-server
               app.kubernetes.io/instance: chart-ci
+        nodeDataBroker:
+          namespace: topograph
+          containerName: node-data-broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: node-data-broker
+              app.kubernetes.io/instance: chart-ci
         trigger:
           nodeSelector:
             nvidia.com/gpu.present: "true"
@@ -2092,7 +2184,7 @@ renders values.k8s.ib-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: b99a1da116af59a261b91df442dd04e4774c074d6b398c9f725ca63471fc40b9
+            checksum/config: 6ad6b96f026f22809fec8252b63a9ec1f6f1b6f074e7e17d4506860f47cb19eb
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -2440,13 +2532,33 @@ renders values.slinky.block-example.yaml:
             helm.sh/chart: node-data-broker-0.0.0
         spec:
           containers:
-            - command:
-                - tail
-                - -f
-                - /dev/null
-              image: curlimages/curl:8.13.0
+            - args:
+                - --provider=aws
+                - -v=3
+                - --port=8080
+                - --refresh-interval=5m
+              command:
+                - /usr/local/bin/node-data-broker
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               name: node-data-broker
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               resources:
                 limits:
                   cpu: 100m
@@ -2455,20 +2567,12 @@ renders values.slinky.block-example.yaml:
                   cpu: 100m
                   memory: 128Mi
               securityContext: {}
-          initContainers:
-            - args:
-                - --provider=aws
-                - -v=3
-              command:
-                - /usr/local/bin/node-data-broker-initc
-              env:
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph:v0.0.0
-              imagePullPolicy: IfNotPresent
-              name: init-node-labels
+              startupProbe:
+                failureThreshold: 30
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 10
           securityContext: {}
           serviceAccountName: chart-ci-node-data-broker
   2: |
@@ -2547,6 +2651,13 @@ renders values.slinky.block-example.yaml:
             matchLabels:
               app.kubernetes.io/component: api-server
               app.kubernetes.io/instance: chart-ci
+        nodeDataBroker:
+          namespace: topograph
+          containerName: node-data-broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: node-data-broker
+              app.kubernetes.io/instance: chart-ci
         trigger:
           podSelector:
             matchLabels:
@@ -2582,7 +2693,7 @@ renders values.slinky.block-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: e7e5f1cd322eebcbfe743705122ae4d1e2197b6d857696a2f90af5ad24606060
+            checksum/config: b9734e9dcc83643a25f94c88fe3fad56f37bc248c730e02947364ecf60d2dd50
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -2939,13 +3050,33 @@ renders values.slinky.partition-example.yaml:
             helm.sh/chart: node-data-broker-0.0.0
         spec:
           containers:
-            - command:
-                - tail
-                - -f
-                - /dev/null
-              image: curlimages/curl:8.13.0
+            - args:
+                - --provider=aws
+                - -v=3
+                - --port=8080
+                - --refresh-interval=5m
+              command:
+                - /usr/local/bin/node-data-broker
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               name: node-data-broker
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               resources:
                 limits:
                   cpu: 100m
@@ -2954,20 +3085,12 @@ renders values.slinky.partition-example.yaml:
                   cpu: 100m
                   memory: 128Mi
               securityContext: {}
-          initContainers:
-            - args:
-                - --provider=aws
-                - -v=3
-              command:
-                - /usr/local/bin/node-data-broker-initc
-              env:
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph:v0.0.0
-              imagePullPolicy: IfNotPresent
-              name: init-node-labels
+              startupProbe:
+                failureThreshold: 30
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 10
           securityContext: {}
           serviceAccountName: chart-ci-node-data-broker
   2: |
@@ -3063,6 +3186,13 @@ renders values.slinky.partition-example.yaml:
             matchLabels:
               app.kubernetes.io/component: api-server
               app.kubernetes.io/instance: chart-ci
+        nodeDataBroker:
+          namespace: topograph
+          containerName: node-data-broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: node-data-broker
+              app.kubernetes.io/instance: chart-ci
         trigger:
           podSelector:
             matchLabels:
@@ -3098,7 +3228,7 @@ renders values.slinky.partition-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: e5fd4045f0820044555721435ecef533b1e91cc6604f79a9cd85255926952d3c
+            checksum/config: cd60a5429212282f933806b944a3a87f29584a119838316e0ca290c807b18fa1
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -3455,13 +3585,33 @@ renders values.slinky.tree-example.yaml:
             helm.sh/chart: node-data-broker-0.0.0
         spec:
           containers:
-            - command:
-                - tail
-                - -f
-                - /dev/null
-              image: curlimages/curl:8.13.0
+            - args:
+                - --provider=aws
+                - -v=3
+                - --port=8080
+                - --refresh-interval=5m
+              command:
+                - /usr/local/bin/node-data-broker
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              image: ghcr.io/nvidia/topograph:v0.0.0
               imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               name: node-data-broker
+              ports:
+                - containerPort: 8080
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http
               resources:
                 limits:
                   cpu: 100m
@@ -3470,20 +3620,12 @@ renders values.slinky.tree-example.yaml:
                   cpu: 100m
                   memory: 128Mi
               securityContext: {}
-          initContainers:
-            - args:
-                - --provider=aws
-                - -v=3
-              command:
-                - /usr/local/bin/node-data-broker-initc
-              env:
-                - name: NODE_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: spec.nodeName
-              image: ghcr.io/nvidia/topograph:v0.0.0
-              imagePullPolicy: IfNotPresent
-              name: init-node-labels
+              startupProbe:
+                failureThreshold: 30
+                httpGet:
+                  path: /healthz
+                  port: http
+                periodSeconds: 10
           securityContext: {}
           serviceAccountName: chart-ci-node-data-broker
   2: |
@@ -3554,6 +3696,13 @@ renders values.slinky.tree-example.yaml:
             matchLabels:
               app.kubernetes.io/component: api-server
               app.kubernetes.io/instance: chart-ci
+        nodeDataBroker:
+          namespace: topograph
+          containerName: node-data-broker
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: node-data-broker
+              app.kubernetes.io/instance: chart-ci
         trigger:
           podSelector:
             matchLabels:
@@ -3589,7 +3738,7 @@ renders values.slinky.tree-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: e2be85c411ed46c5ddebc18623d914ceae909088087efadc070b18ed22e65df0
+            checksum/config: 0573828048de7511756c20599cf40a39f9ee78890a71268584ef24acb4103677
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm

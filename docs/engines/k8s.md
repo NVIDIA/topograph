@@ -328,7 +328,7 @@ Phase:          Succeeded
 
 Both pods clean themselves up on success (`helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded`). On failure the pods persist so operators can inspect logs via `kubectl logs -n <ns> <pod-name>`; the next `helm test` invocation replaces the prior pods.
 
-**Air-gapped environments.** The test pods reuse the main topograph image by default — they invoke `busybox wget` from the Alpine-based `ghcr.io/nvidia/topograph` image already pulled by the Deployment. No additional image pull is required by `helm test`, so the suite works in environments where only mirrored images are reachable. Operators running a topograph image variant without `busybox wget` (notably the ubuntu-based IB variant built from `Dockerfile.ib`) can either override the test image:
+**Air-gapped environments.** The test pods reuse the main topograph image by default — they invoke `busybox wget` from the Alpine-based `ghcr.io/nvidia/topograph` image already pulled by the Deployment. No additional image pull is required by `helm test`, so the suite works in environments where only mirrored images are reachable. If your mirrored image lacks `busybox wget`, override the test image:
 
 ```yaml
 tests:

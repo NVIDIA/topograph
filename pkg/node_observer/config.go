@@ -28,14 +28,17 @@ import (
 )
 
 const (
-	defaultRetryDelay             = 5 * time.Minute
-	defaultAPIServerContainerName = "topograph"
+	defaultRetryDelay                  = 5 * time.Minute
+	defaultBrokerRetryDelay            = 10 * time.Second
+	defaultAPIServerContainerName      = "topograph"
+	defaultNodeDataBrokerContainerName = "node-data-broker"
 )
 
 type Config struct {
 	GenerateTopologyURL string            `yaml:"generateTopologyUrl"`
 	Trigger             Trigger           `yaml:"trigger"`
 	APIServer           APIServer         `yaml:"apiServer,omitempty"`
+	NodeDataBroker      NodeDataBroker    `yaml:"nodeDataBroker,omitempty"`
 	Provider            topology.Provider `yaml:"provider"`
 	Engine              topology.Engine   `yaml:"engine"`
 	RetryDelay          metav1.Duration   `yaml:"retryDelay"`
@@ -47,6 +50,12 @@ type Trigger struct {
 }
 
 type APIServer struct {
+	Namespace     string                `yaml:"namespace,omitempty"`
+	PodSelector   *metav1.LabelSelector `yaml:"podSelector,omitempty"`
+	ContainerName string                `yaml:"containerName,omitempty"`
+}
+
+type NodeDataBroker struct {
 	Namespace     string                `yaml:"namespace,omitempty"`
 	PodSelector   *metav1.LabelSelector `yaml:"podSelector,omitempty"`
 	ContainerName string                `yaml:"containerName,omitempty"`
@@ -70,6 +79,10 @@ func NewConfigFromFile(fname string) (*Config, error) {
 
 	if cfg.APIServer.PodSelector != nil && len(cfg.APIServer.ContainerName) == 0 {
 		cfg.APIServer.ContainerName = defaultAPIServerContainerName
+	}
+
+	if cfg.NodeDataBroker.PodSelector != nil && len(cfg.NodeDataBroker.ContainerName) == 0 {
+		cfg.NodeDataBroker.ContainerName = defaultNodeDataBrokerContainerName
 	}
 
 	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil && cfg.APIServer.PodSelector == nil {

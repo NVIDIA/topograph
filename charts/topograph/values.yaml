@@ -203,9 +203,8 @@ tests:
   # By default, test pods reuse the main topograph image. Topograph's
   # default image is Alpine-based and ships with busybox wget, which the
   # test probes use -- no additional image pull is needed, including in
-  # air-gapped environments. If you run a topograph image variant without
-  # busybox wget (for example, the IB variant built on ubuntu), override
-  # either field to point at an image that ships wget. Leave both empty
+  # air-gapped environments. If your mirrored image lacks busybox wget,
+  # override either field to point at an image that ships wget. Leave both empty
   # to reuse the main image.
   image:
     repository: ""

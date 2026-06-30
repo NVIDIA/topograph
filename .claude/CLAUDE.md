@@ -23,7 +23,7 @@ This separation is load-bearing. If you find yourself reading the fabric in an e
 ### Repository map
 
 ```
-cmd/                  # Four entry points: topograph, node-observer, node-data-broker-initc
+cmd/                  # Four entry points: topograph, node-observer, node-data-broker
 pkg/
   providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, cw, test
   engines/            # One directory per engine: k8s, slinky, slurm
@@ -66,14 +66,14 @@ These structures propagate across every provider and engine. Changing them in a 
 - **make**
 - **golangci-lint** — `brew install golangci-lint` or via `go install`
 - **helm 3.10+ or 4.x** — required for `make chart-test`; the `helm-unittest` plugin is installed automatically by the target (`brew install helm`). CI pins helm `v4.1.1` in `.github/workflows/chart-test.yaml`.
-- **docker** — only for container image builds and the IB variant
+- **docker** — for container image builds (the main image includes `rdma-core` / `ibnetdiscover` for InfiniBand deployments)
 
 ### Clone and build
 
 ```bash
 git clone https://github.com/NVIDIA/topograph.git
 cd topograph
-make build   # produces bin/topograph, bin/node-observer, bin/node-data-broker-initc
+make build   # produces bin/topograph, bin/node-observer, bin/node-data-broker
 ```
 
 Cross-compile with `make build-linux-amd64`, `make build-darwin-arm64`, etc.
@@ -108,7 +108,6 @@ Coverage checks run on pull requests. A drop below target with no matching uplif
 - `.github/workflows/go.yml` — build, test, and lint on every push and PR
 - `.github/workflows/chart-test.yaml` — Helm chart lint + helm-unittest suites (`make chart-test`) on every push and PR
 - `.github/workflows/docker.yml` — container image build (manual trigger)
-- `.github/workflows/docker-ib.yml` — InfiniBand-variant container (manual trigger)
 - `.github/workflows/helm-release.yaml` — Helm chart release (manual trigger)
 
 ### Deployment surfaces

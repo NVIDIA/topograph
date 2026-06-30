@@ -23,23 +23,25 @@ import (
 )
 
 type StatusInformer struct {
-	ctx         context.Context
-	client      kubernetes.Interface
-	nodeFactory informers.SharedInformerFactory
-	podFactory  informers.SharedInformerFactory
-	apiFactory  informers.SharedInformerFactory
-	reqFunc     httpreq.RequestFunc
-	reqExecFunc func(httpreq.RequestFunc, bool) ([]byte, *httperr.Error)
-	retryDelay  time.Duration
-	timer       *time.Timer
-	queue       chan struct{}
-	stopCh      chan struct{}
+	ctx           context.Context
+	client        kubernetes.Interface
+	nodeFactory   informers.SharedInformerFactory
+	podFactory    informers.SharedInformerFactory
+	apiFactory    informers.SharedInformerFactory
+	brokerFactory informers.SharedInformerFactory
+	reqFunc       httpreq.RequestFunc
+	reqExecFunc   func(httpreq.RequestFunc, bool) ([]byte, *httperr.Error)
+	retryDelay    time.Duration
+	timer         *time.Timer
+	queue         chan struct{}
+	stopCh        chan struct{}
 
 	apiServerContainerName string
+	brokerContainerName    string
 }
 
-func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, apiServer *APIServer, retryDelay time.Duration, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
-	klog.InfoS("Configuring status informer", "trigger", trigger, "apiServer", apiServer)
+func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, apiServer *APIServer, nodeDataBroker *NodeDataBroker, retryDelay time.Duration, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
+	klog.InfoS("Configuring status informer", "trigger", trigger, "apiServer", apiServer, "nodeDataBroker", nodeDataBroker)
 
 	statusInformer := &StatusInformer{
 		ctx:         ctx,
@@ -74,6 +76,15 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 		}
 		statusInformer.apiFactory = podFactory
 		statusInformer.apiServerContainerName = apiServer.ContainerName
+	}
+
+	if nodeDataBroker != nil && nodeDataBroker.PodSelector != nil {
+		podFactory, err := newPodFactory(client, nodeDataBroker.PodSelector, nodeDataBroker.Namespace)
+		if err != nil {
+			return nil, err
+		}
+		statusInformer.brokerFactory = podFactory
+		statusInformer.brokerContainerName = nodeDataBroker.ContainerName
 	}
 
 	return statusInformer, nil
@@ -114,6 +125,10 @@ func (s *StatusInformer) Start() error {
 		return err
 	}
 
+	if err := s.startBrokerInformer(); err != nil {
+		return err
+	}
+
 	go s.run()
 
 	return nil
@@ -129,6 +144,9 @@ func (s *StatusInformer) Stop(_ error) {
 	}
 	if s.apiFactory != nil {
 		s.apiFactory.Shutdown()
+	}
+	if s.brokerFactory != nil {
+		s.brokerFactory.Shutdown()
 	}
 	close(s.stopCh)
 }
@@ -200,6 +218,56 @@ func (s *StatusInformer) startAPIServerInformer() error {
 		}
 		s.apiFactory.Start(s.ctx.Done())
 		s.apiFactory.WaitForCacheSync(s.ctx.Done())
+	}
+	return nil
+}
+
+func (s *StatusInformer) startBrokerInformer() error {
+	if s.brokerFactory != nil {
+		informer := s.brokerFactory.Core().V1().Pods().Informer()
+		_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj any) {
+				pod, ok := obj.(*corev1.Pod)
+				if !ok {
+					return
+				}
+				if isWorkloadPodReady(pod, s.brokerContainerName) {
+					klog.V(4).Infof("Informer added ready node-data-broker pod %s/%s", pod.Namespace, pod.Name)
+					s.sendRequest()
+				}
+			},
+			UpdateFunc: func(oldObj, newObj any) {
+				oldPod, ok := oldObj.(*corev1.Pod)
+				if !ok {
+					return
+				}
+				newPod, ok := newObj.(*corev1.Pod)
+				if !ok {
+					return
+				}
+				if shouldRequestOnWorkloadUpdate(oldPod, newPod, s.brokerContainerName) {
+					klog.V(4).Infof("Informer updated ready node-data-broker pod %s/%s", newPod.Namespace, newPod.Name)
+					s.sendRequest()
+				}
+			},
+			DeleteFunc: func(obj any) {
+				switch v := obj.(type) {
+				case *corev1.Pod:
+					klog.V(4).Infof("Informer deleted node-data-broker pod %s/%s", v.Namespace, v.Name)
+					s.sendRequest()
+				case cache.DeletedFinalStateUnknown:
+					if pod, ok := v.Obj.(*corev1.Pod); ok {
+						klog.V(4).Infof("Informer deleted node-data-broker pod %s/%s", pod.Namespace, pod.Name)
+						s.sendRequest()
+					}
+				}
+			},
+		})
+		if err != nil {
+			return err
+		}
+		s.brokerFactory.Start(s.ctx.Done())
+		s.brokerFactory.WaitForCacheSync(s.ctx.Done())
 	}
 	return nil
 }
@@ -286,10 +354,14 @@ func (s *StatusInformer) run() {
 }
 
 func shouldRequestOnAPIServerUpdate(oldPod, newPod *corev1.Pod, containerName string) bool {
-	if !isAPIServerPodReady(newPod, containerName) {
+	return shouldRequestOnWorkloadUpdate(oldPod, newPod, containerName)
+}
+
+func shouldRequestOnWorkloadUpdate(oldPod, newPod *corev1.Pod, containerName string) bool {
+	if !isWorkloadPodReady(newPod, containerName) {
 		return false
 	}
-	if !isAPIServerPodReady(oldPod, containerName) {
+	if !isWorkloadPodReady(oldPod, containerName) {
 		return true
 	}
 
@@ -299,6 +371,10 @@ func shouldRequestOnAPIServerUpdate(oldPod, newPod *corev1.Pod, containerName st
 }
 
 func isAPIServerPodReady(pod *corev1.Pod, containerName string) bool {
+	return isWorkloadPodReady(pod, containerName)
+}
+
+func isWorkloadPodReady(pod *corev1.Pod, containerName string) bool {
 	return k8s.IsPodReady(pod) && isContainerRunningAndReady(pod, containerName)
 }
 
@@ -335,7 +411,44 @@ func containerRestartCount(pod *corev1.Pod, containerName string) (int32, bool) 
 	return restarts, found
 }
 
+func (s *StatusInformer) allBrokerPodsReady() bool {
+	if s.brokerFactory == nil {
+		return true
+	}
+
+	informer := s.brokerFactory.Core().V1().Pods().Informer()
+	if !informer.HasSynced() {
+		return false
+	}
+
+	items := informer.GetStore().List()
+	if len(items) == 0 {
+		// Broker watch is enabled but no pods exist yet; wait for the DaemonSet.
+		return false
+	}
+
+	for _, item := range items {
+		pod, ok := item.(*corev1.Pod)
+		if !ok {
+			continue
+		}
+		if !isWorkloadPodReady(pod, s.brokerContainerName) {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *StatusInformer) process() {
+	if !s.allBrokerPodsReady() {
+		klog.V(2).Info("Waiting for node-data-broker pods to become ready before topology generation")
+		if s.timer != nil {
+			s.timer.Stop()
+		}
+		s.timer = time.NewTimer(defaultBrokerRetryDelay)
+		return
+	}
+
 	if _, err := s.reqExecFunc(s.reqFunc, false); err != nil {
 		klog.Errorf("failed to send HTTP request; retrying in %s: %v", s.retryDelay, err)
 

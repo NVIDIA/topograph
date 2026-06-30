@@ -25,5 +25,18 @@ data:
           app.kubernetes.io/instance: {{ .Release.Name }}
         {{- end }}
     {{- end }}
+    {{- if .Values.topograph.nodeDataBroker.enabled }}
+    nodeDataBroker:
+      namespace: {{ .Release.Namespace }}
+      containerName: {{ .Values.topograph.nodeDataBroker.containerName | default "node-data-broker" }}
+      podSelector:
+        {{- if .Values.topograph.nodeDataBroker.podSelector }}
+        {{- toYaml .Values.topograph.nodeDataBroker.podSelector | nindent 8 }}
+        {{- else }}
+        matchLabels:
+          app.kubernetes.io/name: node-data-broker
+          app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- end }}
+    {{- end }}
     trigger:
       {{- toYaml .Values.topograph.trigger | nindent 6 }}

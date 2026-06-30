@@ -25,20 +25,23 @@ spec:
       serviceAccountName: {{ include "node-data-broker.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if .Values.initc.enabled }}
-      initContainers:
-        - name: init-node-labels
-          image: {{ include "node-data-broker.initImage" . | quote }}
-          imagePullPolicy: {{ .Values.initc.image.pullPolicy }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "node-data-broker.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - /usr/local/bin/node-data-broker-initc
+            - /usr/local/bin/node-data-broker
           args:
             - --provider={{ .Values.global.provider.name }}
             - -v={{ .Values.verbosity }}
+            - --port={{ .Values.port }}
+            - --refresh-interval={{ .Values.refreshInterval }}
             {{- if $useGpuCliqueLabel }}
             - --set=useGpuCliqueLabel=true
             {{- end }}
-            {{- range .Values.initc.extraArgs }}
+            {{- range .Values.extraArgs }}
             - --set={{ . }}
             {{- end }}
           env:
@@ -46,31 +49,29 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-          {{- if or $configMapMounts .Values.volumeMounts }}
-          volumeMounts:
-            {{- range $configMapMounts }}
-            - name: {{ include "node-data-broker.configMapMountVolumeName" (dict "name" .name) }}
-              mountPath: {{ required "node-data-broker.configMapMounts[].mountPath is required" .mountPath | quote }}
-              {{- with .subPath }}
-              subPath: {{ . | quote }}
-              {{- end }}
-              readOnly: true
-            {{- end }}
-            {{- with .Values.volumeMounts }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-          {{- end }}
-      {{- end }}
-      containers:
-        - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: {{ include "node-data-broker.image" . | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.command }}
-          command:
-            {{ toYaml . | nindent 12 }}
-          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.port }}
+              protocol: TCP
+          # The broker applies node annotations before it starts serving
+          # /healthz. The startup probe gates liveness/readiness so slow
+          # providers (e.g. infiniband ibnetdiscover) have up to
+          # failureThreshold * periodSeconds to finish before the container can
+          # be restarted.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if or $configMapMounts .Values.volumeMounts }}
