@@ -153,7 +153,7 @@ The Topograph API server listens on port `49021` by default. The Helm chart alwa
 By default, `global.service.type: ClusterIP` and `ingress.enabled: false`. This means:
 
 - The API is not exposed outside the cluster
-- In-cluster components (Node Observer, Node Data Broker) reach the API via the Service DNS name `<release>.<namespace>.svc.cluster.local:49021`
+- In-cluster components (Node Observer, Node Data Broker) reach the API via the Service DNS name `<release>-topograph.<namespace>.svc.cluster.local:49021` by default
 - Cluster operators can reach the API via port-forward for debugging:
 
 ```bash

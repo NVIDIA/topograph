@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Helm node-observer now targets the rendered Topograph Service fullname in `generateTopologyUrl`.
+
 ## [0.5.0] - 2026-06-30
 
 ### Added
