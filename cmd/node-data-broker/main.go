@@ -41,6 +41,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/dra"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
+	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 )
@@ -257,6 +258,8 @@ func getAnnotations(ctx context.Context, client kubernetes.Interface, config *re
 		return dra.GetNodeAnnotations(ctx, nodeName)
 	case infiniband.NAME_K8S:
 		return infiniband.GetNodeAnnotations(ctx, client, config, nodeName, extras)
+	case lambdai.NAME:
+		return lambdai.GetNodeAnnotations(ctx, client, nodeName)
 	case "":
 		return nil, fmt.Errorf("must set provider")
 	default:

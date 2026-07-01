@@ -32,6 +32,8 @@ navigation:
         path: providers/nebius.md
       - page: Nscale
         path: providers/nscale.md
+      - page: Lambda
+        path: providers/lambdai.md
       - page: InfiniBand
         path: providers/infiniband.md
       - page: NetQ
