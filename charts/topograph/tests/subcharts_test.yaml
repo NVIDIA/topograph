@@ -36,6 +36,10 @@ tests:
         template: charts/node-observer/templates/configmap.yml
       - matchRegex:
           path: data["node-observer-config.yaml"]
+          pattern: 'generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"'
+        template: charts/node-observer/templates/configmap.yml
+      - matchRegex:
+          path: data["node-observer-config.yaml"]
           pattern: "containerName: topograph"
         template: charts/node-observer/templates/configmap.yml
       - matchRegex:

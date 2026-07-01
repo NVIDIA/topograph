@@ -117,7 +117,7 @@ renders default values.yaml:
     apiVersion: v1
     data:
       node-observer-config.yaml: |-
-        generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+        generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"
         provider:
           name: test
         engine:
@@ -169,7 +169,7 @@ renders default values.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: d45ef247d5768db15ab821a2aa1691cf3bf9a91615e158cf4146db33d03a2b8b
+            checksum/config: b5fbaf109afce36159e4ec81c24856f3c251d6ea94da809d6676d31d17e209c2
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -602,7 +602,7 @@ renders values.k8s.gateway-api-example.yaml:
     apiVersion: v1
     data:
       node-observer-config.yaml: |-
-        generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+        generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"
         provider:
           name: test
         engine:
@@ -654,7 +654,7 @@ renders values.k8s.gateway-api-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: d45ef247d5768db15ab821a2aa1691cf3bf9a91615e158cf4146db33d03a2b8b
+            checksum/config: b5fbaf109afce36159e4ec81c24856f3c251d6ea94da809d6676d31d17e209c2
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -1111,7 +1111,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
     apiVersion: v1
     data:
       node-observer-config.yaml: |-
-        generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+        generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"
         provider:
           name: gcp
           params:
@@ -1168,7 +1168,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: 76e93de3f45c394c0bb15b834c6bde8755f6b0de76378a391d12f3d1e3d5eb01
+            checksum/config: 48d5dfceccd899dc55f9ab81383cdb45510565a2b91272c65de05dbd030aa290
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -1621,7 +1621,7 @@ renders values.k8s.gcp-service-account-example.yaml:
     apiVersion: v1
     data:
       node-observer-config.yaml: |-
-        generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+        generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"
         provider:
           name: gcp
           params:
@@ -1676,7 +1676,7 @@ renders values.k8s.gcp-service-account-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: 184b1b21aaef0f9926f645ad124d2dd50f36f1eaaf746e47ba967b33ea7a74c8
+            checksum/config: 8f162e04e72051bfb6e22639a3cba1a7a4b2838fbd0902fc895ff832bf5126c6
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -2129,7 +2129,7 @@ renders values.k8s.ib-example.yaml:
     apiVersion: v1
     data:
       node-observer-config.yaml: |-
-        generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+        generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"
         provider:
           name: infiniband-k8s
           params:
@@ -2184,7 +2184,7 @@ renders values.k8s.ib-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: 6ad6b96f026f22809fec8252b63a9ec1f6f1b6f074e7e17d4506860f47cb19eb
+            checksum/config: 0817a226e7e3d90a5de76ee938d256f2c0fd332846289f47e2df27c85b4be4ac
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -2623,7 +2623,7 @@ renders values.slinky.block-example.yaml:
     apiVersion: v1
     data:
       node-observer-config.yaml: |-
-        generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+        generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"
         provider:
           name: aws
           params:
@@ -2693,7 +2693,7 @@ renders values.slinky.block-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: b9734e9dcc83643a25f94c88fe3fad56f37bc248c730e02947364ecf60d2dd50
+            checksum/config: 3107586266818c54ec0b3dbfd5961c353aed23acea4d82cc430317edbdd0a214
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -3141,7 +3141,7 @@ renders values.slinky.partition-example.yaml:
     apiVersion: v1
     data:
       node-observer-config.yaml: |-
-        generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+        generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"
         provider:
           name: aws
         engine:
@@ -3228,7 +3228,7 @@ renders values.slinky.partition-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: cd60a5429212282f933806b944a3a87f29584a119838316e0ca290c807b18fa1
+            checksum/config: 1ce0628d518dab0a7504e69c8c564201753f11957a2fd110771d30844a6a8379
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm
@@ -3676,7 +3676,7 @@ renders values.slinky.tree-example.yaml:
     apiVersion: v1
     data:
       node-observer-config.yaml: |-
-        generateTopologyUrl: "http://chart-ci.topograph.svc.cluster.local:49021/v1/generate"
+        generateTopologyUrl: "http://chart-ci-topograph.topograph.svc.cluster.local:49021/v1/generate"
         provider:
           name: aws
         engine:
@@ -3738,7 +3738,7 @@ renders values.slinky.tree-example.yaml:
       template:
         metadata:
           annotations:
-            checksum/config: 0573828048de7511756c20599cf40a39f9ee78890a71268584ef24acb4103677
+            checksum/config: 09d8f45a6d18e39451a240060428f49a2d550ef5dc0af12727ca12215bc9dfaa
           labels:
             app.kubernetes.io/instance: chart-ci
             app.kubernetes.io/managed-by: Helm

@@ -78,6 +78,20 @@ Create the name of the RBAC resources.
 {{/*
 Create topograph service URL
 */}}
+{{- define "topograph.serviceName" -}}
+{{- if eq .Chart.Name "topograph" }}
+{{- include "topograph.fullname" . }}
+{{- else }}
+{{- /* Subcharts render with their own .Chart.Name, so use the parent chart name explicitly. */}}
+{{- $name := "topograph" }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- define "topograph.url" -}}
-{{ printf "http://%s.%s.svc.cluster.local:%.0f" .Release.Name .Release.Namespace .Values.global.service.port }}
+{{ printf "http://%s.%s.svc.cluster.local:%.0f" (include "topograph.serviceName" .) .Release.Namespace .Values.global.service.port }}
 {{- end }}
