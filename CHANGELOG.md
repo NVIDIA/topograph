@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- OCI standard labels (`org.opencontainers.image.*`) on the Topograph container image; the docker workflow passes `VERSION` and `REVISION` build-args from release metadata ([#377](https://github.com/NVIDIA/topograph/pull/377)).
+- OCI labels missing from `docker/metadata-action` on the Topograph container image: `org.opencontainers.image.documentation`, `authors`, and `vendor` ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 - Helm chart metadata: `home`, `icon`, `maintainers`, `keywords`, and Artifact Hub annotations ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 
 ### Fixed
