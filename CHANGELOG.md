@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- OCI standard labels (`org.opencontainers.image.*`) on the Topograph container image; the docker workflow passes `VERSION` and `REVISION` build-args from release metadata ([#377](https://github.com/NVIDIA/topograph/pull/377)).
+- Helm chart metadata: `home`, `icon`, `maintainers`, `keywords`, and Artifact Hub annotations ([#377](https://github.com/NVIDIA/topograph/pull/377)).
+
 ### Fixed
 
 - Helm node-observer now targets the rendered Topograph Service fullname in `generateTopologyUrl`.
