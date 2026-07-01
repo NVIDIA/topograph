@@ -43,6 +43,7 @@ charts/topograph/     # Helm chart (with node-data-broker subchart); tests/ hold
 CHANGELOG.md          # Release history (Keep a Changelog format); update [Unreleased] for user-facing PRs
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
 tests/models/         # YAML simulation fixtures
+tests/chainsaw/       # Chainsaw E2E test suites (label-application, label-truncation, node-observer, slinky)
 config/               # Sample topograph-config.yaml
 scripts/              # Build scripts (deb, rpm, SSL, clean)
 localdev/             # Developer-local workspace — not tracked; personal scratch files
@@ -95,6 +96,20 @@ make coverage   # human-readable per-package summary
 
 Run `make qualify` before pushing. The individual targets are available if you want to run a single check during iteration. Run `make chart-test` when you change `charts/topograph/` or its subcharts; CI runs it on every workflow trigger.
 
+### E2E tests (Chainsaw)
+
+Chainsaw conformance tests live in `tests/chainsaw/` and exercise the full Helm deploy → generate → assert cycle against a real cluster.
+
+```bash
+make e2e-local                              # build image, create kind cluster, run all suites, delete cluster
+make kind-load KIND_CLUSTER=<name>          # load image into an existing kind cluster (run before make e2e)
+make e2e                                    # run suites against current KUBECONFIG context
+```
+
+`make e2e` uses `E2E_IMAGE_TAG` (defaults to the short commit SHA) as the image tag. For a local kind cluster, run `make image-build && make kind-load KIND_CLUSTER=<name>` before each `make e2e` — the tag changes with every commit, so both steps are needed after any new commit. Prerequisites: `chainsaw`, `kind`, `helm`, `kubectl`, `docker`. See `tests/chainsaw/README.md` for details.
+
+These tests are triggered manually via `.github/workflows/e2e.yml` (`workflow_dispatch`). Run them before merging changes to the Helm chart, Node Observer, or engine output.
+
 ### Coverage policy
 
 From `codecov.yml`:
@@ -109,6 +124,7 @@ Coverage checks run on pull requests. A drop below target with no matching uplif
 - `.github/workflows/chart-test.yaml` — Helm chart lint + helm-unittest suites (`make chart-test`) on every push and PR
 - `.github/workflows/docker.yml` — container image build (manual trigger)
 - `.github/workflows/helm-release.yaml` — Helm chart release (manual trigger)
+- `.github/workflows/e2e.yml` — Chainsaw E2E suite against a kind cluster (manual trigger via `workflow_dispatch`)
 
 ### Deployment surfaces
 
