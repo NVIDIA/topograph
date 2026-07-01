@@ -26,5 +26,4 @@ LABEL org.opencontainers.image.title="Topograph" \
     org.opencontainers.image.vendor="NVIDIA" \
     org.opencontainers.image.licenses="Apache-2.0" \
     org.opencontainers.image.version="${VERSION}" \
-    org.opencontainers.image.revision="${REVISION}" \
-    org.opencontainers.image.base.name="docker.io/library/alpine:3"
+    org.opencontainers.image.revision="${REVISION}"
