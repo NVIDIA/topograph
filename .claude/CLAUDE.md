@@ -62,7 +62,7 @@ These structures propagate across every provider and engine. Changing them in a 
 
 ### Prerequisites
 
-- **Go 1.25.9** (see `go.mod`) — newer minor versions are fine; older will not build
+- **Go 1.25.11** (see `go.mod`) — newer minor versions are fine; older will not build
 - **make**
 - **golangci-lint** — `brew install golangci-lint` or via `go install`
 - **helm 3.10+ or 4.x** — required for `make chart-test`; the `helm-unittest` plugin is installed automatically by the target (`brew install helm`). CI pins helm `v4.1.1` in `.github/workflows/chart-test.yaml`.
@@ -105,7 +105,7 @@ Coverage checks run on pull requests. A drop below target with no matching uplif
 
 ### CI workflows
 
-- `.github/workflows/go.yml` — build, test, and lint on every push and PR
+- `.github/workflows/go.yml` — build, test, lint, and `govulncheck` on every push and PR
 - `.github/workflows/chart-test.yaml` — Helm chart lint + helm-unittest suites (`make chart-test`) on every push and PR
 - `.github/workflows/docker.yml` — container image build (manual trigger)
 - `.github/workflows/helm-release.yaml` — Helm chart release (manual trigger)
