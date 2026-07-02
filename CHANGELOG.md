@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Go toolchain bumped to **1.25.11** (`go.mod`, `Dockerfile`, CI) to address reachable stdlib vulnerabilities reported by `govulncheck`.
+- Slinky engine `useGpuCliqueLabel` now emits an actionable diagnostic when no block domains can be built: the error reports how many nodes were scanned and why each was skipped (no Slurm mapping, missing `nvidia.com/gpu.clique` label, or missing the node-data-broker-written `topograph.nvidia.com/instance` annotation), and lists the offending node names.
 
 ### Fixed
 
