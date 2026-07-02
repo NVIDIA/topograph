@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - OCI labels missing from `docker/metadata-action` on the Topograph container image: `org.opencontainers.image.documentation`, `authors`, and `vendor` ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 - Helm chart metadata: `home`, `icon`, `maintainers`, `keywords`, and Artifact Hub annotations ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 
+### Changed
+
+- Slinky engine `useGpuCliqueLabel` now emits an actionable diagnostic when no block domains can be built: the error reports how many nodes were scanned and why each was skipped (no Slurm mapping, missing `nvidia.com/gpu.clique` label, or missing the node-data-broker-written `topograph.nvidia.com/instance` annotation), and lists the offending node names.
+
 ### Fixed
 
 - Helm node-observer now targets the rendered Topograph Service fullname in `generateTopologyUrl`.
