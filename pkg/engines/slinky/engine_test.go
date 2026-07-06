@@ -404,6 +404,56 @@ func TestWithGPUCliqueDomainsNoMatchingNodes(t *testing.T) {
 	got, httpErr := withGPUCliqueDomains(&topology.Graph{}, clusterNodes)
 	require.Nil(t, got)
 	require.ErrorContains(t, httpErr, "useGpuCliqueLabel=true but no matching nodes found")
+	// The node maps to a SLURM node but has no clique label.
+	require.ErrorContains(t, httpErr, "Scanned 1 node(s)")
+	require.ErrorContains(t, httpErr, fmt.Sprintf("1 missing the %q label", topology.KeyNvidiaGPUClique))
+}
+
+func TestWithGPUCliqueDomainsNoSelectedNodes(t *testing.T) {
+	// No Kubernetes nodes selected at all (e.g. a too-narrow nodeSelector) must
+	// produce a distinct, actionable error rather than the generic no-match one.
+	clusterNodes := &clusterNodes{
+		nodes:   &corev1.NodeList{},
+		nodeMap: map[string]string{},
+	}
+
+	got, httpErr := withGPUCliqueDomains(&topology.Graph{}, clusterNodes)
+	require.Nil(t, got)
+	require.NotNil(t, httpErr)
+	require.ErrorContains(t, httpErr, "no selected Kubernetes nodes found; check engine nodeSelector")
+}
+
+func TestWithGPUCliqueDomainsMissingBrokerAnnotation(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	// Node has the GPU clique label but is missing the node-data-broker-written
+	// instance annotation - the exact scenario that produces the error in the field.
+	_, err := client.CoreV1().Nodes().Create(ctx, &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "k8s-node-0",
+			Labels: map[string]string{topology.KeyNvidiaGPUClique: "clique-a"},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	_, err = client.CoreV1().Pods("test-ns").Create(ctx, makeReadySlurmdPod("pod-0", "k8s-node-0", "slurm-0"), metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:  "test-ns",
+			podListOpt: &metav1.ListOptions{LabelSelector: "app=slinky"},
+		},
+	}
+
+	clusterNodes, httpErr := eng.getClusterNodes(ctx)
+	require.Nil(t, httpErr)
+	got, httpErr := withGPUCliqueDomains(&topology.Graph{}, clusterNodes)
+	require.Nil(t, got)
+	require.ErrorContains(t, httpErr, fmt.Sprintf("1 with the label but missing the %q annotation", topology.KeyNodeInstance))
+	require.ErrorContains(t, httpErr, "nodes missing annotation: k8s-node-0")
 }
 
 func TestGenerateOutputUsesGPUCliqueDomains(t *testing.T) {
