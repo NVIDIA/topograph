@@ -409,6 +409,20 @@ func TestWithGPUCliqueDomainsNoMatchingNodes(t *testing.T) {
 	require.ErrorContains(t, httpErr, fmt.Sprintf("1 missing the %q label", topology.KeyNvidiaGPUClique))
 }
 
+func TestWithGPUCliqueDomainsNoSelectedNodes(t *testing.T) {
+	// No Kubernetes nodes selected at all (e.g. a too-narrow nodeSelector) must
+	// produce a distinct, actionable error rather than the generic no-match one.
+	clusterNodes := &clusterNodes{
+		nodes:   &corev1.NodeList{},
+		nodeMap: map[string]string{},
+	}
+
+	got, httpErr := withGPUCliqueDomains(&topology.Graph{}, clusterNodes)
+	require.Nil(t, got)
+	require.NotNil(t, httpErr)
+	require.ErrorContains(t, httpErr, "no selected Kubernetes nodes found; check engine nodeSelector")
+}
+
 func TestWithGPUCliqueDomainsMissingBrokerAnnotation(t *testing.T) {
 	ctx := context.Background()
 	client := fake.NewSimpleClientset()

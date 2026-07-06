@@ -261,6 +261,13 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 }
 
 func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*topology.Graph, *httperr.Error) {
+	// No nodes selected at all is a distinct failure from "nodes exist but none
+	// matched": it usually points at a too-narrow engine nodeSelector.
+	if len(clusterNodes.nodes.Items) == 0 {
+		return nil, httperr.NewError(http.StatusBadGateway,
+			"no selected Kubernetes nodes found; check engine nodeSelector")
+	}
+
 	domains := topology.NewDomainMap()
 
 	// Diagnostic counters to explain why no domains were built. The instance
