@@ -453,11 +453,17 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 	// A Slinky cluster always runs a controller (slurmctld) but login pods are
 	// optional, so prefer the controller for `scontrol show partition` and fall
 	// back to a login pod when one is present.
+	var listErrs []string
 	for _, component := range []string{slurmComponentController, slurmComponentLogin} {
 		labels := map[string]string{slurmComponentLabelKey: component}
 		pods, err := k8s.GetPodsByLabels(ctx, eng.client, namespace, labels)
 		if err != nil {
-			return "", err
+			// A listing failure for one component (e.g. missing RBAC to list
+			// controller pods) must not abort discovery: record it and try the
+			// next component so an available login pod can still be used.
+			klog.Warningf("topology: failed to list %s pods in namespace %q: %v; trying next component", component, namespace, err)
+			listErrs = append(listErrs, fmt.Sprintf("%s: %v", component, err))
+			continue
 		}
 
 		for _, pod := range pods.Items {
@@ -473,6 +479,11 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 
 			return buf.String(), nil
 		}
+	}
+
+	if len(listErrs) > 0 {
+		return "", fmt.Errorf("no running %s or %s pods found for partition discovery in namespace %q (errors listing pods: %s)",
+			slurmComponentController, slurmComponentLogin, namespace, strings.Join(listErrs, "; "))
 	}
 
 	return "", fmt.Errorf("no running %s or %s pods found for partition discovery in namespace %q",
