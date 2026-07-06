@@ -27,6 +27,9 @@ const (
 	authToken       = "token"
 	apiBaseURL      = "url"
 
+	// apiPath is the Lambda topology API endpoint for listing instance topology.
+	apiPath = "/api/v1/topology/instance"
+
 	defaultPageSize = 200
 )
 
@@ -60,14 +63,28 @@ type lambdaiClient struct {
 	pageSize    int
 }
 
+// apiResponse is the envelope returned by the topology API: a "data" array of
+// instances plus a pagination cursor ("page_token", null on the last page).
+type apiResponse struct {
+	Data      []InstanceTopology `json:"data"`
+	PageToken string             `json:"page_token"`
+}
+
 // InstanceTopology represents the topology of a single instance.
 type InstanceTopology struct {
-	ID          string      `json:"id"`
-	NetworkPath []string    `json:"networkPath"`
-	NVLink      *NVLinkInfo `json:"nvlink,omitempty"`
+	ID          string       `json:"id"`
+	NetworkPath []NetworkHop `json:"networkPath"`
+	NVLink      *NVLinkInfo  `json:"nvlink,omitempty"`
+}
+
+// NetworkHop is a single switch in an instance's network path, ordered from the
+// leaf tier upward.
+type NetworkHop struct {
+	ID string `json:"id"`
 }
 
 type InstanceListRequest struct {
+	Region    string
 	PageSize  int
 	PageToken string
 }
@@ -78,6 +95,8 @@ type InstanceListResponse struct {
 }
 
 // NVLinkInfo represents NVLink domain information.
+// NOTE: the populated shape is unverified — sampled staging instances all
+// returned "nvlink": null. Revisit these tags once real NVLink data is available.
 type NVLinkInfo struct {
 	DomainID string `json:"domain_id,omitempty"`
 	CliqueID string `json:"clique_id,omitempty"`
@@ -93,30 +112,33 @@ func (c *lambdaiClient) PageSize() int {
 
 func (c *lambdaiClient) InstanceList(ctx context.Context, req *InstanceListRequest) (*InstanceListResponse, error) {
 	headers := map[string]string{"Authorization": "Bearer " + c.bearerToken}
-	query := map[string]string{"workspace_id": c.workspaceID}
-	// TODO: follow up on correct pagination
+	query := map[string]string{
+		"workspace_id": c.workspaceID,
+		"region":       req.Region,
+	}
+	// page_size is a best-effort hint; the API paginates via page_token.
 	if req.PageSize > 0 {
 		query["page_size"] = strconv.Itoa(req.PageSize)
 	}
 	if req.PageToken != "" {
 		query["page_token"] = req.PageToken
 	}
-	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, query, nil, c.baseURL, "/api/v1/instance-topology")
+	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, query, nil, c.baseURL, apiPath)
 
 	body, httpErr := httpreq.DoRequestWithRetries(f, false)
 	if httpErr != nil {
 		return nil, httpErr
 	}
 
-	resp := &InstanceListResponse{Items: []InstanceTopology{}}
-	if err := json.Unmarshal(body, &resp.Items); err != nil {
+	var apiResp apiResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	// TODO: follow up on correct page token
-	resp.NextPageToken = ""
-
-	return resp, nil
+	return &InstanceListResponse{
+		Items:         apiResp.Data,
+		NextPageToken: apiResp.PageToken,
+	}, nil
 }
 
 func NamedLoader() (string, providers.Loader) {

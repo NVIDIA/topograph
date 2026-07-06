@@ -24,9 +24,10 @@ func TestNewController(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name    string
-		trigger Trigger
-		err     string
+		name      string
+		trigger   Trigger
+		apiServer APIServer
+		err       string
 	}{
 		{
 			name: "Case 1: bad trigger",
@@ -40,7 +41,18 @@ func TestNewController(t *testing.T) {
 			err: `"BAD" is not a valid label selector operator`,
 		},
 		{
-			name: "Case 2: valid input",
+			name: "Case 2: bad API server selector",
+			apiServer: APIServer{
+				PodSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Operator: "BAD"},
+					},
+				},
+			},
+			err: `"BAD" is not a valid label selector operator`,
+		},
+		{
+			name: "Case 3: valid input",
 			trigger: Trigger{
 				PodSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"key": "val"},
@@ -55,6 +67,7 @@ func TestNewController(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg.Trigger = tc.trigger
+			cfg.APIServer = tc.apiServer
 			_, err := NewController(ctx, nil, cfg)
 			if len(tc.err) != 0 {
 				require.EqualError(t, err, tc.err)

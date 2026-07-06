@@ -30,19 +30,6 @@ spec:
       serviceAccountName: {{ include "node-observer.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      initContainers:
-        - name: wait
-          image: {{ include "node-observer.waitImage" . | quote }}
-          imagePullPolicy: {{ .Values.waitImage.pullPolicy }}
-          command:
-            - sh
-          args:
-            - -c
-            - |
-              until curl -sf "{{ include "topograph.url" $ }}/healthz" ; do
-                echo "Waiting for topograph to start ..."
-                sleep 2
-              done
       containers:
         - name: {{ .Chart.Name }}
           securityContext:

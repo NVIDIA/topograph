@@ -65,6 +65,11 @@ type SlinkyEngine struct {
 	params *Params
 }
 
+type clusterNodes struct {
+	nodes   *corev1.NodeList
+	nodeMap map[string]string
+}
+
 type Params struct {
 	slurm.BaseParams `mapstructure:",squash"`
 	// Namespace specifies the namespace where Slinky cluster is deployed
@@ -79,6 +84,9 @@ type Params struct {
 	ConfigPath string `mapstructure:"topologyConfigPath"`
 	// UseDynamicNodes specifies whether to use dynamic nodes for reporting: true or false
 	UseDynamicNodes bool `mapstructure:"useDynamicNodes" default:"false"`
+	// UseGPUCliqueLabel uses the GPU Operator's nvidia.com/gpu.clique node label
+	// as the block-domain source for topology/block output.
+	UseGPUCliqueLabel bool `mapstructure:"useGpuCliqueLabel"`
 	// ConfigUpdateMode specifies the mode for updating the slurm config: valid values {"none", "skeleton-only"}
 	ConfigUpdateMode string `mapstructure:"configUpdateMode,omitempty"`
 	// Topologies specifies per-partition topology configuration
@@ -179,24 +187,36 @@ func isEmptySelector(sel *metav1.LabelSelector) bool {
 }
 
 func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
-
-	nodes, nodeMap, err := eng.getClusterNodes(ctx)
+	clusterNodes, err := eng.getClusterNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return getComputeInstances(nodes, nodeMap)
+	return getComputeInstances(clusterNodes.nodes, clusterNodes.nodeMap)
 }
 
-func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*corev1.NodeList, map[string]string, *httperr.Error) {
+// resolveSlurmNodeName resolves a slurmd pod's SLURM node name, preferring the
+// KeySlurmNodeName label and falling back to the pod's hostname.
+func resolveSlurmNodeName(pod *corev1.Pod) string {
+	if name, ok := pod.Labels[topology.KeySlurmNodeName]; ok {
+		return name
+	}
+	return pod.Spec.Hostname
+}
+
+// getClusterNodes returns the Kubernetes nodes selected for topology generation
+// and a map from Kubernetes node name to Slurm node name. The mapping is built
+// from Ready slurmd pods in the configured namespace and pod selector, using the
+// slurm.node.name label when present and falling back to pod.spec.hostname.
+func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*clusterNodes, *httperr.Error) {
 	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
-		return nil, nil, httperr.NewError(http.StatusBadGateway, err.Error())
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	pods, err := eng.client.CoreV1().Pods(eng.params.Namespace).List(ctx, *eng.params.podListOpt)
 	if err != nil {
-		return nil, nil, httperr.NewError(http.StatusBadGateway,
+		return nil, httperr.NewError(http.StatusBadGateway,
 			fmt.Sprintf("failed to list SLURM pods in the cluster: %v", err))
 	}
 
@@ -208,14 +228,18 @@ func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*corev1.NodeList,
 		if !k8s.IsPodReady(&pod) {
 			continue
 		}
-		host, ok := pod.Labels[topology.KeySlurmNodeName]
-		if !ok {
-			host = pod.Spec.Hostname
+		host := resolveSlurmNodeName(&pod)
+		if host == "" {
+			klog.Warningf("Cannot resolve SLURM node name for pod %s/%s, skipping", pod.Namespace, pod.Name)
+			continue
 		}
 		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, host)
 		nodeMap[pod.Spec.NodeName] = host
 	}
-	return nodes, nodeMap, nil
+	return &clusterNodes{
+		nodes:   nodes,
+		nodeMap: nodeMap,
+	}, nil
 }
 
 func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]topology.ComputeInstances, *httperr.Error) {
@@ -251,6 +275,105 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 	}
 
 	return cis, nil
+}
+
+func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*topology.Graph, *httperr.Error) {
+	// No nodes selected at all is a distinct failure from "nodes exist but none
+	// matched": it usually points at a too-narrow engine nodeSelector.
+	if len(clusterNodes.nodes.Items) == 0 {
+		return nil, httperr.NewError(http.StatusBadGateway,
+			"no selected Kubernetes nodes found; check engine nodeSelector")
+	}
+
+	domains := topology.NewDomainMap()
+
+	// Diagnostic counters to explain why no domains were built. The instance
+	// annotation is written per-node by the node-data-broker DaemonSet, so a
+	// node with the clique label but no annotation points at a broker that has
+	// not (yet) annotated that specific node.
+	totalNodes := len(clusterNodes.nodes.Items)
+	var noSlurmName, noCliqueLabel int
+	missingAnnotation := []string{}
+
+	for _, node := range clusterNodes.nodes.Items {
+		slurmName, ok := clusterNodes.nodeMap[node.Name]
+		if !ok || slurmName == "" {
+			noSlurmName++
+			klog.V(4).Infof("Skipping node %s as it does not have a corresponding SLURM name", node.Name)
+			continue
+		}
+
+		gpuClique := strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique])
+		if gpuClique == "" {
+			noCliqueLabel++
+			klog.V(4).Infof("Skipping node %s (SLURM node %s): missing/empty %q label", node.Name, slurmName, topology.KeyNvidiaGPUClique)
+			continue
+		}
+
+		instance, ok := node.Annotations[topology.KeyNodeInstance]
+		if !ok {
+			missingAnnotation = append(missingAnnotation, node.Name)
+			klog.Warningf("node %s (SLURM node %s) has label %s=%q but is missing annotation %q (expected from node-data-broker on that node)",
+				node.Name, slurmName, topology.KeyNvidiaGPUClique, gpuClique, topology.KeyNodeInstance)
+			continue
+		}
+
+		domains.AddHost(gpuClique, instance, slurmName)
+	}
+
+	if len(domains) == 0 {
+		return nil, httperr.NewError(http.StatusBadGateway,
+			fmt.Sprintf("useGpuCliqueLabel=true but no matching nodes found; check label %q and annotation %q. "+
+				"Scanned %d node(s): %d without a SLURM node mapping (no Ready slurmd pod), %d missing the %q label, %d with the label but missing the %q annotation%s",
+				topology.KeyNvidiaGPUClique, topology.KeyNodeInstance,
+				totalNodes, noSlurmName, noCliqueLabel, topology.KeyNvidiaGPUClique,
+				len(missingAnnotation), topology.KeyNodeInstance, formatMissingAnnotationNodes(missingAnnotation)))
+	}
+
+	if graph == nil {
+		graph = &topology.Graph{}
+	} else {
+		cloned := *graph
+		graph = &cloned
+	}
+	graph.Domains = domains
+
+	return graph, nil
+}
+
+// formatMissingAnnotationNodes renders the node names that carry the GPU clique
+// label but lack the node-data-broker-written instance annotation. The list is
+// capped so the error message stays bounded on large clusters.
+func formatMissingAnnotationNodes(nodes []string) string {
+	if len(nodes) == 0 {
+		return ""
+	}
+
+	const maxListed = 10
+	if len(nodes) <= maxListed {
+		return fmt.Sprintf(" (nodes missing annotation: %s)", strings.Join(nodes, ", "))
+	}
+
+	return fmt.Sprintf(" (nodes missing annotation: %s, and %d more)",
+		strings.Join(nodes[:maxListed], ", "), len(nodes)-maxListed)
+}
+
+func usesBlockTopology(cfg *translate.Config) bool {
+	if cfg == nil {
+		return false
+	}
+
+	if cfg.Plugin == topology.TopologyBlock {
+		return true
+	}
+
+	for _, spec := range cfg.Topologies {
+		if spec != nil && spec.Plugin == topology.TopologyBlock {
+			return true
+		}
+	}
+
+	return false
 }
 
 // generateConfigMapAnnotations creates metadata annotations for ConfigMaps
@@ -290,6 +413,27 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 		return nil, httpErr
 	}
 
+	var clusterNodeData *clusterNodes
+	loadClusterNodes := func() (*clusterNodes, *httperr.Error) {
+		if clusterNodeData != nil {
+			return clusterNodeData, nil
+		}
+		var httpErr *httperr.Error
+		clusterNodeData, httpErr = eng.getClusterNodes(ctx)
+		return clusterNodeData, httpErr
+	}
+
+	if p.UseGPUCliqueLabel && usesBlockTopology(cfg) {
+		clusterNodeData, httpErr := loadClusterNodes()
+		if httpErr != nil {
+			return nil, httpErr
+		}
+		graph, httpErr = withGPUCliqueDomains(graph, clusterNodeData)
+		if httpErr != nil {
+			return nil, httpErr
+		}
+	}
+
 	nt, err := translate.NewNetworkTopology(graph, cfg)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
@@ -313,7 +457,11 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 
 	// For dynamic mode, perform reconciliation using the latest topology information from the provider (root) and the cluster (nodes and their annotations)
 	if p.UseDynamicNodes {
-		httpErr := eng.performReconciliation(ctx, nt, topologies)
+		clusterNodeData, httpErr := loadClusterNodes()
+		if httpErr != nil {
+			return nil, httpErr
+		}
+		httpErr = eng.performReconciliation(ctx, nt, topologies, clusterNodeData)
 		if httpErr != nil {
 			return nil, httpErr
 		}
@@ -423,10 +571,7 @@ func (eng *SlinkyEngine) listPartitionNodes(ctx context.Context, sel *metav1.Lab
 			klog.Warningf("topology: skipped not Ready pod %s/%s (selector %s)", pod.Namespace, pod.Name, s.String())
 			continue
 		}
-		host, ok := pod.Labels[topology.KeySlurmNodeName]
-		if !ok {
-			host = pod.Spec.Hostname
-		}
+		host := resolveSlurmNodeName(&pod)
 		if host == "" {
 			klog.Warningf("topology: cannot find Slurm hostname for pod %s/%s (selector %s)", pod.Namespace, pod.Name, s.String())
 			continue
@@ -490,17 +635,11 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 		slurmComponentController, slurmComponentLogin, namespace)
 }
 
-func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit) *httperr.Error {
-
-	nodes, nodeMap, err := eng.getClusterNodes(ctx)
-	if err != nil {
-		return err
-	}
-
+func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit, clusterNodes *clusterNodes) *httperr.Error {
 	// Update node annotations based on the desired topology and the current cluster state.
 	// This will trigger Slinky to reconfigure the nodes accordingly.
-	for _, node := range nodes.Items {
-		slurmName, ok := nodeMap[node.Name]
+	for _, node := range clusterNodes.nodes.Items {
+		slurmName, ok := clusterNodes.nodeMap[node.Name]
 		if !ok {
 			klog.V(4).Infof("Skipping node %s as it does not have a corresponding SLURM name", node.Name)
 			continue

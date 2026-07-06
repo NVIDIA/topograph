@@ -1,0 +1,94 @@
+# Example: Slinky on Kubernetes with InfiniBand discovery and Slurm
+# topology/block output. Replace the placeholder labels, namespace, block
+# sizes, and ConfigMap name/path with the conventions used by your Slinky
+# cluster.
+global:
+  provider:
+    # Discovers the InfiniBand fabric by exec-ing into node-data-broker pods
+    # and running ibnetdiscover from inside the cluster.
+    name: infiniband-k8s
+    params:
+      # Limits provider discovery to the Kubernetes Nodes that belong to this
+      # Slinky cluster. Keep this aligned with the engine and broker selectors
+      # so Topograph only discovers nodes that Slinky can schedule.
+      nodeSelector:
+        slurmCluster: my-cluster
+      # Reads accelerator/block domain IDs from the GPU Operator's
+      # nvidia.com/gpu.clique node label instead of Topograph's
+      # topograph.nvidia.com/cluster-id annotation.
+      useGpuCliqueLabel: true
+  engine:
+    # Writes generated Slurm topology data into a Slinky ConfigMap.
+    name: slinky
+    params:
+      # Namespace that contains the Slinky slurmd pods and target ConfigMap.
+      namespace: slurm
+      # Filters the Kubernetes Nodes that the Slinky engine considers for
+      # topology generation.
+      nodeSelector:
+        slurmCluster: my-cluster
+      # Selects Ready slurmd pods in the namespace above; used to map
+      # Kubernetes Nodes to Slurm node names.
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: slurmd
+      # Produces Slurm topology/block output (BlockName lines) instead of the
+      # topology/tree switch hierarchy.
+      plugin: topology/block
+      # Base block size for topology/block. Additional entries, if used, must
+      # be larger power-of-two multiples of the previous size.
+      blockSizes: [4]
+      # For block topology, use nvidia.com/gpu.clique as the block-domain
+      # source. Keep this aligned with global.provider.params.useGpuCliqueLabel.
+      useGpuCliqueLabel: true
+      # Key inside the target ConfigMap that Slinky mounts as topology.conf.
+      topologyConfigPath: topology.conf
+      # Target Slinky ConfigMap updated by Topograph with generated topology
+      # data and Topograph metadata annotations; created if it does not exist.
+      topologyConfigmapName: slurm-config
+
+# Schedules the Topograph API server pod onto matching Kubernetes Nodes.
+nodeSelector:
+  dedicated: system-workload
+
+# Allows the Topograph API server pod to run on tainted system nodes.
+tolerations:
+  - operator: Exists
+
+node-observer:
+  # Schedules the node-observer pod itself. This does not limit which nodes or
+  # pods it watches; the trigger selector below controls regeneration events.
+  nodeSelector:
+    dedicated: user-workload
+  topograph:
+    trigger:
+      # Watches matching slurmd pods and triggers topology regeneration when
+      # their status changes. Keep this selector aligned with the Slinky engine
+      # podSelector so topology refreshes follow the same Slurm nodes.
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: slurmd
+
+node-data-broker:
+  securityContext:
+    # Required so ibnetdiscover in the broker pod can access host IB devices.
+    privileged: true
+  # Runs one broker pod on each worker that should participate in IB discovery.
+  # Keep this broad enough to cover every selected Slurm node.
+  nodeSelector:
+    role: worker
+  # Exposes host device metadata needed by InfiniBand discovery tooling.
+  volumeMounts:
+  - name: sys-class-volume
+    mountPath: /sys/class
+  volumes:
+  - name: sys-class-volume
+    hostPath:
+      path: /sys/class
+      type: Directory
+  # Allows broker pods to run on GPU nodes tainted by the NVIDIA GPU Operator.
+  tolerations:
+  - key: "nvidia.com/gpu"
+    operator: "Equal"
+    value: "present"
+    effect: "NoSchedule"

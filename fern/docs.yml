@@ -7,38 +7,33 @@ instances:
   - url: topograph.docs.buildwithfern.com/topograph
     custom-domain: docs.nvidia.com/topograph
     multi-source: true
-
 title: NVIDIA Topograph
-
 global-theme: nvidia
-
 metadata:
   canonical-host: "docs.nvidia.com/topograph"
-
 products:
   - display-name: Topograph
     slug: /
     path: ../docs/index.yml
     versions:
-      # The newest entry is stamped "Latest · vX.Y.Z" by publish-fern-docs.yml at publish time.
-      # All versions serve frozen content from their git tag.
-      - display-name: "v0.4.0"
+      - display-name: v0.5.0
+        path: versions/v0.5.0.yml
+        slug: v0.5.0
+        availability: stable
+      - display-name: v0.4.0
         path: versions/v0.4.0.yml
         slug: v0.4.0
         availability: stable
-      - display-name: "v0.3.0"
+      - display-name: v0.3.0
         path: versions/v0.3.0.yml
         slug: v0.3.0
         availability: stable
-
 redirects:
   - source: "/topograph/index.html"
     destination: "/topograph/"
-
 logo:
   href: /topograph
   right-text: Topograph
-
 navbar-links:
   - type: github
     value: https://github.com/NVIDIA/topograph

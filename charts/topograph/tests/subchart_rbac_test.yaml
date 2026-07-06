@@ -1,0 +1,158 @@
+suite: subchart rbac
+# Subchart RBAC is rendered through the parent chart so global.provider drives
+# the conditional rules in the node-data-broker ClusterRole.
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: node-observer grants watch on nodes and pods
+    templates:
+      - charts/node-observer/templates/rbac.yaml
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ClusterRole
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes, pods]
+            verbs: [get, list, watch]
+
+  - it: node-observer binds the role to its own service account
+    templates:
+      - charts/node-observer/templates/rbac.yaml
+    documentIndex: 1
+    asserts:
+      - isKind:
+          of: ClusterRoleBinding
+      - equal:
+          path: roleRef.name
+          value: chart-ci-node-observer
+      - equal:
+          path: subjects[0].name
+          value: chart-ci-node-observer
+
+  - it: node-observer binds RBAC to an existing service account
+    templates:
+      - charts/node-observer/templates/rbac.yaml
+    set:
+      node-observer:
+        serviceAccount:
+          create: false
+          name: existing-node-observer-sa
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: roleRef.name
+          value: chart-ci-node-observer
+      - equal:
+          path: subjects[0].name
+          value: existing-node-observer-sa
+
+  - it: node-observer RBAC is omitted when rbac.create is false
+    templates:
+      - charts/node-observer/templates/rbac.yaml
+    set:
+      node-observer:
+        rbac:
+          create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: node-data-broker grants only node access with the default provider
+    templates:
+      - charts/node-data-broker/templates/rbac.yaml
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: node-data-broker binds RBAC to an existing service account
+    templates:
+      - charts/node-data-broker/templates/rbac.yaml
+    set:
+      node-data-broker:
+        serviceAccount:
+          create: false
+          name: existing-node-data-broker-sa
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: roleRef.name
+          value: chart-ci-node-data-broker
+      - equal:
+          path: subjects[0].name
+          value: existing-node-data-broker-sa
+
+  - it: node-data-broker RBAC is omitted when rbac.create is false
+    templates:
+      - charts/node-data-broker/templates/rbac.yaml
+    set:
+      node-data-broker:
+        rbac:
+          create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: node-data-broker grants pods/exec for infiniband-k8s nvidia-smi discovery
+    templates:
+      - charts/node-data-broker/templates/rbac.yaml
+    set:
+      global:
+        provider:
+          name: infiniband-k8s
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: node-data-broker drops pods/exec when reusing the GPU clique label
+    templates:
+      - charts/node-data-broker/templates/rbac.yaml
+    set:
+      global:
+        provider:
+          name: infiniband-k8s
+          params:
+            useGpuCliqueLabel: true
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: node-data-broker RBAC is omitted when the subchart is disabled
+    templates:
+      - charts/node-data-broker/templates/rbac.yaml
+    set:
+      node-data-broker:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

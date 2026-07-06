@@ -1,0 +1,64 @@
+suite: umbrella full-render snapshots
+# Whole-release snapshots for the tracked values fixtures. These replace the
+# former tests/charts/*.golden.yaml files. Refresh after intentional template
+# or values changes with: make chart-test-update-snapshot
+release:
+  name: chart-ci
+  namespace: topograph
+# Pin the chart version/appVersion so the snapshots are stable across release
+# bumps. The image tag derives from appVersion, so without this every version
+# bump would rewrite the image references and helm.sh/chart labels in all 153
+# snapshots. Tag both to a fixed sentinel; bumping the real chart version no
+# longer churns these fixtures.
+chart:
+  version: 0.0.0
+  appVersion: v0.0.0
+capabilities:
+  majorVersion: "1"
+  minorVersion: "30"
+tests:
+  - it: renders default values.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  - it: renders values.k8s.ib-example.yaml
+    values:
+      - ../values.k8s.ib-example.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  - it: renders values.k8s.gcp-service-account-example.yaml
+    values:
+      - ../values.k8s.gcp-service-account-example.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  - it: renders values.k8s.gcp-federated-workload-identity-example.yaml
+    values:
+      - ../values.k8s.gcp-federated-workload-identity-example.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  - it: renders values.k8s.gateway-api-example.yaml
+    values:
+      - ../values.k8s.gateway-api-example.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  - it: renders values.slinky.tree-example.yaml
+    values:
+      - ../values.slinky.tree-example.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  - it: renders values.slinky.block-example.yaml
+    values:
+      - ../values.slinky.block-example.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  - it: renders values.slinky.partition-example.yaml
+    values:
+      - ../values.slinky.partition-example.yaml
+    asserts:
+      - matchSnapshot: {}

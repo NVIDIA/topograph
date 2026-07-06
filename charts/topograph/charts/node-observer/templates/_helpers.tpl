@@ -38,13 +38,6 @@ Container image reference. The tag defaults to the chart appVersion when unset.
 {{- end }}
 
 {{/*
-Wait init container image reference.
-*/}}
-{{- define "node-observer.waitImage" -}}
-{{- printf "%s:%s" .Values.waitImage.repository .Values.waitImage.tag -}}
-{{- end }}
-
-{{/*
 Common labels
 */}}
 {{- define "node-observer.labels" -}}
@@ -73,4 +66,11 @@ Create the name of the service account to use
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
+{{- end }}
+
+{{/*
+Create the name of the RBAC resources.
+*/}}
+{{- define "node-observer.rbacName" -}}
+{{- include "node-observer.fullname" . }}
 {{- end }}

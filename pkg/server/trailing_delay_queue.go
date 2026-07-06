@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -37,7 +36,7 @@ type TrailingDelayQueue struct {
 	delay    time.Duration
 	shutdown chan struct{}
 	timers   map[string]*time.Timer // map hash:timer
-	store    *lru.Cache             // map hash:processing result
+	store    *lruCache[string, *Completion]
 }
 
 func NewTrailingDelayQueue(handle HandleFunc, delay time.Duration) *TrailingDelayQueue {
@@ -47,7 +46,7 @@ func NewTrailingDelayQueue(handle HandleFunc, delay time.Duration) *TrailingDela
 		shutdown: make(chan struct{}),
 		timers:   make(map[string]*time.Timer),
 	}
-	q.store, _ = lru.New(RequestHistorySize)
+	q.store = newLRUCache[string, *Completion](RequestHistorySize)
 
 	go q.run()
 
@@ -122,7 +121,7 @@ func (q *TrailingDelayQueue) Get(hash string) *Completion {
 	defer q.mutex.Unlock()
 
 	if res, ok := q.store.Get(hash); ok {
-		completion := *(res.(*Completion))
+		completion := *res
 		return &completion
 	}
 

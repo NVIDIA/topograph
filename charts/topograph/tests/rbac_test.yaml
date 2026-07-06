@@ -1,0 +1,182 @@
+suite: rbac
+templates:
+  - templates/rbac.yaml
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: renders a ClusterRole and ClusterRoleBinding by default
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ClusterRole
+        documentIndex: 0
+      - isKind:
+          of: ClusterRoleBinding
+        documentIndex: 1
+
+  - it: still renders for an existing service account
+    set:
+      serviceAccount:
+        create: false
+        name: existing-topograph-sa
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph
+        documentIndex: 1
+      - equal:
+          path: roleRef.name
+          value: chart-ci-topograph
+        documentIndex: 1
+      - equal:
+          path: subjects[0].name
+          value: existing-topograph-sa
+        documentIndex: 1
+
+  - it: is omitted entirely when rbac.create is false
+    set:
+      rbac:
+        create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: grants core node and pod read access by default
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, update]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get, list]
+
+  - it: does not grant pods/exec or configmaps with the default provider and engine
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [configmaps]
+            verbs: [create, get, list, update]
+
+  - it: grants pods/exec for the infiniband-k8s provider
+    set:
+      global:
+        provider:
+          name: infiniband-k8s
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: grants configmaps for the slinky engine
+    set:
+      global:
+        engine:
+          name: slinky
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [configmaps]
+            verbs: [create, get, list, update]
+
+  - it: does not grant pods/exec for slinky with a default flat cluster topology
+    set:
+      global:
+        engine:
+          name: slinky
+          params:
+            topologies:
+              - clusterDefault: true
+                plugin: topology/flat
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: grants pods/exec for slinky partition discovery topologies
+    set:
+      global:
+        engine:
+          name: slinky
+          params:
+            topologies:
+              - partition: gpu
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: does not grant pods/exec for slinky when dynamic nodes are enabled
+    set:
+      global:
+        engine:
+          name: slinky
+          params:
+            useDynamicNodes: true
+            topologies:
+              - partition: gpu
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: binds the ClusterRole to the service account in the release namespace
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: roleRef.name
+          value: chart-ci-topograph
+      - equal:
+          path: subjects[0].name
+          value: chart-ci-topograph
+      - equal:
+          path: subjects[0].namespace
+          value: topograph

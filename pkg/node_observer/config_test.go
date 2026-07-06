@@ -53,7 +53,7 @@ func TestNewConfigFromFile(t *testing.T) {
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 `,
-			err: "must specify nodeSelector and/or podSelector in trigger",
+			err: "must specify nodeSelector and/or podSelector in trigger, or apiServer.podSelector",
 		},
 		{
 			name: "Case 5: valid with default retry delay",
@@ -164,6 +164,86 @@ trigger:
 					},
 				},
 				RetryDelay: metav1.Duration{Duration: 10 * time.Minute},
+			},
+		},
+		{
+			name: "Case 7: valid with API server trigger and default container name",
+			data: `
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+provider:
+  name: test
+engine:
+  name: test
+apiServer:
+  namespace: topograph
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-server
+      app.kubernetes.io/instance: topograph
+`,
+			cfg: &Config{
+				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
+				Provider:            topology.Provider{Name: "test"},
+				Engine:              topology.Engine{Name: "test"},
+				APIServer: APIServer{
+					Namespace:     "topograph",
+					ContainerName: defaultAPIServerContainerName,
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/component": "api-server",
+							"app.kubernetes.io/instance":  "topograph",
+						},
+					},
+				},
+				RetryDelay: metav1.Duration{Duration: defaultRetryDelay},
+			},
+		},
+		{
+			name: "Case 8: valid with node-data-broker gate and default container name",
+			data: `
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+provider:
+  name: test
+engine:
+  name: test
+apiServer:
+  namespace: topograph
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-server
+      app.kubernetes.io/instance: topograph
+nodeDataBroker:
+  namespace: topograph
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: node-data-broker
+      app.kubernetes.io/instance: topograph
+`,
+			cfg: &Config{
+				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
+				Provider:            topology.Provider{Name: "test"},
+				Engine:              topology.Engine{Name: "test"},
+				APIServer: APIServer{
+					Namespace:     "topograph",
+					ContainerName: defaultAPIServerContainerName,
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/component": "api-server",
+							"app.kubernetes.io/instance":  "topograph",
+						},
+					},
+				},
+				NodeDataBroker: NodeDataBroker{
+					Namespace:     "topograph",
+					ContainerName: defaultNodeDataBrokerContainerName,
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name":     "node-data-broker",
+							"app.kubernetes.io/instance": "topograph",
+						},
+					},
+				},
+				RetryDelay: metav1.Duration{Duration: defaultRetryDelay},
 			},
 		},
 	}

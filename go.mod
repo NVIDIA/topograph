@@ -1,6 +1,6 @@
 module github.com/NVIDIA/topograph
 
-go 1.25.9
+go 1.25.11
 
 require (
 	cloud.google.com/go/compute v1.60.0
@@ -12,7 +12,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.297.1
 	github.com/go-playground/validator/v10 v10.30.2
 	github.com/googleapis/gax-go/v2 v2.22.0
-	github.com/hashicorp/golang-lru v1.0.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nebius/gosdk v0.2.29
 	github.com/oklog/run v1.2.0

@@ -10,12 +10,6 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-# Image for the init container that waits for the topograph API to be ready.
-waitImage:
-  repository: curlimages/curl
-  pullPolicy: IfNotPresent
-  tag: 8.13.0
-
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -31,9 +25,28 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
+rbac:
+  # Specifies whether RBAC resources should be created for the service account
+  create: true
+
 verbosity: 3
 
 topograph:
+  # Watches the Topograph API pod and triggers topology generation when the
+  # API becomes Ready after startup or a container restart.
+  apiServer:
+    enabled: true
+    # Leave podSelector empty to use the chart's release-scoped API pod labels.
+    podSelector: {}
+    containerName: topograph
+  # Waits for node-data-broker DaemonSet pods to become Ready before the first
+  # topology request so node annotations are applied first. Disable when the
+  # node-data-broker subchart is not deployed (node-data-broker.enabled: false).
+  nodeDataBroker:
+    enabled: true
+    # Leave podSelector empty to use the chart's release-scoped broker pod labels.
+    podSelector: {}
+    containerName: node-data-broker
   # Initiate topology request based on changes in selected nodes and pods
   trigger:
 #    nodeSelector: {}
@@ -60,15 +73,6 @@ resources:
   requests:
     cpu: 250m
     memory: 256Mi
-
-livenessProbe:
-  httpGet:
-    path: /
-    port: http
-readinessProbe:
-  httpGet:
-    path: /
-    port: http
 
 nodeSelector: {}
 

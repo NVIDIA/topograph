@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,12 @@ package main
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -139,5 +144,124 @@ func TestMergeNodeAnnotations(t *testing.T) {
 			mergeNodeAnnotations(tt.node, tt.in)
 			require.Equal(t, tt.out, tt.node.Annotations)
 		})
+	}
+}
+
+func TestHealthHandler(t *testing.T) {
+	srv := httptest.NewServer(healthHandler())
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/healthz")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "ok", string(body))
+}
+
+func TestServeHealthShutsDownOnContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		// port 0 lets the OS pick a free ephemeral port.
+		done <- serveHealth(ctx, 0)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("serveHealth did not return after context cancellation")
+	}
+}
+
+func TestRunRefreshLoopAppliesOnInterval(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var applyCount int
+	done := make(chan struct{})
+	var finishOnce sync.Once
+	finish := func() {
+		finishOnce.Do(func() {
+			cancel()
+			close(done)
+		})
+	}
+
+	go func() {
+		runRefreshLoop(ctx, 20*time.Millisecond, func(context.Context) error {
+			applyCount++
+			if applyCount >= 2 {
+				finish()
+			}
+			return nil
+		})
+	}()
+
+	select {
+	case <-done:
+		require.GreaterOrEqual(t, applyCount, 2)
+	case <-time.After(2 * time.Second):
+		t.Fatal("refresh loop did not invoke apply at least twice")
+	}
+}
+
+func TestRunRefreshLoopContinuesAfterApplyError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var applyCount int
+	done := make(chan struct{})
+	var finishOnce sync.Once
+	finish := func() {
+		finishOnce.Do(func() {
+			cancel()
+			close(done)
+		})
+	}
+
+	go func() {
+		runRefreshLoop(ctx, 20*time.Millisecond, func(context.Context) error {
+			applyCount++
+			if applyCount == 1 {
+				return context.Canceled
+			}
+			finish()
+			return nil
+		})
+	}()
+
+	select {
+	case <-done:
+		require.GreaterOrEqual(t, applyCount, 2)
+	case <-time.After(2 * time.Second):
+		t.Fatal("refresh loop stopped after apply error")
+	}
+}
+
+func TestRunRefreshLoopStopsOnContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		runRefreshLoop(ctx, time.Hour, func(context.Context) error {
+			return nil
+		})
+		close(done)
+	}()
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("refresh loop did not return after context cancellation")
 	}
 }

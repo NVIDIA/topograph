@@ -4,7 +4,7 @@
 
 global:
   provider:
-    # name: "aws", "oci", "gcp", "nebius", "nscale", "netq", "infiniband-k8s", "dra" or "test".
+    # name: "aws", "oci", "gcp", "nebius", "nscale", "lambdai", "netq", "infiniband-k8s", "dra" or "test".
     name: test
     # params:
     #   # For infiniband-k8s, use an existing Kubernetes node label as the
@@ -14,6 +14,10 @@ global:
   engine:
     # name: "k8s", "slinky", "slurm" or "graph"
     name: k8s
+    # params:
+    #   # For slinky topology/block output, use the GPU Operator's existing
+    #   # Kubernetes node label as the block-domain source.
+    #   useGpuCliqueLabel: true
 
   service:
     type: ClusterIP
@@ -41,6 +45,10 @@ serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
+
+rbac:
+  # Specifies whether RBAC resources should be created for the service account
+  create: true
 
 verbosity: 3
 
@@ -195,9 +203,8 @@ tests:
   # By default, test pods reuse the main topograph image. Topograph's
   # default image is Alpine-based and ships with busybox wget, which the
   # test probes use -- no additional image pull is needed, including in
-  # air-gapped environments. If you run a topograph image variant without
-  # busybox wget (for example, the IB variant built on ubuntu), override
-  # either field to point at an image that ships wget. Leave both empty
+  # air-gapped environments. If your mirrored image lacks busybox wget,
+  # override either field to point at an image that ships wget. Leave both empty
   # to reuse the main image.
   image:
     repository: ""

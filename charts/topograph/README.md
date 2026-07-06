@@ -56,9 +56,21 @@ For the full list of values and their defaults, see [`values.yaml`](./values.yam
 - [`values.k8s.gateway-api-example.yaml`](./values.k8s.gateway-api-example.yaml) — exposing the Topograph API via Gateway API (`HTTPRoute`) instead of `Ingress`
 - [`values.slinky.tree-example.yaml`](./values.slinky.tree-example.yaml), [`values.slinky.block-example.yaml`](./values.slinky.block-example.yaml), [`values.slinky.partition-example.yaml`](./values.slinky.partition-example.yaml) — Slinky engine variants
 
+To use an existing Kubernetes ServiceAccount while still letting the chart create the required RBAC, disable only ServiceAccount creation and provide the existing account name:
+
+```yaml
+serviceAccount:
+  create: false
+  name: existing-topograph-sa
+rbac:
+  create: true
+```
+
+Set `rbac.create=false` only when ClusterRoles and ClusterRoleBindings are managed outside the chart.
+
 ### Values validation
 
-The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `global.provider.name` and `global.engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
+The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `global.provider.name` and `global.engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `serviceAccount`, `rbac`, `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
 
 The schema is deliberately narrow: per-provider credential requirements (which fields a given provider needs in its credentials map) are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because the credential field sets evolve with upstream provider changes and are hard to keep accurate in a schema.
 
@@ -81,14 +93,14 @@ Both test pods are removed automatically on success (`helm.sh/hook-delete-policy
 
 By default, the test pods reuse the main topograph image. Topograph's default image is Alpine-based and ships with busybox `wget`, which the test probes use — so `helm test` works without pulling any additional image, including in air-gapped environments where only mirrored images are reachable.
 
-If you run a topograph image variant without busybox `wget` (for example, the IB variant built on `ubuntu`), override the test image to point at one that does, via `tests.image.repository` and `tests.image.tag`. You can also disable the tests entirely with `tests.enabled=false`.
+If your mirrored image lacks busybox `wget`, override the test image to point at one that does, via `tests.image.repository` and `tests.image.tag`. You can also disable the tests entirely with `tests.enabled=false`.
 
 ## Subcharts
 
 The chart depends on two subcharts, both managed as local file dependencies:
 
 - **`node-data-broker`** — DaemonSet that collects per-node attributes (NVLink clique IDs, etc.) as node annotations for the Kubernetes engine
-- **`node-observer`** — watches node status changes and triggers topology regeneration
+- **`node-observer`** — watches configured node/pod changes and Topograph API readiness, then triggers topology regeneration
 
 Both are installed together when you install this chart. Their values are accessible under the top-level keys `node-data-broker` and `node-observer` (enabled by default).
 

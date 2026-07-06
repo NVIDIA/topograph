@@ -13,10 +13,6 @@ node-observer:
         nvidia.com/gpu.present: "true"
 
 node-data-broker:
-  image:
-    repository: ghcr.io/nvidia/topograph/ib
-    pullPolicy: IfNotPresent
-    tag: main
   securityContext:
     privileged: true
   nodeSelector:

@@ -9,7 +9,7 @@ This file provides guidance to Codex, Cursor, Copilot, and other coding agents w
 Topograph discovers the physical network topology of a cluster (NVLink domains, InfiniBand/Ethernet switch fabric, cloud rack topology) and exposes it to workload schedulers — Slurm, Kubernetes, and Slurm-on-Kubernetes (Slinky). It has five runtime components:
 
 - **API Server** — receives `/v1/generate` requests, aggregates bursts, dispatches to a Provider
-- **Node Observer** — Kubernetes-only; watches node status changes and triggers regeneration
+- **Node Observer** — Kubernetes-only; watches configured node/pod changes and Topograph API readiness, then triggers regeneration
 - **Node Data Broker** — Kubernetes-only DaemonSet; collects per-node attributes (NVLink clique IDs, etc.) as node annotations
 - **Provider** — per-environment adapter that queries a topology source (CSP API, NetQ, `ibnetdiscover`, DRA labels) and returns a canonical representation
 - **Engine** — per-scheduler translator that writes the canonical representation out as `topology.conf`, Kubernetes node labels, or a Slinky ConfigMap
@@ -23,7 +23,7 @@ This separation is load-bearing. If you find yourself reading the fabric in an e
 ### Repository map
 
 ```
-cmd/                  # Four entry points: topograph, node-observer, node-data-broker-initc
+cmd/                  # Four entry points: topograph, node-observer, node-data-broker
 pkg/
   providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, cw, test
   engines/            # One directory per engine: k8s, slinky, slurm
@@ -39,10 +39,10 @@ pkg/
   test/               # Cross-package test helpers
 internal/             # Shared utilities not part of the public API
   cluset, component, config, exec, files, httperr, httpreq, k8s, version
-charts/topograph/     # Helm chart (with node-data-broker subchart)
+charts/topograph/     # Helm chart (with node-data-broker subchart); tests/ holds the helm-unittest suites + snapshots
+CHANGELOG.md          # Release history (Keep a Changelog format); update [Unreleased] for user-facing PRs
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
 tests/models/         # YAML simulation fixtures
-tests/charts/         # Helm golden outputs for chart values fixtures
 config/               # Sample topograph-config.yaml
 scripts/              # Build scripts (deb, rpm, SSL, clean)
 localdev/             # Developer-local workspace — not tracked; personal scratch files
@@ -62,17 +62,18 @@ These structures propagate across every provider and engine. Changing them in a 
 
 ### Prerequisites
 
-- **Go 1.25.9** (see `go.mod`) — newer minor versions are fine; older will not build
+- **Go 1.25.11** (see `go.mod`) — newer minor versions are fine; older will not build
 - **make**
 - **golangci-lint** — `brew install golangci-lint` or via `go install`
-- **docker** — only for container image builds and the IB variant
+- **helm 3.10+ or 4.x** — required for `make chart-test`; the `helm-unittest` plugin is installed automatically by the target (`brew install helm`). CI pins helm `v4.1.1` in `.github/workflows/chart-test.yaml`.
+- **docker** — for container image builds (the main image includes `rdma-core` / `ibnetdiscover` for InfiniBand deployments)
 
 ### Clone and build
 
 ```bash
 git clone https://github.com/NVIDIA/topograph.git
 cd topograph
-make build   # produces bin/topograph, bin/node-observer, bin/node-data-broker-initc
+make build   # produces bin/topograph, bin/node-observer, bin/node-data-broker
 ```
 
 Cross-compile with `make build-linux-amd64`, `make build-darwin-arm64`, etc.
@@ -87,8 +88,8 @@ make fmt        # go fmt ./...
 make vet        # go vet ./...
 make lint       # golangci-lint run (only flags new issues vs. main)
 make test       # go test -race -coverprofile=coverage.out ./...
-make chart-test                 # helm chart smoke + golden tests (see scripts/chart-test.sh)
-make chart-test-update-golden   # refresh tests/charts/*.golden.yaml (review before commit)
+make chart-test                  # helm lint + helm-unittest suites (charts/topograph/tests/)
+make chart-test-update-snapshot  # refresh helm-unittest snapshots (review before commit)
 make coverage   # human-readable per-package summary
 ```
 
@@ -104,9 +105,9 @@ Coverage checks run on pull requests. A drop below target with no matching uplif
 
 ### CI workflows
 
-- `.github/workflows/go.yml` — build, test, lint, and Helm chart tests (`make chart-test`) on every push and PR
+- `.github/workflows/go.yml` — build, test, lint, and `govulncheck` on every push and PR
+- `.github/workflows/chart-test.yaml` — Helm chart lint + helm-unittest suites (`make chart-test`) on every push and PR
 - `.github/workflows/docker.yml` — container image build (manual trigger)
-- `.github/workflows/docker-ib.yml` — InfiniBand-variant container (manual trigger)
 - `.github/workflows/helm-release.yaml` — Helm chart release (manual trigger)
 
 ### Deployment surfaces
@@ -233,6 +234,7 @@ Every PR should be evaluated for documentation impact before pre-push qualificat
 | New / changed label or annotation key | `docs/reference/node-labels.md` |
 | New / changed API endpoint, request parameter, or response field | `docs/api.md` |
 | New / changed config schema (`topograph-config.yaml` fields, defaults, validation) | `docs/api.md` |
+| User-facing feature, fix, breaking change, or Helm migration worth calling out in release notes | `CHANGELOG.md` under `[Unreleased]` (Added / Changed / Fixed / Removed); move entries into a version section at release time |
 | New invariant or "do not change without discussion" surface | `AGENTS.md` + `.claude/CLAUDE.md` in the same PR |
 | New Makefile target, top-level directory, or repository-layout change described by the repository map | `AGENTS.md` + `.claude/CLAUDE.md` in the same PR |
 
@@ -245,6 +247,7 @@ When filing a PR (`gh pr create` or the GitHub UI), `.github/PULL_REQUEST_TEMPLA
 - [ ] `make qualify` passes (runs fmt, vet, lint, test)
 - [ ] New or changed public behavior is covered by a test
 - [ ] Documentation impact evaluated per the table above — applicable doc updates are included in this PR
+- [ ] User-facing changes recorded in `CHANGELOG.md` `[Unreleased]` when applicable
 - [ ] `pkg/topology/` changes were discussed in an issue first
 - [ ] Every commit has a DCO sign-off
 
@@ -256,4 +259,4 @@ When filing a PR (`gh pr create` or the GitHub UI), `.github/PULL_REQUEST_TEMPLA
 
 ### When in doubt
 
-Read `docs/` before asking. Provider-specific questions usually have answers in `docs/providers/<name>.md`. Label semantics are in `docs/reference/node-labels.md`. The scenario-to-provider mapping is in the "Choosing a Provider" table in `docs/overview.md`. API endpoints and config schema live in `docs/api.md`.
+Read `docs/` before asking. Provider-specific questions usually have answers in `docs/providers/<name>.md`. Label semantics are in `docs/reference/node-labels.md`. The scenario-to-provider mapping is in the "Choosing a Provider" table in `docs/overview.md`. API endpoints and config schema live in `docs/api.md`. Release history and operator-facing migration notes live in `CHANGELOG.md`.

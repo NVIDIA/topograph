@@ -44,6 +44,7 @@ global:
           clusterDefault: true
       topologyConfigPath: topology.conf
       topologyConfigmapName: slurm-config
+      # useGpuCliqueLabel: true
       useDynamicNodes: true
       configUpdateMode: skeleton-only
 

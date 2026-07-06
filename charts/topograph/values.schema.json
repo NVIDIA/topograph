@@ -50,6 +50,10 @@
               "type": "string",
               "description": "Scheduler-output engine. Must match a registered engine in pkg/registry/registry.go.",
               "enum": ["graph", "k8s", "slinky", "slurm"]
+            },
+            "params": {
+              "type": "object",
+              "description": "Engine-specific parameters. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
             }
           },
           "required": ["name"]
@@ -96,6 +100,15 @@
         "automount": { "type": "boolean" },
         "annotations": { "type": "object" },
         "name": { "type": "string" }
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Create RBAC resources for the selected service account. Leave enabled when serviceAccount.create=false unless RBAC is managed outside the chart."
+        }
       }
     },
     "verbosity": {

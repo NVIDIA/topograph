@@ -1,33 +1,45 @@
 apiVersion: v2
 name: topograph
-description: A Helm chart for Kubernetes
+description: Discovers the physical network topology of a cluster and exposes it to schedulers.
 kubeVersion: ">=1.27.0-0"
-
-# A chart can be either an 'application' or a 'library' chart.
-#
-# Application charts are a collection of templates that can be packaged into versioned archives
-# to be deployed.
-#
-# Library charts provide useful utilities or functions for the chart developer. They're included as
-# a dependency of application charts to inject those utilities and functions into the rendering
-# pipeline. Library charts do not define any templates and therefore cannot be deployed.
 type: application
+version: 0.5.0
+appVersion: "v0.5.0"
 
-# This is the chart version. This version number should be incremented each time you make changes
-# to the chart and its templates, including the app version.
-# Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.4.0
-
-# This is the version number of the application being deployed. This version number should be
-# incremented each time you make changes to the application. Versions are not expected to
-# follow Semantic Versioning. They should reflect the version the application is using.
-# It is recommended to use it with quotes.
-appVersion: "v0.4.0"
+home: https://github.com/NVIDIA/topograph
+icon: https://raw.githubusercontent.com/NVIDIA/topograph/main/docs/assets/topograph-logo.png
+sources:
+  - https://github.com/NVIDIA/topograph
+maintainers:
+  - name: NVIDIA CORPORATION
+    url: https://www.nvidia.com
+keywords:
+  - topograph
+  - topology
+  - kubernetes
+  - slurm
+  - slinky
+  - infiniband
+  - gpu
+  - scheduling
+annotations:
+  org.opencontainers.image.title: Topograph
+  org.opencontainers.image.description: Discovers the physical network topology of a cluster and exposes it to schedulers.
+  org.opencontainers.image.vendor: NVIDIA
+  org.opencontainers.image.licenses: Apache-2.0
+  org.opencontainers.image.source: https://github.com/NVIDIA/topograph
+  org.opencontainers.image.documentation: https://github.com/NVIDIA/topograph/blob/main/docs/overview.md
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://github.com/NVIDIA/topograph/blob/main/docs/overview.md
+    - name: Chart Source
+      url: https://github.com/NVIDIA/topograph/tree/main/charts/topograph
 
 dependencies:
   - name: node-data-broker
-    version: 0.4.0
+    version: 0.5.0
     repository: "file://charts/node-data-broker"
   - name: node-observer
-    version: 0.4.0
+    version: 0.5.0
     repository: "file://charts/node-observer"

@@ -33,6 +33,7 @@ type Controller struct {
 	ctx            context.Context
 	client         kubernetes.Interface
 	statusInformer *StatusInformer
+	healthURL      string
 }
 
 func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
@@ -43,8 +44,13 @@ func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config
 		return nil, fmt.Errorf("failed to marshal payload: %v", err)
 	}
 
+	healthURL, err := healthCheckURL(cfg.GenerateTopologyURL)
+	if err != nil {
+		return nil, err
+	}
+
 	f := httpreq.GetRequestFunc(ctx, http.MethodPost, headers, nil, data, cfg.GenerateTopologyURL)
-	statusInformer, err := NewStatusInformer(ctx, client, &cfg.Trigger, cfg.RetryDelay.Duration, f)
+	statusInformer, err := NewStatusInformer(ctx, client, &cfg.Trigger, &cfg.APIServer, &cfg.NodeDataBroker, cfg.RetryDelay.Duration, f)
 	if err != nil {
 		return nil, err
 	}
@@ -52,10 +58,16 @@ func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config
 		ctx:            ctx,
 		client:         client,
 		statusInformer: statusInformer,
+		healthURL:      healthURL,
 	}, nil
 }
 
 func (c *Controller) Start() error {
+	klog.Infof("Waiting for topograph API to become ready")
+	if err := waitForTopograph(c.ctx, c.healthURL, healthCheckInterval, healthCheckTimeout); err != nil {
+		return err
+	}
+
 	klog.Infof("Starting state observer")
 	return c.statusInformer.Start()
 }

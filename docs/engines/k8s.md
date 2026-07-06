@@ -153,7 +153,7 @@ The Topograph API server listens on port `49021` by default. The Helm chart alwa
 By default, `global.service.type: ClusterIP` and `ingress.enabled: false`. This means:
 
 - The API is not exposed outside the cluster
-- In-cluster components (Node Observer, Node Data Broker) reach the API via the Service DNS name `<release>.<namespace>.svc.cluster.local:49021`
+- In-cluster components (Node Observer, Node Data Broker) reach the API via the Service DNS name `<release>-topograph.<namespace>.svc.cluster.local:49021` by default
 - Cluster operators can reach the API via port-forward for debugging:
 
 ```bash
@@ -328,7 +328,7 @@ Phase:          Succeeded
 
 Both pods clean themselves up on success (`helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded`). On failure the pods persist so operators can inspect logs via `kubectl logs -n <ns> <pod-name>`; the next `helm test` invocation replaces the prior pods.
 
-**Air-gapped environments.** The test pods reuse the main topograph image by default — they invoke `busybox wget` from the Alpine-based `ghcr.io/nvidia/topograph` image already pulled by the Deployment. No additional image pull is required by `helm test`, so the suite works in environments where only mirrored images are reachable. Operators running a topograph image variant without `busybox wget` (notably the ubuntu-based IB variant built from `Dockerfile.ib`) can either override the test image:
+**Air-gapped environments.** The test pods reuse the main topograph image by default — they invoke `busybox wget` from the Alpine-based `ghcr.io/nvidia/topograph` image already pulled by the Deployment. No additional image pull is required by `helm test`, so the suite works in environments where only mirrored images are reachable. If your mirrored image lacks `busybox wget`, override the test image:
 
 ```yaml
 tests:

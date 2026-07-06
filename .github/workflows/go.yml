@@ -17,7 +17,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.25.9'
+        go-version: '1.25.11'
 
     - name: Lint
       uses: golangci/golangci-lint-action@v9
@@ -42,7 +42,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.25.9'
+        go-version: '1.25.11'
 
     - name: Test
       run: go test -v -coverpkg=./... -coverprofile=coverage.out -covermode=atomic ./...
@@ -55,20 +55,6 @@ jobs:
         fail_ci_if_error: false
         verbose: true
 
-  chart-test:
-    runs-on: linux-amd64-cpu8
-    timeout-minutes: 5
-    steps:
-    - uses: actions/checkout@v5
-
-    - name: Set up Helm
-      uses: azure/setup-helm@v4
-      with:
-        version: v3.20.0
-
-    - name: Helm chart tests
-      run: make chart-test
-
   build:
     runs-on: linux-amd64-cpu8
     steps:
@@ -77,8 +63,23 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.25.9'
+        go-version: '1.25.11'
 
     - name: Build
       run: |
         make build
+
+  govulncheck:
+    runs-on: linux-amd64-cpu8
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.25.11'
+        cache: true
+
+    - name: Run govulncheck
+      run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...

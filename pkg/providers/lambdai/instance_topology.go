@@ -39,7 +39,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 	}
 	klog.InfoS("Getting instance topology", "region", ci.Region)
 
-	req := &InstanceListRequest{PageSize: client.PageSize()}
+	req := &InstanceListRequest{Region: ci.Region, PageSize: client.PageSize()}
 
 	for {
 		resp, err := client.InstanceList(ctx, req)
@@ -55,11 +55,11 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			for indx := range len(inst.NetworkPath) {
 				switch indx {
 				case 0:
-					t.LeafID = inst.NetworkPath[indx]
+					t.LeafID = inst.NetworkPath[indx].ID
 				case 1:
-					t.SpineID = inst.NetworkPath[indx]
+					t.SpineID = inst.NetworkPath[indx].ID
 				case 2:
-					t.CoreID = inst.NetworkPath[indx]
+					t.CoreID = inst.NetworkPath[indx].ID
 				default:
 					klog.Warningf("unsupported size %d of topology path for instance %q", len(inst.NetworkPath), inst.ID)
 				}
