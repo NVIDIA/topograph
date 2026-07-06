@@ -516,6 +516,97 @@ func makeReadySlurmdPod(name, nodeName, slurmName string) *corev1.Pod {
 	}
 }
 
+func TestResolveSlurmNodeName(t *testing.T) {
+	testCases := []struct {
+		name string
+		pod  *corev1.Pod
+		want string
+	}{
+		{
+			name: "label takes precedence over hostname",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{topology.KeySlurmNodeName: "slurm-node-1"}},
+				Spec:       corev1.PodSpec{Hostname: "host-1"},
+			},
+			want: "slurm-node-1",
+		},
+		{
+			name: "present but empty label yields empty, no hostname fallback",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{topology.KeySlurmNodeName: ""}},
+				Spec:       corev1.PodSpec{Hostname: "host-1"},
+			},
+			want: "",
+		},
+		{
+			name: "falls back to hostname when label absent",
+			pod:  &corev1.Pod{Spec: corev1.PodSpec{Hostname: "host-1"}},
+			want: "host-1",
+		},
+		{
+			name: "empty when neither label nor hostname set",
+			pod:  &corev1.Pod{},
+			want: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, resolveSlurmNodeName(tc.pod))
+		})
+	}
+}
+
+func TestGetClusterNodes(t *testing.T) {
+	namespace := "test-ns"
+	podSel := metav1.LabelSelector{MatchLabels: map[string]string{"app": "slinky"}}
+	sel, err := metav1.LabelSelectorAsSelector(&podSel)
+	require.NoError(t, err)
+
+	readyCond := []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}
+	pod := func(name, nodeName, slurmLabel, hostname string, ready bool) *corev1.Pod {
+		labels := map[string]string{"app": "slinky"}
+		if slurmLabel != "" {
+			labels[topology.KeySlurmNodeName] = slurmLabel
+		}
+		status := corev1.PodStatus{Phase: corev1.PodRunning}
+		if ready {
+			status.Conditions = readyCond
+		}
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels},
+			Spec:       corev1.PodSpec{NodeName: nodeName, Hostname: hostname},
+			Status:     status,
+		}
+	}
+
+	// pod-empty-label carries the slurm.node.name label with an empty value (distinct
+	// from the label being absent): resolveSlurmNodeName must not fall back to the
+	// hostname, so the guard still skips it.
+	emptyLabelPod := pod("pod-empty-label", "k8s-5", "", "host-5", true)
+	emptyLabelPod.Labels[topology.KeySlurmNodeName] = ""
+
+	client := fake.NewSimpleClientset(
+		pod("pod-label", "k8s-1", "slurm-1", "", true),     // mapped via label
+		pod("pod-hostname", "k8s-2", "", "slurm-2", true),  // mapped via hostname fallback
+		pod("pod-empty", "k8s-3", "", "", true),            // skipped: ready but no SLURM name (the guard)
+		pod("pod-notready", "k8s-4", "slurm-4", "", false), // skipped: not Ready
+		emptyLabelPod, // skipped: label present but empty (no hostname fallback)
+	)
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:   namespace,
+			podListOpt:  &metav1.ListOptions{LabelSelector: sel.String()},
+			nodeListOpt: &metav1.ListOptions{},
+		},
+	}
+
+	clusterNodes, httpErr := eng.getClusterNodes(context.Background())
+	require.Nil(t, httpErr)
+	require.Equal(t, map[string]string{"k8s-1": "slurm-1", "k8s-2": "slurm-2"}, clusterNodes.nodeMap)
+}
+
 // Helper for annotation checks
 func requireAnnotation(t *testing.T, annotations map[string]string, key, expected string) {
 	val, ok := annotations[key]
