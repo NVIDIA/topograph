@@ -117,6 +117,8 @@
       "maximum": 10
     },
     "env": { "type": "object" },
+    "initContainers": { "type": "array" },
+    "lifecycle": { "type": "object" },
     "config": { "type": "object" },
     "topologyNodeLabels": { "type": "object" },
     "podAnnotations": { "type": "object" },

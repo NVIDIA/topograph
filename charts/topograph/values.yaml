@@ -54,6 +54,10 @@ verbosity: 3
 
 env: {}
 
+initContainers: []
+
+lifecycle: {}
+
 config:
   requestAggregationDelay: 15s
   # Optional secret with API credentials

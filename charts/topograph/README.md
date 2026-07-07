@@ -104,6 +104,8 @@ The chart depends on two subcharts, both managed as local file dependencies:
 
 Both are installed together when you install this chart. Their values are accessible under the top-level keys `node-data-broker` and `node-observer` (enabled by default).
 
+The API server, node-observer, and node-data-broker containers all support `env`, `initContainers`, and `lifecycle` overrides for deployment-specific integration hooks.
+
 ## References
 
 - **Project documentation site**: <https://topograph.docs.buildwithfern.com/topograph>

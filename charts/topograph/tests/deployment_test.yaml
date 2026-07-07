@@ -198,16 +198,38 @@ tests:
           content: -k8s-topology-key-accelerator=network.topology.nvidia.com/accelerator
         template: templates/deployment.yaml
 
-  - it: renders user-supplied environment variables
+  - it: renders user-supplied environment variables, initContainers, and lifecycle
     set:
       env:
-        HTTP_PROXY: http://proxy.example.com:3128
+        FOO: BAR
+      initContainers:
+        - name: test-init
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - "true"
+      lifecycle:
+        preStop:
+          exec:
+            command:
+              - sh
+              - -c
+              - "true"
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: HTTP_PROXY
-            value: "http://proxy.example.com:3128"
+            name: FOO
+            value: BAR
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: test-init
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle.preStop.exec.command[2]
+          value: "true"
         template: templates/deployment.yaml
 
   - it: mounts a credentials secret volume when configured
