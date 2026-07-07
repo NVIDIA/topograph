@@ -201,9 +201,9 @@ tests:
   - it: renders user-supplied environment variables, initContainers, and lifecycle
     set:
       env:
-        HTTP_PROXY: http://proxy.example.com:3128
+        FOO: BAR
       initContainers:
-        - name: wait-for-proxy
+        - name: wait-for-dummy
           image: busybox:latest
           command:
             - sh
@@ -220,12 +220,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: HTTP_PROXY
-            value: "http://proxy.example.com:3128"
+            name: FOO
+            value: BAR
         template: templates/deployment.yaml
       - equal:
           path: spec.template.spec.initContainers[0].name
-          value: wait-for-proxy
+          value: wait-for-dummy
         template: templates/deployment.yaml
       - equal:
           path: spec.template.spec.containers[0].lifecycle.preStop.exec.command[2]
