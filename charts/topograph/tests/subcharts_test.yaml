@@ -93,6 +93,40 @@ tests:
           path: spec.template.spec.containers[0].image
           pattern: "^ghcr.io/nvidia/topograph:v[0-9]+\\.[0-9]+\\.[0-9]+$"
 
+  - it: node-observer renders user-supplied environment variables, initContainers, and lifecycle
+    templates:
+      - charts/node-observer/templates/deployment.yaml
+    set:
+      node-observer:
+        env:
+          HTTP_PROXY: http://proxy.example.com:3128
+        initContainers:
+          - name: wait-for-api
+            image: busybox:latest
+            command:
+              - sh
+              - -c
+              - "true"
+        lifecycle:
+          preStop:
+            exec:
+              command:
+                - sh
+                - -c
+                - "true"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HTTP_PROXY
+            value: "http://proxy.example.com:3128"
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: wait-for-api
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle.preStop.exec.command[2]
+          value: "true"
+
   - it: node-data-broker renders the broker as the main container by default
     templates:
       - charts/node-data-broker/templates/daemonset.yaml
@@ -126,6 +160,23 @@ tests:
       global:
         provider:
           name: infiniband-k8s
+      node-data-broker:
+        env:
+          LD_LIBRARY_PATH: /var/lib/nvml-mock/driver/usr/lib64
+        initContainers:
+          - name: copy-tools
+            image: busybox:latest
+            command:
+              - sh
+              - -c
+              - cp /bin/true /tools/true
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - sh
+                - -c
+                - "true"
     asserts:
       - contains:
           path: spec.template.spec.containers[0].args
@@ -137,6 +188,17 @@ tests:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LD_LIBRARY_PATH
+            value: /var/lib/nvml-mock/driver/usr/lib64
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: copy-tools
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle.postStart.exec.command[2]
+          value: "true"
 
   - it: node-data-broker container passes the refresh interval
     templates:

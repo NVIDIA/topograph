@@ -31,6 +31,15 @@ rbac:
 
 verbosity: 3
 
+# Additional environment variables for the node-observer container.
+env: {}
+
+# Additional init containers for the node-observer Pod.
+initContainers: []
+
+# Optional lifecycle hooks for the node-observer container.
+lifecycle: {}
+
 topograph:
   # Watches the Topograph API pod and triggers topology generation when the
   # API becomes Ready after startup or a container restart.

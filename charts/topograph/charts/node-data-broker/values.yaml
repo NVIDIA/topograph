@@ -58,6 +58,15 @@ rbac:
 
 verbosity: 3
 
+# Additional environment variables for the node-data-broker container.
+env: {}
+
+# Additional init containers for the node-data-broker Pod.
+initContainers: []
+
+# Optional lifecycle hooks for the node-data-broker container.
+lifecycle: {}
+
 podAnnotations: {}
 podLabels: {}
 
