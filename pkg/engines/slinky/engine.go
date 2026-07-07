@@ -50,7 +50,18 @@ const (
 	ConfigUpdateModeSkeletonOnly = "skeleton-only"
 
 	dynamicShowPartitionNodes = "\tNodes=NONE"
+
+	// Slinky component labels used to locate a pod that can run
+	// `scontrol show partition`. The controller is always present; login pods
+	// are optional.
+	slurmComponentLabelKey   = "app.kubernetes.io/component"
+	slurmComponentController = "controller"
+	slurmComponentLogin      = "login"
 )
+
+// execInPod indirects k8s.ExecInPod so tests can exercise the partition
+// discovery fallback logic without a real exec transport.
+var execInPod = k8s.ExecInPod
 
 type SlinkyEngine struct {
 	config *rest.Config
@@ -588,27 +599,47 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 		return "", fmt.Errorf("getPartitionNodes expects a string parameter")
 	}
 
-	labels := map[string]string{"app.kubernetes.io/component": "login"}
-	pods, err := k8s.GetPodsByLabels(ctx, eng.client, namespace, labels)
-	if err != nil {
-		return "", err
-	}
-
-	for _, pod := range pods.Items {
-		if pod.Status.Phase != corev1.PodRunning {
+	// A Slinky cluster always runs a controller (slurmctld) but login pods are
+	// optional, so prefer the controller for `scontrol show partition` and fall
+	// back to a login pod when one is present. Both listing and exec failures
+	// for a component are non-fatal: they are recorded and the next component is
+	// tried, so an RBAC/NetworkPolicy rule scoped to only one component (e.g.
+	// pods/exec allowed on login but not controller) cannot break discovery that
+	// worked before the controller leg was added.
+	var discoveryErrs []string
+	for _, component := range []string{slurmComponentController, slurmComponentLogin} {
+		labels := map[string]string{slurmComponentLabelKey: component}
+		pods, err := k8s.GetPodsByLabels(ctx, eng.client, namespace, labels)
+		if err != nil {
+			klog.Warningf("topology: failed to list %s pods in namespace %q: %v; trying next component", component, namespace, err)
+			discoveryErrs = append(discoveryErrs, fmt.Sprintf("list %s pods: %v", component, err))
 			continue
 		}
 
-		cmd := []string{"scontrol", "show", "partition", partition}
-		buf, err := k8s.ExecInPod(ctx, eng.client, eng.config, pod.Name, pod.Namespace, cmd)
-		if err != nil {
-			return "", err
-		}
+		for _, pod := range pods.Items {
+			if pod.Status.Phase != corev1.PodRunning {
+				continue
+			}
 
-		return buf.String(), nil
+			cmd := []string{"scontrol", "show", "partition", partition}
+			buf, err := execInPod(ctx, eng.client, eng.config, pod.Name, pod.Namespace, cmd)
+			if err != nil {
+				klog.Warningf("topology: scontrol exec failed on %s pod %s/%s: %v; trying next component", component, pod.Namespace, pod.Name, err)
+				discoveryErrs = append(discoveryErrs, fmt.Sprintf("exec on %s pod %s: %v", component, pod.Name, err))
+				continue
+			}
+
+			return buf.String(), nil
+		}
 	}
 
-	return "", fmt.Errorf("no running pods with labels %v", labels)
+	if len(discoveryErrs) > 0 {
+		return "", fmt.Errorf("partition discovery failed on all %s and %s pods in namespace %q: %s",
+			slurmComponentController, slurmComponentLogin, namespace, strings.Join(discoveryErrs, "; "))
+	}
+
+	return "", fmt.Errorf("no running %s or %s pods found for partition discovery in namespace %q",
+		slurmComponentController, slurmComponentLogin, namespace)
 }
 
 func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit, clusterNodes *clusterNodes) *httperr.Error {

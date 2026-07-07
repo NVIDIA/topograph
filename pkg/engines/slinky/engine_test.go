@@ -17,6 +17,7 @@
 package slinky
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -27,7 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
@@ -876,6 +879,172 @@ func slurmTopologiesForDynamicTest(plugins []string) map[string]*Topology {
 		}
 	}
 	return out
+}
+
+func TestGetPartitionNodes(t *testing.T) {
+	const namespace = "slurm"
+
+	// A controller pod that is not running, so getPartitionNodes never reaches
+	// ExecInPod and exercises the no-running-pods path deterministically.
+	pendingControllerClient := func() *fake.Clientset {
+		return fake.NewSimpleClientset(&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "slurm-controller-0",
+				Namespace: namespace,
+				Labels:    map[string]string{slurmComponentLabelKey: slurmComponentController},
+			},
+			Status: corev1.PodStatus{Phase: corev1.PodPending},
+		})
+	}
+
+	testCases := []struct {
+		name            string
+		useDynamicNodes bool
+		client          *fake.Clientset
+		params          []any
+		want            string
+		errMsg          string
+	}{
+		{
+			name:            "dynamic nodes short-circuits without listing pods",
+			useDynamicNodes: true,
+			client:          fake.NewSimpleClientset(),
+			params:          []any{namespace},
+			want:            dynamicShowPartitionNodes,
+		},
+		{
+			name:   "wrong parameter count",
+			client: fake.NewSimpleClientset(),
+			params: []any{namespace, "extra"},
+			errMsg: "expects a namespace as a parameter",
+		},
+		{
+			name:   "non-string parameter",
+			client: fake.NewSimpleClientset(),
+			params: []any{42},
+			errMsg: "expects a string parameter",
+		},
+		{
+			name:   "no running controller or login pods",
+			client: pendingControllerClient(),
+			params: []any{namespace},
+			errMsg: "no running controller or login pods found for partition discovery",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			eng := &SlinkyEngine{
+				client: tc.client,
+				params: &Params{Namespace: namespace, UseDynamicNodes: tc.useDynamicNodes},
+			}
+
+			got, err := eng.getPartitionNodes(context.Background(), "gpu", tc.params)
+			if tc.errMsg != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errMsg)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
+// runningComponentPod builds a Running pod labeled for the given Slurm component.
+func runningComponentPod(name, namespace, component string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    map[string]string{slurmComponentLabelKey: component},
+		},
+		Status: corev1.PodStatus{Phase: corev1.PodRunning},
+	}
+}
+
+// stubExecInPod overrides the execInPod seam for the duration of a test.
+func stubExecInPod(t *testing.T, fn func(podName string) (string, error)) {
+	t.Helper()
+	orig := execInPod
+	execInPod = func(_ context.Context, _ kubernetes.Interface, _ *rest.Config, name, _ string, _ []string) (*bytes.Buffer, error) {
+		out, err := fn(name)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewBufferString(out), nil
+	}
+	t.Cleanup(func() { execInPod = orig })
+}
+
+func TestGetPartitionNodesControllerListErrorFallsBackToLogin(t *testing.T) {
+	const namespace = "slurm"
+
+	// Login pod exists and is running; the controller listing fails (e.g. RBAC
+	// scoped to login only). Discovery must fall back to the login pod.
+	client := fake.NewSimpleClientset(runningComponentPod("slurm-login-0", namespace, slurmComponentLogin))
+	client.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if la, ok := action.(k8stesting.ListAction); ok {
+			if sel := la.GetListRestrictions().Labels; sel != nil && sel.String() == slurmComponentLabelKey+"="+slurmComponentController {
+				return true, nil, fmt.Errorf("forbidden: cannot list controller pods")
+			}
+		}
+		return false, nil, nil
+	})
+
+	stubExecInPod(t, func(podName string) (string, error) {
+		require.Equal(t, "slurm-login-0", podName)
+		return "PartitionName=gpu Nodes=node[0-3]", nil
+	})
+
+	eng := &SlinkyEngine{client: client, params: &Params{Namespace: namespace}}
+	got, err := eng.getPartitionNodes(context.Background(), "gpu", []any{namespace})
+	require.NoError(t, err)
+	require.Equal(t, "PartitionName=gpu Nodes=node[0-3]", got)
+}
+
+func TestGetPartitionNodesControllerExecErrorFallsBackToLogin(t *testing.T) {
+	const namespace = "slurm"
+
+	// Both a controller and a login pod are running, but exec fails on the
+	// controller (e.g. pods/exec allowed only on login). Discovery must not
+	// abort - it should fall back to the login pod.
+	client := fake.NewSimpleClientset(
+		runningComponentPod("slurm-controller-0", namespace, slurmComponentController),
+		runningComponentPod("slurm-login-0", namespace, slurmComponentLogin),
+	)
+
+	stubExecInPod(t, func(podName string) (string, error) {
+		if podName == "slurm-controller-0" {
+			return "", fmt.Errorf("forbidden: cannot exec into controller pod")
+		}
+		return "PartitionName=gpu Nodes=node[0-3]", nil
+	})
+
+	eng := &SlinkyEngine{client: client, params: &Params{Namespace: namespace}}
+	got, err := eng.getPartitionNodes(context.Background(), "gpu", []any{namespace})
+	require.NoError(t, err)
+	require.Equal(t, "PartitionName=gpu Nodes=node[0-3]", got)
+}
+
+func TestGetPartitionNodesAllExecFail(t *testing.T) {
+	const namespace = "slurm"
+
+	client := fake.NewSimpleClientset(
+		runningComponentPod("slurm-controller-0", namespace, slurmComponentController),
+		runningComponentPod("slurm-login-0", namespace, slurmComponentLogin),
+	)
+
+	stubExecInPod(t, func(_ string) (string, error) {
+		return "", fmt.Errorf("boom")
+	})
+
+	eng := &SlinkyEngine{client: client, params: &Params{Namespace: namespace}}
+	_, err := eng.getPartitionNodes(context.Background(), "gpu", []any{namespace})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "partition discovery failed on all")
+	require.Contains(t, err.Error(), "slurm-controller-0")
+	require.Contains(t, err.Error(), "slurm-login-0")
 }
 
 func TestGenerateDynamicNodesOutput(t *testing.T) {

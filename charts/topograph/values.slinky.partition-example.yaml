@@ -21,7 +21,8 @@ global:
         #      label (falling back to pod.spec.hostname), and only Ready pods
         #      are counted.
         #   3. Neither set: the engine falls back to `scontrol show partition`
-        #      inside a login pod.
+        #      inside the controller pod, or a login pod when no controller
+        #      pod is running (legacy behavior).
         # `nodes` and `podSelector` are mutually exclusive on the same entry.
         topo1:
           plugin: topology/block
