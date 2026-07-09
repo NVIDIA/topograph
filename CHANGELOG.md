@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Helm `env`, `initContainers`, and `lifecycle` overrides across the API server, node-observer, and node-data-broker containers.
 - Lambda provider Kubernetes integration, including node-data-broker discovery from Node provider IDs and regions and workload identity through `lambda-pod-identity-webhook` for short-lived API credentials ([#375](https://github.com/NVIDIA/topograph/pull/375)).
 - `kwok-nodes` utility and interactive Kubernetes/KWOK demos for rendering model-derived Node manifests and exercising the test, DRA, OCI simulation, and NFD configurations locally. Generated metadata preserves required KWOK selectors and maps model hostnames to Topograph instance IDs.
+- Opt-in Helm `NetworkPolicy` covering all three components — API server, node-observer, node-data-broker (`networkPolicy.enabled`, default `false`): denies ingress except intra-release traffic (so the node-observer can reach the API server) and, when `networkPolicy.metricsScraperNamespace` is set, the Prometheus scraper namespace. Egress stays unconstrained until `networkPolicy.extraEgress` is set, at which point an `Egress` policyType is added with DNS (scoped to the kube-dns pods) and intra-release allows plus the supplied rules (which must include the kube-apiserver and provider endpoint under default-deny egress); `networkPolicy.extraIngress` appends custom ingress rules.
 
 ### Changed
 

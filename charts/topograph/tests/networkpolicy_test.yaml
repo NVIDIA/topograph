@@ -1,0 +1,80 @@
+suite: topograph networkpolicy
+templates:
+  - templates/networkpolicy.yaml
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: renders nothing by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a NetworkPolicy covering the whole release when enabled
+    set:
+      networkPolicy:
+        enabled: true
+    asserts:
+      - isKind:
+          of: NetworkPolicy
+      - equal:
+          path: spec.podSelector.matchLabels["app.kubernetes.io/instance"]
+          value: chart-ci
+      - contains:
+          path: spec.policyTypes
+          content: Ingress
+      - notContains:
+          path: spec.policyTypes
+          content: Egress
+      # Intra-release ingress so the node-observer can reach the API server.
+      - equal:
+          path: spec.ingress[0].from[0].podSelector.matchLabels["app.kubernetes.io/instance"]
+          value: chart-ci
+
+  - it: adds a Prometheus ingress rule when serviceMonitor is enabled
+    set:
+      networkPolicy:
+        enabled: true
+      serviceMonitor:
+        enabled: true
+        namespace: monitoring
+    asserts:
+      - lengthEqual:
+          path: spec.ingress
+          count: 2
+      - equal:
+          path: spec.ingress[1].from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: monitoring
+
+  - it: adds Egress with DNS and intra-release allows when extraEgress is set
+    set:
+      networkPolicy:
+        enabled: true
+        extraEgress:
+          - to:
+              - ipBlock:
+                  cidr: 10.1.2.0/24
+            ports:
+              - protocol: TCP
+                port: 8081
+    asserts:
+      - contains:
+          path: spec.policyTypes
+          content: Egress
+      # egress[0] = DNS (scoped to kube-dns pods in kube-system),
+      # egress[1] = intra-release, egress[2] = operator-supplied
+      - equal:
+          path: spec.egress[0].to[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: kube-system
+      - equal:
+          path: spec.egress[0].to[0].podSelector.matchLabels["k8s-app"]
+          value: kube-dns
+      - equal:
+          path: spec.egress[0].ports[0].port
+          value: 53
+      - equal:
+          path: spec.egress[1].to[0].podSelector.matchLabels["app.kubernetes.io/instance"]
+          value: chart-ci
+      - equal:
+          path: spec.egress[2].to[0].ipBlock.cidr
+          value: 10.1.2.0/24

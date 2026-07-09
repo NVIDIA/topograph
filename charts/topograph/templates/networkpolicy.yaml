@@ -1,0 +1,73 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "topograph.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "topograph.labels" . | nindent 4 }}
+spec:
+  # Select every Topograph component in this release (API server, node-observer,
+  # node-data-broker) via the shared instance label, so the policy protects the
+  # whole release rather than just the API server.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+    {{- if .Values.networkPolicy.extraEgress }}
+    - Egress
+    {{- end }}
+  ingress:
+    # Intra-release traffic: the node-observer calls the API server to trigger
+    # regeneration. Allowing release pods to reach each other covers it without
+    # naming ports.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- if .Values.serviceMonitor.enabled }}
+    # Prometheus scrapes the API server /metrics on the service port.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.serviceMonitor.namespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.port }}
+    {{- end }}
+    {{- with .Values.networkPolicy.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if .Values.networkPolicy.extraEgress }}
+  egress:
+    # DNS resolution to CoreDNS, required before any component can reach a named
+    # endpoint. Scoped to the kube-dns pods in kube-system (the standard
+    # `k8s-app: kube-dns` label). Clusters whose CoreDNS carries a different
+    # label (e.g. `app.kubernetes.io/name: coredns`) can widen this via
+    # `networkPolicy.extraEgress`.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Intra-release traffic: the node-observer reaching the API server Service.
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+    # Operator-supplied egress. Under a default-deny-egress cluster this MUST
+    # include the Kubernetes API server (all three components call it) and the
+    # provider's topology source (e.g. the BCM/NetQ endpoint) -- those addresses
+    # are cluster-specific and cannot be templated portably. See the
+    # networkPolicy.extraEgress comments in values.yaml for examples.
+    {{- toYaml .Values.networkPolicy.extraEgress | nindent 4 }}
+  {{- end }}
+{{- end }}
