@@ -57,7 +57,7 @@ tests:
           content:
             apiGroups: [""]
             resources: [pods]
-            verbs: [get, list]
+            verbs: [list]
       - contains:
           path: rules
           content:
@@ -69,7 +69,7 @@ tests:
           content:
             apiGroups: [apps]
             resources: [daemonsets]
-            verbs: [get, list]
+            verbs: [get]
 
   - it: does not grant pods/exec or configmaps with the default provider and engine
     documentIndex: 0
@@ -86,6 +86,18 @@ tests:
             apiGroups: [""]
             resources: [configmaps]
             verbs: [create, get, list, update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [get, list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get, list]
 
   - it: grants pods/exec for the infiniband-k8s provider
     set:
@@ -109,6 +121,12 @@ tests:
     documentIndex: 0
     asserts:
       - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [configmaps]
+            verbs: [create, get, update]
+      - notContains:
           path: rules
           content:
             apiGroups: [""]
