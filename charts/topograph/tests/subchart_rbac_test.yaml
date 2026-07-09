@@ -5,19 +5,42 @@ release:
   name: chart-ci
   namespace: topograph
 tests:
-  - it: node-observer grants watch on nodes and pods
+  - it: node-observer grants pod watch only when trigger.nodeSelector is unset
     templates:
       - charts/node-observer/templates/rbac.yaml
     documentIndex: 0
     asserts:
       - isKind:
           of: ClusterRole
-      - contains:
+      - equal:
           path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes, pods]
-            verbs: [get, list, watch]
+          value:
+            - apiGroups: [""]
+              resources: [pods]
+              verbs: [list, watch]
+
+  - it: node-observer grants node watch when trigger.nodeSelector is set
+    templates:
+      - charts/node-observer/templates/rbac.yaml
+    set:
+      node-observer:
+        topograph:
+          trigger:
+            nodeSelector:
+              accelerator: "true"
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ClusterRole
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [pods]
+              verbs: [list, watch]
+            - apiGroups: [""]
+              resources: [nodes]
+              verbs: [list, watch]
 
   - it: node-observer binds the role to its own service account
     templates:
