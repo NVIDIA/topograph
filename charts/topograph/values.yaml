@@ -212,6 +212,47 @@ serviceMonitor:
   interval: 15s
   scheme: http
 
+# Opt-in NetworkPolicy covering all Topograph components (API server,
+# node-observer, node-data-broker), selected by the release instance label.
+# When enabled, ingress is denied except: intra-release traffic (so the
+# node-observer can reach the API server) and, when serviceMonitor.enabled, the
+# Prometheus scrape namespace (serviceMonitor.namespace).
+#
+# Egress is only constrained when `extraEgress` is set -- this keeps enabling
+# the policy from breaking egress on clusters that do not run a default-deny.
+# When `extraEgress` is set, an Egress policyType is added with DNS and
+# intra-release allows, then your rules. On a default-deny-egress cluster you
+# MUST include the Kubernetes API server (all three components call it) and the
+# provider's topology source (e.g. the BCM/NetQ endpoint); those addresses are
+# cluster-specific and cannot be templated portably. `extraIngress` appends
+# custom ingress rules. Note: an empty rule object (`{}`) in extraIngress /
+# extraEgress matches ALL traffic in that direction -- always give explicit
+# `to`/`from`/`ports`.
+#
+# NetworkPolicy egress cannot target hostnames, so provider endpoints must be
+# given as ipBlock CIDRs. See docs/engines/k8s.md "Per-provider egress" for a
+# per-provider table (netq, CSP/IMDS caveat, dra/infiniband need none).
+networkPolicy:
+  enabled: false
+  extraIngress: []
+  extraEgress: []
+  #  # Kubernetes API server (all providers under default-deny; adjust to your
+  #  # cluster -- `kubectl get endpoints kubernetes -n default`):
+  #  - to:
+  #      - ipBlock:
+  #          cidr: 10.96.0.1/32
+  #    ports:
+  #      - protocol: TCP
+  #        port: 6443
+  #  # Provider topology source, e.g. netq apiUrl host or the BCM endpoint
+  #  # (resolve the hostname to an ipBlock):
+  #  - to:
+  #      - ipBlock:
+  #          cidr: 10.0.0.0/24
+  #    ports:
+  #      - protocol: TCP
+  #        port: 8081
+
 tests:
   # `helm test` hook pods (templates/tests/) probe the Topograph API's
   # /healthz and /metrics endpoints via the in-cluster Service.
