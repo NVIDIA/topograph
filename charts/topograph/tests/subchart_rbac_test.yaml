@@ -138,6 +138,18 @@ tests:
           path: rules
           content:
             apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
             resources: [pods/exec]
             verbs: [create]
 
