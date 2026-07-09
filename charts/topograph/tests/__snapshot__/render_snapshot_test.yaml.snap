@@ -212,10 +212,8 @@ renders default values.yaml:
       - apiGroups:
           - ""
         resources:
-          - nodes
           - pods
         verbs:
-          - get
           - list
           - watch
   9: |
@@ -697,10 +695,8 @@ renders values.k8s.gateway-api-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - nodes
           - pods
         verbs:
-          - get
           - list
           - watch
   9: |
@@ -1211,10 +1207,15 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - nodes
           - pods
         verbs:
-          - get
+          - list
+          - watch
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
           - list
           - watch
   9: |
@@ -1719,10 +1720,15 @@ renders values.k8s.gcp-service-account-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - nodes
           - pods
         verbs:
-          - get
+          - list
+          - watch
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
           - list
           - watch
   9: |
@@ -2227,10 +2233,15 @@ renders values.k8s.ib-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - nodes
           - pods
         verbs:
-          - get
+          - list
+          - watch
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
           - list
           - watch
   9: |
@@ -2738,10 +2749,8 @@ renders values.slinky.block-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - nodes
           - pods
         verbs:
-          - get
           - list
           - watch
   9: |
@@ -3273,10 +3282,8 @@ renders values.slinky.partition-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - nodes
           - pods
         verbs:
-          - get
           - list
           - watch
   9: |
@@ -3783,10 +3790,8 @@ renders values.slinky.tree-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - nodes
           - pods
         verbs:
-          - get
           - list
           - watch
   9: |

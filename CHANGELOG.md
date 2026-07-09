@@ -22,6 +22,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Helm node-observer now targets the rendered Topograph Service fullname in `generateTopologyUrl`.
 
+### Security
+
+- node-observer ClusterRole no longer grants unused `get`; `nodes` list/watch now gated on `trigger.nodeSelector`.
+
 ## [0.5.0] - 2026-06-30
 
 ### Added
