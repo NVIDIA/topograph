@@ -60,14 +60,26 @@ renders default values.yaml:
                 requests:
                   cpu: 100m
                   memory: 128Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               startupProbe:
                 failureThreshold: 30
                 httpGet:
                   path: /healthz
                   port: http
                 periodSeconds: 10
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-data-broker
   2: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -191,11 +203,23 @@ renders default values.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-observer
           volumes:
             - configMap:
@@ -329,11 +353,23 @@ renders default values.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-topograph
           volumes:
             - configMap:
@@ -443,9 +479,21 @@ renders default values.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: healthz
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
   19: |
     apiVersion: v1
     kind: Pod
@@ -475,9 +523,21 @@ renders default values.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: metrics
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
 renders values.k8s.gateway-api-example.yaml:
   1: |
     apiVersion: apps/v1
@@ -540,14 +600,26 @@ renders values.k8s.gateway-api-example.yaml:
                 requests:
                   cpu: 100m
                   memory: 128Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               startupProbe:
                 failureThreshold: 30
                 httpGet:
                   path: /healthz
                   port: http
                 periodSeconds: 10
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-data-broker
   2: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -671,11 +743,23 @@ renders values.k8s.gateway-api-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-observer
           volumes:
             - configMap:
@@ -809,11 +893,23 @@ renders values.k8s.gateway-api-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-topograph
           volumes:
             - configMap:
@@ -945,9 +1041,21 @@ renders values.k8s.gateway-api-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: healthz
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
   20: |
     apiVersion: v1
     kind: Pod
@@ -977,9 +1085,21 @@ renders values.k8s.gateway-api-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: metrics
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
 renders values.k8s.gcp-federated-workload-identity-example.yaml:
   1: |
     apiVersion: apps/v1
@@ -1042,7 +1162,13 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
                 requests:
                   cpu: 100m
                   memory: 128Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               startupProbe:
                 failureThreshold: 30
                 httpGet:
@@ -1051,7 +1177,13 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
                 periodSeconds: 10
           nodeSelector:
             brightcomputing.com/node-category: dgx
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-data-broker
   2: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -1180,11 +1312,23 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-observer
           volumes:
             - configMap:
@@ -1327,7 +1471,13 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
@@ -1337,7 +1487,13 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
                 - mountPath: /var/run/service-account
                   name: token
                   readOnly: true
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-topograph
           volumes:
             - configMap:
@@ -1457,9 +1613,21 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: healthz
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
   19: |
     apiVersion: v1
     kind: Pod
@@ -1489,9 +1657,21 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: metrics
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
 renders values.k8s.gcp-service-account-example.yaml:
   1: |
     apiVersion: apps/v1
@@ -1554,7 +1734,13 @@ renders values.k8s.gcp-service-account-example.yaml:
                 requests:
                   cpu: 100m
                   memory: 128Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               startupProbe:
                 failureThreshold: 30
                 httpGet:
@@ -1563,7 +1749,13 @@ renders values.k8s.gcp-service-account-example.yaml:
                 periodSeconds: 10
           nodeSelector:
             brightcomputing.com/node-category: dgx
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-data-broker
   2: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -1690,11 +1882,23 @@ renders values.k8s.gcp-service-account-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-observer
           volumes:
             - configMap:
@@ -1837,14 +2041,26 @@ renders values.k8s.gcp-service-account-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
                 - mountPath: /etc/topograph/gcp/service-account-keys.json
                   name: service-account-keys
                   readOnly: true
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-topograph
           volumes:
             - configMap:
@@ -1957,9 +2173,21 @@ renders values.k8s.gcp-service-account-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: healthz
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
   19: |
     apiVersion: v1
     kind: Pod
@@ -1989,9 +2217,21 @@ renders values.k8s.gcp-service-account-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: metrics
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
 renders values.k8s.ib-example.yaml:
   1: |
     apiVersion: apps/v1
@@ -2056,7 +2296,13 @@ renders values.k8s.ib-example.yaml:
                   cpu: 100m
                   memory: 128Mi
               securityContext:
+                allowPrivilegeEscalation: true
+                capabilities:
+                  drop: []
                 privileged: true
+                readOnlyRootFilesystem: false
+                runAsNonRoot: false
+                runAsUser: 0
               startupProbe:
                 failureThreshold: 30
                 httpGet:
@@ -2068,7 +2314,13 @@ renders values.k8s.ib-example.yaml:
                   name: sys-class-volume
           nodeSelector:
             nvidia.com/gpu.present: "true"
-          securityContext: {}
+          securityContext:
+            fsGroup: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-data-broker
           volumes:
             - hostPath:
@@ -2200,11 +2452,23 @@ renders values.k8s.ib-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-observer
           volumes:
             - configMap:
@@ -2345,11 +2609,23 @@ renders values.k8s.ib-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-topograph
           volumes:
             - configMap:
@@ -2465,9 +2741,21 @@ renders values.k8s.ib-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: healthz
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
   19: |
     apiVersion: v1
     kind: Pod
@@ -2497,9 +2785,21 @@ renders values.k8s.ib-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: metrics
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
 renders values.slinky.block-example.yaml:
   1: |
     apiVersion: apps/v1
@@ -2562,14 +2862,26 @@ renders values.slinky.block-example.yaml:
                 requests:
                   cpu: 100m
                   memory: 128Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               startupProbe:
                 failureThreshold: 30
                 httpGet:
                   path: /healthz
                   port: http
                 periodSeconds: 10
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-data-broker
   2: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -2711,13 +3023,25 @@ renders values.slinky.block-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
           nodeSelector:
             dedicated: user-workload
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-observer
           volumes:
             - configMap:
@@ -2851,13 +3175,25 @@ renders values.slinky.block-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
           nodeSelector:
             dedicated: user-workload
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-topograph
           tolerations:
             - operator: Exists
@@ -2977,9 +3313,21 @@ renders values.slinky.block-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: healthz
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
   19: |
     apiVersion: v1
     kind: Pod
@@ -3009,9 +3357,21 @@ renders values.slinky.block-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: metrics
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
 renders values.slinky.partition-example.yaml:
   1: |
     apiVersion: apps/v1
@@ -3074,14 +3434,26 @@ renders values.slinky.partition-example.yaml:
                 requests:
                   cpu: 100m
                   memory: 128Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               startupProbe:
                 failureThreshold: 30
                 httpGet:
                   path: /healthz
                   port: http
                 periodSeconds: 10
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-data-broker
   2: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -3240,13 +3612,25 @@ renders values.slinky.partition-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
           nodeSelector:
             dedicated: user-workload
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-observer
           volumes:
             - configMap:
@@ -3380,13 +3764,25 @@ renders values.slinky.partition-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
           nodeSelector:
             dedicated: user-workload
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-topograph
           tolerations:
             - operator: Exists
@@ -3506,9 +3902,21 @@ renders values.slinky.partition-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: healthz
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
   19: |
     apiVersion: v1
     kind: Pod
@@ -3538,9 +3946,21 @@ renders values.slinky.partition-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: metrics
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
 renders values.slinky.tree-example.yaml:
   1: |
     apiVersion: apps/v1
@@ -3603,14 +4023,26 @@ renders values.slinky.tree-example.yaml:
                 requests:
                   cpu: 100m
                   memory: 128Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               startupProbe:
                 failureThreshold: 30
                 httpGet:
                   path: /healthz
                   port: http
                 periodSeconds: 10
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-data-broker
   2: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -3744,13 +4176,25 @@ renders values.slinky.tree-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
           nodeSelector:
             dedicated: user-workload
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-node-observer
           volumes:
             - configMap:
@@ -3884,13 +4328,25 @@ renders values.slinky.tree-example.yaml:
                 requests:
                   cpu: 250m
                   memory: 256Mi
-              securityContext: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
               volumeMounts:
                 - mountPath: /etc/topograph
                   name: config-volume
           nodeSelector:
             dedicated: user-workload
-          securityContext: {}
+          securityContext:
+            fsGroup: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+            seccompProfile:
+              type: RuntimeDefault
           serviceAccountName: chart-ci-topograph
           tolerations:
             - operator: Exists
@@ -4010,9 +4466,21 @@ renders values.slinky.tree-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: healthz
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
   19: |
     apiVersion: v1
     kind: Pod
@@ -4042,6 +4510,18 @@ renders values.slinky.tree-example.yaml:
           image: ghcr.io/nvidia/topograph:v0.0.0
           imagePullPolicy: IfNotPresent
           name: metrics
-          securityContext: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
       restartPolicy: Never
-      securityContext: {}
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault

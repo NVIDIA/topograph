@@ -250,6 +250,15 @@ serviceMonitor:
 
 This creates a `monitoring.coreos.com/v1` `ServiceMonitor` selecting the Topograph Service.
 
+### Pod security context
+
+The chart applies a hardened security context to all three components (API server, node-observer, node-data-broker) by default, satisfying the Kubernetes [`restricted` Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/): non-root execution (`runAsNonRoot`, UID/GID `65532`), `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, a read-only root filesystem, and all Linux capabilities dropped. The Kubernetes and Slinky engines write node labels / a ConfigMap through the API server and never write to the container filesystem, so these defaults require no additional configuration.
+
+Override individual keys to relax the defaults where a workload needs it; a per-key override wins over the shipped default. Two cases need it:
+
+- **InfiniBand discovery.** The `infiniband-k8s` broker reads `/sys/class` and must run `privileged` as root. `values.k8s.ib-example.yaml` is the built-in example. **Supply a *complete* override, not a partial one:** because Helm deep-merges values, setting only `securityContext.privileged: true` leaves the default `allowPrivilegeEscalation: false`, and the API server rejects `privileged: true` + `allowPrivilegeEscalation: false` at admission. The example therefore also sets `allowPrivilegeEscalation: true`, `readOnlyRootFilesystem: false`, and `runAsNonRoot: false` on the broker. Override only that component — keep the API server and node-observer hardened. (`infiniband-k8s` needs **no** exception for Topograph's own container: it execs into GPU Operator pods, and Topograph's container stays hardened.)
+- **`slurm` / `graph` engines in-cluster.** These engines write a `topology.conf` file to their configured output path, so they need `securityContext.readOnlyRootFilesystem: false` plus a writable volume mounted at that path. The default `k8s` and `slinky` engines are API-only and need no such change.
+
 ### NetworkPolicy
 
 The chart does not ship a `NetworkPolicy` template at this time. For clusters that enforce NetworkPolicy, a recommended starting point allows ingress to port `49021` only from the Topograph namespace and from the Prometheus scraper namespace (when `serviceMonitor.enabled: true`), and denies all other ingress. Replace `<topograph-namespace>` with the namespace you deployed the chart into and `<prometheus-namespace>` with the namespace running your Prometheus instance:

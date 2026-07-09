@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING (Helm chart `0.5.0` → `0.6.0`):** the chart now ships a hardened default security context across the API server, node-observer, and node-data-broker: non-root (`runAsNonRoot`, UID/GID `65532`), `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, and all capabilities dropped — satisfying the Kubernetes `restricted` Pod Security Standard out of the box. This changes the default runtime posture of every workload; operators who relied on root, a writable rootfs, or added capabilities must override the relevant keys (see the migration note below). `appVersion` is unchanged (`v0.5.0`; no binary change).
 - Go toolchain bumped to **1.26.5** (`go.mod`, `Dockerfile`, CI) to address reachable stdlib vulnerabilities reported by `govulncheck`.
 - Slinky partition discovery now prefers the Slinky controller pod and falls back to a login pod, so clusters without optional login pods can still discover partitions ([#362](https://github.com/NVIDIA/topograph/pull/362)).
 - Slinky engine `useGpuCliqueLabel` now emits an actionable diagnostic when no block domains can be built: the error reports how many nodes were scanned and why each was skipped (no Slurm mapping, missing `nvidia.com/gpu.clique` label, or missing the node-data-broker-written `topograph.nvidia.com/instance` annotation), and lists the offending node names. When no Kubernetes nodes are selected at all, it reports a distinct error pointing at the engine `nodeSelector`.
@@ -31,9 +32,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Removed unused RBAC verbs from the Topograph API server and node-data-broker ClusterRoles (least-privilege): API server `pods` rule dropped `get` (list-only), `daemonsets` rule dropped `list` (get-only), and the Slinky `configmaps` rule dropped `list`; node-data-broker `nodes` rule dropped `list` (get/update), and the InfiniBand `daemonsets`/`pods` rules dropped `list`/`get` respectively (get-only, list-only).
 
-### Security
-
 - node-observer ClusterRole no longer grants unused `get`; `nodes` list/watch now gated on `trigger.nodeSelector`.
+### Migration (Helm — hardened security context)
+
+The chart's hardened defaults are a breaking change for two deployment shapes; override only the affected keys/component:
+
+| If you run | Override |
+|--------|----------|
+| `infiniband-k8s` (broker reads `/sys/class`) | A **complete** privileged override on `node-data-broker` — `securityContext: { privileged: true, allowPrivilegeEscalation: true, readOnlyRootFilesystem: false, runAsNonRoot: false, runAsUser: 0 }` plus `podSecurityContext.runAsNonRoot: false`. A partial override (only `privileged: true`) is rejected at admission because the default `allowPrivilegeEscalation: false` remains. Both shipped IB examples (`values.k8s.ib-example.yaml` and `values.slinky.ib.block-example.yaml`) are updated to the complete form. |
+| `engine: slurm` or `engine: graph` in-cluster (writes `topology.conf`) | `securityContext.readOnlyRootFilesystem: false` and a writable volume at the configured output path. |
+
+The default `k8s`/`slinky` engines and all other providers need no change.
 
 ## [0.5.0] - 2026-06-30
 

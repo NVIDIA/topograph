@@ -72,16 +72,28 @@ config:
 podAnnotations: {}
 podLabels: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+# Hardened by default to satisfy the Kubernetes "restricted" Pod Security
+# Standard. The Topograph API server (Kubernetes and Slinky engines) writes
+# node labels / a ConfigMap through the API server and does not write to the
+# container filesystem, so a read-only root filesystem and non-root execution
+# are safe. Providers that need elevated privileges override these values --
+# see `values.k8s.ib-example.yaml`, where the InfiniBand provider runs
+# `ibnetdiscover` and must set `privileged: true`.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
 
 ingress:
   enabled: false
