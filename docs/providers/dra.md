@@ -1,6 +1,6 @@
 # DRA Topology Provider
 
-The DRA provider discovers NVLink domain membership by reading `nvidia.com/gpu.clique` node labels set by the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/index.html)'s Dynamic Resource Allocation (DRA) driver. It is a Kubernetes-only provider that uses in-cluster service account auth — no credentials are required.
+The DRA provider discovers NVLink domain membership by reading `nvidia.com/gpu.clique` node labels set by the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/index.html)'s [GPU Feature Discovery (GFD)](https://github.com/NVIDIA/k8s-device-plugin/blob/main/docs/gpu-feature-discovery/README.md). It is a Kubernetes-only provider that uses in-cluster service account auth — no credentials are required.
 
 **Important**: The DRA provider produces **block topology only** (`topology/block` — NVLink domain membership). It does not discover switch tree topology. If you need both switch tree and NVLink domain topology, use the [InfiniBand](./infiniband.md) or [NetQ](./netq.md) provider instead.
 
@@ -8,7 +8,7 @@ The DRA provider discovers NVLink domain membership by reading `nvidia.com/gpu.c
 
 On GB200 NVL72 and similar Multi-Node NVLink (MNNVL) hardware, groups of nodes share a high-bandwidth NVLink fabric (1.8 TB/s chip-to-chip). Workloads that span these nodes — distributed training, disaggregated inference — benefit significantly from being placed within the same NVLink domain.
 
-Kubernetes exposes this through **ComputeDomains**, a DRA-based abstraction that represents a set of nodes sharing an NVLink/MNNVL domain as a first-class scheduling object. The GPU Operator's DRA driver labels each node with `nvidia.com/gpu.clique` to encode its NVLink clique membership. Schedulers like [KAI Scheduler](https://github.com/NVIDIA/KAI-Scheduler) consume these labels — via Topograph — to make topology-aware placement decisions.
+Kubernetes exposes this through **ComputeDomains**, a DRA-based abstraction that represents a set of nodes sharing an NVLink/MNNVL domain as a first-class scheduling object. The GPU Operator's GPU Feature Discovery (GFD) labels each node with `nvidia.com/gpu.clique` to encode its NVLink clique membership. Schedulers like [KAI Scheduler](https://github.com/NVIDIA/KAI-Scheduler) consume these labels — via Topograph — to make topology-aware placement decisions.
 
 The DRA provider is Topograph's integration point for this ecosystem. For more background, see:
 - [Enabling Multi-Node NVLink on Kubernetes for GB200 and Beyond](https://developer.nvidia.com/blog/enabling-multi-node-nvlink-on-kubernetes-for-gb200-and-beyond/)
@@ -27,7 +27,7 @@ If you also need switch tree topology — for example to express the full fabric
 
 ## How It Works
 
-The `nvidia.com/gpu.clique` labels are applied automatically by the GPU Operator's DRA driver — these are not manually configured by users.
+The `nvidia.com/gpu.clique` labels are applied automatically by the GPU Operator's GPU Feature Discovery (GFD) — these are not manually configured by users.
 
 Topograph reads these labels from the Kubernetes API:
 
@@ -40,7 +40,7 @@ If no nodes with matching labels are found, Topograph returns a `502` error with
 ## Prerequisites
 
 - Kubernetes cluster with the NVIDIA GPU Operator deployed and DRA support enabled
-- Nodes must have `nvidia.com/gpu.clique` labels — applied automatically by the DRA driver
+- Nodes must have `nvidia.com/gpu.clique` labels — applied automatically by GPU Feature Discovery (GFD)
 
 ## Parameters
 
