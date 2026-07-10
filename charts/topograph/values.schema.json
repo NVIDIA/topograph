@@ -35,7 +35,7 @@
         },
         "params": {
           "type": "object",
-          "description": "Provider-specific parameters. For infiniband-k8s, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the accelerator-domain source."
+          "description": "Provider-specific parameters. Requirements are documented in docs/providers/<name>.md."
         }
       },
       "required": ["name"]
@@ -46,7 +46,7 @@
         "name": {
           "type": "string",
           "description": "Scheduler-output engine. Must match a registered engine in pkg/registry/registry.go.",
-          "enum": ["graph", "k8s", "slinky", "slurm"]
+          "enum": ["graph", "k8s", "nfd", "slinky", "slurm"]
         },
         "params": {
           "type": "object",

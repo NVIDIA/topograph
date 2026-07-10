@@ -12,7 +12,7 @@ provider:
   #   useGpuCliqueLabel: true
 
 engine:
-  # name: "k8s", "slinky", "slurm" or "graph"
+  # name: "k8s", "nfd", "slinky", "slurm" or "graph"
   name: k8s
   # params:
   #   # For slinky topology/block output, use the GPU Operator's existing

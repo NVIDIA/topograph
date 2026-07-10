@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft.
+Implemented.
 
 ## Summary
 
@@ -66,6 +66,9 @@ metadata:
 spec:
   features:
     attributes:
+      system.name:
+        elements:
+          nodename: node-a
       topograph.network:
         elements:
           accelerator: nvl3

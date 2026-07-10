@@ -131,6 +131,19 @@ tests:
             resources: [configmaps]
             verbs: [create, get, list, update]
 
+  - it: grants NFD CR access for the nfd engine
+    set:
+      engine:
+        name: nfd
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [nfd.k8s-sigs.io]
+            resources: [nodefeatures, nodefeaturegroups]
+            verbs: [create, get, list, patch, update, delete]
+
   - it: does not grant pods/exec for slinky with a default flat cluster topology
     set:
       engine:

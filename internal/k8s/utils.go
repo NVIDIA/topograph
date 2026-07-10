@@ -18,6 +18,9 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/klog/v2"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func GetNodes(ctx context.Context, client kubernetes.Interface, opt *metav1.ListOptions) (*corev1.NodeList, error) {
@@ -96,4 +99,36 @@ func ExecInPod(ctx context.Context, client kubernetes.Interface, config *rest.Co
 	}
 
 	return &stdout, nil
+}
+
+// GetComputeInstances builds a ComputeInstances list from the node annotations
+// written by the node-data-broker (instance ID and region). Nodes missing either
+// annotation are skipped with a warning.
+func GetComputeInstances(nodes *corev1.NodeList) []topology.ComputeInstances {
+	regions := make(map[string]map[string]string)
+	regionNames := []string{}
+	for _, node := range nodes.Items {
+		instance, ok := node.Annotations[topology.KeyNodeInstance]
+		if !ok {
+			klog.Warningf("missing %q annotation in node %s", topology.KeyNodeInstance, node.Name)
+			continue
+		}
+		region, ok := node.Annotations[topology.KeyNodeRegion]
+		if !ok {
+			klog.Warningf("missing %q annotation in node %s", topology.KeyNodeRegion, node.Name)
+			continue
+		}
+		if _, ok = regions[region]; !ok {
+			regions[region] = make(map[string]string)
+			regionNames = append(regionNames, region)
+		}
+		regions[region][instance] = node.Name
+	}
+
+	cis := make([]topology.ComputeInstances, 0, len(regions))
+	for _, region := range regionNames {
+		cis = append(cis, topology.ComputeInstances{Region: region, Instances: regions[region]})
+	}
+
+	return cis
 }

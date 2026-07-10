@@ -36,36 +36,7 @@ func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ any) ([]topolog
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
-	return getComputeInstances(nodes), nil
-}
-
-func getComputeInstances(nodes *corev1.NodeList) []topology.ComputeInstances {
-	regions := make(map[string]map[string]string)
-	regionNames := []string{}
-	for _, node := range nodes.Items {
-		instance, ok := node.Annotations[topology.KeyNodeInstance]
-		if !ok {
-			klog.Warningf("missing %q annotation in node %s", topology.KeyNodeInstance, node.Name)
-			continue
-		}
-		region, ok := node.Annotations[topology.KeyNodeRegion]
-		if !ok {
-			klog.Warningf("missing %q annotation in node %s", topology.KeyNodeRegion, node.Name)
-			continue
-		}
-		if _, ok = regions[region]; !ok {
-			regions[region] = make(map[string]string)
-			regionNames = append(regionNames, region)
-		}
-		regions[region][instance] = node.Name
-	}
-
-	cis := make([]topology.ComputeInstances, 0, len(regions))
-	for _, region := range regionNames {
-		cis = append(cis, topology.ComputeInstances{Region: region, Instances: regions[region]})
-	}
-
-	return cis
+	return k8s.GetComputeInstances(nodes), nil
 }
 
 func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels map[string]string) error {
@@ -92,15 +63,15 @@ func MergeNodeLabels(node *corev1.Node, labels map[string]string) {
 }
 
 func skipAcceleratorLabelWhenGPUCliqueExists(node *corev1.Node, labels map[string]string) map[string]string {
-	if labelAccelerator == "" || strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
+	if topologyLabelKeys.Accelerator == "" || strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
 		return labels
 	}
 
 	filtered := maps.Clone(labels)
-	delete(filtered, labelAccelerator)
+	delete(filtered, topologyLabelKeys.Accelerator)
 
-	if labelAccelerator != topology.KeyNvidiaGPUClique {
-		delete(node.Labels, labelAccelerator)
+	if topologyLabelKeys.Accelerator != topology.KeyNvidiaGPUClique {
+		delete(node.Labels, topologyLabelKeys.Accelerator)
 	}
 
 	return filtered

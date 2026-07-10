@@ -142,6 +142,10 @@ func TestApplyNodeLabelsWithBlock(t *testing.T) {
 
 func TestInitLabels(t *testing.T) {
 	InitLabels("a", "b", "c", "d")
-	require.Equal(t, []string{"b", "c", "d"}, switchNetworkHierarchy)
-	require.Equal(t, "a", labelAccelerator)
+	require.Equal(t, TopologyLabelKeys{
+		Accelerator: "a",
+		Leaf:        "b",
+		Spine:       "c",
+		Core:        "d",
+	}, CurrentTopologyLabelKeys())
 }

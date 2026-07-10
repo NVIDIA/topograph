@@ -31,22 +31,35 @@ const (
 	DefaultLabelCore        = "network.topology.nvidia.com/core"
 )
 
-var (
-	labelAccelerator, labelLeaf, labelSpine, labelCore string
+type TopologyLabelKeys struct {
+	Accelerator string
+	Leaf        string
+	Spine       string
+	Core        string
+}
 
-	switchNetworkHierarchy []string
-)
+var topologyLabelKeys = TopologyLabelKeys{
+	Accelerator: DefaultLabelAccelerator,
+	Leaf:        DefaultLabelLeaf,
+	Spine:       DefaultLabelSpine,
+	Core:        DefaultLabelCore,
+}
 
 func InitLabels(accelerator, leaf, spine, core string) {
-	labelAccelerator = accelerator
-	labelLeaf = leaf
-	labelSpine = spine
-	labelCore = core
-	switchNetworkHierarchy = []string{labelLeaf, labelSpine, labelCore}
+	topologyLabelKeys = TopologyLabelKeys{
+		Accelerator: accelerator,
+		Leaf:        leaf,
+		Spine:       spine,
+		Core:        core,
+	}
+}
+
+func CurrentTopologyLabelKeys() TopologyLabelKeys {
+	return topologyLabelKeys
 }
 
 // map nodename:[label name: label value]
-type nodeLabelMap map[string]map[string]string
+type NodeLabelMap map[string]map[string]string
 
 type Labeler interface {
 	AddNodeLabels(context.Context, string, map[string]string) error
@@ -63,25 +76,9 @@ func NewTopologyLabeler() *topologyLabeler {
 }
 
 func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, graph *topology.Graph, labeler Labeler) error {
-	if graph == nil || (graph.Domains == nil && graph.Tiers == nil) {
-		return nil
-	}
-
-	nodeMap := make(nodeLabelMap)
-	if graph.Domains != nil {
-		if err := l.getDomainLabels(graph.Domains, nodeMap); err != nil {
-			return err
-		}
-	}
-
-	if treeRoot := graph.Tiers; treeRoot != nil {
-		layers := []string{}
-		if len(treeRoot.ID) != 0 {
-			layers = append(layers, treeRoot.ID)
-		}
-		if err := l.getTierLabels(treeRoot, nodeMap, layers); err != nil {
-			return err
-		}
+	nodeMap, err := l.BuildNodeLabels(graph)
+	if err != nil {
+		return err
 	}
 
 	for nodeName, labels := range nodeMap {
@@ -93,7 +90,33 @@ func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, graph *topology.G
 	return nil
 }
 
-func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap nodeLabelMap) error {
+func (l *topologyLabeler) BuildNodeLabels(graph *topology.Graph) (NodeLabelMap, error) {
+	nodeMap := make(NodeLabelMap)
+
+	if graph == nil || (graph.Domains == nil && graph.Tiers == nil) {
+		return nodeMap, nil
+	}
+
+	if graph.Domains != nil {
+		if err := l.getDomainLabels(graph.Domains, nodeMap); err != nil {
+			return nil, err
+		}
+	}
+
+	if treeRoot := graph.Tiers; treeRoot != nil {
+		layers := []string{}
+		if len(treeRoot.ID) != 0 {
+			layers = append(layers, treeRoot.ID)
+		}
+		if err := l.getTierLabels(treeRoot, nodeMap, layers); err != nil {
+			return nil, err
+		}
+	}
+
+	return nodeMap, nil
+}
+
+func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap NodeLabelMap) error {
 	for domainName, domain := range domains {
 		for nodeName := range domain {
 			labels, ok := nodeMap[nodeName]
@@ -101,16 +124,16 @@ func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap no
 				labels = make(map[string]string)
 				nodeMap[nodeName] = labels
 			}
-			if val, ok := labels[labelAccelerator]; ok {
+			if val, ok := labels[topologyLabelKeys.Accelerator]; ok {
 				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, domainName, nodeName)
 			}
-			labels[labelAccelerator] = l.checkLabel(domainName)
+			labels[topologyLabelKeys.Accelerator] = l.checkLabel(domainName)
 		}
 	}
 	return nil
 }
 
-func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap nodeLabelMap, layers []string) error {
+func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap NodeLabelMap, layers []string) error {
 	if len(v.Vertices) == 0 { // compute node
 		if len(layers) != 0 {
 			if v.ID != layers[0] {
@@ -121,6 +144,11 @@ func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap nodeLabelMap
 			if !ok {
 				labels = make(map[string]string)
 				nodeMap[nodeName] = labels
+			}
+			switchNetworkHierarchy := [...]string{
+				topologyLabelKeys.Leaf,
+				topologyLabelKeys.Spine,
+				topologyLabelKeys.Core,
 			}
 			for i, sw := range layers[1:] {
 				if len(sw) == 0 {

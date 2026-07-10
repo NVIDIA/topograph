@@ -8,10 +8,12 @@ package k8s
 import (
 	"testing"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	internalk8s "github.com/NVIDIA/topograph/internal/k8s"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestGetComputeInstances(t *testing.T) {
@@ -64,7 +66,7 @@ func TestGetComputeInstances(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cis := getComputeInstances(tc.nodes)
+			cis := internalk8s.GetComputeInstances(tc.nodes)
 			require.Equal(t, tc.cis, cis)
 		})
 	}
