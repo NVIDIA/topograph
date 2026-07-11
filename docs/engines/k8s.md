@@ -284,6 +284,10 @@ spec:
 
 Apply alongside the chart. A bundled template is under consideration.
 
+### Node Observer RBAC
+
+The node-observer `ClusterRole` grants `pods [list, watch]` unconditionally, and `nodes [list, watch]` only when `node-observer.topograph.trigger.nodeSelector` is set (the node informer that needs it is otherwise never started). Set `node-observer.rbac.create: false` to suppress the `ClusterRole`/`ClusterRoleBinding` when managing RBAC externally.
+
 ## Validation and Testing
 
 The Helm chart ships two layers of validation for operators.
