@@ -34,8 +34,7 @@ import (
 const (
 	NAME_SIM = "aws-sim"
 
-	AvailabilityZoneKey = "availability_zone"
-	GroupNameKey        = "group"
+	AvailabilityZoneKey = models.LabelTopologyZone
 
 	DEFAULT_MAX_RESULTS = 20
 
@@ -87,21 +86,17 @@ func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *e
 				// Gets the instance ID
 				instanceId := instanceIds[instanceIdx+i]
 
-				// Gets the availability zone and placement group of the instance
+				// Gets the availability zone of the instance
 				node, ok := client.model.Nodes[instanceId]
 				if !ok {
 					continue
 				}
-				var az, pg string
-				if len(node.Metadata) != 0 {
-					az = node.Metadata[AvailabilityZoneKey]
-					pg = node.Metadata[GroupNameKey]
+				var az string
+				if len(node.Labels) != 0 {
+					az = node.Labels[AvailabilityZoneKey]
 				}
 				if len(az) == 0 {
 					return nil, fmt.Errorf("availability zone not found for instance %q in AWS simulation", instanceId)
-				}
-				if len(pg) == 0 {
-					return nil, fmt.Errorf("placement group not found for instance %q in AWS simulation", instanceId)
 				}
 
 				// Sets up the structure for the instance
@@ -109,12 +104,12 @@ func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *e
 				for j := len(node.NetLayers) - 1; j >= 0; j-- {
 					netLayers = append(netLayers, node.NetLayers[j])
 				}
+				acceleratorID := node.AcceleratorID()
 				instTopo := types.InstanceTopology{
 					InstanceId:       &instanceId,
 					AvailabilityZone: &az,
 					ZoneId:           &az,
-					GroupName:        &pg,
-					CapacityBlockId:  &node.Attributes.NVLink,
+					CapacityBlockId:  &acceleratorID,
 					NetworkNodes:     netLayers,
 				}
 				instances = append(instances, instTopo)

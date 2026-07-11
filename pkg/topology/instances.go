@@ -17,32 +17,45 @@ type Instances struct {
 // YAML and JSON use the same field names for this exported shape.
 type Instance struct {
 	ID            string            `json:"id" yaml:"id,omitempty"`
-	Type          string            `json:"type" yaml:"type,omitempty"`
 	NetworkLayers []string          `json:"network_layers" yaml:"network_layers,omitempty"`
-	Attributes    NodeAttributes    `json:"attributes" yaml:"attributes"`
-	CapacityBlock string            `json:"capacity_block,omitempty" yaml:"capacity_block,omitempty"`
-	Metadata      map[string]string `yaml:"-" json:"-"`
+	Labels        map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 	NetLayers     []string          `yaml:"-" json:"-"`
 }
 
-// NodeAttributes holds per-instance accelerator metadata.
-type NodeAttributes struct {
-	NVLink string `json:"nvlink,omitempty" yaml:"nvlink,omitempty"`
+func (inst Instance) AcceleratorID() string {
+	return AcceleratorID(inst.Labels)
+}
+
+func AcceleratorID(labels map[string]string) string {
+	if accelerator := labels[KeyTopologyAccelerator]; accelerator != "" {
+		return accelerator
+	}
+	return labels[KeyNvidiaGPUClique]
 }
 
 // String summarizes an instance for logging (simulation / derived fields).
 func (inst *Instance) String() string {
-	return fmt.Sprintf("Instance: %s Metadata: %v NetLayers: %v Attr: %+v",
-		inst.ID, inst.Metadata, inst.NetLayers, inst.Attributes)
+	return fmt.Sprintf("Instance: %s Labels: %v NetLayers: %v",
+		inst.ID, inst.Labels, inst.NetLayers)
 }
 
-// CloneForTopology returns a copy suitable for instance export: network layers are
-// filled and simulation-only fields (capacity block, metadata) are cleared.
+// CloneForTopology returns a copy suitable for instance export: network layers
+// are filled and simulation-only fields are cleared.
 func (inst *Instance) CloneForTopology() Instance {
 	return Instance{
 		ID:            inst.ID,
-		Type:          inst.Type,
 		NetworkLayers: append([]string(nil), inst.NetLayers...),
-		Attributes:    inst.Attributes,
+		Labels:        cloneStringMap(inst.Labels),
 	}
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	clone := make(map[string]string, len(values))
+	for k, v := range values {
+		clone[k] = v
+	}
+	return clone
 }

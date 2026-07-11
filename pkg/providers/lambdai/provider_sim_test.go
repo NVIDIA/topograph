@@ -27,30 +27,17 @@ switches:
     switches: [spine]
   spine:
     switches: [tor1,tor2]
-  tor1:
-    nodes: [n11,n12]
-  tor2:
-    nodes: [n21,n22]
-nodes:
-  n11:
-    capacity_block: cb1
-    attributes:
-      nvlink: nvl1
-  n12:
-    capacity_block: cb1
-    attributes:
-      nvlink: nvl1
-  n21:
-    capacity_block: cb2
-    attributes:
-      nvlink: nvl2
-  n22:
-    capacity_block: cb2
-    attributes:
-      nvlink: nvl2
-capacity_blocks:
-  cb1: {}
-  cb2: {}
+  tor1: {}
+  tor2: {}
+blocks:
+- switch: tor1
+  nodes: [n11,n12]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
+- switch: tor2
+  nodes: [n21,n22]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl2
 `
 )
 

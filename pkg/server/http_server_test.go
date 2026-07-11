@@ -191,7 +191,7 @@ BlockSizes=8,16,32
 }
 `
 
-	// graph engine returns compact JSON from instance metadata embedded in the topology graph
+	// graph engine returns compact JSON from instance labels embedded in the topology graph
 	graphPayload = `
 {
   "provider": {
@@ -218,24 +218,22 @@ BlockSizes=8,16,32
   "instances": [
     {
       "id": "I21",
-      "type": "H100",
       "network_layers": [
         "S2",
         "S1"
       ],
-      "attributes": {
-        "nvlink": "CB2"
+      "labels": {
+        "network.topology.nvidia.com/accelerator": "nvl2"
       }
     },
     {
       "id": "I22",
-      "type": "",
       "network_layers": [
         "S2",
         "S1"
       ],
-      "attributes": {
-        "nvlink": "CB2"
+      "labels": {
+        "network.topology.nvidia.com/accelerator": "nvl2"
       }
     }
   ]

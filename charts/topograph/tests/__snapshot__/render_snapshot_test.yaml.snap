@@ -81,7 +81,6 @@ renders default values.yaml:
           - nodes
         verbs:
           - get
-          - list
           - update
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -352,7 +351,6 @@ renders default values.yaml:
         resources:
           - pods
         verbs:
-          - get
           - list
       - apiGroups:
           - ""
@@ -368,7 +366,6 @@ renders default values.yaml:
           - daemonsets
         verbs:
           - get
-          - list
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -564,7 +561,6 @@ renders values.k8s.gateway-api-example.yaml:
           - nodes
         verbs:
           - get
-          - list
           - update
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -857,7 +853,6 @@ renders values.k8s.gateway-api-example.yaml:
         resources:
           - pods
         verbs:
-          - get
           - list
       - apiGroups:
           - ""
@@ -873,7 +868,6 @@ renders values.k8s.gateway-api-example.yaml:
           - daemonsets
         verbs:
           - get
-          - list
   16: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -1071,7 +1065,6 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
           - nodes
         verbs:
           - get
-          - list
           - update
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -1372,7 +1365,6 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
         resources:
           - pods
         verbs:
-          - get
           - list
       - apiGroups:
           - ""
@@ -1388,7 +1380,6 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
           - daemonsets
         verbs:
           - get
-          - list
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -1586,7 +1577,6 @@ renders values.k8s.gcp-service-account-example.yaml:
           - nodes
         verbs:
           - get
-          - list
           - update
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -1875,7 +1865,6 @@ renders values.k8s.gcp-service-account-example.yaml:
         resources:
           - pods
         verbs:
-          - get
           - list
       - apiGroups:
           - ""
@@ -1891,7 +1880,6 @@ renders values.k8s.gcp-service-account-example.yaml:
           - daemonsets
         verbs:
           - get
-          - list
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -2099,7 +2087,6 @@ renders values.k8s.ib-example.yaml:
           - nodes
         verbs:
           - get
-          - list
           - update
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -2380,7 +2367,6 @@ renders values.k8s.ib-example.yaml:
         resources:
           - pods
         verbs:
-          - get
           - list
       - apiGroups:
           - ""
@@ -2402,7 +2388,6 @@ renders values.k8s.ib-example.yaml:
           - daemonsets
         verbs:
           - get
-          - list
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -2598,7 +2583,6 @@ renders values.slinky.block-example.yaml:
           - nodes
         verbs:
           - get
-          - list
           - update
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -2893,7 +2877,6 @@ renders values.slinky.block-example.yaml:
         resources:
           - pods
         verbs:
-          - get
           - list
       - apiGroups:
           - ""
@@ -2909,7 +2892,6 @@ renders values.slinky.block-example.yaml:
           - daemonsets
         verbs:
           - get
-          - list
       - apiGroups:
           - ""
         resources:
@@ -2917,7 +2899,6 @@ renders values.slinky.block-example.yaml:
         verbs:
           - create
           - get
-          - list
           - update
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -3114,7 +3095,6 @@ renders values.slinky.partition-example.yaml:
           - nodes
         verbs:
           - get
-          - list
           - update
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -3426,7 +3406,6 @@ renders values.slinky.partition-example.yaml:
         resources:
           - pods
         verbs:
-          - get
           - list
       - apiGroups:
           - ""
@@ -3442,7 +3421,6 @@ renders values.slinky.partition-example.yaml:
           - daemonsets
         verbs:
           - get
-          - list
       - apiGroups:
           - ""
         resources:
@@ -3450,7 +3428,6 @@ renders values.slinky.partition-example.yaml:
         verbs:
           - create
           - get
-          - list
           - update
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -3647,7 +3624,6 @@ renders values.slinky.tree-example.yaml:
           - nodes
         verbs:
           - get
-          - list
           - update
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -3934,7 +3910,6 @@ renders values.slinky.tree-example.yaml:
         resources:
           - pods
         verbs:
-          - get
           - list
       - apiGroups:
           - ""
@@ -3950,7 +3925,6 @@ renders values.slinky.tree-example.yaml:
           - daemonsets
         verbs:
           - get
-          - list
       - apiGroups:
           - ""
         resources:
@@ -3958,7 +3932,6 @@ renders values.slinky.tree-example.yaml:
         verbs:
           - create
           - get
-          - list
           - update
   15: |
     apiVersion: rbac.authorization.k8s.io/v1

@@ -261,8 +261,11 @@ func (inst *InstanceTopology) toInstance(trimTiers int) Instance {
 		instance.ID = inst.InstanceID
 	}
 	instance.NetworkLayers = inst.networkLayers(trimTiers)
-	if instance.Attributes.NVLink == "" {
-		instance.Attributes.NVLink = inst.AcceleratorID
+	if instance.AcceleratorID() == "" && inst.AcceleratorID != "" {
+		if instance.Labels == nil {
+			instance.Labels = make(map[string]string)
+		}
+		instance.Labels[KeyTopologyAccelerator] = inst.AcceleratorID
 	}
 	return instance
 }

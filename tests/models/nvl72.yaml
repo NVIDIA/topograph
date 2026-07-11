@@ -1,8 +1,8 @@
 #      _________
-#      |       | 
-#   spine-1 spine-2 
-#      |       | 
-#      |      ... 
+#      |       |
+#   spine-1 spine-2
+#      |       |
+#      |      ...
 #      |
 #      ____________
 #      |          |
@@ -11,332 +11,54 @@
 #   -------    -------
 #    1101       1201
 #     ...        ...
-#    1108       1208
-#   -------    ------- 
-#   cb-1-1     cb-1-2
+#    1118       1218
+#   -------    -------
+#   nvl-1-1    nvl-1-2
 #
 # Supported block sizes: 18, 36, 72
 #
 switches:
   core:
-    metadata:
-      region: us-east
-      group: none
+    labels:
+      topology.kubernetes.io/region: us-east
     switches:
     - spine-1
     - spine-2
   spine-1:
-    metadata:
-      availability_zone: zone1
+    labels:
+      topology.kubernetes.io/zone: zone1
     switches:
     - leaf-1-1
     - leaf-1-2
   spine-2:
-    metadata:
-      availability_zone: zone1
+    labels:
+      topology.kubernetes.io/zone: zone1
     switches:
     - leaf-2-1
     - leaf-2-2
-  leaf-1-1:
-    nodes:
-    - node[1101-1115]
-  leaf-1-2:
-    nodes:
-    - node[1201-1215]
-  leaf-2-1:
-    nodes:
-    - node[2101-2115]
-  leaf-2-2:
-    nodes:
-    - node[2201-2218]
-nodes:
-  node1101:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1102:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1103:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1104:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1105:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1106:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1107:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1108:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1109:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1110:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1111:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1112:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1113:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1114:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1115:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1116:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1117:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1118:
-    capacity_block: cb-1-1
-    attributes:
-      nvlink: nvl-1-1
-  node1201:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1202:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1203:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1204:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1205:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1206:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1207:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1208:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1209:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1210:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1211:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1212:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1213:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1214:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1215:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1216:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1217:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node1218:
-    capacity_block: cb-1-2
-    attributes:
-      nvlink: nvl-1-2
-  node2101:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2102:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2103:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2104:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2105:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2106:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2107:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2108:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2109:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2110:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2111:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2112:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2113:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2114:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2115:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2116:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2117:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2118:
-    capacity_block: cb-2-1
-    attributes:
-      nvlink: nvl-2-1
-  node2201:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2202:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2203:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2204:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2205:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2206:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2207:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2208:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2209:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2210:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2211:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2212:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2213:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2214:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2215:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2216:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2217:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-  node2218:
-    capacity_block: cb-2-2
-    attributes:
-      nvlink: nvl-2-2
-capacity_blocks:
-  cb-new: {}
+  leaf-1-1: {}
+  leaf-1-2: {}
+  leaf-2-1: {}
+  leaf-2-2: {}
+
+blocks:
+- switch: leaf-1-1
+  nodes:
+  - node[1101-1118]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1-1
+- switch: leaf-1-2
+  nodes:
+  - node[1201-1218]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1-2
+- switch: leaf-2-1
+  nodes:
+  - node[2101-2118]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2-1
+- switch: leaf-2-2
+  nodes:
+  - node[2201-2218]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2-2

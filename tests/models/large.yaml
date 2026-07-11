@@ -13,15 +13,14 @@
 #     ...        ...
 #    1108       1208
 #   -------    ------- 
-#   cb-1-1     cb-1-2
+#   nvl-1-1    nvl-1-2
 #
 # Supported block sizes: 8, 16, 32
 #
 switches:
   core:
-    metadata:
-      region: us-east
-      group: none
+    labels:
+      topology.kubernetes.io/region: us-east
     switches:
     - spine-1
     - spine-2
@@ -30,136 +29,112 @@ switches:
     - spine-5
     - spine-6
   spine-1:
-    metadata:
-      availability_zone: zone1
+    labels:
+      topology.kubernetes.io/zone: zone1
     switches:
     - leaf-1-1
     - leaf-1-2
   spine-2:
-    metadata:
-      availability_zone: zone1
+    labels:
+      topology.kubernetes.io/zone: zone1
     switches:
     - leaf-2-1
     - leaf-2-2
   spine-3:
-    metadata:
-      availability_zone: zone2
+    labels:
+      topology.kubernetes.io/zone: zone2
     switches:
     - leaf-3-1
     - leaf-3-2
   spine-4:
-    metadata:
-      availability_zone: zone2
+    labels:
+      topology.kubernetes.io/zone: zone2
     switches:
     - leaf-4-1
     - leaf-4-2
   spine-5:
-    metadata:
-      availability_zone: zone3
+    labels:
+      topology.kubernetes.io/zone: zone3
     switches:
     - leaf-5-1
     - leaf-5-2
   spine-6:
-    metadata:
-      availability_zone: zone3
+    labels:
+      topology.kubernetes.io/zone: zone3
     switches:
     - leaf-6-1
     - leaf-6-2
-  leaf-1-1:
-    nodes:
-    - "[1101-1108]"
-  leaf-1-2:
-    nodes:
-    - "[1201-1208]"
-  leaf-2-1:
-    nodes:
-    - "[2101-2108]"
-  leaf-2-2:
-    nodes:
-    - "[2201-2208]"
-  leaf-3-1:
-    nodes:
-    - "[3101-3108]"
-  leaf-3-2:
-    nodes:
-    - "[3201-3208]"
-  leaf-4-1:
-    nodes:
-    - "[4101-4108]"
-  leaf-4-2:
-    nodes:
-    - "[4201-4208]"
-  leaf-5-1:
-    nodes:
-    - "[5101-5108]"
-  leaf-5-2:
-    nodes:
-    - "[5201-5208]"
-  leaf-6-1:
-    nodes:
-    - "[6101-6108]"
-  leaf-6-2:
-    nodes:
-    - "[6201-6208]"
+  leaf-1-1: {}
+  leaf-1-2: {}
+  leaf-2-1: {}
+  leaf-2-2: {}
+  leaf-3-1: {}
+  leaf-3-2: {}
+  leaf-4-1: {}
+  leaf-4-2: {}
+  leaf-5-1: {}
+  leaf-5-2: {}
+  leaf-6-1: {}
+  leaf-6-2: {}
 
-capacity_blocks:
-  cb-1-1:
-    nodes:
-    - "[1101-1108]"
-    attributes:
-      nvlink: nvl-1-1
-  cb-1-2:
-    nodes:
-    - "[1201-1208]"
-    attributes:
-      nvlink: nvl-1-2
-  cb-2-1:
-    nodes:
-    - "[2101-2108]"
-    attributes:
-      nvlink: nvl-2-1
-  cb-2-2:
-    nodes:
-    - "[2201-2208]"
-    attributes:
-      nvlink: nvl-2-2
-  cb-3-1:
-    nodes:
-    - "[3101-3108]"
-    attributes:
-      nvlink: nvl-3-1
-  cb-3-2:
-    nodes:
-    - "[3201-3208]"
-    attributes:
-      nvlink: nvl-3-2
-  cb-4-1:
-    nodes:
-    - "[4101-4108]"
-    attributes:
-      nvlink: nvl-4-1
-  cb-4-2:
-    nodes:
-    - "[4201-4208]"
-    attributes:
-      nvlink: nvl-4-2
-  cb-5-1:
-    nodes:
-    - "[5101-5108]"
-    attributes:
-      nvlink: nvl-5-1
-  cb-5-2:
-    nodes:
-    - "[5201-5208]"
-    attributes:
-      nvlink: nvl-5-2
-  cb-6-1:
-    nodes:
-    - "[6101-6108]"
-    attributes:
-      nvlink: nvl-6-1
-  cb-6-2:
-    nodes:
-    - "[6201-6208]"
-    attributes:
-      nvlink: nvl-6-2
+blocks:
+- switch: leaf-1-1
+  nodes:
+  - "[1101-1108]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1-1
+- switch: leaf-1-2
+  nodes:
+  - "[1201-1208]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1-2
+- switch: leaf-2-1
+  nodes:
+  - "[2101-2108]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2-1
+- switch: leaf-2-2
+  nodes:
+  - "[2201-2208]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2-2
+- switch: leaf-3-1
+  nodes:
+  - "[3101-3108]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-3-1
+- switch: leaf-3-2
+  nodes:
+  - "[3201-3208]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-3-2
+- switch: leaf-4-1
+  nodes:
+  - "[4101-4108]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-4-1
+- switch: leaf-4-2
+  nodes:
+  - "[4201-4208]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-4-2
+- switch: leaf-5-1
+  nodes:
+  - "[5101-5108]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-5-1
+- switch: leaf-5-2
+  nodes:
+  - "[5201-5208]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-5-2
+- switch: leaf-6-1
+  nodes:
+  - "[6101-6108]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-6-1
+- switch: leaf-6-2
+  nodes:
+  - "[6201-6208]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-6-2

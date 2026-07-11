@@ -84,7 +84,7 @@ func decodeHook(
 	if t.Kind() == reflect.String && f.Kind() != reflect.String {
 		return fmt.Sprintf("%v", data), nil
 	}
-	if f.Kind() == reflect.Ptr {
+	if f.Kind() == reflect.Pointer {
 		f = f.Elem()
 		data = reflect.ValueOf(data).Elem().Interface()
 	}
@@ -124,7 +124,7 @@ func decodeHook(
 		} else if from != nil {
 			err = from.FromString(dataString)
 		}
-		if t.Kind() == reflect.Ptr {
+		if t.Kind() == reflect.Pointer {
 			t = t.Elem()
 		}
 		if err != nil {

@@ -60,7 +60,7 @@ func (c *simClient) GetComputeInstanceList(ctx context.Context, req *compute.Lis
 		node := c.model.Nodes[c.instanceIDs[indx]]
 		instance := &compute.Instance{
 			Spec: &compute.InstanceSpec{
-				NvlInstanceGroupId: node.Attributes.NVLink,
+				NvlInstanceGroupId: node.AcceleratorID(),
 			},
 			Status: &compute.InstanceStatus{},
 		}

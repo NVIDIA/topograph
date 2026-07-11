@@ -65,7 +65,7 @@ func (c *simClient) InstanceList(ctx context.Context, req *InstanceListRequest) 
 			NetworkPath: netPath,
 			//TODO: check whether the below mapping is correct
 			NVLink: &NVLinkInfo{
-				DomainID: node.Attributes.NVLink,
+				DomainID: node.AcceleratorID(),
 				CliqueID: "simulation",
 			},
 		}

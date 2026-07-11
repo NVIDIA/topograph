@@ -37,15 +37,12 @@ switches:
     switches: [spine]
   spine:
     switches: [tor]
-  tor:
-    nodes: ["11"]
-nodes:
-  "11":
-    capacity_block: cb
-    attributes:
-      nvlink: nvl1
-capacity_blocks:
-  cb: {}
+  tor: {}
+blocks:
+- switch: tor
+  nodes: ["11"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
 `
 
 	clusterModel = `
@@ -54,30 +51,17 @@ switches:
     switches: [spine]
   spine:
     switches: [tor1,tor2]
-  tor1:
-    nodes: ["11","12"]
-  tor2:
-    nodes: ["21","22"]
-nodes:
-  "11":
-    capacity_block: cb1
-    attributes:
-      nvlink: nvl1
-  "12":
-    capacity_block: cb1
-    attributes:
-      nvlink: nvl1
-  "21":
-    capacity_block: cb2
-    attributes:
-      nvlink: nvl2
-  "22":
-    capacity_block: cb2
-    attributes:
-      nvlink: nvl2
-capacity_blocks:
-  cb1: {}
-  cb2: {}
+  tor1: {}
+  tor2: {}
+blocks:
+- switch: tor1
+  nodes: ["11","12"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
+- switch: tor2
+  nodes: ["21","22"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl2
 `
 )
 
@@ -136,15 +120,12 @@ switches:
     switches: [spine]
   spine:
     switches: [tor]
-  tor:
-    nodes: [n11]
-nodes:
-  n11:
-    capacity_block: cb
-    attributes:
-      nvlink: nvl1
-capacity_blocks:
-  cb: {}
+  tor: {}
+blocks:
+- switch: tor
+  nodes: [n11]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
 `,
 			instances: []topology.ComputeInstances{
 				{

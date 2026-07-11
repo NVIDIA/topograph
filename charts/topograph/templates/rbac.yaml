@@ -32,7 +32,7 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: [pods]
-  verbs: [get,list]
+  verbs: [list]
 {{- if $needsPodExec.value }}
 - apiGroups: [""]
   resources: [pods/exec]
@@ -43,11 +43,11 @@ rules:
   verbs: [get,list,update]
 - apiGroups: [apps]
   resources: [daemonsets]
-  verbs: [get,list]
+  verbs: [get]
 {{- if eq .Values.global.engine.name "slinky" }}
 - apiGroups: [""]
   resources: [configmaps]
-  verbs: [create,get,list,update]
+  verbs: [create,get,update]
 {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

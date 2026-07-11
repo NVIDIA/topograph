@@ -8,14 +8,14 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: [nodes]
-  verbs: [get,list,update]
+  verbs: [get,update]
 {{- if and (eq .Values.global.provider.name "infiniband-k8s") (not $useGpuCliqueLabel) }}
 - apiGroups: [apps]
   resources: [daemonsets]
-  verbs: [get,list]
+  verbs: [get]
 - apiGroups: [""]
   resources: [pods]
-  verbs: [get,list]
+  verbs: [list]
 - apiGroups: [""]
   resources: [pods/exec]
   verbs: [create]
