@@ -56,10 +56,10 @@ func NewRequest(prv Provider, eng Engine) *Request {
 func (p *Request) String() string {
 	var sb strings.Builder
 	sb.WriteString("TopologyRequest:\n")
-	sb.WriteString(fmt.Sprintf("  Provider:%s\n", spacer(p.Provider.Name)))
+	fmt.Fprintf(&sb, "  Provider:%s\n", spacer(p.Provider.Name))
 	sb.WriteString(map2string(p.Provider.Creds, "  Credentials", true, "\n"))
 	sb.WriteString(map2string(p.Provider.Params, "  Parameters", false, "\n"))
-	sb.WriteString(fmt.Sprintf("  Engine:%s\n", spacer(p.Engine.Name)))
+	fmt.Fprintf(&sb, "  Engine:%s\n", spacer(p.Engine.Name))
 	sb.WriteString(map2string(p.Engine.Params, "  Parameters", false, "\n"))
 	sb.WriteString("  Nodes:")
 	for _, nodes := range p.Nodes {
