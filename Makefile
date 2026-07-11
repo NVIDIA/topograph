@@ -17,7 +17,7 @@ DOCKER_BIN ?= docker
 GOOS ?= $(shell uname | tr '[:upper:]' '[:lower:]')
 GOARCH ?= $(shell arch | sed 's/x86_64/amd64/')
 PLATFORMS ?= linux/arm64,linux/amd64
-TARGETS := topograph node-observer node-data-broker
+TARGETS := topograph node-observer node-data-broker kwok-nodes
 CMD_DIR := ./cmd
 OUTPUT_DIR := ./bin
 

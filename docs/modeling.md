@@ -12,7 +12,59 @@ Model loading lives in `pkg/models`. Model fixtures live under `tests/models/`.
 
 ## Where Models Are Used
 
-Models are consumed in two different simulation flows.
+Models are consumed in several simulation and local-development flows.
+
+### KWOK Clusters
+
+`kwok-nodes` renders virtual Kubernetes `Node` objects from a model file as a plain YAML manifest. The helper script `scripts/create-test-cluster.sh` then creates or reuses a local kind cluster, installs KWOK into it, and applies that manifest. This is useful when you want to run Topograph against a Kubernetes API without provisioning real nodes.
+
+Prerequisites:
+
+- `kind` installed and available on `PATH`
+- `kubectl` installed and available on `PATH`
+- A Docker-compatible runtime supported by kind
+- Network access to GitHub releases when installing KWOK manifests
+
+Build the manifest renderer:
+
+```bash
+make build
+```
+
+Render a KWOK node manifest from one of the embedded model fixtures:
+
+```bash
+bin/kwok-nodes -model medium.yaml -output /tmp/kwok-nodes.yaml
+```
+
+Create or reuse a kind cluster named `topograph`, install KWOK, and apply the generated nodes:
+
+```bash
+scripts/create-test-cluster.sh -m medium.yaml
+```
+
+Create or reuse a named kind cluster from an explicit model path, and keep the generated manifest:
+
+```bash
+scripts/create-test-cluster.sh \
+  --cluster topo-demo \
+  --model tests/models/nvl72.yaml \
+  --output /tmp/nvl72-kwok-nodes.yaml \
+  --gpus 8
+```
+
+To pass a kind cluster configuration file, add `--kind-config path/to/kind.yaml`. To pin KWOK installation to a release, add `--kwok-release vX.Y.Z`; otherwise the script uses GitHub's latest KWOK release download URL.
+
+The utility uses the model-derived instance-to-hostname mapping, so model hostname `1101` becomes Kubernetes node `1101` with:
+
+- `topograph.nvidia.com/instance: i-1101`
+- `topograph.nvidia.com/region: <derived-region-or-none>`
+- `kwok.x-k8s.io/node=fake` as both a label and annotation
+- Model-derived labels such as `topology.kubernetes.io/region`, `topology.kubernetes.io/zone`, and `network.topology.nvidia.com/accelerator`
+
+Generated Kubernetes node names come from model hostnames and are normalized to valid lowercase DNS names. For example, model hostname `I21` becomes Kubernetes node `i21`, while its generated instance ID `i-I21` is stored in `topograph.nvidia.com/instance`.
+
+The script applies the manifest with kubeconfig context `kind-<cluster>`, matching the context name created by `kind create cluster --name=<cluster>`.
 
 ### Test Provider
 
