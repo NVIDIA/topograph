@@ -12,15 +12,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - OCI labels missing from `docker/metadata-action` on the Topograph container image: `org.opencontainers.image.documentation`, `authors`, and `vendor` ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 - Helm chart metadata: `home`, `icon`, `maintainers`, `keywords`, and Artifact Hub annotations ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 - Helm `env`, `initContainers`, and `lifecycle` overrides across the API server, node-observer, and node-data-broker containers.
+- Lambda provider Kubernetes node-data-broker support: Topograph instance and region annotations are derived from Lambda node `.spec.providerID` and `topology.kubernetes.io/region`, enabling automatic node discovery with the Kubernetes engine ([#375](https://github.com/NVIDIA/topograph/pull/375)).
 
 ### Changed
 
-- Go toolchain bumped to **1.25.11** (`go.mod`, `Dockerfile`, CI) to address reachable stdlib vulnerabilities reported by `govulncheck`.
+- Go toolchain bumped to **1.26.5** (`go.mod`, `Dockerfile`, CI) to address reachable stdlib vulnerabilities reported by `govulncheck`.
+- Slinky partition discovery now prefers the Slinky controller pod and falls back to a login pod, so clusters without optional login pods can still discover partitions ([#362](https://github.com/NVIDIA/topograph/pull/362)).
 - Slinky engine `useGpuCliqueLabel` now emits an actionable diagnostic when no block domains can be built: the error reports how many nodes were scanned and why each was skipped (no Slurm mapping, missing `nvidia.com/gpu.clique` label, or missing the node-data-broker-written `topograph.nvidia.com/instance` annotation), and lists the offending node names. When no Kubernetes nodes are selected at all, it reports a distinct error pointing at the engine `nodeSelector`.
+- Simulation model YAML schema simplified: compute nodes are now declared through `blocks[].nodes`, with optional `blocks[].switch` attachment and `blocks[].labels`; the older separate `nodes` and `capacity_blocks` sections were removed from fixtures and docs ([#394](https://github.com/NVIDIA/topograph/pull/394)).
 
 ### Fixed
 
 - Helm node-observer now targets the rendered Topograph Service fullname in `generateTopologyUrl`.
+- Lambda provider client now matches the Lambda topology API request and response contract: required `region` query parameter, `{data, page_token}` envelope, `page_token` pagination, and `networkPath` object mapping ([#374](https://github.com/NVIDIA/topograph/pull/374)).
+- Slinky engine now skips pods without a resolvable Slurm node name instead of adding an empty instance-to-node mapping ([#380](https://github.com/NVIDIA/topograph/pull/380)).
 
 ### Security
 
