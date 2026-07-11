@@ -1,8 +1,8 @@
 # Topograph Graph Engine
 
-The `graph` engine returns instance-oriented topology metadata as JSON. It is intended for clients that need per-instance placement and accelerator-domain context rather than scheduler-specific output such as `topology.conf`, Kubernetes node labels, or a Slinky ConfigMap.
+The `graph` engine returns instance-oriented topology labels as JSON. It is intended for clients that need per-instance placement and accelerator-domain context rather than scheduler-specific output such as `topology.conf`, Kubernetes node labels, or a Slinky ConfigMap.
 
-The engine preserves the provider/engine boundary: providers still discover topology and optional instance metadata, carry it on the canonical topology graph, and the `graph` engine only formats those records.
+The engine preserves the provider/engine boundary: providers still discover topology and optional instance labels, carry them on the canonical topology graph, and the `graph` engine only formats those records.
 
 ## Output
 
@@ -13,10 +13,10 @@ By default, the generated JSON is returned in the `/v1/topology` response:
   "instances": [
     {
       "id": "I21",
-      "type": "H100",
       "network_layers": ["leaf-a", "spine-a"],
-      "attributes": {
-        "nvlink": "nvl-1"
+      "labels": {
+        "nvidia.com/gpu.product": "H100",
+        "network.topology.nvidia.com/accelerator": "nvl-1"
       }
     }
   ]

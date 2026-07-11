@@ -5,52 +5,26 @@
 #      /        \     
 #     S2        S3
 #     |         |
-#  ------    ------
-# | I21 |   | I34 |
-# | I22 |   | I35 |
-# | I25 |   | I36 |
-#  ------    ------
-#   CB2       CB3
+#   -----     ----- 
+#  | I21 |   | I34 |
+#  | I22 |   | I35 |
+#  | I25 |   | I36 |
+#   -----     ----- 
+#   nvl2       nvl3
 #
 switches:
   S1:
     switches:
     - S2
     - S3
-  S2:
-    nodes:
-    - I21
-    - I22
-    - I25
-  S3:
-    nodes:
-    - I34
-    - I35
-    - I36
-nodes:
-  I21:
-    capacity_block: CB2
-    type: H100
-    attributes:
-      nvlink: CB2
-  I22:
-    capacity_block: CB2
-    attributes:
-      nvlink: CB2
-  I25:
-    capacity_block: CB2
-    type: H100
-  I34:
-    capacity_block: CB3
-    type: H100
-  I35:
-    capacity_block: CB3
-    type: H100
-  I36:
-    capacity_block: CB3
-    type: H100
-capacity_blocks:
-  CB2:
-    nodes: ["I[21-22]", "I25"]
-  CB3:
-    nodes: ["I[34-36]"]
+  S2: {}
+  S3: {}
+blocks:
+- switch: S2
+  nodes: ["I[21-22]", "I25"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl2
+- switch: S3
+  nodes: ["I[34-36]"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl3

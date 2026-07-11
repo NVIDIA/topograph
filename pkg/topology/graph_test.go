@@ -200,8 +200,8 @@ func TestToThreeTierGraphIncludesInstanceData(t *testing.T) {
 		AcceleratorID: "nvl-1",
 		Instance: &Instance{
 			ID:            "i-001",
-			Type:          "H100",
 			NetworkLayers: []string{"leaf-1", "spine-1", "core-1"},
+			Labels:        map[string]string{KeyNvidiaGPUProduct: "H100"},
 		},
 	})
 
@@ -215,9 +215,11 @@ func TestToThreeTierGraphIncludesInstanceData(t *testing.T) {
 	require.Equal(t, map[string]Instance{
 		"i-001": {
 			ID:            "i-001",
-			Type:          "H100",
 			NetworkLayers: []string{"leaf-1", "spine-1"},
-			Attributes:    NodeAttributes{NVLink: "nvl-1"},
+			Labels: map[string]string{
+				KeyNvidiaGPUProduct:    "H100",
+				KeyTopologyAccelerator: "nvl-1",
+			},
 		},
 	}, graph.Instances)
 }

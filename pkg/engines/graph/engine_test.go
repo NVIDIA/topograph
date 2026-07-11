@@ -104,7 +104,10 @@ func TestGenerateOutput(t *testing.T) {
 
 		eng := &GraphEngine{params: &Params{TopologyConfigPath: path}}
 		ctx := context.Background()
-		graph := &topology.Graph{Instances: map[string]topology.Instance{"n1": {ID: "n1", Type: "H100"}}}
+		graph := &topology.Graph{Instances: map[string]topology.Instance{"n1": {
+			ID:     "n1",
+			Labels: map[string]string{topology.KeyNvidiaGPUProduct: "H100"},
+		}}}
 		out, herr := eng.GenerateOutput(ctx, graph, nil)
 		require.Nil(t, herr)
 		require.Equal(t, "OK\n", string(out))
@@ -115,7 +118,7 @@ func TestGenerateOutput(t *testing.T) {
 		require.NoError(t, json.Unmarshal(written, &doc))
 		require.Len(t, doc.Instances, 1)
 		require.Equal(t, "n1", doc.Instances[0].ID)
-		require.Equal(t, "H100", doc.Instances[0].Type)
+		require.Equal(t, "H100", doc.Instances[0].Labels[topology.KeyNvidiaGPUProduct])
 	})
 }
 
