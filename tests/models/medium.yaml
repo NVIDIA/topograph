@@ -9,77 +9,56 @@
 # |  1101 |  |  1201 |  |  1301 |  |  1401 |
 # |  1102 |  |  1202 |  |  1302 |  |  1402 |
 #  -------    -------    -------    -------
-#   cb11       cb12       cb13       cb14
+#   nvl1       nvl2       nvl3       nvl4
 #
 # Metadata:
-# sw3: region:us-west
-# sw21: availability_zone:zone1
-# sw22: availability_zone:zone2
-# sw11: group:cb11
-# sw12: group:cb12
-# sw13: group:cb13
-# sw14: group:cb14
+# sw3: topology.kubernetes.io/region:us-west
+# sw21: topology.kubernetes.io/zone:zone1
+# sw22: topology.kubernetes.io/zone:zone2
 #
 
 switches:
   sw3:
-    metadata:
-      region: us-west
+    labels:
+      topology.kubernetes.io/region: us-west
     switches:
     - sw21
     - sw22
   sw21:
-    metadata:
-      availability_zone: zone1
+    labels:
+      topology.kubernetes.io/zone: zone1
     switches:
     - sw11
     - sw12
   sw22:
-    metadata:
-      availability_zone: zone2
+    labels:
+      topology.kubernetes.io/zone: zone2
     switches:
     - sw13
     - sw14
-  sw11:
-    metadata:
-      group: cb11
-    nodes:
-    - "[1101-1102]"
-  sw12:
-    metadata:
-      group: cb12
-    nodes:
-    - "[1201-1202]"
-  sw13:
-    metadata:
-      group: cb13
-    nodes:
-    - "[1301-1302]"
-  sw14:
-    metadata:
-      group: cb14
-    nodes:
-    - "[1401-1402]"
+  sw11: {}
+  sw12: {}
+  sw13: {}
+  sw14: {}
 
-capacity_blocks:
-  cb11:
-    nodes:
-    - "[1101-1102]"
-    attributes:
-      nvlink: nvl1
-  cb12:
-    nodes:
-    - "[1201-1202]"
-    attributes:
-      nvlink: nvl2
-  cb13:
-    nodes:
-    - "[1301-1302]"
-    attributes:
-      nvlink: nvl3
-  cb14:
-    nodes:
-    - "[1401-1402]"
-    attributes:
-      nvlink: nvl4
-  cb15: {}
+blocks:
+- switch: sw11
+  nodes:
+  - "[1101-1102]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
+- switch: sw12
+  nodes:
+  - "[1201-1202]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl2
+- switch: sw13
+  nodes:
+  - "[1301-1302]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl3
+- switch: sw14
+  nodes:
+  - "[1401-1402]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl4

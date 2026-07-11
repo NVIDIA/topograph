@@ -38,34 +38,20 @@ switches:
   core:
     switches: [spine]
   spine:
-    metadata:
-      availability_zone: az1
+    labels:
+      topology.kubernetes.io/zone: az1
     switches: [tor1,tor2]
-  tor1:
-    metadata:
-      group: g1
-    nodes: [n11,n12]
-  tor2:
-    metadata:
-      group: g2
-    nodes: [n21,n22]
-nodes:
-  n11:
-    capacity_block: cb1
-    attributes:
-      nvlink: nvl1
-  n12:
-    capacity_block: cb1
-    attributes:
-      nvlink: nvl1
-  n21:
-    capacity_block: cb2
-    attributes:
-      nvlink: nvl2
-  n22:
-    capacity_block: cb2
-    attributes:
-      nvlink: nvl2
+  tor1: {}
+  tor2: {}
+blocks:
+- switch: tor1
+  nodes: [n11,n12]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
+- switch: tor2
+  nodes: [n21,n22]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl2
 `
 
 	largeClusterModel = `
@@ -73,26 +59,20 @@ switches:
   core:
     switches: [spine]
   spine:
-    metadata:
-      availability_zone: az1
+    labels:
+      topology.kubernetes.io/zone: az1
     switches: [tor1,tor2]
-  tor1:
-    metadata:
-      group: g1
-    nodes: ["n[100-199]"]
-  tor2:
-    metadata:
-      group: g2
-    nodes: ["n[200-299]"]
-capacity_blocks:
-  cb1:
-    nodes: ["n[100-199]"]
-    attributes:
-      nvlink: nvl1
-  cb2:
-    nodes: ["n[200-299]"]
-    attributes:
-      nvlink: nvl2
+  tor1: {}
+  tor2: {}
+blocks:
+- switch: tor1
+  nodes: ["n[100-199]"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
+- switch: tor2
+  nodes: ["n[200-299]"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl2
 `
 )
 
@@ -125,19 +105,12 @@ switches:
     switches: [spine]
   spine:
     switches: [tor]
-  tor:
-    nodes: [n11,n12]
-nodes:
-  n11:
-    capacity_block: cb
-    attributes:
-      nvlink: nvl1
-  n12:
-    capacity_block: cb
-    attributes:
-      nvlink: nvl1
-capacity_blocks:
-  cb: {}
+  tor: {}
+blocks:
+- switch: tor
+  nodes: [n11,n12]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
 `,
 		},
 		{
@@ -170,43 +143,16 @@ switches:
     switches: [spine]
   spine:
     switches: [tor]
-  tor:
-    nodes: [n11]
-nodes:
-  n11:
-    capacity_block: cb
-    attributes:
-      nvlink: nvl1
-capacity_blocks:
-  cb: {}
+  tor: {}
+blocks:
+- switch: tor
+  nodes: [n11]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
 `,
 			region:    "region",
 			intervals: []interval{{11, 11}},
 			err:       `failed to describe instance topology: availability zone not found for instance "n11" in AWS simulation`,
-		},
-		{
-			name: "Case 5.2: missing placement group",
-			model: `
-switches:
-  core:
-    switches: [spine]
-  spine:
-    metadata:
-      availability_zone: az1
-    switches: [tor]
-  tor:
-    nodes: [n11]
-nodes:
-  n11:
-    capacity_block: cb
-    attributes:
-      nvlink: nvl1
-capacity_blocks:
-  cb: {}
-`,
-			region:    "region",
-			intervals: []interval{{11, 11}},
-			err:       `failed to describe instance topology: placement group not found for instance "n11" in AWS simulation`,
 		},
 		{
 			name:      "Case 6: valid cluster in tree format",

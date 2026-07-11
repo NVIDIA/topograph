@@ -5,8 +5,8 @@ Topograph models are YAML files used to simulate discovered topology without que
 A model describes the same canonical topology that real providers eventually produce:
 
 - A switch tree, used for Slurm `topology/tree` output and Kubernetes `leaf` / `spine` / `core` labels
-- Node membership in accelerated domains, used for block topology and accelerator labels
-- Optional per-node attributes used by provider simulations
+- Node membership in hardware/connectivity blocks, used for block topology and optional accelerator labels
+- Optional per-node labels used by provider simulations
 
 Model loading lives in `pkg/models`. Model fixtures live under `tests/models/`.
 
@@ -68,18 +68,16 @@ Example request:
 
 ## Model File Shape
 
-A model has three top-level sections:
+A model usually has one required top-level section and one optional topology section:
 
 ```yaml
+blocks:
+  - ...
 switches:
-  ...
-nodes:
-  ...
-capacity_blocks:
   ...
 ```
 
-All three sections are maps. `nodes` and `capacity_blocks` are flexible: you can specify node membership in either section, and Topograph completes the missing side during model loading.
+`switches` is a map and `blocks` is a list. `blocks[].nodes` is where model files declare compute node names; it creates the node records, applies block labels, and optionally attaches those nodes to a leaf switch through `blocks[].switch`. `switches` may be omitted for block-only models.
 
 ## Switches
 
@@ -87,105 +85,64 @@ The `switches` map describes the network hierarchy. Each key is the switch ID. E
 
 | Field | Description |
 |---|---|
-| `metadata` | Key-value metadata inherited by descendant nodes. Common keys are `region`, `availability_zone`, and `group`. |
+| `labels` | Labels inherited by descendant nodes. Common keys are `topology.kubernetes.io/region` and `topology.kubernetes.io/zone`. |
 | `switches` | Child switch IDs. |
-| `nodes` | Compute node names attached to this switch. Compact node ranges are supported. |
 
 Example:
 
 ```yaml
 switches:
   core:
-    metadata:
-      region: us-west
+    labels:
+      topology.kubernetes.io/region: us-west
     switches: [spine]
   spine:
-    metadata:
-      availability_zone: zone1
+    labels:
+      topology.kubernetes.io/zone: zone1
     switches: [leaf1, leaf2]
-  leaf1:
-    metadata:
-      group: cb1
-    nodes: ["n[1-2]"]
-  leaf2:
-    metadata:
-      group: cb2
-    nodes: [n3]
+  leaf1: {}
+  leaf2: {}
 ```
 
 Switch rules:
 
 - A switch can have at most one parent switch.
-- A node can be attached to at most one switch.
-- If a switch references a node, that node must exist either in `nodes` or be generated from `capacity_blocks`.
-- Switch `nodes` entries are expanded through the same compact range syntax used elsewhere.
+- If a block names a switch with `blocks[].switch`, that block's `nodes` are attached to the switch before switch validation runs.
 
-## Nodes
+## Blocks
 
-The `nodes` map describes compute nodes directly. Each key is the node name. The value may contain:
+The `blocks` list describes sets of compute instances with similar hardware and connectivity characteristics. Each entry may contain:
 
 | Field | Description |
 |---|---|
-| `id` | Optional. If set, it must match the map key. Usually omitted. |
-| `type` | Optional instance type metadata used by instance-oriented exports. |
-| `capacity_block` | Optional accelerated domain ID. If set and `capacity_blocks` is omitted, Topograph creates the corresponding capacity block entry. |
-| `attributes.nvlink` | Optional accelerated-domain / NVLink identifier. Used by block topology simulation paths. |
+| `switch` | Optional leaf switch ID. When set, this block's `nodes` are attached to that switch. |
+| `nodes` | Required non-empty list of node names in this block. Compact ranges are supported. |
+| `labels` | Optional labels applied to nodes generated from this block. For example, `network.topology.nvidia.com/accelerator` can identify an NVLink / accelerator domain. |
 
 Example:
 
 ```yaml
-nodes:
-  n1:
-    capacity_block: cb1
-    attributes:
-      nvlink: nvl1
-  n2:
-    attributes:
-      nvlink: nvl1
+blocks:
+- switch: leaf1
+  nodes: ["n[1-2]"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
 ```
 
-Node rules:
+Block rules:
 
-- `capacity_block` is optional.
-- Nodes without `capacity_block` are still valid compute nodes.
-- If `capacity_block` is set and `capacity_blocks` is omitted, Topograph creates the capacity block and adds the node to it.
-- If a node is listed under `capacity_blocks.<id>.nodes`, Topograph fills in the node's missing `capacity_block`.
-- If both sides specify different capacity block IDs for the same node, model loading fails.
-
-## Capacity Blocks
-
-The `capacity_blocks` map describes accelerated domains. Each key is the capacity block ID. The value may contain:
-
-| Field | Description |
-|---|---|
-| `nodes` | Optional list of node names in this capacity block. Compact ranges are supported. |
-| `attributes.nvlink` | Optional NVLink / accelerator domain identifier applied to nodes generated from this capacity block, and to listed top-level nodes when provided. |
-
-Example:
-
-```yaml
-capacity_blocks:
-  cb1:
-    nodes: ["n[1-2]"]
-    attributes:
-      nvlink: nvl1
-  cb2: {}
-```
-
-Capacity block rules:
-
-- The entire `capacity_blocks` section may be omitted.
-- Individual capacity block entries may omit `nodes`.
-- Capacity block entries with no corresponding nodes are allowed and preserved.
-- If top-level `nodes` is omitted, `capacity_blocks.<id>.nodes` creates node entries automatically.
-- If top-level `nodes` is present, `capacity_blocks.<id>.nodes` must reference nodes in the top-level `nodes` map.
+- The `blocks` section is the only place model files declare compute node names.
+- Each block entry must declare at least one node.
+- `switch` is optional. When set, it must reference an existing switch.
+- `blocks[].nodes` creates node entries automatically.
 
 ## Compact Ranges
 
 Model node lists support compact ranges:
 
 ```yaml
-nodes: ["n[1-4]", "gpu[001-004]", node9]
+blocks:
+- nodes: ["n[1-4]", "gpu[001-004]", node9]
 ```
 
 These expand to:
@@ -196,94 +153,67 @@ n1, n2, n3, n4, gpu001, gpu002, gpu003, gpu004, node9
 
 Ranges are accepted in:
 
-- `switches.<switch>.nodes`
-- `capacity_blocks.<id>.nodes`
+- `blocks[].nodes`
 
 ## Derived Data
 
 After YAML parsing, Topograph completes the model before simulation uses it:
 
-- Switch node ranges are expanded.
 - Capacity block node ranges are expanded.
-- Node names are copied from their map keys.
+- Block `switch` references attach block nodes to switches.
 - Switch names are copied from their map keys.
-- Missing nodes can be created from `capacity_blocks.<id>.nodes`.
-- Missing capacity block entries can be created from node `capacity_block` values.
+- Nodes are created from `blocks[].nodes`.
 - Node `NetLayers` is derived from the switch path from leaf to root.
-- Node `Metadata` is built by merging switch metadata along the same path.
-- `Instances` is derived from node names and grouped by `metadata.region`; nodes without a region use `none`.
+- Node labels are built by merging labels from the switch path and block labels.
+- `Instances` is derived from node names and grouped by `labels.topology.kubernetes.io/region`; nodes without a region use `none`.
 
 These derived fields are not written in YAML.
 
 ## Complete Examples
 
-### Nodes From Capacity Blocks
+### Blocks With Switches
 
-This compact model omits the `nodes` section. Nodes are created from capacity block membership.
+This model creates nodes from block membership and attaches them to a leaf switch.
 
 ```yaml
 switches:
   core:
     switches: [leaf]
-  leaf:
-    nodes: ["n[1-2]", n3]
+  leaf: {}
 
-capacity_blocks:
-  cb1:
-    nodes: ["n[1-2]"]
-    attributes:
-      nvlink: nvl1
-  cb2:
-    nodes: [n3]
-    attributes:
-      nvlink: nvl2
+blocks:
+- switch: leaf
+  nodes: ["n[1-2]"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
+- switch: leaf
+  nodes: [n3]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl2
 ```
 
 After loading:
 
-- `n1` and `n2` belong to `cb1` and have `attributes.nvlink: nvl1`
-- `n3` belongs to `cb2` and has `attributes.nvlink: nvl2`
+- `n1` and `n2` belong to the first block and have `network.topology.nvidia.com/accelerator: nvl1` label
+- `n3` belongs to the second block and has `network.topology.nvidia.com/accelerator: nvl2` label
 - All three nodes have network layers `[leaf, core]`
 
-### Capacity Blocks From Nodes
+### Blocks Without Switches
 
-This model omits `capacity_blocks`. Topograph creates `cb1` from `n1.capacity_block`.
+This model omits `switches`. Nodes are still created, block labels are still applied, and generated instances have no network layers.
 
 ```yaml
-nodes:
-  n1:
-    capacity_block: cb1
-    attributes:
-      nvlink: nvl1
-  n2:
-    attributes:
-      nvlink: nvl2
+blocks:
+- nodes: ["n[1-2]"]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
 ```
 
 After loading:
 
-- `cb1.nodes` contains `n1`
-- `cb1.attributes.nvlink` is populated from `n1.attributes.nvlink`
-- `n2` remains a valid node without capacity block membership
-
-### Orphan Capacity Block
-
-This is valid. It declares a capacity block that currently has no nodes.
-
-```yaml
-nodes:
-  n1:
-    capacity_block: cb1
-
-capacity_blocks:
-  cb1: {}
-  cb2: {}
-```
-
-After loading:
-
-- `cb1.nodes` contains `n1`
-- `cb2` remains present with no nodes
+- `n1` and `n2` belong to the first block
+- `n1` and `n2` have `network.topology.nvidia.com/accelerator: nvl1` label
+- `n1` and `n2` have no network layers
 
 ## Simulating the API
 
@@ -364,7 +294,6 @@ Use a `*-sim` provider when you want to validate provider-specific topology tran
 Before using a new model in a regression test:
 
 - Confirm every switch child has only one parent.
-- Confirm every switched node is defined in `nodes` or generated from `capacity_blocks`.
-- Confirm no node appears under two switches.
-- Confirm capacity block membership does not conflict with node `capacity_block`.
+- Confirm every block `switch` reference points at an existing switch.
+- Confirm no node appears under two blocks.
 - Run the relevant provider simulation test or API flow with the target engine.

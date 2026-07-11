@@ -45,7 +45,11 @@ const (
 	KeyGpuClusterID = "topograph.nvidia.com/cluster-id"
 
 	// NVIDIA GPU Operator node labels
-	KeyNvidiaGPUClique = "nvidia.com/gpu.clique"
+	KeyNvidiaGPUClique  = "nvidia.com/gpu.clique"
+	KeyNvidiaGPUProduct = "nvidia.com/gpu.product"
+
+	// Topograph default node labels
+	KeyTopologyAccelerator = "network.topology.nvidia.com/accelerator"
 
 	// ConfigMap annotation keys for metadata tracking
 	KeyConfigMapEngine            = "topograph.nvidia.com/engine"

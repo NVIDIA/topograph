@@ -61,7 +61,7 @@ func (client *simClient) GetTopology(ctx context.Context, _ string, nodeIDs []st
 				if !exists {
 					continue
 				}
-				swInfo.Nodes = append(swInfo.Nodes, NodeInfo{NodeID: nodeName, AcceleratedNetworkID: node.Attributes.NVLink})
+				swInfo.Nodes = append(swInfo.Nodes, NodeInfo{NodeID: nodeName, AcceleratedNetworkID: node.AcceleratorID()})
 			}
 		} else {
 			//If it is not a leaf switch, add the child switches to the switch info

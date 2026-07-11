@@ -56,8 +56,9 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 			ID:          node.ID,
 			NetworkPath: path,
 		}
-		if len(node.Attributes.NVLink) != 0 {
-			instance.BlockID = &node.Attributes.NVLink
+		acceleratorID := node.AcceleratorID()
+		if acceleratorID != "" {
+			instance.BlockID = &acceleratorID
 		}
 
 		resp = append(resp, instance)
