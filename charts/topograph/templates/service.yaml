@@ -6,9 +6,9 @@ metadata:
   labels:
     {{- include "topograph.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.global.service.type }}
+  type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.global.service.port }}
+    - port: {{ .Values.service.port }}
       targetPort: http
       protocol: TCP
       name: http

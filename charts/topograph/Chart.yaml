@@ -35,11 +35,3 @@ annotations:
       url: https://github.com/NVIDIA/topograph/blob/main/docs/overview.md
     - name: Chart Source
       url: https://github.com/NVIDIA/topograph/tree/main/charts/topograph
-
-dependencies:
-  - name: node-data-broker
-    version: 0.5.0
-    repository: "file://charts/node-data-broker"
-  - name: node-observer
-    version: 0.5.0
-    repository: "file://charts/node-observer"

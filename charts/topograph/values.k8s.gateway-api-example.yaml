@@ -17,11 +17,10 @@
 # Gateway. For other implementations the Gateway side of the configuration
 # differs, but the topograph-side values below are identical.
 
-global:
-  provider:
-    name: test
-  engine:
-    name: k8s
+provider:
+  name: test
+engine:
+  name: k8s
 
 # Disable the legacy Ingress -- mutually exclusive with Gateway API in this chart.
 ingress:

@@ -2,52 +2,51 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-global:
-  provider:
-    # name: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test"
-    name: aws
-  engine:
-    name: slinky
-    params:
-      namespace: slurm
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/component: compute
-      topologies:
-        # Per-partition node membership is resolved in one of three ways:
-        #   1. An explicit `nodes` list (takes precedence).
-        #   2. A `podSelector` that matches the slurmd pods of the partition;
-        #      the SLURM node names are read from the pods' `slurm.node.name`
-        #      label (falling back to pod.spec.hostname), and only Ready pods
-        #      are counted.
-        #   3. Neither set: the engine falls back to `scontrol show partition`
-        #      inside the controller pod, or a login pod when no controller
-        #      pod is running (legacy behavior).
-        # `nodes` and `podSelector` are mutually exclusive on the same entry.
-        topo1:
-          plugin: topology/block
-          blockSizes: [2,4]
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/component: compute
-              slurm.partition: topo1
-        topo2:
-          plugin: topology/block
-          blockSizes: [8,16]
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/component: compute
-              slurm.partition: topo2
-        topo3:
-          plugin: topology/tree
-        topo-default:
-          plugin: topology/flat
-          clusterDefault: true
-      topologyConfigPath: topology.conf
-      topologyConfigmapName: slurm-config
-      # useGpuCliqueLabel: true
-      useDynamicNodes: true
-      configUpdateMode: skeleton-only
+provider:
+  # name: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test"
+  name: aws
+engine:
+  name: slinky
+  params:
+    namespace: slurm
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: compute
+    topologies:
+      # Per-partition node membership is resolved in one of three ways:
+      #   1. An explicit `nodes` list (takes precedence).
+      #   2. A `podSelector` that matches the slurmd pods of the partition;
+      #      the SLURM node names are read from the pods' `slurm.node.name`
+      #      label (falling back to pod.spec.hostname), and only Ready pods
+      #      are counted.
+      #   3. Neither set: the engine falls back to `scontrol show partition`
+      #      inside the controller pod, or a login pod when no controller
+      #      pod is running (legacy behavior).
+      # `nodes` and `podSelector` are mutually exclusive on the same entry.
+      topo1:
+        plugin: topology/block
+        blockSizes: [2,4]
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: compute
+            slurm.partition: topo1
+      topo2:
+        plugin: topology/block
+        blockSizes: [8,16]
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: compute
+            slurm.partition: topo2
+      topo3:
+        plugin: topology/tree
+      topo-default:
+        plugin: topology/flat
+        clusterDefault: true
+    topologyConfigPath: topology.conf
+    topologyConfigmapName: slurm-config
+    # useGpuCliqueLabel: true
+    useDynamicNodes: true
+    configUpdateMode: skeleton-only
 
 nodeSelector:
   dedicated: user-workload
@@ -55,7 +54,7 @@ nodeSelector:
 tolerations:
   - operator: Exists
 
-node-observer:
+nodeObserver:
   nodeSelector:
     dedicated: user-workload
   topograph:

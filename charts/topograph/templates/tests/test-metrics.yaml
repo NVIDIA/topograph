@@ -28,6 +28,6 @@ spec:
         - |
           set -eu
           body=$(wget -q -O - -T 10 \
-            "http://{{ include "topograph.fullname" . }}:{{ .Values.global.service.port }}/metrics")
+            "http://{{ include "topograph.fullname" . }}:{{ .Values.service.port }}/metrics")
           echo "$body" | grep -q '^topograph_version'
 {{- end }}

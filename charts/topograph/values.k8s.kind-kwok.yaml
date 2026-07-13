@@ -1,0 +1,36 @@
+provider:
+  name: test
+engine:
+  name: k8s
+service:
+  type: ClusterIP
+  port: 49021
+
+nodeDataBroker:
+  enabled: false
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/nvidia/topograph
+  tag: ce8db4f
+  pullPolicy: IfNotPresent
+
+verbosity: 4
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+tolerations: []
+
+affinity: {}
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  topograph:
+    nodeDataBroker:
+      enabled: false
+    trigger:
+      nodeSelector:
+        kwok.x-k8s.io/node: "fake"

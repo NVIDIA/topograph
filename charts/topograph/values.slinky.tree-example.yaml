@@ -2,20 +2,19 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-global:
-  provider:
-    # name: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test"
-    name: aws
-  engine:
-    name: slinky
-    params:
-      namespace: slurm
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/component: compute
-      plugin: topology/tree
-      topologyConfigPath: topology.conf
-      topologyConfigmapName: slurm-config
+provider:
+  # name: "aws", "oci", "gcp", "nebius", "netq", "infiniband-k8s", "dra" or "test"
+  name: aws
+engine:
+  name: slinky
+  params:
+    namespace: slurm
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: compute
+    plugin: topology/tree
+    topologyConfigPath: topology.conf
+    topologyConfigmapName: slurm-config
 
 nodeSelector:
   dedicated: user-workload
@@ -23,7 +22,7 @@ nodeSelector:
 tolerations:
   - operator: Exists
 
-node-observer:
+nodeObserver:
   nodeSelector:
     dedicated: user-workload
   topograph:

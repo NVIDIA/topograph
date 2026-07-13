@@ -64,7 +64,7 @@ Topograph treats `nvidia.com/gpu.clique` as the authoritative accelerator-domain
 
 In addition to NVLink domain membership, Topograph provides the IB switch hierarchy (`leaf`, `spine`, `core`) — giving schedulers both dimensions of topology simultaneously.
 
-For `infiniband-k8s`, operators can set `global.provider.params.useGpuCliqueLabel: true` so the provider reads the GPU Operator's existing clique label instead of collecting the same value through a `nvidia-smi` exec in the GPU Operator device-plugin DaemonSet.
+For `infiniband-k8s`, operators can set `provider.params.useGpuCliqueLabel: true` so the provider reads the GPU Operator's existing clique label instead of collecting the same value through a `nvidia-smi` exec in the GPU Operator device-plugin DaemonSet.
 
 ## Use of Topograph
 
@@ -119,17 +119,17 @@ Topology labels are most valuable when nodes in a topology domain are available 
 
 ## Configuration
 Topograph is deployed as a standard Kubernetes application using a [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
+The main chart directly renders the API server, node-observer, and node-data-broker; the component-specific settings remain under `nodeObserver.*` and `nodeDataBroker.*`.
 Topograph is configured using a configuration file stored in a ConfigMap and mounted to the Topograph container at `/etc/topograph/topograph-config.yaml`.
 In addition, when sending a topology request, the request payload includes additional parameters.
-The parameters for the configuration file and topology request are defined in the `global` section of the Helm values file, as shown below:
+The provider and engine are defined as top-level Helm values, as shown below:
 
 ```yaml
-global:
-  # provider – name of the cloud provider or on-prem environment.
-  # Supported values: "aws", "gcp", "oci", "nebius", "nscale", "netq", "infiniband-k8s".
-  provider: "aws"
-
-  engine: "k8s"
+provider:
+  # Name of the cloud provider or on-prem environment.
+  name: aws
+engine:
+  name: k8s
 ```
 
 ## Exposing the Topograph API
@@ -150,7 +150,7 @@ The Topograph API server listens on port `49021` by default. The Helm chart alwa
 
 ### Default: ClusterIP
 
-By default, `global.service.type: ClusterIP` and `ingress.enabled: false`. This means:
+By default, `service.type: ClusterIP` and `ingress.enabled: false`. This means:
 
 - The API is not exposed outside the cluster
 - In-cluster components (Node Observer, Node Data Broker) reach the API via the Service DNS name `<release>-topograph.<namespace>.svc.cluster.local:49021` by default
@@ -300,7 +300,7 @@ Apply alongside the chart. A bundled template is under consideration.
 
 ### Node Observer RBAC
 
-The node-observer `ClusterRole` grants `pods [list, watch]` unconditionally, and `nodes [list, watch]` only when `node-observer.topograph.trigger.nodeSelector` is set (the node informer that needs it is otherwise never started). Set `node-observer.rbac.create: false` to suppress the `ClusterRole`/`ClusterRoleBinding` when managing RBAC externally.
+The node-observer `ClusterRole` grants `pods [list, watch]` unconditionally, and `nodes [list, watch]` only when `nodeObserver.topograph.trigger.nodeSelector` is set (the node informer that needs it is otherwise never started). Set `nodeObserver.rbac.create: false` to suppress the `ClusterRole`/`ClusterRoleBinding` when managing RBAC externally.
 
 ## Validation and Testing
 
@@ -308,12 +308,12 @@ The Helm chart ships two layers of validation for operators.
 
 ### Schema-backed values validation at install time
 
-`charts/topograph/values.schema.json` is a JSON Schema that Helm enforces during `helm template` and `helm install`. Misspelled provider names, wrong engine enums, out-of-range replica counts, bad pull policies, invalid service port numbers, and malformed `serviceMonitor` / `tests` / `ingress` shapes are rejected with a clear `at '/field/path': <explanation>` error before any template rendering happens. For example, `--set global.provider.name=bogus` produces:
+`charts/topograph/values.schema.json` is a JSON Schema that Helm enforces during `helm template` and `helm install`. Misspelled provider names, wrong engine enums, out-of-range replica counts, bad pull policies, invalid service port numbers, and malformed `serviceMonitor` / `tests` / `ingress` shapes are rejected with a clear `at '/field/path': <explanation>` error before any template rendering happens. For example, `--set provider.name=bogus` produces:
 
 ```
 Error: values don't meet the specifications of the schema(s) in the following chart(s):
 topograph:
-- at '/global/provider/name': value must be one of 'aws', 'oci', 'gcp', 'cw', 'infiniband-k8s', 'lambdai', 'nebius', 'nscale', 'netq', 'test'
+- at '/provider/name': value must be one of 'aws', 'oci', 'gcp', 'cw', 'infiniband-k8s', 'lambdai', 'nebius', 'nscale', 'netq', 'test'
 ```
 
 The schema is deliberately narrow: per-provider credential requirements are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because credential field sets evolve with upstream provider changes.

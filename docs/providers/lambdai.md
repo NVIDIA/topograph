@@ -155,10 +155,10 @@ Requirements:
 
 - The `lambda-cloud-controller` must populate `.spec.providerID` and the `topology.kubernetes.io/region` label. The node-data-broker's init container errors and is retried by Kubernetes until both are present, so a node that is still initializing is simply labeled once its controller has finished.
 - Keep the node-data-broker enabled (the chart default) — it is what translates the Node fields into the canonical annotations.
-- **Node Observer trigger** — the Node Observer needs a watch selector or it crash-loops with `must specify nodeSelector and/or podSelector in trigger`. Set `node-observer.topograph.trigger.nodeSelector` (or `podSelector`) — e.g. `kubernetes.io/os: linux` to watch all nodes.
-- **Tainted (GPU) nodes** — the node-data-broker is a DaemonSet and needs a matching toleration to run on tainted nodes (Lambda GPU instances carry `nvidia.com/gpu=true:NoSchedule`); without it those nodes are never annotated or labeled. `node-data-broker.tolerations[0].operator=Exists` lets it run on every node.
+- **Node Observer trigger** — the Node Observer needs a watch selector or it crash-loops with `must specify nodeSelector and/or podSelector in trigger`. Set `nodeObserver.topograph.trigger.nodeSelector` (or `podSelector`) — e.g. `kubernetes.io/os: linux` to watch all nodes.
+- **Tainted (GPU) nodes** — the node-data-broker is a DaemonSet and needs a matching toleration to run on tainted nodes (Lambda GPU instances carry `nvidia.com/gpu=true:NoSchedule`); without it those nodes are never annotated or labeled. `nodeDataBroker.tolerations[0].operator=Exists` lets it run on every node.
 - **Image architecture** — the image must match the node architecture. Lambda GPU instances such as GH200 are `arm64`, so use a multi-arch or arm64 image.
-- **Registry pull** — if the cluster cannot pull the image anonymously, create a pull secret and set `imagePullSecrets`, `node-observer.imagePullSecrets`, and `node-data-broker.imagePullSecrets`.
+- **Registry pull** — if the cluster cannot pull the image anonymously, create a pull secret and set the shared `imagePullSecrets` value.
 
 Install with Helm (see the [Kubernetes quickstart](../get-started/quickstart-k8s.md) for the full flow):
 
@@ -169,12 +169,12 @@ kubectl create secret generic lambdai-creds \
 
 helm install topograph oci://ghcr.io/nvidia/topograph/topograph \
   --version <chart-version> -n topograph --create-namespace \
-  --set global.provider.name=lambdai \
-  --set global.provider.params.url=https://cloud.example.com \
-  --set global.engine.name=k8s \
+  --set provider.name=lambdai \
+  --set provider.params.url=https://cloud.example.com \
+  --set engine.name=k8s \
   --set config.credentialsSecret=lambdai-creds \
-  --set "node-observer.topograph.trigger.nodeSelector.kubernetes\.io/os=linux" \
-  --set "node-data-broker.tolerations[0].operator=Exists"
+  --set "nodeObserver.topograph.trigger.nodeSelector.kubernetes\.io/os=linux" \
+  --set "nodeDataBroker.tolerations[0].operator=Exists"
 
 # After a few seconds, topology labels appear on nodes:
 kubectl get nodes --show-labels | grep network.topology.nvidia

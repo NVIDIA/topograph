@@ -1,13 +1,13 @@
-{{- if .Values.rbac.create -}}
+{{- if .Values.nodeObserver.rbac.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "node-observer.rbacName" . }}
+  name: {{ include "nodeObserver.rbacName" . }}
 rules:
 - apiGroups: [""]
   resources: [pods]
   verbs: [list,watch]
-{{- if (default dict .Values.topograph.trigger).nodeSelector }}
+{{- if (default dict .Values.nodeObserver.topograph.trigger).nodeSelector }}
 - apiGroups: [""]
   resources: [nodes]
   verbs: [list,watch]
@@ -16,14 +16,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "node-observer.rbacName" . }}
+  name: {{ include "nodeObserver.rbacName" . }}
 subjects:
 - kind: ServiceAccount
-  name: {{ include "node-observer.serviceAccountName" . }}
+  name: {{ include "nodeObserver.serviceAccountName" . }}
   namespace: {{.Release.Namespace}}
   apiGroup: ""
 roleRef:
   kind: ClusterRole
-  name: {{ include "node-observer.rbacName" . }}
+  name: {{ include "nodeObserver.rbacName" . }}
   apiGroup: ""
 {{- end }}

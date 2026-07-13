@@ -1,51 +1,51 @@
-{{- if .Values.enabled }}
-{{- $providerParams := default dict .Values.global.provider.params }}
-{{- $useGpuCliqueLabel := and (eq .Values.global.provider.name "infiniband-k8s") (eq (lower (toString (get $providerParams "useGpuCliqueLabel"))) "true") }}
-{{- $configMapMounts := default list .Values.configMapMounts }}
+{{- if .Values.nodeDataBroker.enabled }}
+{{- $providerParams := default dict .Values.provider.params }}
+{{- $useGpuCliqueLabel := and (eq .Values.provider.name "infiniband-k8s") (eq (lower (toString (get $providerParams "useGpuCliqueLabel"))) "true") }}
+{{- $configMapMounts := default list .Values.nodeDataBroker.configMapMounts }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "node-data-broker.fullname" . }}
+  name: {{ include "nodeDataBroker.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "node-data-broker.labels" . | nindent 4 }}
+    {{- include "nodeDataBroker.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      {{- include "node-data-broker.selectorLabels" . | nindent 6 }}
+      {{- include "nodeDataBroker.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "node-data-broker.labels" . | nindent 8 }}
+        {{- include "nodeDataBroker.labels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "node-data-broker.serviceAccountName" . }}
+      serviceAccountName: {{ include "nodeDataBroker.serviceAccountName" . }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- with .Values.initContainers }}
+        {{- toYaml .Values.nodeDataBroker.podSecurityContext | nindent 8 }}
+      {{- with .Values.nodeDataBroker.initContainers }}
       initContainers:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: node-data-broker
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: {{ include "node-data-broker.image" . | quote }}
+            {{- toYaml .Values.nodeDataBroker.securityContext | nindent 12 }}
+          image: {{ include "topograph.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - /usr/local/bin/node-data-broker
           args:
-            - --provider={{ .Values.global.provider.name }}
+            - --provider={{ .Values.provider.name }}
             - -v={{ .Values.verbosity }}
-            - --port={{ .Values.port }}
-            - --refresh-interval={{ .Values.refreshInterval }}
+            - --port={{ .Values.nodeDataBroker.port }}
+            - --refresh-interval={{ .Values.nodeDataBroker.refreshInterval }}
             {{- if $useGpuCliqueLabel }}
             - --set=useGpuCliqueLabel=true
             {{- end }}
-            {{- range .Values.extraArgs }}
+            {{- range .Values.nodeDataBroker.extraArgs }}
             - --set={{ . }}
             {{- end }}
           env:
@@ -53,17 +53,17 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            {{- range $key, $value := .Values.env }}
+            {{- range $key, $value := .Values.nodeDataBroker.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-          {{- with .Values.lifecycle }}
+          {{- with .Values.nodeDataBroker.lifecycle }}
           lifecycle:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.port }}
+              containerPort: {{ .Values.nodeDataBroker.port }}
               protocol: TCP
           # The broker applies node annotations before it starts serving
           # /healthz. The startup probe gates liveness/readiness so slow
@@ -74,8 +74,8 @@ spec:
             httpGet:
               path: /healthz
               port: http
-            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
-            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.nodeDataBroker.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.nodeDataBroker.startupProbe.periodSeconds }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -85,41 +85,41 @@ spec:
               path: /healthz
               port: http
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          {{- if or $configMapMounts .Values.volumeMounts }}
+            {{- toYaml .Values.nodeDataBroker.resources | nindent 12 }}
+          {{- if or $configMapMounts .Values.nodeDataBroker.volumeMounts }}
           volumeMounts:
             {{- range $configMapMounts }}
-            - name: {{ include "node-data-broker.configMapMountVolumeName" (dict "name" .name) }}
-              mountPath: {{ required "node-data-broker.configMapMounts[].mountPath is required" .mountPath | quote }}
+            - name: {{ include "nodeDataBroker.configMapMountVolumeName" (dict "name" .name) }}
+              mountPath: {{ required "nodeDataBroker.configMapMounts[].mountPath is required" .mountPath | quote }}
               {{- with .subPath }}
               subPath: {{ . | quote }}
               {{- end }}
               readOnly: true
             {{- end }}
-            {{- with .Values.volumeMounts }}
+            {{- with .Values.nodeDataBroker.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-      {{- if or $configMapMounts .Values.volumes }}
+      {{- if or $configMapMounts .Values.nodeDataBroker.volumes }}
       volumes:
         {{- range $configMapMounts }}
-        - name: {{ include "node-data-broker.configMapMountVolumeName" (dict "name" .name) }}
+        - name: {{ include "nodeDataBroker.configMapMountVolumeName" (dict "name" .name) }}
           configMap:
-            name: {{ include "node-data-broker.configMapMountName" (dict "root" $ "name" .name) }}
+            name: {{ include "nodeDataBroker.configMapMountName" (dict "root" $ "name" .name) }}
         {{- end }}
-        {{- with .Values.volumes }}
+        {{- with .Values.nodeDataBroker.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with .Values.nodeDataBroker.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with .Values.nodeDataBroker.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.nodeDataBroker.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

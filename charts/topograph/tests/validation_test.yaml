@@ -29,26 +29,24 @@ tests:
 
   - it: rejects GCP service account keys and workload identity federation together
     set:
-      global:
-        provider:
-          name: gcp
-          params:
-            serviceAccountKeysSecret: keys
-            workloadIdentityFederation:
-              credentialsConfigmap: cm
-              audience: aud
+      provider:
+        name: gcp
+        params:
+          serviceAccountKeysSecret: keys
+          workloadIdentityFederation:
+            credentialsConfigmap: cm
+            audience: aud
     asserts:
       - failedTemplate:
-          errorMessage: "serviceAccountKeysSecret and workloadIdentityFederation in global.provider.params are mutually exclusive"
+          errorMessage: "serviceAccountKeysSecret and workloadIdentityFederation in provider.params are mutually exclusive"
 
   - it: rejects incomplete GCP workload identity federation config
     set:
-      global:
-        provider:
-          name: gcp
-          params:
-            workloadIdentityFederation:
-              audience: aud
+      provider:
+        name: gcp
+        params:
+          workloadIdentityFederation:
+            audience: aud
     asserts:
       - failedTemplate:
           errorMessage: "workloadIdentityFederation requires both credentialsConfigmap and audience"

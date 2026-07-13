@@ -172,20 +172,19 @@ kubectl create configmap $CRED_CONFIG_MAP --from-file=credentials-config.json
 ### 9. Configure Helm values
 
 In the Helm values file for the deployment, set the following parameters :
-* `global.provider.params.workloadIdentityFederation.credentialsConfigmap` to the name of the created config map in step 8.
-* `global.provider.params.workloadIdentityFederation.audience` to the `audience` attribute in the `credentials-config.json` created in step 7.
+* `provider.params.workloadIdentityFederation.credentialsConfigmap` to the name of the created config map in step 8.
+* `provider.params.workloadIdentityFederation.audience` to the `audience` attribute in the `credentials-config.json` created in step 7.
 
 This instructs the Helm chart to set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for Topograph.
 
 Example:
 
 ```yaml
-global:
-  provider:
-    params:
-      workloadIdentityFederation:
-        credentialsConfigmap: gcp-credentials-config
-        audience: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/my-pool/providers/my-workload-provider"
+provider:
+  params:
+    workloadIdentityFederation:
+      credentialsConfigmap: gcp-credentials-config
+      audience: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/my-pool/providers/my-workload-provider"
 ```
 For more information about setting Google Workload Identity Federation, refer to the following documentation:
 

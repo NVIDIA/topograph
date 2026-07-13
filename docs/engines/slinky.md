@@ -20,25 +20,25 @@ The Slinky engine bridges the gap between Kubernetes infrastructure and SLURM wo
 Topograph is deployed as a standard Kubernetes application using a [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
 Topograph is configured using a configuration file stored in a ConfigMap and mounted to the Topograph container at `/etc/topograph/topograph-config.yaml`.
 In addition, when sending a topology request, the request payload includes additional parameters.
-The parameters for the configuration file and topology request are defined in the `global` section of the Helm values file, as shown below:
+The provider and engine are defined as top-level Helm values, as shown below:
 
 > **Shared with the Kubernetes engine:** because the Topograph API server runs as a Kubernetes workload regardless of the engine, anything about the chart's deployment surface — values-schema validation, `helm test` hooks, access patterns (ClusterIP port-forward, Ingress, Gateway API `HTTPRoute`), Prometheus `ServiceMonitor`, `NetworkPolicy` guidance, and the chart's `README.md` — is shared with the Kubernetes engine and documented authoritatively in [`engines/k8s.md`](./k8s.md#validation-and-testing) and [`engines/k8s.md#exposing-the-topograph-api`](./k8s.md#exposing-the-topograph-api). Those sections apply equally to Slinky deployments.
 
 ```yaml
-global:
-  # provider – name of the cloud provider or on-prem environment.
-  # Supported values: "aws", "gcp", "oci", "nebius", "nscale", "netq", "infiniband-k8s", "dra".
-  provider: aws
-  engine: slinky
-  engineParams:
-    namespace: ns-slinky                       # Namespace where Slinky is running
-    podSelector:                               # Label selector for pods running SLURM nodes
+provider:
+  # Name of the cloud provider or on-prem environment.
+  name: aws
+engine:
+  name: slinky
+  params:
+    namespace: ns-slinky                     # Namespace where Slinky is running
+    podSelector:                             # Label selector for pods running SLURM nodes
       matchLabels:
         app.kubernetes.io/component: compute
-    plugin: topology/block                     # Name of the topology plugin
-    blockSizes: [4]                            # (Optional) Block size for the block topology plugin
-    topologyConfigmapName: slurm-config        # Name of the ConfigMap containing the topology config
-    topologyConfigPath: topology.conf          # Key in the ConfigMap for the topology config
+    plugin: topology/block                   # Name of the topology plugin
+    blockSizes: [4]                          # (Optional) Block size for the block topology plugin
+  topologyConfigmapName: slurm-config        # Name of the ConfigMap containing the topology config
+  topologyConfigPath: topology.conf          # Key in the ConfigMap for the topology config
 ```
 
 ### Per-partition topologies
@@ -54,8 +54,9 @@ When per-partition topologies are configured, each entry may declare how its nod
 `nodes` and `podSelector` are mutually exclusive on the same entry; configuring both returns a validation error at engine load time.
 
 ```yaml
-global:
-  engineParams:
+engine:
+  name: slinky
+  params:
     namespace: ns-slinky
     podSelector:
       matchLabels:
@@ -64,16 +65,16 @@ global:
       gpu-partition:
         plugin: topology/block
         blockSizes: [8, 16]
-        podSelector:                                   # partition membership by pod labels
+        podSelector:                                 # partition membership by pod labels
           matchLabels:
             app.kubernetes.io/component: compute
             slurm.partition: gpu
       cpu-partition:
         plugin: topology/tree
-        nodes: ["cpu-[001-032]"]                       # explicit list
+        nodes: ["cpu-[001-032]"]                     # explicit list
       default:
         plugin: topology/flat
-        clusterDefault: true                           # no podSelector, no nodes → scontrol fallback
+        clusterDefault: true                         # no podSelector, no nodes → scontrol fallback
 ```
 
 ### Using `nvidia.com/gpu.clique` for block topology
@@ -83,19 +84,18 @@ On MNNVL Kubernetes clusters, the NVIDIA GPU Operator can label nodes with `nvid
 The option only affects block topology. Tree topology still comes from the selected provider, and the engine still maps Kubernetes nodes to Slurm nodes through the configured slurmd pod selector.
 
 ```yaml
-global:
-  engine:
-    name: slinky
-    params:
-      namespace: ns-slinky
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/component: compute
-      plugin: topology/block
-      blockSizes: [8, 16]
-      topologyConfigmapName: slurm-config
-      topologyConfigPath: topology.conf
-      useGpuCliqueLabel: true
+engine:
+  name: slinky
+  params:
+    namespace: ns-slinky
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: compute
+    plugin: topology/block
+    blockSizes: [8, 16]
+    topologyConfigmapName: slurm-config
+    topologyConfigPath: topology.conf
+    useGpuCliqueLabel: true
 ```
 
 If `useGpuCliqueLabel` is enabled for a block topology and no matching nodes have the `nvidia.com/gpu.clique` label plus the Topograph instance annotation, topology generation fails with a `502` error instead of falling back to provider accelerator domains.
