@@ -1,0 +1,40 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+    labels:
+      topograph.nvidia.com/e2e-worker: "true"
+      nvidia.com/gpu.clique: "00000000-0000-0000-0000-0000000000ab.0"
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          name: worker-0
+  - role: worker
+    labels:
+      topograph.nvidia.com/e2e-worker: "true"
+      nvidia.com/gpu.clique: "00000000-0000-0000-0000-0000000000ab.1"
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          name: worker-1
+  - role: worker
+    labels:
+      topograph.nvidia.com/e2e-worker: "true"
+      nvidia.com/gpu.clique: "00000000-0000-0000-0000-0000000000cd.0"
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          name: worker-2
+  - role: worker
+    labels:
+      topograph.nvidia.com/e2e-worker: "true"
+      nvidia.com/gpu.clique: "00000000-0000-0000-0000-0000000000cd.1"
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          name: worker-3

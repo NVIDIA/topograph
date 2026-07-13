@@ -1,0 +1,60 @@
+# Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+gpu:
+  profile: gb200
+
+# Keep this aligned with the nvidia.com/gpu.clique labels in kind-cluster.yaml.
+# nvml-mock models compute domains and cliques, so this fixture represents a
+# small leaf/spine layout as two spine domains, each with two leaf cliques.
+#
+#   spine-1 (00000000-0000-0000-0000-0000000000ab)
+#      |                         |
+#   leaf-1-1                  leaf-1-2
+#   clique 0                  clique 1
+#      |                         |
+#   worker-0                  worker-1
+#
+#   spine-2 (00000000-0000-0000-0000-0000000000cd)
+#      |                         |
+#   leaf-2-1                  leaf-2-2
+#   clique 0                  clique 1
+#      |                         |
+#   worker-2                  worker-3
+topology:
+  enabled: true
+  domains:
+    - name: spine-1
+      uuid: "00000000-0000-0000-0000-0000000000ab"
+      cliques:
+        # leaf-1-1
+        - id: 0
+          nodes:
+            - worker-0
+        # leaf-1-2
+        - id: 1
+          nodes:
+            - worker-1
+    - name: spine-2
+      uuid: "00000000-0000-0000-0000-0000000000cd"
+      cliques:
+        # leaf-2-1
+        - id: 0
+          nodes:
+            - worker-2
+        # leaf-2-2
+        - id: 1
+          nodes:
+            - worker-3
+
