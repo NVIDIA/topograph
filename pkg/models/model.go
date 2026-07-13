@@ -168,11 +168,11 @@ func (m *Model) derive() error {
 	}
 
 	regions := make(map[string]map[string]string)
-	for _, node := range m.Nodes {
+	for hostName, node := range m.Nodes {
 		var netLayers []string
 		var labels map[string]string
 
-		if sw, ok := maps.switchByNode[node.ID]; ok {
+		if sw, ok := maps.switchByNode[hostName]; ok {
 			netLayers, labels, err = getNetworkLayers(sw, maps.parentBySwitch)
 			if err != nil {
 				return err
@@ -181,7 +181,7 @@ func (m *Model) derive() error {
 
 		node.Labels = mergeLabels(labels, node.Labels)
 		node.NetLayers = netLayers
-		addInstanceRegion(regions, node.Labels, node.ID)
+		addInstanceRegion(regions, node.Labels, hostName)
 	}
 
 	m.setInstances(regions)
@@ -258,7 +258,7 @@ func mergeLabels(base, overlay map[string]string) map[string]string {
 	return labels
 }
 
-func addInstanceRegion(regions map[string]map[string]string, labels map[string]string, name string) {
+func addInstanceRegion(regions map[string]map[string]string, labels map[string]string, hostName string) {
 	region := labels[LabelTopologyRegion]
 	if region == "" {
 		region = "none"
@@ -268,7 +268,7 @@ func addInstanceRegion(regions map[string]map[string]string, labels map[string]s
 		r = make(map[string]string)
 		regions[region] = r
 	}
-	r[name] = fmt.Sprintf("n-%s", name)
+	r[fmt.Sprintf("i-%s", hostName)] = hostName
 }
 
 func (m *Model) setInstances(regions map[string]map[string]string) {
@@ -320,10 +320,17 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 	swRootMap := make(map[string]bool)
 	domainMap := topology.NewDomainMap()
 
-	// Create all the vertices for each node
-	for k, v := range model.Nodes {
-		instance2node[k] = fmt.Sprintf("n-%s", k)
-		nodeVertexMap[k] = &topology.Vertex{ID: v.ID, Name: v.ID}
+	for hostName := range model.Nodes {
+		instance2node[fmt.Sprintf("i-%s", hostName)] = hostName
+	}
+
+	// Create all the vertices for each node.
+	for hostName := range model.Nodes {
+		instanceID := fmt.Sprintf("i-%s", hostName)
+		nodeVertexMap[hostName] = &topology.Vertex{
+			ID:   instanceID,
+			Name: instance2node[instanceID],
+		}
 	}
 
 	// Initialize all the vertices for each switch (setting each on to be a possible root)
@@ -333,9 +340,10 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 	}
 
 	// Initializes accelerator domain membership from node labels.
-	for _, node := range model.Nodes {
-		if accelerator := node.AcceleratorID(); accelerator != "" {
-			domainMap.AddHost(accelerator, node.ID, node.ID)
+	for hostName, instance := range model.Nodes {
+		if accelerator := instance.AcceleratorID(); accelerator != "" {
+			instanceID := fmt.Sprintf("i-%s", hostName)
+			domainMap.AddHost(accelerator, instanceID, instance2node[instanceID])
 		}
 	}
 
@@ -346,7 +354,8 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 			swVertexMap[sw.Name].Vertices[subsw] = swVertexMap[subsw]
 		}
 		for _, node := range sw.Nodes {
-			swVertexMap[sw.Name].Vertices[node] = nodeVertexMap[node]
+			vertex := nodeVertexMap[node]
+			swVertexMap[sw.Name].Vertices[vertex.ID] = vertex
 		}
 	}
 
@@ -364,24 +373,42 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 	if len(domainMap) != 0 {
 		graph.Domains = domainMap
 	}
-	if instanceMap := model.InstanceMap(instances); len(instanceMap) != 0 {
+	if instanceMap := model.graphInstanceMap(instances); len(instanceMap) != 0 {
 		graph.Instances = instanceMap
 	}
 
 	return graph, instance2node
 }
 
-func (model *Model) InstanceMap(computeInstances []topology.ComputeInstances) map[string]topology.Instance {
+func (model *Model) graphInstanceMap(computeInstances []topology.ComputeInstances) map[string]topology.Instance {
 	wanted := requestedInstanceIDs(computeInstances)
 	instances := make(map[string]topology.Instance)
 
-	for instanceID, inst := range model.Nodes {
+	for hostName, inst := range model.Nodes {
+		instanceID := fmt.Sprintf("i-%s", hostName)
 		if len(wanted) != 0 {
 			if _, ok := wanted[instanceID]; !ok {
 				continue
 			}
 		}
-		instances[instanceID] = inst.CloneForTopology()
+		clone := inst.CloneForTopology()
+		clone.ID = instanceID
+		instances[instanceID] = clone
+	}
+	return instances
+}
+
+func (model *Model) InstanceMap(computeInstances []topology.ComputeInstances) map[string]topology.Instance {
+	wanted := requestedInstanceIDs(computeInstances)
+	instances := make(map[string]topology.Instance)
+
+	for _, inst := range model.Nodes {
+		if len(wanted) != 0 {
+			if _, ok := wanted[inst.ID]; !ok {
+				continue
+			}
+		}
+		instances[inst.ID] = inst.CloneForTopology()
 	}
 	return instances
 }

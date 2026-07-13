@@ -55,9 +55,23 @@ type BaseSimProvider struct {
 
 // NewBaseSimProvider builds the shared model-derived data used by simulation providers.
 func NewBaseSimProvider(model *models.Model, trimTiers int) *BaseSimProvider {
+	// Provider-specific simulations must expose IDs that match their simulated
+	// APIs (for example, numeric GCP IDs), not the i-prefixed IDs generated for
+	// the model-backed test provider.
+	computeInstances := make([]topology.ComputeInstances, 0, len(model.Instances))
+	for _, ci := range model.Instances {
+		providerInstances := make(map[string]string, len(ci.Instances))
+		for _, hostName := range ci.Instances {
+			providerInstances[model.Nodes[hostName].ID] = hostName
+		}
+		computeInstances = append(computeInstances, topology.ComputeInstances{
+			Region:    ci.Region,
+			Instances: providerInstances,
+		})
+	}
 	return &BaseSimProvider{
 		instances:        model.InstanceMap(nil),
-		computeInstances: model.Instances,
+		computeInstances: computeInstances,
 		trimTiers:        trimTiers,
 	}
 }

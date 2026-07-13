@@ -116,7 +116,7 @@ The `blocks` list describes sets of compute instances with similar hardware and 
 | Field | Description |
 |---|---|
 | `switch` | Optional leaf switch ID. When set, this block's `nodes` are attached to that switch. |
-| `nodes` | Required non-empty list of node names in this block. Compact ranges are supported. |
+| `nodes` | Required non-empty list of hostnames in this block. Compact ranges are supported. The model-backed test provider generates each instance ID by prefixing the hostname with `i-`. |
 | `labels` | Optional labels applied to nodes generated from this block. For example, `network.topology.nvidia.com/accelerator` can identify an NVLink / accelerator domain. |
 
 Example:
@@ -194,6 +194,7 @@ blocks:
 
 After loading:
 
+- `n1`, `n2`, and `n3` are hostnames mapped from instance IDs `i-n1`, `i-n2`, and `i-n3`
 - `n1` and `n2` belong to the first block and have `network.topology.nvidia.com/accelerator: nvl1` label
 - `n3` belongs to the second block and has `network.topology.nvidia.com/accelerator: nvl2` label
 - All three nodes have network layers `[leaf, core]`
