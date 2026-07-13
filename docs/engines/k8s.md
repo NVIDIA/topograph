@@ -266,37 +266,55 @@ When you additionally **enforce** the standard on the release namespace (`pod-se
 
 ### NetworkPolicy
 
-The chart does not ship a `NetworkPolicy` template at this time. For clusters that enforce NetworkPolicy, a recommended starting point allows ingress to port `49021` only from the Topograph namespace and from the Prometheus scraper namespace (when `serviceMonitor.enabled: true`), and denies all other ingress. Replace `<topograph-namespace>` with the namespace you deployed the chart into and `<prometheus-namespace>` with the namespace running your Prometheus instance:
+The chart ships an opt-in `NetworkPolicy` covering **all three components** (API server, node-observer, node-data-broker), off by default:
 
 ```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: topograph
-  namespace: <topograph-namespace>
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: topograph
-  policyTypes: [Ingress]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: <topograph-namespace>
-      ports:
-        - protocol: TCP
-          port: 49021
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: <prometheus-namespace>
-      ports:
-        - protocol: TCP
-          port: 49021
+networkPolicy:
+  enabled: true
 ```
 
-Apply alongside the chart. A bundled template is under consideration.
+The policy selects every pod in the release by the `app.kubernetes.io/instance` label. When enabled, ingress is denied except:
+
+- **intra-release traffic** — so the node-observer can reach the API server to trigger regeneration, and
+- the **Prometheus scrape namespace** (`serviceMonitor.namespace`) when `serviceMonitor.enabled: true`.
+
+**Egress stays unconstrained until you set `extraEgress`.** Adding an egress rule to a pod turns on default-deny egress for it, so enabling the policy does *not* add an `Egress` policyType by itself — that would break egress on clusters without a default-deny. When you set `extraEgress` (i.e. you *do* run default-deny egress), the chart adds an `Egress` policyType with a **DNS** allow, an **intra-release** allow (observer→API), and then your rules.
+
+Because a portable chart cannot know your cluster's API-server address or your provider's topology-source endpoint, those egress targets are operator-supplied — and on a default-deny-egress cluster they are **required** (all three components call the Kubernetes API server; the API server calls the provider):
+
+```yaml
+networkPolicy:
+  enabled: true
+  extraEgress:
+    # Kubernetes API server (adjust to your cluster's apiserver CIDR/port):
+    - to:
+        - ipBlock:
+            cidr: 10.96.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    # Provider topology source (e.g. the BCM management endpoint):
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/24
+      ports:
+        - protocol: TCP
+          port: 8081
+```
+
+`extraIngress` similarly appends custom ingress rules. **Give every `extraIngress`/`extraEgress` entry explicit `to`/`from`/`ports`** — an empty rule object (`{}`) matches *all* traffic in that direction, which defeats the default-deny. Note that a NetworkPolicy has no effect unless your CNI enforces it (Calico, Cilium, etc.).
+
+**Per-provider egress.** Kubernetes NetworkPolicy egress cannot target hostnames — only `ipBlock`, selectors, and ports — so a provider's endpoint must be supplied as an `ipBlock` (resolve the hostname to its IP/CIDR). Typical `extraEgress` targets by provider:
+
+| Provider(s) | `extraEgress` target |
+|---|---|
+| all (under default-deny) | the kube-apiserver endpoint — `kubectl get endpoints kubernetes -n default` — typically `<control-plane-ip>/32` on `6443` |
+| `netq` | the NetQ server IP (resolve the `apiUrl` host) on its port (`443` by default) |
+| BCM (planned) | the BCM head-node CIDR on `8081` |
+| `aws`, `gcp`, `oci`, `nebius`, `nscale`, `lambdai`, `cw` | the cloud API over `443`; if the provider reads instance metadata, `169.254.169.254/32` — **IMDS access is a credential-exposure vector**, so scope it tightly and prefer workload identity where the provider supports it |
+| `dra`, `infiniband-k8s` | none beyond the kube-apiserver + DNS (they operate in-cluster) |
+
+> **On NMC / Calico clusters** the tenant baseline is a cluster-wide Calico `GlobalNetworkPolicy` default-deny that already allows kube-apiserver and DNS egress and governs intra-tenant traffic by namespace-list membership. There, prefer adding the Topograph namespace to the NMC network-policy `user.namespaceList` (and the BCM CIDR to `bcmHeadNodeCidrs`) rather than this chart policy; this `networkPolicy` is aimed at clusters that expect each workload to ship its own default-deny allow-rules.
 
 ### Node Observer RBAC
 

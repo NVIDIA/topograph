@@ -184,6 +184,21 @@
         }
       }
     },
+    "networkPolicy": {
+      "type": "object",
+      "description": "Opt-in NetworkPolicy for the whole release. extraEgress, when non-empty, adds an Egress policyType plus a DNS allow rule. extraIngress/extraEgress items must be non-empty objects — an empty {} rule matches all traffic.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "extraIngress": {
+          "type": "array",
+          "items": { "type": "object", "minProperties": 1 }
+        },
+        "extraEgress": {
+          "type": "array",
+          "items": { "type": "object", "minProperties": 1 }
+        }
+      }
+    },
     "tests": {
       "type": "object",
       "properties": {
