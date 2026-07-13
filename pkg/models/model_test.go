@@ -77,14 +77,14 @@ func TestNewModelFromFileMedium(t *testing.T) {
 		{
 			Region: "us-west",
 			Instances: map[string]string{
-				"1101": "n-1101",
-				"1102": "n-1102",
-				"1201": "n-1201",
-				"1202": "n-1202",
-				"1301": "n-1301",
-				"1302": "n-1302",
-				"1401": "n-1401",
-				"1402": "n-1402",
+				"i-1101": "1101",
+				"i-1102": "1102",
+				"i-1201": "1201",
+				"i-1202": "1202",
+				"i-1301": "1301",
+				"i-1302": "1302",
+				"i-1401": "1401",
+				"i-1402": "1402",
 			},
 		},
 	}, cfg.Instances)
@@ -173,7 +173,7 @@ blocks:
 				Instances: []topology.ComputeInstances{
 					{
 						Region:    "none",
-						Instances: map[string]string{"n1": "n-n1", "n2": "n-n2", "n3": "n-n3"},
+						Instances: map[string]string{"i-n1": "n1", "i-n2": "n2", "i-n3": "n3"},
 					},
 				},
 			},
@@ -206,7 +206,7 @@ blocks:
 				Instances: []topology.ComputeInstances{
 					{
 						Region:    "none",
-						Instances: map[string]string{"n1": "n-n1", "n2": "n-n2"},
+						Instances: map[string]string{"i-n1": "n1", "i-n2": "n2"},
 					},
 				},
 			},
@@ -296,7 +296,52 @@ blocks:
 	require.Equal(t, []topology.ComputeInstances{
 		{
 			Region:    "region1",
-			Instances: map[string]string{"n1": "n-n1"},
+			Instances: map[string]string{"i-n1": "n1"},
 		},
 	}, model.Instances)
+}
+
+func TestToGraphUsesHostNames(t *testing.T) {
+	model, err := NewModelFromData([]byte(`
+switches:
+  leaf: {}
+blocks:
+- switch: leaf
+  nodes: [instance-1]
+  labels:
+    network.topology.nvidia.com/accelerator: nvl1
+`), "inline")
+	require.NoError(t, err)
+
+	graph, instance2node := model.ToGraph(nil)
+
+	require.Equal(t, "instance-1", instance2node["i-instance-1"])
+	require.Equal(t, &topology.Vertex{
+		ID:   "i-instance-1",
+		Name: "instance-1",
+	}, graph.Tiers.Vertices["leaf"].Vertices["i-instance-1"])
+	require.Equal(t, &topology.HostInfo{
+		Domain:     "nvl1",
+		InstanceID: "i-instance-1",
+		HostName:   "instance-1",
+	}, graph.Domains["nvl1"]["instance-1"])
+}
+
+func TestToGraphKeepsModelHostNames(t *testing.T) {
+	model, err := NewModelFromData([]byte(`
+switches:
+  leaf: {}
+blocks:
+- switch: leaf
+  nodes: [node1]
+`), "inline")
+	require.NoError(t, err)
+
+	graph, instance2node := model.ToGraph([]topology.ComputeInstances{
+		{Instances: map[string]string{"i-node1": "request-node1"}},
+	})
+
+	require.Equal(t, "node1", instance2node["i-node1"])
+	require.Equal(t, "node1", graph.Tiers.Vertices["leaf"].Vertices["i-node1"].Name)
+	require.Contains(t, graph.Instances, "i-node1")
 }

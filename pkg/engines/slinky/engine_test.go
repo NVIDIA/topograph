@@ -1254,7 +1254,11 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 
 			model, err := models.NewModelFromFile(tc.topologyFile)
 			require.NoError(t, err)
-			topo, _ := model.ToGraph(nil)
+			instance2node := make(map[string]string, len(model.Nodes))
+			for hostName := range model.Nodes {
+				instance2node[fmt.Sprintf("i-%s", hostName)] = hostName
+			}
+			topo, _ := model.ToGraph([]topology.ComputeInstances{{Instances: instance2node}})
 
 			podListSel, err := metav1.LabelSelectorAsSelector(&slinkyPodSel)
 			require.NoError(t, err)
