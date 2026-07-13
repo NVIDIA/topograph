@@ -1,0 +1,207 @@
+suite: node-data-broker workload
+# Component templates are rendered through the main chart so shared helpers and
+# top-level values are available.
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: derives its name from the root fullname override
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      fullnameOverride: shared-topograph
+    asserts:
+      - equal:
+          path: metadata.name
+          value: shared-topograph-node-data-broker
+
+  - it: preserves its suffix when the root fullname is truncated
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      fullnameOverride: a-very-long-topograph-fullname-that-reaches-the-kubernetes-dns-limit
+    asserts:
+      - matchRegex:
+          path: metadata.name
+          pattern: "-node-data-broker$"
+
+  - it: uses the shared root container settings
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      image:
+        repository: registry.example.com/topograph
+        tag: shared
+        pullPolicy: Always
+      imagePullSecrets:
+        - name: shared-registry
+      verbosity: 7
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.example.com/topograph:shared
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+      - contains:
+          path: spec.template.spec.imagePullSecrets
+          content:
+            name: shared-registry
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: -v=7
+
+  - it: renders the broker as the main container by default
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    asserts:
+      - isKind:
+          of: DaemonSet
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: node-data-broker
+      - equal:
+          path: spec.template.spec.containers[0].command[0]
+          value: /usr/local/bin/node-data-broker
+
+  - it: uses an existing service account when creation is disabled
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      nodeDataBroker:
+        serviceAccount:
+          create: false
+          name: existing-node-data-broker-sa
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: existing-node-data-broker-sa
+
+  - it: passes the provider and NODE_NAME to the container
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      provider:
+        name: infiniband-k8s
+      nodeDataBroker:
+        env:
+          FOO: BAR
+        initContainers:
+          - name: copy-tools
+            image: busybox:latest
+            command:
+              - sh
+              - -c
+              - cp /bin/true /tools/true
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - sh
+                - -c
+                - "true"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --provider=infiniband-k8s
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FOO
+            value: BAR
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: copy-tools
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle.postStart.exec.command[2]
+          value: "true"
+
+  - it: passes the refresh interval to the container
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      nodeDataBroker:
+        refreshInterval: 10m
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --refresh-interval=10m
+
+  - it: gates liveness behind a startup probe
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /healthz
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 30
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+
+  - it: forwards the GPU clique label flag and extra args
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          useGpuCliqueLabel: true
+      nodeDataBroker:
+        extraArgs:
+          - foo=bar
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --set=useGpuCliqueLabel=true
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --set=foo=bar
+
+  - it: is omitted when the component is disabled
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      nodeDataBroker:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders configMapMounts as a ConfigMap mounted as a file
+    templates:
+      - templates/nodeDataBroker/configmap-mounts.yaml
+    set:
+      nodeDataBroker:
+        configMapMounts:
+          - name: ibdiag
+            mountPath: /etc/infiniband-diags/ibdiag.conf
+            subPath: ibdiag.conf
+            data:
+              ibdiag.conf: |-
+                CA=smi0
+                Port=1
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph-node-data-broker-ibdiag
+      - matchRegex:
+          path: data["ibdiag.conf"]
+          pattern: "CA=smi0"
+      - matchRegex:
+          path: data["ibdiag.conf"]
+          pattern: "Port=1"

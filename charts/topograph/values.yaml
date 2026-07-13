@@ -2,26 +2,26 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-global:
-  provider:
-    # name: "aws", "oci", "gcp", "nebius", "nscale", "lambdai", "netq", "infiniband-k8s", "dra" or "test".
-    name: test
-    # params:
-    #   # For infiniband-k8s, use an existing Kubernetes node label as the
-    #   # accelerator-domain source instead of running nvidia-smi through the
-    #   # GPU Operator device-plugin DaemonSet.
-    #   useGpuCliqueLabel: true
-  engine:
-    # name: "k8s", "slinky", "slurm" or "graph"
-    name: k8s
-    # params:
-    #   # For slinky topology/block output, use the GPU Operator's existing
-    #   # Kubernetes node label as the block-domain source.
-    #   useGpuCliqueLabel: true
+provider:
+  # name: "aws", "oci", "gcp", "nebius", "nscale", "lambdai", "netq", "infiniband-k8s", "dra" or "test".
+  name: test
+  # params:
+  #   # For infiniband-k8s, use an existing Kubernetes node label as the
+  #   # accelerator-domain source instead of running nvidia-smi through the
+  #   # GPU Operator device-plugin DaemonSet.
+  #   useGpuCliqueLabel: true
 
-  service:
-    type: ClusterIP
-    port: 49021
+engine:
+  # name: "k8s", "slinky", "slurm" or "graph"
+  name: k8s
+  # params:
+  #   # For slinky topology/block output, use the GPU Operator's existing
+  #   # Kubernetes node label as the block-domain source.
+  #   useGpuCliqueLabel: true
+
+service:
+  type: ClusterIP
+  port: 49021
 
 replicaCount: 1
 
@@ -225,3 +225,144 @@ tests:
   image:
     repository: ""
     tag: ""
+
+# Node Observer watches configured node/pod changes and Topograph API readiness,
+# then triggers topology regeneration.
+nodeObserver:
+  replicaCount: 1
+
+  serviceAccount:
+    create: true
+    automount: true
+    annotations: {}
+    name: ""
+
+  rbac:
+    create: true
+
+  env: {}
+  initContainers: []
+  lifecycle: {}
+
+  topograph:
+    # Watch the Topograph API pod and trigger topology generation when the API
+    # becomes Ready after startup or a container restart.
+    apiServer:
+      enabled: true
+      # Leave empty to use the release-scoped API pod labels.
+      podSelector: {}
+      containerName: topograph
+    # Wait for node-data-broker pods to become Ready before the first topology
+    # request. Disable this when nodeDataBroker.enabled is false.
+    nodeDataBroker:
+      enabled: true
+      # Leave empty to use the release-scoped broker pod labels.
+      podSelector: {}
+      containerName: node-data-broker
+    trigger:
+      # nodeSelector: {}
+      # podSelector: {}
+
+  podAnnotations: {}
+  podLabels: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+
+  resources:
+    limits:
+      cpu: 400m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Node Data Broker collects per-node topology attributes as annotations.
+nodeDataBroker:
+  enabled: true
+
+  # Port serving the /healthz endpoint after node annotations are applied.
+  port: 8080
+  # Re-apply annotations at this interval. Set to 0 to disable refresh.
+  refreshInterval: 5m
+
+  # When disabling the broker, also set
+  # nodeObserver.topograph.nodeDataBroker.enabled=false.
+  extraArgs: []
+  # - key=val
+
+  startupProbe:
+    failureThreshold: 30
+    periodSeconds: 10
+
+  serviceAccount:
+    create: true
+    automount: true
+    annotations: {}
+    name: ""
+
+  rbac:
+    create: true
+
+  env: {}
+  initContainers: []
+  lifecycle: {}
+  podAnnotations: {}
+  podLabels: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # ConfigMaps created by the chart and mounted into the broker container.
+  configMapMounts: []
+  # - name: ibdiag
+  #   mountPath: /etc/infiniband-diags/ibdiag.conf
+  #   subPath: ibdiag.conf
+  #   data:
+  #     ibdiag.conf: |-
+  #       CA=smi0
+  #       Port=1
+
+  volumes: []
+  volumeMounts: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

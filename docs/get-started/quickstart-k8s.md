@@ -5,7 +5,7 @@ Topograph installs on a Kubernetes cluster via a Helm chart. This quickstart cov
 - **[`k8s` engine](#engine-k8s)** — labels Kubernetes nodes with topology keys so schedulers (native `podAffinity`, KAI Scheduler, Kueue TAS, etc.) can make topology-aware placement decisions
 - **[`slinky` engine](#engine-slinky)** — writes Slurm topology configuration into a `ConfigMap` for [Slinky](https://github.com/SlinkyProject) (Slurm-on-Kubernetes) deployments
 
-Prerequisites, install flow, and verification are common to both — the engines differ only in a few `global.engine.*` values and in what downstream artifact is produced.
+Prerequisites, install flow, and verification are common to both — the engines differ only in a few `engine.*` values and in what downstream artifact is produced.
 
 ## Prerequisites
 
@@ -25,8 +25,8 @@ helm repo update
 helm install topograph topograph/topograph \
   --version <chart-version> \
   --namespace topograph --create-namespace \
-  --set global.provider.name=<provider> \
-  --set global.engine.name=<engine> \
+  --set provider.name=<provider> \
+  --set engine.name=<engine> \
   # ... engine-specific flags ...
 ```
 
@@ -51,7 +51,7 @@ Engine-specific verification (seeing the actual topology output) differs — see
 Engine-specific install flag:
 
 ```bash
-  --set global.engine.name=k8s
+  --set engine.name=k8s
 ```
 
 Nothing else is required — the `k8s` engine labels nodes directly from the default chart deployment. A few seconds after install, topology labels appear on cluster nodes:
@@ -71,10 +71,10 @@ kubectl logs -n topograph -l app.kubernetes.io/name=topograph
 Engine-specific install flags point the `slinky` engine at the Slinky deployment:
 
 ```bash
-  --set global.engine.name=slinky \
-  --set global.engineParams.namespace=<slinky-namespace> \
-  --set global.engineParams.topologyConfigmapName=<configmap-name> \
-  --set global.engineParams.topologyConfigPath=topology.conf
+  --set engine.name=slinky \
+  --set engine.params.namespace=<slinky-namespace> \
+  --set engine.params.topologyConfigmapName=<configmap-name> \
+  --set engine.params.topologyConfigPath=topology.conf
 ```
 
 The full engine-parameter shape (`podSelector`, `plugin`, `blockSizes`, per-partition topologies, …) is documented in the [chart README](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/README.md). Example values files for common Slinky scenarios ship in the chart directory:
@@ -95,7 +95,7 @@ The key configured via `topologyConfigPath` (by default `topology.conf`) should 
 
 - **[Kubernetes engine reference](../engines/k8s.md)** — configuration, access patterns (`Ingress`, `HTTPRoute`, `NetworkPolicy`, `ServiceMonitor`), mixed workload considerations
 - **[Slinky engine reference](../engines/slinky.md)** — `slinky` engine parameters, `ConfigMap` annotations, tree / block / per-partition usage examples (the chart-level deployment surface is shared with the `k8s` engine and is documented under the Kubernetes engine reference above)
-- **[Chart README](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/README.md)** — full values reference, `helm test` details, air-gapped environments, subchart layout
+- **[Chart README](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/README.md)** — full values reference, `helm test` details, air-gapped environments, and component layout
 - **[Node labels reference](../reference/node-labels.md)** — label key semantics, value behavior (FNV hashing for long values), integration with the NVIDIA GPU Operator, downstream consumer notes (relevant primarily to the `k8s` engine)
 - **[Provider documentation](../providers/)** — per-provider prerequisites and configuration
 - **[Config and API reference](../api.md)** — `topograph-config.yaml` schema, API endpoints, request/response shape

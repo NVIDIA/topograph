@@ -39,7 +39,7 @@ pkg/
   test/               # Cross-package test helpers
 internal/             # Shared utilities not part of the public API
   cluset, component, config, exec, files, httperr, httpreq, k8s, version
-charts/topograph/     # Helm chart (with node-data-broker subchart); tests/ holds the helm-unittest suites + snapshots
+charts/topograph/     # Helm chart for all Kubernetes components; tests/ holds the helm-unittest suites + snapshots
 CHANGELOG.md          # Release history (Keep a Changelog format); update [Unreleased] for user-facing PRs
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
 tests/models/         # YAML simulation fixtures
@@ -55,7 +55,7 @@ These structures propagate across every provider and engine. Changing them in a 
 | Surface | Why it's load-bearing |
 |---|---|
 | `pkg/topology/` — `Graph`, the `Vertex` tree, and topology constants | Every provider returns it; every engine consumes it. A shape change ripples to all of them. |
-| Helm `global.provider.name` / `global.engine.name` / `topologyNodeLabels` | External contract for operators deploying Topograph. |
+| Helm `provider.name` / `engine.name` / `topologyNodeLabels` | External contract for operators deploying Topograph. |
 | The four default label keys `network.topology.nvidia.com/{accelerator,leaf,spine,core}` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue). |
 
 ## 2. Setup and Installation
@@ -93,7 +93,7 @@ make chart-test-update-snapshot  # refresh helm-unittest snapshots (review befor
 make coverage   # human-readable per-package summary
 ```
 
-Run `make qualify` before pushing. The individual targets are available if you want to run a single check during iteration. Run `make chart-test` when you change `charts/topograph/` or its subcharts; CI runs it on every workflow trigger.
+Run `make qualify` before pushing. The individual targets are available if you want to run a single check during iteration. Run `make chart-test` when you change `charts/topograph/`; CI runs it on every workflow trigger.
 
 ### Coverage policy
 
@@ -114,7 +114,7 @@ Coverage checks run on pull requests. A drop below target with no matching uplif
 
 - **Binaries** — `deb` and `rpm` packages via `make deb` / `make rpm` (consumed by Slurm users)
 - **Container images** — `ghcr.io/nvidia/topograph` (consumed by Kubernetes users)
-- **Helm chart** — `charts/topograph/` (with `node-data-broker` subchart)
+- **Helm chart** — `charts/topograph/` (API server, node-observer, and node-data-broker)
 
 ## 4. Coding Style and Conventions
 

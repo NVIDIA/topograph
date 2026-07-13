@@ -1,5 +1,6 @@
 {{ include "topograph.validation" . }}
-{{- $providerParams := default dict .Values.global.provider.params }}
+{{- $providerParams := default dict .Values.provider.params }}
+{{- $hasGcpCredentials := and (eq .Values.provider.name "gcp") (or $providerParams.serviceAccountKeysSecret $providerParams.workloadIdentityFederation) }}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -51,12 +52,15 @@ spec:
             {{- range $key, $value := .Values.topologyNodeLabels }}
             - -k8s-topology-key-{{ $key }}={{ $value }}
             {{- end }}
+          {{- if or .Values.nodeDataBroker.enabled $hasGcpCredentials .Values.env }}
           env:
+            {{- if .Values.nodeDataBroker.enabled }}
             - name: NODE_DATA_BROKER_NAME
-              value: {{ printf "%s-%s" .Release.Name "node-data-broker" | trunc 63 | trimSuffix "-" }}
+              value: {{ include "nodeDataBroker.fullname" . }}
             - name: NODE_DATA_BROKER_NAMESPACE
               value: {{ .Release.Namespace }}
-            {{- if eq .Values.global.provider.name "gcp" }}
+            {{- end }}
+            {{- if eq .Values.provider.name "gcp" }}
             {{- if $providerParams.serviceAccountKeysSecret }}
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /etc/topograph/gcp/service-account-keys.json
@@ -69,13 +73,14 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          {{- end }}
           {{- with .Values.lifecycle }}
           lifecycle:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.global.service.port }}
+              containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
@@ -91,7 +96,7 @@ spec:
               mountPath: /etc/topograph/credentials
               readOnly: true
           {{- end }}
-          {{- if eq .Values.global.provider.name "gcp" }}
+          {{- if eq .Values.provider.name "gcp" }}
           {{- if $providerParams.serviceAccountKeysSecret }}
             - name: service-account-keys
               mountPath: /etc/topograph/gcp/service-account-keys.json
@@ -118,7 +123,7 @@ spec:
           secret:
             secretName: {{ .Values.config.credentialsSecret }}
       {{- end }}
-      {{- if eq .Values.global.provider.name "gcp" }}
+      {{- if eq .Values.provider.name "gcp" }}
       {{- if $providerParams.serviceAccountKeysSecret }}
         - name: service-account-keys
           secret:

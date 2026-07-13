@@ -34,12 +34,11 @@ tests:
           path: metadata.namespace
           value: topograph
 
-  - it: honors the global service type and port overrides
+  - it: honors the top-level service type and port overrides
     set:
-      global:
-        service:
-          type: NodePort
-          port: 30000
+      service:
+        type: NodePort
+        port: 30000
     asserts:
       - equal:
           path: spec.type

@@ -7,11 +7,11 @@ Slinky skips that path when dynamic nodes are enabled or when a topology entry
 already supplies nodes, a pod selector, or the default flat topology.
 */ -}}
 {{- $needsPodExec := dict "value" false -}}
-{{- if eq .Values.global.provider.name "infiniband-k8s" -}}
+{{- if eq .Values.provider.name "infiniband-k8s" -}}
 {{- $_ := set $needsPodExec "value" true -}}
 {{- end -}}
-{{- if eq .Values.global.engine.name "slinky" -}}
-{{- $params := default dict .Values.global.engine.params -}}
+{{- if eq .Values.engine.name "slinky" -}}
+{{- $params := default dict .Values.engine.params -}}
 {{- if not (get $params "useDynamicNodes") -}}
 {{- range $topology := (default dict (get $params "topologies")) -}}
 {{- $spec := default dict $topology -}}
@@ -44,7 +44,7 @@ rules:
 - apiGroups: [apps]
   resources: [daemonsets]
   verbs: [get]
-{{- if eq .Values.global.engine.name "slinky" }}
+{{- if eq .Values.engine.name "slinky" }}
 - apiGroups: [""]
   resources: [configmaps]
   verbs: [create,get,update]

@@ -93,5 +93,5 @@ Create topograph service URL
 {{- end }}
 
 {{- define "topograph.url" -}}
-{{ printf "http://%s.%s.svc.cluster.local:%.0f" (include "topograph.serviceName" .) .Release.Namespace .Values.global.service.port }}
+{{ printf "http://%s.%s.svc.cluster.local:%.0f" (include "topograph.serviceName" .) .Release.Namespace .Values.service.port }}
 {{- end }}

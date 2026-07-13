@@ -1,0 +1,18 @@
+{{- if and .Values.nodeDataBroker.enabled .Values.nodeDataBroker.configMapMounts }}
+{{- range .Values.nodeDataBroker.configMapMounts }}
+{{- $data := required "nodeDataBroker.configMapMounts[].data is required" .data }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nodeDataBroker.configMapMountName" (dict "root" $ "name" .name) }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "nodeDataBroker.labels" $ | nindent 4 }}
+data:
+  {{- range $key, $value := $data }}
+  {{ $key | quote }}: |-
+{{ default "" $value | indent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}

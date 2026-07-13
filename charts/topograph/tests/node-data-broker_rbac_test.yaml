@@ -1,0 +1,123 @@
+suite: node-data-broker rbac
+# RBAC is rendered through the main chart so provider drives the conditional rules.
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: grants only node access with the default provider
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: binds RBAC to an existing service account
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      nodeDataBroker:
+        serviceAccount:
+          create: false
+          name: existing-node-data-broker-sa
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: roleRef.name
+          value: chart-ci-topograph-node-data-broker
+      - equal:
+          path: subjects[0].name
+          value: existing-node-data-broker-sa
+
+  - it: is omitted when rbac.create is false
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      nodeDataBroker:
+        rbac:
+          create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: grants pods/exec for infiniband-k8s nvidia-smi discovery
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      provider:
+        name: infiniband-k8s
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: drops pods/exec when reusing the GPU clique label
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          useGpuCliqueLabel: true
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: is omitted when the component is disabled
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      nodeDataBroker:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

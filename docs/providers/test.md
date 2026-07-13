@@ -26,7 +26,7 @@ make build
 bin/topograph -c config/topograph-config.yaml
 ```
 
-You can also leave the global provider and engine unset and specify them in each `/v1/generate` request payload. This is useful when one regression suite needs to exercise multiple engines.
+You can also leave the default provider and engine unset and specify them in each `/v1/generate` request payload. This is useful when one regression suite needs to exercise multiple engines.
 
 Model files can be referenced by basename, such as `small-tree.yaml`, to load one of the embedded fixtures from `tests/models/`. You can also provide an absolute or relative path to a YAML model file.
 

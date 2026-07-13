@@ -28,5 +28,5 @@ spec:
         - |
           set -eu
           wget -q -O /dev/null -T 10 \
-            "http://{{ include "topograph.fullname" . }}:{{ .Values.global.service.port }}/healthz"
+            "http://{{ include "topograph.fullname" . }}:{{ .Values.service.port }}/healthz"
 {{- end }}

@@ -28,11 +28,10 @@ tests:
           path: data["topograph-config.yaml"]
           pattern: "requestAggregationDelay: 42s"
 
-  - it: tracks the global service port override
+  - it: tracks the top-level service port override
     set:
-      global:
-        service:
-          port: 30000
+      service:
+        port: 30000
     asserts:
       - matchRegex:
           path: data["topograph-config.yaml"]

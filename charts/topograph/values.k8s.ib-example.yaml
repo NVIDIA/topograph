@@ -1,12 +1,11 @@
-global:
-  provider:
-    name: infiniband-k8s
-    params:
-      useGpuCliqueLabel: true
-  engine:
-    name: k8s
+provider:
+  name: infiniband-k8s
+  params:
+    useGpuCliqueLabel: true
+engine:
+  name: k8s
 
-node-observer:
+nodeObserver:
   topograph:
     trigger:
       nodeSelector:
@@ -14,7 +13,7 @@ node-observer:
 
 # The InfiniBand broker reads node-local fabric state under /sys/class, so it
 # must opt out of the chart's hardened defaults and run privileged as root.
-node-data-broker:
+nodeDataBroker:
   podSecurityContext:
     runAsNonRoot: false
     runAsUser: 0

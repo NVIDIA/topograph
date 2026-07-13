@@ -1,0 +1,83 @@
+suite: node-observer rbac
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: grants pod watch only when trigger.nodeSelector is unset
+    templates:
+      - templates/nodeObserver/rbac.yaml
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ClusterRole
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [pods]
+              verbs: [list, watch]
+
+  - it: grants node watch when trigger.nodeSelector is set
+    templates:
+      - templates/nodeObserver/rbac.yaml
+    set:
+      nodeObserver:
+        topograph:
+          trigger:
+            nodeSelector:
+              accelerator: "true"
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ClusterRole
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [pods]
+              verbs: [list, watch]
+            - apiGroups: [""]
+              resources: [nodes]
+              verbs: [list, watch]
+
+  - it: binds the role to its own service account
+    templates:
+      - templates/nodeObserver/rbac.yaml
+    documentIndex: 1
+    asserts:
+      - isKind:
+          of: ClusterRoleBinding
+      - equal:
+          path: roleRef.name
+          value: chart-ci-topograph-node-observer
+      - equal:
+          path: subjects[0].name
+          value: chart-ci-topograph-node-observer
+
+  - it: binds RBAC to an existing service account
+    templates:
+      - templates/nodeObserver/rbac.yaml
+    set:
+      nodeObserver:
+        serviceAccount:
+          create: false
+          name: existing-node-observer-sa
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: roleRef.name
+          value: chart-ci-topograph-node-observer
+      - equal:
+          path: subjects[0].name
+          value: existing-node-observer-sa
+
+  - it: is omitted when rbac.create is false
+    templates:
+      - templates/nodeObserver/rbac.yaml
+    set:
+      nodeObserver:
+        rbac:
+          create: false
+    asserts:
+      - hasDocuments:
+          count: 0

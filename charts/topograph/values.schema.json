@@ -4,76 +4,70 @@
   "description": "Schema for the topograph chart's values.yaml. Validates the most error-prone fields (provider and engine enums, replicaCount, image.pullPolicy, service settings, verbosity). Per-provider credential-field requirements are documented in docs/providers/<name>.md rather than enforced here, because the credential field sets vary with upstream provider changes and are better kept in prose.",
   "type": "object",
   "properties": {
-    "global": {
+    "provider": {
       "type": "object",
       "properties": {
-        "provider": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string",
-              "description": "Topology-discovery provider. Must match a registered provider in pkg/registry/registry.go.",
-              "enum": [
-                "aws",
-                "aws-sim",
-                "cw",
-                "dra",
-                "gcp",
-                "gcp-sim",
-                "dsx-sim",
-                "infiniband-bm",
-                "infiniband-k8s",
-                "lambdai",
-                "lambdai-sim",
-                "nebius",
-                "nebius-sim",
-                "netq",
-                "nscale",
-                "nscale-sim",
-                "oci",
-                "oci-imds",
-                "oci-sim",
-                "test"
-              ]
-            },
-            "params": {
-              "type": "object",
-              "description": "Provider-specific parameters. For infiniband-k8s, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the accelerator-domain source."
-            }
-          },
-          "required": ["name"]
+        "name": {
+          "type": "string",
+          "description": "Topology-discovery provider. Must match a registered provider in pkg/registry/registry.go.",
+          "enum": [
+            "aws",
+            "aws-sim",
+            "cw",
+            "dra",
+            "gcp",
+            "gcp-sim",
+            "dsx-sim",
+            "infiniband-bm",
+            "infiniband-k8s",
+            "lambdai",
+            "lambdai-sim",
+            "nebius",
+            "nebius-sim",
+            "netq",
+            "nscale",
+            "nscale-sim",
+            "oci",
+            "oci-imds",
+            "oci-sim",
+            "test"
+          ]
         },
-        "engine": {
+        "params": {
           "type": "object",
-          "properties": {
-            "name": {
-              "type": "string",
-              "description": "Scheduler-output engine. Must match a registered engine in pkg/registry/registry.go.",
-              "enum": ["graph", "k8s", "slinky", "slurm"]
-            },
-            "params": {
-              "type": "object",
-              "description": "Engine-specific parameters. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
-            }
-          },
-          "required": ["name"]
-        },
-        "service": {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
-            },
-            "port": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 65535
-            }
-          }
+          "description": "Provider-specific parameters. For infiniband-k8s, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the accelerator-domain source."
         }
       },
-      "required": ["provider", "engine"]
+      "required": ["name"]
+    },
+    "engine": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Scheduler-output engine. Must match a registered engine in pkg/registry/registry.go.",
+          "enum": ["graph", "k8s", "slinky", "slurm"]
+        },
+        "params": {
+          "type": "object",
+          "description": "Engine-specific parameters. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
+        }
+      },
+      "required": ["name"]
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
     },
     "replicaCount": {
       "type": "integer",
@@ -202,6 +196,55 @@
           }
         }
       }
+    },
+    "nodeObserver": {
+      "type": "object",
+      "description": "Node Observer settings. The component is rendered directly by the main chart.",
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "serviceAccount": { "type": "object" },
+        "rbac": { "type": "object" },
+        "env": { "type": "object" },
+        "initContainers": { "type": "array" },
+        "lifecycle": { "type": "object" },
+        "topograph": { "type": "object" },
+        "podAnnotations": { "type": "object" },
+        "podLabels": { "type": "object" },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" },
+        "resources": { "type": "object" },
+        "nodeSelector": { "type": "object" },
+        "tolerations": { "type": "array" },
+        "affinity": { "type": "object" }
+      }
+    },
+    "nodeDataBroker": {
+      "type": "object",
+      "description": "Node Data Broker settings. The component is rendered directly by the main chart.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "refreshInterval": { "type": ["string", "integer"] },
+        "extraArgs": { "type": "array", "items": { "type": "string" } },
+        "startupProbe": { "type": "object" },
+        "serviceAccount": { "type": "object" },
+        "rbac": { "type": "object" },
+        "env": { "type": "object" },
+        "initContainers": { "type": "array" },
+        "lifecycle": { "type": "object" },
+        "podAnnotations": { "type": "object" },
+        "podLabels": { "type": "object" },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" },
+        "resources": { "type": "object" },
+        "configMapMounts": { "type": "array" },
+        "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
+        "nodeSelector": { "type": "object" },
+        "tolerations": { "type": "array" },
+        "affinity": { "type": "object" }
+      }
     }
-  }
+  },
+  "required": ["provider", "engine"]
 }

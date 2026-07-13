@@ -41,11 +41,10 @@ helm search repo topograph/topograph --versions
 The default `values.yaml` ships the `test` provider + `k8s` engine, suitable for a smoke-test install. Production installs select a real provider:
 
 ```yaml
-global:
-  provider:
-    name: dra        # or aws, gcp, oci, nebius, netq, infiniband-k8s, ...
-  engine:
-    name: k8s        # or slurm, slinky, graph
+provider:
+  name: dra        # or aws, gcp, oci, nebius, netq, infiniband-k8s, ...
+engine:
+  name: k8s        # or slurm, slinky, graph
 ```
 
 For the full list of values and their defaults, see [`values.yaml`](./values.yaml). Example values files for specific deployment patterns:
@@ -70,7 +69,7 @@ Set `rbac.create=false` only when ClusterRoles and ClusterRoleBindings are manag
 
 ### Values validation
 
-The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `global.provider.name` and `global.engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `serviceAccount`, `rbac`, `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
+The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `provider.name` and `engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `serviceAccount`, `rbac`, `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
 
 The schema is deliberately narrow: per-provider credential requirements (which fields a given provider needs in its credentials map) are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because the credential field sets evolve with upstream provider changes and are hard to keep accurate in a schema.
 
@@ -95,14 +94,15 @@ By default, the test pods reuse the main topograph image. Topograph's default im
 
 If your mirrored image lacks busybox `wget`, override the test image to point at one that does, via `tests.image.repository` and `tests.image.tag`. You can also disable the tests entirely with `tests.enabled=false`.
 
-## Subcharts
+## Components
 
-The chart depends on two subcharts, both managed as local file dependencies:
+The main chart directly manages all three runtime workloads:
 
+- **Topograph API server** — serves topology generation and retrieval requests
 - **`node-data-broker`** — DaemonSet that collects per-node attributes (NVLink clique IDs, etc.) as node annotations for the Kubernetes engine
 - **`node-observer`** — watches configured node/pod changes and Topograph API readiness, then triggers topology regeneration
 
-Both are installed together when you install this chart. Their values are accessible under the top-level keys `node-data-broker` and `node-observer` (enabled by default).
+The component templates live under `templates/nodeDataBroker` and `templates/nodeObserver`. Their settings use the top-level `nodeDataBroker` and `nodeObserver` values keys; the broker is enabled by default.
 
 The API server, node-observer, and node-data-broker containers all support `env`, `initContainers`, and `lifecycle` overrides for deployment-specific integration hooks.
 

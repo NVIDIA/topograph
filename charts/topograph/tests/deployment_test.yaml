@@ -119,13 +119,12 @@ tests:
 
   - it: GCP workload identity federation wires the credentials env and volumes
     set:
-      global:
-        provider:
-          name: gcp
-          params:
-            workloadIdentityFederation:
-              credentialsConfigmap: gcp-creds
-              audience: //iam.googleapis.com/projects/1/locations/global/workloadIdentityPools/p/providers/pr
+      provider:
+        name: gcp
+        params:
+          workloadIdentityFederation:
+            credentialsConfigmap: gcp-creds
+            audience: //iam.googleapis.com/projects/1/locations/global/workloadIdentityPools/p/providers/pr
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -143,11 +142,10 @@ tests:
 
   - it: GCP service account keys mount the secret-backed credentials file
     set:
-      global:
-        provider:
-          name: gcp
-          params:
-            serviceAccountKeysSecret: gcp-sa-keys
+      provider:
+        name: gcp
+        params:
+          serviceAccountKeysSecret: gcp-sa-keys
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -196,11 +194,10 @@ tests:
           value: existing-topograph-sa
         template: templates/deployment.yaml
 
-  - it: exposes the container port from the global service port
+  - it: exposes the container port from the top-level service port
     set:
-      global:
-        service:
-          port: 30000
+      service:
+        port: 30000
     asserts:
       - equal:
           path: spec.template.spec.containers[0].ports[0].containerPort
@@ -217,13 +214,37 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: NODE_DATA_BROKER_NAME
-            value: chart-ci-node-data-broker
+            value: chart-ci-topograph-node-data-broker
         template: templates/deployment.yaml
       - contains:
           path: spec.template.spec.containers[0].env
           content:
             name: NODE_DATA_BROKER_NAMESPACE
             value: topograph
+        template: templates/deployment.yaml
+
+  - it: omits the node-data-broker coordinates when the broker is disabled
+    set:
+      nodeDataBroker:
+        enabled: false
+      env:
+        FOO: BAR
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FOO
+            value: BAR
+        template: templates/deployment.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_DATA_BROKER_NAME
+        template: templates/deployment.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_DATA_BROKER_NAMESPACE
         template: templates/deployment.yaml
 
   - it: passes the verbosity flag and topology key args

@@ -1,0 +1,37 @@
+{{- if and .Values.nodeDataBroker.enabled .Values.nodeDataBroker.rbac.create }}
+{{- $providerParams := default dict .Values.provider.params }}
+{{- $useGpuCliqueLabel := and (eq .Values.provider.name "infiniband-k8s") (eq (lower (toString (get $providerParams "useGpuCliqueLabel"))) "true") }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "nodeDataBroker.rbacName" . }}
+rules:
+- apiGroups: [""]
+  resources: [nodes]
+  verbs: [get,update]
+{{- if and (eq .Values.provider.name "infiniband-k8s") (not $useGpuCliqueLabel) }}
+- apiGroups: [apps]
+  resources: [daemonsets]
+  verbs: [get]
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [list]
+- apiGroups: [""]
+  resources: [pods/exec]
+  verbs: [create]
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "nodeDataBroker.rbacName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "nodeDataBroker.serviceAccountName" . }}
+  namespace: {{.Release.Namespace}}
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: {{ include "nodeDataBroker.rbacName" . }}
+  apiGroup: ""
+{{- end }}

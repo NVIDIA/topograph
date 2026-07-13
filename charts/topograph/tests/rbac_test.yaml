@@ -101,9 +101,8 @@ tests:
 
   - it: grants pods/exec for the infiniband-k8s provider
     set:
-      global:
-        provider:
-          name: infiniband-k8s
+      provider:
+        name: infiniband-k8s
     documentIndex: 0
     asserts:
       - contains:
@@ -115,9 +114,8 @@ tests:
 
   - it: grants configmaps for the slinky engine
     set:
-      global:
-        engine:
-          name: slinky
+      engine:
+        name: slinky
     documentIndex: 0
     asserts:
       - contains:
@@ -135,13 +133,12 @@ tests:
 
   - it: does not grant pods/exec for slinky with a default flat cluster topology
     set:
-      global:
-        engine:
-          name: slinky
-          params:
-            topologies:
-              - clusterDefault: true
-                plugin: topology/flat
+      engine:
+        name: slinky
+        params:
+          topologies:
+            - clusterDefault: true
+              plugin: topology/flat
     documentIndex: 0
     asserts:
       - notContains:
@@ -153,12 +150,11 @@ tests:
 
   - it: grants pods/exec for slinky partition discovery topologies
     set:
-      global:
-        engine:
-          name: slinky
-          params:
-            topologies:
-              - partition: gpu
+      engine:
+        name: slinky
+        params:
+          topologies:
+            - partition: gpu
     documentIndex: 0
     asserts:
       - contains:
@@ -170,13 +166,12 @@ tests:
 
   - it: does not grant pods/exec for slinky when dynamic nodes are enabled
     set:
-      global:
-        engine:
-          name: slinky
-          params:
-            useDynamicNodes: true
-            topologies:
-              - partition: gpu
+      engine:
+        name: slinky
+        params:
+          useDynamicNodes: true
+          topologies:
+            - partition: gpu
     documentIndex: 0
     asserts:
       - notContains:

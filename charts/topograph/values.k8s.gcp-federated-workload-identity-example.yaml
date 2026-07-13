@@ -2,23 +2,22 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-global:
-  provider:
-    name: gcp
-    params:
-      workloadIdentityFederation:
-        credentialsConfigmap: gcp-credentials-config
-        audience: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/my-pool/providers/my-workload-provider"
+provider:
+  name: gcp
+  params:
+    workloadIdentityFederation:
+      credentialsConfigmap: gcp-credentials-config
+      audience: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/my-pool/providers/my-workload-provider"
 
-  engine:
-    name: k8s
+engine:
+  name: k8s
 
-node-observer:
+nodeObserver:
   topograph:
     trigger:
       nodeSelector:
         brightcomputing.com/node-category: dgx
 
-node-data-broker:
+nodeDataBroker:
   nodeSelector:
     brightcomputing.com/node-category: dgx
