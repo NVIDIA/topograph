@@ -100,7 +100,7 @@ The main chart directly manages all three runtime workloads:
 
 - **Topograph API server** — serves topology generation and retrieval requests
 - **`node-data-broker`** — DaemonSet that collects per-node attributes (NVLink clique IDs, etc.) as node annotations for the Kubernetes engine
-- **`node-observer`** — watches configured node/pod changes and Topograph API readiness, then triggers topology regeneration
+- **`node-observer`** — watches configured node/pod changes and Topograph API readiness, waits for desired node-data-broker replicas when the broker is enabled, then triggers topology regeneration
 
 The component templates live under `templates/nodeDataBroker` and `templates/nodeObserver`. Their settings use the top-level `nodeDataBroker` and `nodeObserver` values keys; the broker is enabled by default.
 

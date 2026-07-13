@@ -15,6 +15,7 @@ import (
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/httpreq"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,21 +35,67 @@ func TestNewStatusInformer(t *testing.T) {
 		},
 		ContainerName: "topograph",
 	}
-	nodeDataBroker := &NodeDataBroker{
-		Namespace: "topograph",
-		PodSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"app.kubernetes.io/name": "node-data-broker"},
-		},
-		ContainerName: "node-data-broker",
-	}
-	informer, err := NewStatusInformer(ctx, nil, trigger, apiServer, nodeDataBroker, 0, nil)
+	informer, err := NewStatusInformer(ctx, nil, trigger, apiServer, "topograph-node-data-broker", "topograph", 0, nil)
 	require.NoError(t, err)
 	require.NotNil(t, informer.nodeFactory)
 	require.NotNil(t, informer.podFactory)
 	require.NotNil(t, informer.apiFactory)
 	require.NotNil(t, informer.brokerFactory)
 	require.Equal(t, "topograph", informer.apiServerContainerName)
-	require.Equal(t, "node-data-broker", informer.brokerContainerName)
+}
+
+func TestNewStatusInformerBrokerGateRequiresNameAndNamespace(t *testing.T) {
+	testCases := []struct {
+		name            string
+		brokerName      string
+		brokerNamespace string
+	}{
+		{name: "neither is set"},
+		{name: "name only", brokerName: "topograph-node-data-broker"},
+		{name: "namespace only", brokerNamespace: "topograph"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			informer, err := NewStatusInformer(context.TODO(), nil, nil, nil, tc.brokerName, tc.brokerNamespace, 0, nil)
+			require.NoError(t, err)
+			require.Nil(t, informer.brokerFactory)
+		})
+	}
+}
+
+func TestBrokerDaemonSetReady(t *testing.T) {
+	testCases := []struct {
+		name    string
+		desired int32
+		ready   int32
+		want    bool
+	}{
+		{name: "all desired replicas ready", desired: 3, ready: 3, want: true},
+		{name: "replicas still becoming ready", desired: 3, ready: 2, want: false},
+		{name: "no replicas desired", want: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			daemonSet := &appsv1.DaemonSet{Status: appsv1.DaemonSetStatus{
+				DesiredNumberScheduled: tc.desired,
+				NumberReady:            tc.ready,
+			}}
+			require.Equal(t, tc.want, isBrokerDaemonSetReady(daemonSet))
+		})
+	}
+}
+
+func TestBrokerDaemonSetReadyRejectsZeroDesiredReplicas(t *testing.T) {
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{
+		Name:      "topograph-node-data-broker",
+		Namespace: "topograph",
+	}}
+
+	ready, err := brokerDaemonSetReady(daemonSet)
+	require.False(t, ready)
+	require.EqualError(t, err, "node-data-broker DaemonSet topograph/topograph-node-data-broker has 0 desired replicas; check its node selector, affinity, and tolerations")
 }
 
 func TestAPIServerPodUpdateTriggersOnReadyTransitionAndRestart(t *testing.T) {

@@ -7,10 +7,13 @@ package node_observer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -24,7 +27,6 @@ import (
 
 type StatusInformer struct {
 	ctx           context.Context
-	client        kubernetes.Interface
 	nodeFactory   informers.SharedInformerFactory
 	podFactory    informers.SharedInformerFactory
 	apiFactory    informers.SharedInformerFactory
@@ -37,15 +39,13 @@ type StatusInformer struct {
 	stopCh        chan struct{}
 
 	apiServerContainerName string
-	brokerContainerName    string
 }
 
-func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, apiServer *APIServer, nodeDataBroker *NodeDataBroker, retryDelay time.Duration, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
-	klog.InfoS("Configuring status informer", "trigger", trigger, "apiServer", apiServer, "nodeDataBroker", nodeDataBroker)
+func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, apiServer *APIServer, brokerName, brokerNamespace string, retryDelay time.Duration, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
+	klog.InfoS("Configuring status informer", "trigger", trigger, "apiServer", apiServer, "brokerName", brokerName, "brokerNamespace", brokerNamespace)
 
 	statusInformer := &StatusInformer{
 		ctx:         ctx,
-		client:      client,
 		retryDelay:  retryDelay,
 		reqFunc:     reqFunc,
 		reqExecFunc: httpreq.DoRequestWithRetries,
@@ -78,13 +78,16 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 		statusInformer.apiServerContainerName = apiServer.ContainerName
 	}
 
-	if nodeDataBroker != nil && nodeDataBroker.PodSelector != nil {
-		podFactory, err := newPodFactory(client, nodeDataBroker.PodSelector, nodeDataBroker.Namespace)
-		if err != nil {
-			return nil, err
+	if brokerName != "" && brokerNamespace != "" {
+		listOptionsFunc := func(options *metav1.ListOptions) {
+			options.FieldSelector = fields.OneTermEqualSelector("metadata.name", brokerName).String()
 		}
-		statusInformer.brokerFactory = podFactory
-		statusInformer.brokerContainerName = nodeDataBroker.ContainerName
+		statusInformer.brokerFactory = informers.NewSharedInformerFactoryWithOptions(
+			client,
+			0,
+			informers.WithNamespace(brokerNamespace),
+			informers.WithTweakListOptions(listOptionsFunc),
+		)
 	}
 
 	return statusInformer, nil
@@ -224,40 +227,39 @@ func (s *StatusInformer) startAPIServerInformer() error {
 
 func (s *StatusInformer) startBrokerInformer() error {
 	if s.brokerFactory != nil {
-		informer := s.brokerFactory.Core().V1().Pods().Informer()
+		informer := s.brokerFactory.Apps().V1().DaemonSets().Informer()
 		_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj any) {
-				pod, ok := obj.(*corev1.Pod)
+				daemonSet, ok := obj.(*appsv1.DaemonSet)
 				if !ok {
 					return
 				}
-				if isWorkloadPodReady(pod, s.brokerContainerName) {
-					klog.V(4).Infof("Informer added ready node-data-broker pod %s/%s", pod.Namespace, pod.Name)
-					s.sendRequest()
-				}
+				klog.V(4).Infof("Informer added node-data-broker DaemonSet %s/%s", daemonSet.Namespace, daemonSet.Name)
+				s.sendRequest()
 			},
 			UpdateFunc: func(oldObj, newObj any) {
-				oldPod, ok := oldObj.(*corev1.Pod)
+				oldDaemonSet, ok := oldObj.(*appsv1.DaemonSet)
 				if !ok {
 					return
 				}
-				newPod, ok := newObj.(*corev1.Pod)
+				newDaemonSet, ok := newObj.(*appsv1.DaemonSet)
 				if !ok {
 					return
 				}
-				if shouldRequestOnWorkloadUpdate(oldPod, newPod, s.brokerContainerName) {
-					klog.V(4).Infof("Informer updated ready node-data-broker pod %s/%s", newPod.Namespace, newPod.Name)
+				if isBrokerDaemonSetReady(oldDaemonSet) != isBrokerDaemonSetReady(newDaemonSet) ||
+					oldDaemonSet.Status.DesiredNumberScheduled != newDaemonSet.Status.DesiredNumberScheduled {
+					klog.V(4).Infof("Informer updated node-data-broker DaemonSet %s/%s", newDaemonSet.Namespace, newDaemonSet.Name)
 					s.sendRequest()
 				}
 			},
 			DeleteFunc: func(obj any) {
 				switch v := obj.(type) {
-				case *corev1.Pod:
-					klog.V(4).Infof("Informer deleted node-data-broker pod %s/%s", v.Namespace, v.Name)
+				case *appsv1.DaemonSet:
+					klog.V(4).Infof("Informer deleted node-data-broker DaemonSet %s/%s", v.Namespace, v.Name)
 					s.sendRequest()
 				case cache.DeletedFinalStateUnknown:
-					if pod, ok := v.Obj.(*corev1.Pod); ok {
-						klog.V(4).Infof("Informer deleted node-data-broker pod %s/%s", pod.Namespace, pod.Name)
+					if daemonSet, ok := v.Obj.(*appsv1.DaemonSet); ok {
+						klog.V(4).Infof("Informer deleted node-data-broker DaemonSet %s/%s", daemonSet.Namespace, daemonSet.Name)
 						s.sendRequest()
 					}
 				}
@@ -411,37 +413,51 @@ func containerRestartCount(pod *corev1.Pod, containerName string) (int32, bool) 
 	return restarts, found
 }
 
-func (s *StatusInformer) allBrokerPodsReady() bool {
+func (s *StatusInformer) brokerReady() (bool, error) {
 	if s.brokerFactory == nil {
-		return true
+		return true, nil
 	}
 
-	informer := s.brokerFactory.Core().V1().Pods().Informer()
+	informer := s.brokerFactory.Apps().V1().DaemonSets().Informer()
 	if !informer.HasSynced() {
-		return false
+		return false, nil
 	}
 
 	items := informer.GetStore().List()
-	if len(items) == 0 {
-		// Broker watch is enabled but no pods exist yet; wait for the DaemonSet.
-		return false
+	if len(items) != 1 {
+		return false, nil
 	}
 
-	for _, item := range items {
-		pod, ok := item.(*corev1.Pod)
-		if !ok {
-			continue
-		}
-		if !isWorkloadPodReady(pod, s.brokerContainerName) {
-			return false
-		}
+	daemonSet, ok := items[0].(*appsv1.DaemonSet)
+	if !ok {
+		return false, nil
 	}
-	return true
+	return brokerDaemonSetReady(daemonSet)
+}
+
+func isBrokerDaemonSetReady(daemonSet *appsv1.DaemonSet) bool {
+	ready, _ := brokerDaemonSetReady(daemonSet)
+	return ready
+}
+
+func brokerDaemonSetReady(daemonSet *appsv1.DaemonSet) (bool, error) {
+	if daemonSet.Status.DesiredNumberScheduled == 0 {
+		return false, fmt.Errorf(
+			"node-data-broker DaemonSet %s/%s has 0 desired replicas; check its node selector, affinity, and tolerations",
+			daemonSet.Namespace,
+			daemonSet.Name,
+		)
+	}
+	return daemonSet.Status.DesiredNumberScheduled == daemonSet.Status.NumberReady, nil
 }
 
 func (s *StatusInformer) process() {
-	if !s.allBrokerPodsReady() {
-		klog.V(2).Info("Waiting for node-data-broker pods to become ready before topology generation")
+	brokerReady, err := s.brokerReady()
+	if err != nil {
+		klog.Error(err)
+	}
+	if !brokerReady {
+		klog.V(2).Info("Waiting for the node-data-broker DaemonSet to become ready before topology generation")
 		if s.timer != nil {
 			s.timer.Stop()
 		}

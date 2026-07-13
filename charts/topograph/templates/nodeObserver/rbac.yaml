@@ -7,6 +7,11 @@ rules:
 - apiGroups: [""]
   resources: [pods]
   verbs: [list,watch]
+{{- if .Values.nodeDataBroker.enabled }}
+- apiGroups: [apps]
+  resources: [daemonsets]
+  verbs: [list,watch]
+{{- end }}
 {{- if (default dict .Values.nodeObserver.topograph.trigger).nodeSelector }}
 - apiGroups: [""]
   resources: [nodes]

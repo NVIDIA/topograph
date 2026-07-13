@@ -26,9 +26,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The node-observer now discovers the optional node-data-broker through `NODE_DATA_BROKER_NAME` and `NODE_DATA_BROKER_NAMESPACE` and gates topology generation on the broker DaemonSet's desired and ready replica counts. Helm injects the variables only when `nodeDataBroker.enabled=true`, so disabling the broker cannot leave the observer waiting for nonexistent pods.
+- The node-observer reports an actionable error and defers topology generation when an enabled node-data-broker DaemonSet has zero desired replicas.
 - Helm node-observer now targets the rendered Topograph Service fullname in `generateTopologyUrl`.
 - Lambda provider client now matches the Lambda topology API request and response contract: required `region` query parameter, `{data, page_token}` envelope, `page_token` pagination, and `networkPath` object mapping ([#374](https://github.com/NVIDIA/topograph/pull/374)).
 - Slinky engine now skips pods without a resolvable Slurm node name instead of adding an empty instance-to-node mapping ([#380](https://github.com/NVIDIA/topograph/pull/380)).
+
+### Removed
+
+- Periodic node annotation refreshes, including the `--refresh-interval` broker flag and `nodeDataBroker.refreshInterval` Helm value. The broker now applies annotations once at startup.
 
 ### Security
 

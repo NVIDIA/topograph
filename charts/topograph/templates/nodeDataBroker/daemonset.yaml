@@ -41,7 +41,6 @@ spec:
             - --provider={{ .Values.provider.name }}
             - -v={{ .Values.verbosity }}
             - --port={{ .Values.nodeDataBroker.port }}
-            - --refresh-interval={{ .Values.nodeDataBroker.refreshInterval }}
             {{- if $useGpuCliqueLabel }}
             - --set=useGpuCliqueLabel=true
             {{- end }}

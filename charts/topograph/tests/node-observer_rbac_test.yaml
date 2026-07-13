@@ -3,7 +3,7 @@ release:
   name: chart-ci
   namespace: topograph
 tests:
-  - it: grants pod watch only when trigger.nodeSelector is unset
+  - it: grants pod and broker DaemonSet watch when enabled
     templates:
       - templates/nodeObserver/rbac.yaml
     documentIndex: 0
@@ -15,6 +15,9 @@ tests:
           value:
             - apiGroups: [""]
               resources: [pods]
+              verbs: [list, watch]
+            - apiGroups: [apps]
+              resources: [daemonsets]
               verbs: [list, watch]
 
   - it: grants node watch when trigger.nodeSelector is set
@@ -36,8 +39,26 @@ tests:
             - apiGroups: [""]
               resources: [pods]
               verbs: [list, watch]
+            - apiGroups: [apps]
+              resources: [daemonsets]
+              verbs: [list, watch]
             - apiGroups: [""]
               resources: [nodes]
+              verbs: [list, watch]
+
+  - it: omits DaemonSet watch when the broker is disabled
+    templates:
+      - templates/nodeObserver/rbac.yaml
+    set:
+      nodeDataBroker:
+        enabled: false
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [pods]
               verbs: [list, watch]
 
   - it: binds the role to its own service account

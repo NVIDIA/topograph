@@ -123,17 +123,6 @@ tests:
           path: spec.template.spec.containers[0].lifecycle.postStart.exec.command[2]
           value: "true"
 
-  - it: passes the refresh interval to the container
-    templates:
-      - templates/nodeDataBroker/daemonset.yaml
-    set:
-      nodeDataBroker:
-        refreshInterval: 10m
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --refresh-interval=10m
-
   - it: gates liveness behind a startup probe
     templates:
       - templates/nodeDataBroker/daemonset.yaml

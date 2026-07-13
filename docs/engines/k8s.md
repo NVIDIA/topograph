@@ -119,7 +119,7 @@ Topology labels are most valuable when nodes in a topology domain are available 
 
 ## Configuration
 Topograph is deployed as a standard Kubernetes application using a [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
-The main chart directly renders the API server, node-observer, and node-data-broker; the component-specific settings remain under `nodeObserver.*` and `nodeDataBroker.*`.
+The main chart directly renders the API server, node-observer, and node-data-broker; the component-specific settings remain under `nodeObserver.*` and `nodeDataBroker.*`. When the broker is enabled, the chart passes its name and namespace to the node-observer through `NODE_DATA_BROKER_NAME` and `NODE_DATA_BROKER_NAMESPACE`. The observer waits until the broker DaemonSet's ready replica count matches its desired count before requesting topology generation. When `nodeDataBroker.enabled=false`, those variables are omitted and there is no broker readiness gate.
 Topograph is configured using a configuration file stored in a ConfigMap and mounted to the Topograph container at `/etc/topograph/topograph-config.yaml`.
 In addition, when sending a topology request, the request payload includes additional parameters.
 The provider and engine are defined as top-level Helm values, as shown below:
@@ -300,7 +300,7 @@ Apply alongside the chart. A bundled template is under consideration.
 
 ### Node Observer RBAC
 
-The node-observer `ClusterRole` grants `pods [list, watch]` unconditionally, and `nodes [list, watch]` only when `nodeObserver.topograph.trigger.nodeSelector` is set (the node informer that needs it is otherwise never started). Set `nodeObserver.rbac.create: false` to suppress the `ClusterRole`/`ClusterRoleBinding` when managing RBAC externally.
+The node-observer `ClusterRole` grants `pods [list, watch]` unconditionally, `apps/daemonsets [list, watch]` when `nodeDataBroker.enabled=true`, and `nodes [list, watch]` only when `nodeObserver.topograph.trigger.nodeSelector` is set. Set `nodeObserver.rbac.create: false` to suppress the `ClusterRole`/`ClusterRoleBinding` when managing RBAC externally.
 
 ## Validation and Testing
 

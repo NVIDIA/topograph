@@ -132,12 +132,7 @@ nodeDataBroker:
     - device-plugin-daemonset=my-daemonset
 ```
 
-By default the node-data-broker re-applies node annotations every 5 minutes after the initial startup apply. Adjust or disable periodic refresh with `nodeDataBroker.refreshInterval` (set to `0` to apply only at pod start):
-
-```yaml
-nodeDataBroker:
-  refreshInterval: 10m
-```
+The node-data-broker applies node annotations once when its pod starts. Restart the broker pod to re-apply them after relevant node or provider metadata changes.
 
 If `ibnetdiscover` needs extra config files, the chart can render ConfigMaps and mount them into the node-data-broker pods:
 

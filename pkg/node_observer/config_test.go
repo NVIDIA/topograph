@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package node_observer
@@ -192,54 +181,6 @@ apiServer:
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/component": "api-server",
 							"app.kubernetes.io/instance":  "topograph",
-						},
-					},
-				},
-				RetryDelay: metav1.Duration{Duration: defaultRetryDelay},
-			},
-		},
-		{
-			name: "Case 8: valid with node-data-broker gate and default container name",
-			data: `
-generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
-provider:
-  name: test
-engine:
-  name: test
-apiServer:
-  namespace: topograph
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/component: api-server
-      app.kubernetes.io/instance: topograph
-nodeDataBroker:
-  namespace: topograph
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: node-data-broker
-      app.kubernetes.io/instance: topograph
-`,
-			cfg: &Config{
-				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
-				Provider:            topology.Provider{Name: "test"},
-				Engine:              topology.Engine{Name: "test"},
-				APIServer: APIServer{
-					Namespace:     "topograph",
-					ContainerName: defaultAPIServerContainerName,
-					PodSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"app.kubernetes.io/component": "api-server",
-							"app.kubernetes.io/instance":  "topograph",
-						},
-					},
-				},
-				NodeDataBroker: NodeDataBroker{
-					Namespace:     "topograph",
-					ContainerName: defaultNodeDataBrokerContainerName,
-					PodSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"app.kubernetes.io/name":     "node-data-broker",
-							"app.kubernetes.io/instance": "topograph",
 						},
 					},
 				},

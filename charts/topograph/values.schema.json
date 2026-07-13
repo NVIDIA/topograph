@@ -224,7 +224,6 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "refreshInterval": { "type": ["string", "integer"] },
         "extraArgs": { "type": "array", "items": { "type": "string" } },
         "startupProbe": { "type": "object" },
         "serviceAccount": { "type": "object" },
