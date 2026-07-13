@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024-2026, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package main
@@ -47,10 +36,9 @@ import (
 )
 
 const (
-	defaultPort            = 8080
-	defaultRefreshInterval = 5 * time.Minute
-	readHeaderTimeout      = 5 * time.Second
-	shutdownTimeout        = 5 * time.Second
+	defaultPort       = 8080
+	readHeaderTimeout = 5 * time.Second
+	shutdownTimeout   = 5 * time.Second
 )
 
 type nodeBroker struct {
@@ -66,12 +54,10 @@ func main() {
 	var ver bool
 	var sets []string
 	var port int
-	var refreshInterval time.Duration
 	pflag.StringVar(&provider, "provider", "", "API provider")
 	pflag.BoolVar(&ver, "version", false, "show the version")
 	pflag.StringArrayVar(&sets, "set", []string{}, "extra key=value parameters")
 	pflag.IntVar(&port, "port", defaultPort, "port for the health HTTP server")
-	pflag.DurationVar(&refreshInterval, "refresh-interval", defaultRefreshInterval, "interval between node annotation refreshes after startup (0 disables periodic refresh)")
 
 	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -83,13 +69,13 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := mainInternal(provider, sets, port, refreshInterval); err != nil {
+	if err := mainInternal(provider, sets, port); err != nil {
 		klog.Error(err.Error())
 		os.Exit(1)
 	}
 }
 
-func mainInternal(provider string, sets []string, port int, refreshInterval time.Duration) error {
+func mainInternal(provider string, sets []string, port int) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -110,12 +96,8 @@ func mainInternal(provider string, sets []string, port int, refreshInterval time
 		return err
 	}
 
-	if refreshInterval > 0 {
-		go refreshNodeAnnotations(ctx, broker, refreshInterval)
-	}
-
 	// Keep the DaemonSet pod Running by serving a health endpoint until the pod
-	// is terminated. Periodic annotation refresh runs in the background.
+	// is terminated.
 	return serveHealth(ctx, port)
 }
 
@@ -131,32 +113,6 @@ func newInClusterClientset() (kubernetes.Interface, *rest.Config, error) {
 	}
 
 	return clientset, config, nil
-}
-
-type annotationApplier func(ctx context.Context) error
-
-// refreshNodeAnnotations re-applies node annotations on a fixed interval until
-// the context is cancelled. Failures are logged but do not terminate the pod.
-func refreshNodeAnnotations(ctx context.Context, broker *nodeBroker, interval time.Duration) {
-	runRefreshLoop(ctx, interval, func(ctx context.Context) error {
-		return broker.apply(ctx)
-	})
-}
-
-func runRefreshLoop(ctx context.Context, interval time.Duration, apply annotationApplier) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := apply(ctx); err != nil {
-				klog.ErrorS(err, "periodic node annotation refresh failed")
-			}
-		}
-	}
 }
 
 func (b *nodeBroker) apply(ctx context.Context) error {

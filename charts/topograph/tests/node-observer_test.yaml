@@ -66,27 +66,42 @@ tests:
           path: data["node-observer-config.yaml"]
           pattern: "app.kubernetes.io/component: api-server"
         template: templates/nodeObserver/configmap.yml
-      - matchRegex:
-          path: data["node-observer-config.yaml"]
-          pattern: "nodeDataBroker:"
-        template: templates/nodeObserver/configmap.yml
-      - matchRegex:
-          path: data["node-observer-config.yaml"]
-          pattern: "app.kubernetes.io/name: node-data-broker"
-        template: templates/nodeObserver/configmap.yml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_DATA_BROKER_NAME
+            value: chart-ci-topograph-node-data-broker
+        template: templates/nodeObserver/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_DATA_BROKER_NAMESPACE
+            value: topograph
+        template: templates/nodeObserver/deployment.yaml
 
-  - it: omits the node-data-broker gate when disabled
+  - it: omits the node-data-broker coordinates when disabled
     templates:
-      - templates/nodeObserver/configmap.yml
+      - templates/nodeObserver/deployment.yaml
     set:
+      nodeDataBroker:
+        enabled: false
       nodeObserver:
-        topograph:
-          nodeDataBroker:
-            enabled: false
+        env:
+          FOO: BAR
     asserts:
-      - notMatchRegex:
-          path: data["node-observer-config.yaml"]
-          pattern: "nodeDataBroker:"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: FOO
+            value: BAR
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_DATA_BROKER_NAME
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NODE_DATA_BROKER_NAMESPACE
 
   - it: uses an existing service account when creation is disabled
     templates:

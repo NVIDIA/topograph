@@ -44,9 +44,15 @@ spec:
             - /usr/local/bin/node-observer
           args:
             - -v={{ .Values.verbosity }}
-          {{- with .Values.nodeObserver.env }}
+          {{- if or .Values.nodeDataBroker.enabled .Values.nodeObserver.env }}
           env:
-            {{- range $key, $value := . }}
+            {{- if .Values.nodeDataBroker.enabled }}
+            - name: NODE_DATA_BROKER_NAME
+              value: {{ include "nodeDataBroker.fullname" . }}
+            - name: NODE_DATA_BROKER_NAMESPACE
+              value: {{ .Release.Namespace }}
+            {{- end }}
+            {{- range $key, $value := .Values.nodeObserver.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}

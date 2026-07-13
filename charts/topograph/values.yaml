@@ -240,6 +240,8 @@ nodeObserver:
   rbac:
     create: true
 
+  # NODE_DATA_BROKER_NAME and NODE_DATA_BROKER_NAMESPACE are injected when
+  # nodeDataBroker.enabled=true.
   env: {}
   initContainers: []
   lifecycle: {}
@@ -252,13 +254,6 @@ nodeObserver:
       # Leave empty to use the release-scoped API pod labels.
       podSelector: {}
       containerName: topograph
-    # Wait for node-data-broker pods to become Ready before the first topology
-    # request. Disable this when nodeDataBroker.enabled is false.
-    nodeDataBroker:
-      enabled: true
-      # Leave empty to use the release-scoped broker pod labels.
-      podSelector: {}
-      containerName: node-data-broker
     trigger:
       # nodeSelector: {}
       # podSelector: {}
@@ -300,11 +295,7 @@ nodeDataBroker:
 
   # Port serving the /healthz endpoint after node annotations are applied.
   port: 8080
-  # Re-apply annotations at this interval. Set to 0 to disable refresh.
-  refreshInterval: 5m
 
-  # When disabling the broker, also set
-  # nodeObserver.topograph.nodeDataBroker.enabled=false.
   extraArgs: []
   # - key=val
 

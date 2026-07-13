@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package node_observer
@@ -21,12 +10,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httpreq"
 	"github.com/NVIDIA/topograph/pkg/topology"
+)
+
+const (
+	nodeDataBrokerNameEnv      = "NODE_DATA_BROKER_NAME"
+	nodeDataBrokerNamespaceEnv = "NODE_DATA_BROKER_NAMESPACE"
 )
 
 type Controller struct {
@@ -50,7 +45,16 @@ func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config
 	}
 
 	f := httpreq.GetRequestFunc(ctx, http.MethodPost, headers, nil, data, cfg.GenerateTopologyURL)
-	statusInformer, err := NewStatusInformer(ctx, client, &cfg.Trigger, &cfg.APIServer, &cfg.NodeDataBroker, cfg.RetryDelay.Duration, f)
+	statusInformer, err := NewStatusInformer(
+		ctx,
+		client,
+		&cfg.Trigger,
+		&cfg.APIServer,
+		os.Getenv(nodeDataBrokerNameEnv),
+		os.Getenv(nodeDataBrokerNamespaceEnv),
+		cfg.RetryDelay.Duration,
+		f,
+	)
 	if err != nil {
 		return nil, err
 	}
