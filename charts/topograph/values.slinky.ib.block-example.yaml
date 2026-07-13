@@ -70,9 +70,27 @@ node-observer:
           app.kubernetes.io/name: slurmd
 
 node-data-broker:
+  # The InfiniBand broker reads node-local fabric state and runs ibnetdiscover,
+  # so it must opt out of the chart's hardened defaults and run privileged as
+  # root. This is a COMPLETE override: setting only privileged: true would
+  # map-merge with the default allowPrivilegeEscalation: false, which the API
+  # server rejects as an invalid pod.
+  podSecurityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
   securityContext:
     # Required so ibnetdiscover in the broker pod can access host IB devices.
     privileged: true
+    runAsNonRoot: false
+    runAsUser: 0
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: true
+    capabilities:
+      drop: []
   # Runs one broker pod on each worker that should participate in IB discovery.
   # Keep this broad enough to cover every selected Slurm node.
   nodeSelector:

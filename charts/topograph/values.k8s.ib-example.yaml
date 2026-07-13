@@ -12,9 +12,24 @@ node-observer:
       nodeSelector:
         nvidia.com/gpu.present: "true"
 
+# The InfiniBand broker reads node-local fabric state under /sys/class, so it
+# must opt out of the chart's hardened defaults and run privileged as root.
 node-data-broker:
+  podSecurityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
   securityContext:
     privileged: true
+    runAsNonRoot: false
+    runAsUser: 0
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: true
+    capabilities:
+      drop: []
   nodeSelector:
     nvidia.com/gpu.present: "true"
   volumeMounts:

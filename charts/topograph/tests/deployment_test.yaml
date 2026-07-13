@@ -26,6 +26,49 @@ tests:
           value: api-server
         template: templates/deployment.yaml
 
+  - it: hardens the pod and container security context by default
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.securityContext.seccompProfile.type
+          value: RuntimeDefault
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+        template: templates/deployment.yaml
+
+  - it: a per-key securityContext override wins over the hardened default
+    set:
+      securityContext:
+        readOnlyRootFilesystem: false
+    asserts:
+      # the overridden key flips ...
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: false
+        template: templates/deployment.yaml
+      # ... while the other hardened keys are preserved
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+        template: templates/deployment.yaml
+
   - it: image tag falls back to the chart appVersion when empty
     chart:
       appVersion: v1.2.3
