@@ -234,6 +234,14 @@ serviceMonitor:
 # per-provider table (netq, CSP/IMDS caveat, dra/infiniband need none).
 networkPolicy:
   enabled: false
+  # Pod label selector for the cluster's DNS server, used to scope the DNS
+  # egress allow rule (only rendered when extraEgress is set). Leave empty to use
+  # the standard kube-dns/CoreDNS label `{ k8s-app: kube-dns }`. Set this to
+  # replace that default for clusters whose CoreDNS carries a different label,
+  # e.g. `{ app.kubernetes.io/name: coredns }`. (Kept empty by default so a Helm
+  # value override replaces it cleanly rather than deep-merging both labels,
+  # which would AND them and match no DNS pod.)
+  dnsPodSelector: {}
   extraIngress: []
   extraEgress: []
   #  # Kubernetes API server (all providers under default-deny; adjust to your

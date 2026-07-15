@@ -304,6 +304,15 @@ networkPolicy:
 
 `extraIngress` similarly appends custom ingress rules. **Give every `extraIngress`/`extraEgress` entry explicit `to`/`from`/`ports`** — an empty rule object (`{}`) matches *all* traffic in that direction, which defeats the default-deny. Note that a NetworkPolicy has no effect unless your CNI enforces it (Calico, Cilium, etc.).
 
+The DNS allow rule is scoped to the standard `k8s-app: kube-dns` pod label. If your cluster's CoreDNS carries a different label, override `networkPolicy.dnsPodSelector` so DNS resolution isn't blocked:
+
+```yaml
+networkPolicy:
+  enabled: true
+  dnsPodSelector:
+    app.kubernetes.io/name: coredns
+```
+
 **Per-provider egress.** Kubernetes NetworkPolicy egress cannot target hostnames — only `ipBlock`, selectors, and ports — so a provider's endpoint must be supplied as an `ipBlock` (resolve the hostname to its IP/CIDR). Typical `extraEgress` targets by provider:
 
 | Provider(s) | `extraEgress` target |
