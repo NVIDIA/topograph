@@ -42,17 +42,17 @@ spec:
   {{- if .Values.networkPolicy.extraEgress }}
   egress:
     # DNS resolution to CoreDNS, required before any component can reach a named
-    # endpoint. Scoped to the kube-dns pods in kube-system (the standard
-    # `k8s-app: kube-dns` label). Clusters whose CoreDNS carries a different
-    # label (e.g. `app.kubernetes.io/name: coredns`) can widen this via
-    # `networkPolicy.extraEgress`.
+    # endpoint. Scoped to the kube-dns pods in kube-system. The pod label
+    # defaults to the standard `k8s-app: kube-dns`; clusters whose CoreDNS
+    # carries a different label (e.g. `app.kubernetes.io/name: coredns`) can
+    # override it via `networkPolicy.dnsPodSelector`.
     - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
           podSelector:
             matchLabels:
-              k8s-app: kube-dns
+              {{- toYaml (.Values.networkPolicy.dnsPodSelector | default (dict "k8s-app" "kube-dns")) | nindent 14 }}
       ports:
         - protocol: UDP
           port: 53

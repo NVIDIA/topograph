@@ -78,3 +78,20 @@ tests:
       - equal:
           path: spec.egress[2].to[0].ipBlock.cidr
           value: 10.1.2.0/24
+
+  - it: scopes the DNS egress rule to a custom dnsPodSelector
+    set:
+      networkPolicy:
+        enabled: true
+        dnsPodSelector:
+          app.kubernetes.io/name: coredns
+        extraEgress:
+          - to:
+              - ipBlock:
+                  cidr: 10.1.2.0/24
+    asserts:
+      - equal:
+          path: spec.egress[0].to[0].podSelector.matchLabels["app.kubernetes.io/name"]
+          value: coredns
+      - notExists:
+          path: spec.egress[0].to[0].podSelector.matchLabels["k8s-app"]
