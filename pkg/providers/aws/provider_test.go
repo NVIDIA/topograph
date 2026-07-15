@@ -18,20 +18,25 @@ package aws
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetCredentials(t *testing.T) {
-	ctx := context.Background()
+func TestGetCredentialsProvider(t *testing.T) {
 	testCases := []struct {
-		name  string
-		creds map[string]any
-		env   map[string]string
-		ret   *Credentials
-		err   string
+		name            string
+		creds           map[string]any
+		ret             *Credentials
+		useDefaultChain bool
+		err             string
 	}{
 		{
 			name:  "Case 1: missing accessKeyId",
@@ -54,41 +59,152 @@ func TestGetCredentials(t *testing.T) {
 			err:   "* 'token' expected type 'string'",
 		},
 		{
-			name:  "Case 5: valid provided creds",
-			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": "secret"},
-			ret: &Credentials{
-				AccessKeyId:     "id",
-				SecretAccessKey: "secret",
-			},
-		},
-		{
-			name: "Case 4: valid env creds",
-			env: map[string]string{
-				"AWS_ACCESS_KEY_ID":     "id",
-				"AWS_SECRET_ACCESS_KEY": "secret",
-				"AWS_SESSION_TOKEN":     "token",
-			},
+			name:  "Case 5: valid provided credentials",
+			creds: map[string]any{"accessKeyId": "id", "secretAccessKey": "secret", "token": "token"},
 			ret: &Credentials{
 				AccessKeyId:     "id",
 				SecretAccessKey: "secret",
 				Token:           "token",
 			},
 		},
+		{
+			name:            "Case 6: default credential chain",
+			useDefaultChain: true,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			for key, val := range tc.env {
-				os.Setenv(key, val)
-				defer func() { _ = os.Unsetenv(key) }()
-			}
-			creds, err := getCredentials(ctx, tc.creds)
+			provider, err := getCredentialsProvider(tc.creds)
 			if len(tc.err) != 0 {
 				require.ErrorContains(t, err, tc.err)
-			} else {
-				require.Nil(t, err)
-				require.Equal(t, tc.ret, creds)
+				return
 			}
+
+			require.Nil(t, err)
+			if tc.useDefaultChain {
+				require.Nil(t, provider)
+				return
+			}
+
+			creds, retrieveErr := provider.Retrieve(context.Background())
+			require.NoError(t, retrieveErr)
+			require.Equal(t, tc.ret.AccessKeyId, creds.AccessKeyID)
+			require.Equal(t, tc.ret.SecretAccessKey, creds.SecretAccessKey)
+			require.Equal(t, tc.ret.Token, creds.SessionToken)
 		})
 	}
+}
+
+func TestLoadAWSConfigExplicitCredentialsTakePrecedence(t *testing.T) {
+	for key, value := range map[string]string{
+		"AWS_ACCESS_KEY_ID":     "environment-id",
+		"AWS_SECRET_ACCESS_KEY": "environment-secret",
+		"AWS_SESSION_TOKEN":     "environment-token",
+	} {
+		t.Setenv(key, value)
+	}
+
+	provider, httpErr := getCredentialsProvider(map[string]any{
+		"accessKeyId":     "explicit-id",
+		"secretAccessKey": "explicit-secret",
+		"token":           "explicit-token",
+	})
+	require.Nil(t, httpErr)
+
+	awsCfg, err := loadAWSConfig(context.Background(), "us-east-2", provider)
+	require.NoError(t, err)
+	creds, err := awsCfg.Credentials.Retrieve(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "explicit-id", creds.AccessKeyID)
+	require.Equal(t, "explicit-secret", creds.SecretAccessKey)
+	require.Equal(t, "explicit-token", creds.SessionToken)
+}
+
+func TestLoadAWSConfigUsesEnvironmentCredentials(t *testing.T) {
+	for key, value := range map[string]string{
+		"AWS_ACCESS_KEY_ID":     "environment-id",
+		"AWS_SECRET_ACCESS_KEY": "environment-secret",
+		"AWS_SESSION_TOKEN":     "environment-token",
+		"AWS_PROFILE":           "",
+	} {
+		t.Setenv(key, value)
+	}
+
+	awsCfg, err := loadAWSConfig(context.Background(), "us-east-2", nil)
+	require.NoError(t, err)
+	creds, err := awsCfg.Credentials.Retrieve(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "environment-id", creds.AccessKeyID)
+	require.Equal(t, "environment-secret", creds.SecretAccessKey)
+	require.Equal(t, "environment-token", creds.SessionToken)
+}
+
+func TestLoadAWSConfigUsesContainerCredentials(t *testing.T) {
+	const (
+		expiredAccessKeyID   = "expired-pod-identity-access-key"
+		refreshedAccessKeyID = "refreshed-pod-identity-access-key"
+		secretAccessKey      = "pod-identity-secret-key"
+		sessionToken         = "pod-identity-session-token"
+		authToken            = "pod-identity-authorization-token"
+	)
+
+	var requestCount atomic.Int32
+	authorization := make(chan string, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authorization <- r.Header.Get("Authorization")
+
+		accessKeyID := refreshedAccessKeyID
+		expiration := time.Now().Add(time.Hour)
+		if requestCount.Add(1) == 1 {
+			accessKeyID = expiredAccessKeyID
+			expiration = time.Now().Add(-time.Minute)
+		}
+
+		_, _ = fmt.Fprintf(w, `{
+			"AccessKeyId": %q,
+			"SecretAccessKey": %q,
+			"Token": %q,
+			"Expiration": %q
+		}`, accessKeyID, secretAccessKey, sessionToken, expiration.UTC().Format(time.RFC3339))
+	}))
+	t.Cleanup(server.Close)
+
+	tokenPath := filepath.Join(t.TempDir(), "eks-pod-identity-token")
+	require.NoError(t, os.WriteFile(tokenPath, []byte(authToken), 0o600))
+
+	for key, value := range map[string]string{
+		"AWS_ACCESS_KEY_ID":                      "",
+		"AWS_SECRET_ACCESS_KEY":                  "",
+		"AWS_SESSION_TOKEN":                      "",
+		"AWS_WEB_IDENTITY_TOKEN_FILE":            "",
+		"AWS_ROLE_ARN":                           "",
+		"AWS_PROFILE":                            "",
+		"AWS_CONFIG_FILE":                        filepath.Join(t.TempDir(), "config"),
+		"AWS_SHARED_CREDENTIALS_FILE":            filepath.Join(t.TempDir(), "credentials"),
+		"AWS_EC2_METADATA_DISABLED":              "true",
+		"AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": "",
+		"AWS_CONTAINER_CREDENTIALS_FULL_URI":     server.URL,
+		"AWS_CONTAINER_AUTHORIZATION_TOKEN":      "",
+		"AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE": tokenPath,
+	} {
+		t.Setenv(key, value)
+	}
+
+	awsCfg, err := loadAWSConfig(context.Background(), "us-east-2", nil)
+	require.NoError(t, err)
+	creds, err := awsCfg.Credentials.Retrieve(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, expiredAccessKeyID, creds.AccessKeyID)
+	require.Equal(t, secretAccessKey, creds.SecretAccessKey)
+	require.Equal(t, sessionToken, creds.SessionToken)
+	require.Equal(t, authToken, <-authorization)
+
+	creds, err = awsCfg.Credentials.Retrieve(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, refreshedAccessKeyID, creds.AccessKeyID)
+	require.Equal(t, secretAccessKey, creds.SecretAccessKey)
+	require.Equal(t, sessionToken, creds.SessionToken)
+	require.Equal(t, authToken, <-authorization)
+	require.Equal(t, int32(2), requestCount.Load())
 }

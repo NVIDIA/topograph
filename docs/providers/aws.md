@@ -6,11 +6,20 @@ These IDs describe a path through the three-tier network, from the leaf up to th
 physical switches that share similar characteristics and connectivity patterns. Additionally, a record might include a
 `CapacityBlockId`, which corresponds to the node’s NVLink domain.
 
-Access to this API requires an IAM account with the `AmazonEC2ReadOnlyAccess` policy attached.
+Access to this API requires the following IAM permission:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": "ec2:DescribeInstanceTopology",
+  "Resource": "*"
+}
+```
+
 There are two main authentication methods:
 
 * Providing IAM credentials directly
-* Assigning an IAM role to the instance running Topograph
+* Using the AWS SDK default credential chain
 
 ## Option 1: Using Explicit Credentials
 
@@ -19,7 +28,9 @@ AWS credentials consist of:
 * `secretAccessKey`
 * (Optional) `token`
 
-You can provide credentials in several ways:
+Credentials in an API request take precedence over credentials loaded from `credentialsPath`. Both take precedence over the AWS SDK default credential chain.
+
+You can provide explicit credentials in two ways:
 
 ### Credentials via File
 
@@ -60,17 +71,15 @@ Pass credentials directly in the topology request payload:
 }
 ```
 
-### Credentials via Environment Variables
+## Option 2: Using the AWS SDK Default Credential Chain
 
-Set IAM credentials as environment variables before starting the Topograph process:
+When explicit credentials are not provided, Topograph uses the [AWS SDK default credential chain](https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configure-gosdk.html). This supports environment variables, shared AWS configuration, EKS Pod Identity, IAM Roles for Service Accounts (IRSA), and the IAM role assigned to the instance running Topograph.
 
-```sh
-export AWS_ACCESS_KEY_ID=<ACCESS_KEY_ID>
-export AWS_SECRET_ACCESS_KEY=<SECRET_ACCESS_KEY>
-export AWS_SESSION_TOKEN=<OPTIONAL_TOKEN>
-```
+### EKS Pod Identity
 
-## Option 2: Assigning IAM Role to an Instance
+Install the [EKS Pod Identity Agent](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html), then [associate an IAM role](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-association.html) with the ServiceAccount used by the Topograph API server. EKS injects the container credentials endpoint and authorization token into the pod; the AWS SDK discovers and refreshes those temporary credentials automatically.
+
+### Assigning IAM Role to an Instance
 
 Alternatively, you can assign an IAM role to the compute node running Topograph. In this case, explicit credentials are not required, as AWS automatically provides the necessary permissions.
 For more information, refer to the [documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/attach-iam-role.html).
