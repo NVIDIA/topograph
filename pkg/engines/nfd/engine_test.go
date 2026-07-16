@@ -18,6 +18,7 @@ package nfd
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -33,10 +34,64 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const testNFDNamespace = "node-feature-discovery"
+
 func TestNamedLoader(t *testing.T) {
 	name, loader := NamedLoader()
 	require.Equal(t, NAME, name)
 	require.NotNil(t, loader)
+}
+
+func TestGetNFDNamespace(t *testing.T) {
+	testCases := []struct {
+		name                string
+		configuredNamespace string
+		expectedNamespace   string
+		expectError         bool
+	}{
+		{
+			name:        "rejects missing environment configuration",
+			expectError: true,
+		},
+		{
+			name:                "uses trimmed environment configuration",
+			configuredNamespace: "  deployed-nfd  ",
+			expectedNamespace:   "deployed-nfd",
+		},
+		{
+			name:                "rejects blank environment configuration",
+			configuredNamespace: "  ",
+			expectError:         true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(envNFDNamespace, tc.configuredNamespace)
+			namespace, err := getNFDNamespace()
+			if tc.expectError {
+				require.EqualError(t, err, "NFD_NAMESPACE environment variable is required")
+				require.Empty(t, namespace)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedNamespace, namespace)
+		})
+	}
+}
+
+func TestLoaderRequiresNFDNamespace(t *testing.T) {
+	t.Setenv(envNFDNamespace, "")
+	eng, httpErr := Loader(context.Background(), nil)
+	require.Nil(t, eng)
+	require.Equal(t, http.StatusBadGateway, httpErr.Code())
+	require.ErrorContains(t, httpErr, "NFD_NAMESPACE environment variable is required")
+}
+
+func TestGetParametersDefaults(t *testing.T) {
+	params, err := getParameters(nil)
+	require.NoError(t, err)
+	require.True(t, params.Cleanup)
 }
 
 func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
@@ -68,15 +123,17 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 		client:        client,
 		dynamicClient: dynamicClient,
 		params:        &Params{Cleanup: true},
+		namespace:     testNFDNamespace,
 	}
 
 	out, httpErr := eng.GenerateOutput(context.Background(), testGraph(), nil)
 	require.Nil(t, httpErr)
 	require.Equal(t, "OK nodeFeatures=3 nodeFeatureGroups=6\n", string(out))
 
-	features, err := dynamicClient.Resource(nodeFeatureGVR).List(context.Background(), metav1.ListOptions{})
+	features, err := dynamicClient.Resource(nodeFeatureGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Len(t, features.Items, 3)
+	require.Equal(t, testNFDNamespace, features.Items[0].GetNamespace())
 
 	nodeA := findNodeFeature(t, features.Items, "node-a")
 	require.Equal(t, map[string]string{nfdNodeName: "node-a"}, attributeElements(t, nodeA, nfdSystemName))
@@ -94,9 +151,10 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 		topologyTypeSpine:       "spine-1",
 	}, attributeElements(t, nodeB, nfdFeatureSet))
 
-	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).List(context.Background(), metav1.ListOptions{})
+	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Len(t, groups.Items, 6)
+	require.Equal(t, testNFDNamespace, groups.Items[0].GetNamespace())
 
 	leafGroup := findGroup(t, groups.Items, topologyTypeLeaf, "leaf-1")
 	require.Equal(t, []interface{}{"leaf-1"}, groupRuleValues(t, leafGroup, topologyTypeLeaf))
@@ -117,6 +175,8 @@ func TestGenerateOutputCleansStaleObjects(t *testing.T) {
 	require.NoError(t, err)
 	staleGroup, err := makeNodeFeatureGroup(topologyTypeLeaf, "stale-leaf", k8sengine.DefaultLabelLeaf)
 	require.NoError(t, err)
+	staleFeature.SetNamespace(testNFDNamespace)
+	staleGroup.SetNamespace(testNFDNamespace)
 	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
 		runtime.NewScheme(),
 		map[schema.GroupVersionResource]string{
@@ -130,18 +190,53 @@ func TestGenerateOutputCleansStaleObjects(t *testing.T) {
 		client:        k8sfake.NewSimpleClientset(),
 		dynamicClient: dynamicClient,
 		params:        &Params{Cleanup: true},
+		namespace:     testNFDNamespace,
 	}
 
 	out, httpErr := eng.GenerateOutput(context.Background(), nil, nil)
 	require.Nil(t, httpErr)
 	require.Equal(t, "OK nodeFeatures=0 nodeFeatureGroups=0\n", string(out))
 
-	features, err := dynamicClient.Resource(nodeFeatureGVR).List(context.Background(), metav1.ListOptions{})
+	features, err := dynamicClient.Resource(nodeFeatureGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Empty(t, features.Items)
-	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).List(context.Background(), metav1.ListOptions{})
+	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Empty(t, groups.Items)
+}
+
+func TestUpsertObjectRemovesStaleTopologyAttributes(t *testing.T) {
+	existing, err := makeNodeFeature("node-a", map[string]string{
+		topologyTypeLeaf: "leaf-1",
+		topologyTypeCore: "stale-core",
+	})
+	require.NoError(t, err)
+	existing.SetNamespace(testNFDNamespace)
+	existing.SetLabels(map[string]string{
+		labelManagedBy:       managedByTopograph,
+		"example.com/retain": "true",
+	})
+
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), existing)
+	eng := &NfdEngine{
+		dynamicClient: dynamicClient,
+		params:        &Params{},
+		namespace:     testNFDNamespace,
+	}
+	desired, err := makeNodeFeature("node-a", map[string]string{
+		topologyTypeLeaf: "leaf-1",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, eng.upsertObject(context.Background(), nodeFeatureGVR, desired))
+
+	updated, err := dynamicClient.Resource(nodeFeatureGVR).Namespace(testNFDNamespace).
+		Get(context.Background(), existing.GetName(), metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		topologyTypeLeaf: "leaf-1",
+	}, attributeElements(t, *updated, nfdFeatureSet))
+	require.Equal(t, "true", updated.GetLabels()["example.com/retain"])
 }
 
 func TestBuildNFDObjectsRejectsInvalidNFDNodeNameLabelValue(t *testing.T) {

@@ -14,7 +14,9 @@ Prerequisites, install flow, and verification are common to both — the engines
 - **Helm**: 3.10+ or 4.x
 - **`kubectl`** with permission to install a chart and create a `Namespace`
 - **A supported provider** for your environment — see the [provider documentation](../providers/) for per-provider setup (credentials, required cluster state, etc.)
-- **For the `nfd` engine only**: Node Feature Discovery installed with `NodeFeatureGroup` support enabled
+- **For the `nfd` engine only**: Node Feature Discovery installed with the
+  Alpha `NodeFeatureGroupAPI` feature gate enabled. It is disabled by default;
+  see the [NFD engine installation instructions](../engines/nfd.md#install-nfd).
 - **For the `slinky` engine only**: a Slinky cluster already deployed in the target Kubernetes cluster — Topograph does not deploy Slinky itself
 
 ## Install
@@ -73,7 +75,8 @@ kubectl logs -n topograph -l app.kubernetes.io/name=topograph
 Engine-specific install flag:
 
 ```bash
-  --set engine.name=nfd
+  --set engine.name=nfd \
+  --set nfdNamespace=node-feature-discovery
 ```
 
 The `nfd` engine creates `NodeFeature` and `NodeFeatureGroup` objects in the
@@ -83,7 +86,7 @@ The `nfd` engine creates `NodeFeature` and `NodeFeatureGroup` objects in the
 To inspect generated groups:
 
 ```bash
-kubectl get nodefeaturegroups.nfd.k8s-sigs.io
+kubectl get nodefeaturegroups.nfd.k8s-sigs.io -n node-feature-discovery
 ```
 
 Use this engine only for consumers that understand NFD groups. For native

@@ -110,12 +110,15 @@ raw topology value is too long or contains invalid name characters.
 Initial parameters:
 
 - `nodeSelector`: optional, same meaning as the `k8s` engine.
-- `namespace`: optional if the installed NFD CRDs are namespaced. The
-  implementation should use discovery or the REST mapper rather than assuming
-  CRD scope.
 - `cleanup`: optional boolean, default `true`, deleting stale Topograph-managed
   `NodeFeature` and `NodeFeatureGroup` objects no longer present in the latest
   graph.
+
+The NFD master namespace is deployment-scoped rather than request-scoped. Helm
+configures it through the top-level `nfdNamespace` value and passes it to the
+engine as `NFD_NAMESPACE`; non-Helm deployments set that environment variable
+directly. The Helm value defaults to `node-feature-discovery`; the engine
+returns an error if `NFD_NAMESPACE` is unset or blank.
 
 ## Implementation Notes
 

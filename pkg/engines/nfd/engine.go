@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,21 +38,22 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const NAME = "nfd"
+const (
+	NAME            = "nfd"
+	envNFDNamespace = "NFD_NAMESPACE"
+)
 
 type NfdEngine struct {
 	client        kubernetes.Interface
 	dynamicClient dynamic.Interface
 	params        *Params
+	namespace     string
 	cachedNodes   *corev1.NodeList
 }
 
 type Params struct {
 	// NodeSelector (optional) specifies nodes participating in the topology.
 	NodeSelector map[string]string `mapstructure:"nodeSelector"`
-	// Namespace (optional) is used only for NFD installs with namespaced CRDs.
-	// NFD NodeFeature and NodeFeatureGroup are normally cluster-scoped.
-	Namespace string `mapstructure:"namespace"`
 	// Cleanup deletes stale Topograph-managed NFD objects. Defaults to true.
 	Cleanup bool `mapstructure:"cleanup"`
 
@@ -67,6 +69,11 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 	p, err := getParameters(params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+
+	namespace, err := getNFDNamespace()
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
 	config, err := rest.InClusterConfig()
@@ -88,6 +95,7 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 		client:        client,
 		dynamicClient: dynamicClient,
 		params:        p,
+		namespace:     namespace,
 	}, nil
 }
 
@@ -97,7 +105,6 @@ func getParameters(params engines.Config) (*Params, error) {
 		return nil, err
 	}
 
-	p.Namespace = strings.TrimSpace(p.Namespace)
 	if len(p.NodeSelector) != 0 {
 		p.nodeListOpt = &metav1.ListOptions{
 			LabelSelector: labels.Set(p.NodeSelector).String(),
@@ -105,6 +112,13 @@ func getParameters(params engines.Config) (*Params, error) {
 	}
 
 	return p, nil
+}
+
+func getNFDNamespace() (string, error) {
+	if namespace := strings.TrimSpace(os.Getenv(envNFDNamespace)); namespace != "" {
+		return namespace, nil
+	}
+	return "", fmt.Errorf("%s environment variable is required", envNFDNamespace)
 }
 
 func (eng *NfdEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, _ map[string]any) ([]byte, *httperr.Error) {

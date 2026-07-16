@@ -71,7 +71,7 @@ tests:
             resources: [daemonsets]
             verbs: [get]
 
-  - it: does not grant pods/exec or configmaps with the default provider and engine
+  - it: does not grant provider- or engine-specific access by default
     documentIndex: 0
     asserts:
       - notContains:
@@ -85,7 +85,13 @@ tests:
           content:
             apiGroups: [""]
             resources: [configmaps]
-            verbs: [create, get, list, update]
+            verbs: [create, get, update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [nfd.k8s-sigs.io]
+            resources: [nodefeatures, nodefeaturegroups]
+            verbs: [create, list, patch, delete]
       - notContains:
           path: rules
           content:
@@ -135,14 +141,60 @@ tests:
     set:
       engine:
         name: nfd
-    documentIndex: 0
     asserts:
+      - hasDocuments:
+          count: 4
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [nfd.k8s-sigs.io]
+            resources: [nodefeatures, nodefeaturegroups]
+            verbs: [create, list, patch, delete]
+        documentIndex: 0
+      - isKind:
+          of: Role
+        documentIndex: 2
+      - equal:
+          path: metadata.namespace
+          value: node-feature-discovery
+        documentIndex: 2
       - contains:
           path: rules
           content:
             apiGroups: [nfd.k8s-sigs.io]
             resources: [nodefeatures, nodefeaturegroups]
-            verbs: [create, get, list, patch, update, delete]
+            verbs: [create, list, patch, delete]
+        documentIndex: 2
+      - isKind:
+          of: RoleBinding
+        documentIndex: 3
+      - equal:
+          path: metadata.namespace
+          value: node-feature-discovery
+        documentIndex: 3
+      - equal:
+          path: roleRef.kind
+          value: Role
+        documentIndex: 3
+      - equal:
+          path: subjects[0].namespace
+          value: topograph
+        documentIndex: 3
+
+  - it: scopes NFD CR access to the configured namespace
+    set:
+      engine:
+        name: nfd
+      nfdNamespace: custom-nfd
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: custom-nfd
+        documentIndex: 2
+      - equal:
+          path: metadata.namespace
+          value: custom-nfd
+        documentIndex: 3
 
   - it: does not grant pods/exec for slinky with a default flat cluster topology
     set:

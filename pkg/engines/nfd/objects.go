@@ -242,7 +242,7 @@ func makeNodeFeatureGroup(kind, value, labelKey string) (*unstructured.Unstructu
 }
 
 // toUnstructured converts a typed NFD API object for use with the dynamic client.
-func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+func toUnstructured(obj any) (*unstructured.Unstructured, error) {
 	object, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return nil, fmt.Errorf("convert NFD object to unstructured: %w", err)
@@ -293,29 +293,46 @@ func (eng *NfdEngine) cleanupObjects(
 	return g.Wait()
 }
 
-// upsertObject patches an existing object or creates it when it does not exist.
+// upsertObject replaces the desired spec on an existing object or creates it
+// when it does not exist. Replacing spec ensures attributes omitted from the
+// latest topology are removed instead of surviving a JSON merge patch.
 func (eng *NfdEngine) upsertObject(ctx context.Context, gvr schema.GroupVersionResource, obj *unstructured.Unstructured) error {
+	obj = obj.DeepCopy()
+	obj.SetNamespace(eng.namespace)
 	resource := eng.resource(gvr)
-	data, err := json.Marshal(map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"labels":      obj.GetLabels(),
-			"annotations": obj.GetAnnotations(),
-		},
-		"spec": obj.Object["spec"],
-	})
+	patch := []map[string]any{
+		{"op": "add", "path": "/spec", "value": obj.Object["spec"]},
+	}
+	for key, value := range obj.GetLabels() {
+		patch = append(patch, map[string]any{
+			"op": "add", "path": "/metadata/labels/" + jsonPointerToken(key), "value": value,
+		})
+	}
+	for key, value := range obj.GetAnnotations() {
+		patch = append(patch, map[string]any{
+			"op": "add", "path": "/metadata/annotations/" + jsonPointerToken(key), "value": value,
+		})
+	}
+
+	data, err := json.Marshal(patch)
 	if err != nil {
 		return err
 	}
 
-	_, err = resource.Patch(ctx, obj.GetName(), types.MergePatchType, data, metav1.PatchOptions{})
+	_, err = resource.Patch(ctx, obj.GetName(), types.JSONPatchType, data, metav1.PatchOptions{})
 	if apierrors.IsNotFound(err) {
 		_, err = resource.Create(ctx, obj.DeepCopy(), metav1.CreateOptions{})
 		if apierrors.IsAlreadyExists(err) {
-			_, err = resource.Patch(ctx, obj.GetName(), types.MergePatchType, data, metav1.PatchOptions{})
+			_, err = resource.Patch(ctx, obj.GetName(), types.JSONPatchType, data, metav1.PatchOptions{})
 		}
 	}
 
 	return err
+}
+
+// jsonPointerToken escapes a JSON object key for use as a JSON Patch path.
+func jsonPointerToken(value string) string {
+	return strings.NewReplacer("~", "~0", "/", "~1").Replace(value)
 }
 
 // cleanupResource deletes managed objects whose names are absent from desired.
@@ -349,13 +366,9 @@ func (eng *NfdEngine) cleanupResource(
 	return nil
 }
 
-// resource returns the dynamic resource client for the configured scope.
+// resource returns the dynamic resource client for the NFD namespace.
 func (eng *NfdEngine) resource(gvr schema.GroupVersionResource) dynamic.ResourceInterface {
-	resource := eng.dynamicClient.Resource(gvr)
-	if eng.params != nil && eng.params.Namespace != "" {
-		return resource.Namespace(eng.params.Namespace)
-	}
-	return resource
+	return eng.dynamicClient.Resource(gvr).Namespace(eng.namespace)
 }
 
 // objectNames returns the names of objects as a set.

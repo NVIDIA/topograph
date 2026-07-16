@@ -55,6 +55,11 @@
       },
       "required": ["name"]
     },
+    "nfdNamespace": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Namespace where NFD master runs and where the nfd engine creates NodeFeature and NodeFeatureGroup resources."
+    },
     "service": {
       "type": "object",
       "properties": {

@@ -19,11 +19,37 @@ Use `engine: nfd` only when a downstream component already consumes NFD
 `NodeFeatureGroup` objects. For native Kubernetes scheduling with
 `podAffinity.topologyKey`, use the [`k8s`](./k8s.md) engine instead.
 
-NFD `NodeFeatureGroup` is an alpha API and is disabled by default in NFD master
-at the time of writing. Enable the matching NFD feature gate before using this
-engine. See the NFD
-[custom resource documentation](https://kubernetes-sigs.github.io/node-feature-discovery/master/usage/custom-resources.html#nodefeaturegroup)
-for the current upstream state.
+## Install NFD
+
+The `NodeFeatureGroupAPI` feature gate is **disabled by default** in NFD. It has
+been Alpha since NFD v0.16 and must be enabled explicitly before using this
+engine. See the upstream
+[feature-gate reference](https://kubernetes-sigs.github.io/node-feature-discovery/master/reference/feature-gates.html#nodefeaturegroupapi)
+for its current status.
+
+The following example limits the NFD worker to nodes labeled
+`nfd-enabled=true`. Label each intended worker node first:
+
+```bash
+kubectl label node <node-name> nfd-enabled=true
+```
+
+Then install NFD with the `NodeFeatureGroupAPI` feature gate enabled:
+
+```bash
+helm repo add nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts
+
+helm repo update
+
+helm install nfd nfd/node-feature-discovery \
+  --namespace node-feature-discovery \
+  --create-namespace \
+  --set-string worker.nodeSelector.nfd-enabled=true \
+  --set featureGates.NodeFeatureGroupAPI=true
+```
+
+Omit `worker.nodeSelector.nfd-enabled` if the NFD worker should run on all
+eligible nodes.
 
 ## Configuration
 
@@ -36,6 +62,7 @@ engine:
     nodeSelector:
       nvidia.com/gpu.present: "true"
     cleanup: true
+nfdNamespace: node-feature-discovery
 ```
 
 Parameters:
@@ -44,7 +71,19 @@ Parameters:
 |---|---:|---|---|
 | `nodeSelector` | No | all nodes | Limits the Kubernetes nodes used as provider input. Same meaning as the `k8s` engine selector. |
 | `cleanup` | No | `true` | Deletes stale Topograph-managed `NodeFeature` and `NodeFeatureGroup` objects that are no longer present in the generated topology. |
-| `namespace` | No | empty | Namespace for namespaced NFD CRs. Set it to the NFD master namespace because NFD resolves `NodeFeatureGroup` updates there. |
+
+`nfdNamespace` is a deployment-level Helm value, not an engine request
+parameter. It must be the namespace where NFD master runs because NFD updates
+`NodeFeatureGroup.status` there. The Helm value defaults to
+`node-feature-discovery`.
+
+When `rbac.create` is enabled, the chart creates a `Role` and `RoleBinding` in
+that namespace and configures the Topograph deployment with the same value
+through `NFD_NAMESPACE`. Outside Helm, set `NFD_NAMESPACE` on the Topograph
+process. The NFD engine returns an error if the variable is unset or blank.
+
+Topology requests cannot select an NFD namespace; the deployment environment is
+authoritative.
 
 ## Generated Objects
 
@@ -55,6 +94,7 @@ apiVersion: nfd.k8s-sigs.io/v1alpha1
 kind: NodeFeature
 metadata:
   name: topograph-node-node-a-...
+  namespace: node-feature-discovery
   labels:
     nfd.node.kubernetes.io/node-name: node-a
     app.kubernetes.io/managed-by: topograph
@@ -80,6 +120,7 @@ apiVersion: nfd.k8s-sigs.io/v1alpha1
 kind: NodeFeatureGroup
 metadata:
   name: topograph-leaf-leaf-12-...
+  namespace: node-feature-discovery
   labels:
     app.kubernetes.io/managed-by: topograph
     topograph.nvidia.com/engine: nfd

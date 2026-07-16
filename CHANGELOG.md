@@ -43,6 +43,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- Scoped the NFD engine's `NodeFeature` and `NodeFeatureGroup` permissions to the deployment-level `nfdNamespace` instead of granting them cluster-wide. Helm configures the same namespace at runtime through `NFD_NAMESPACE`; the namespace is no longer a request-level engine parameter, and the engine rejects a missing or blank environment variable.
+
 - Removed unused RBAC verbs from the Topograph API server and node-data-broker ClusterRoles (least-privilege): API server `pods` rule dropped `get` (list-only), `daemonsets` rule dropped `list` (get-only), and the Slinky `configmaps` rule dropped `list`; node-data-broker `nodes` rule dropped `list` (get/update), and the InfiniBand `daemonsets`/`pods` rules dropped `list`/`get` respectively (get-only, list-only).
 
 - node-observer ClusterRole no longer grants unused `get`; `nodes` list/watch now gated on `trigger.nodeSelector`.

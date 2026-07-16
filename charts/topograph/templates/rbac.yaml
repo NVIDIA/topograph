@@ -49,11 +49,6 @@ rules:
   resources: [configmaps]
   verbs: [create,get,update]
 {{- end }}
-{{- if eq .Values.engine.name "nfd" }}
-- apiGroups: [nfd.k8s-sigs.io]
-  resources: [nodefeatures,nodefeaturegroups]
-  verbs: [create,get,list,patch,update,delete]
-{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -68,4 +63,31 @@ roleRef:
   kind: ClusterRole
   name: {{ include "topograph.rbacName" . }}
   apiGroup: ""
+{{- if eq .Values.engine.name "nfd" }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "topograph.rbacName" . }}
+  namespace: {{ .Values.nfdNamespace | quote }}
+rules:
+- apiGroups: [nfd.k8s-sigs.io]
+  resources: [nodefeatures,nodefeaturegroups]
+  verbs: [create,list,patch,delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "topograph.rbacName" . }}
+  namespace: {{ .Values.nfdNamespace | quote }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "topograph.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  apiGroup: ""
+roleRef:
+  kind: Role
+  name: {{ include "topograph.rbacName" . }}
+  apiGroup: ""
+{{- end }}
 {{- end }}

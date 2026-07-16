@@ -19,6 +19,10 @@ engine:
   #   # Kubernetes node label as the block-domain source.
   #   useGpuCliqueLabel: true
 
+# Namespace where NFD master runs. The nfd engine creates NodeFeature and
+# NodeFeatureGroup resources here, and its Role/RoleBinding are scoped here.
+nfdNamespace: node-feature-discovery
+
 service:
   type: ClusterIP
   port: 49021
