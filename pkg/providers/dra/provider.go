@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -30,7 +31,7 @@ const (
 
 type Provider struct {
 	config *rest.Config
-	client *kubernetes.Clientset
+	client kubernetes.Interface
 	params *Params
 }
 
@@ -109,8 +110,14 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 		}
 
 		i2n := instances[indx].Instances
-		if host, ok := i2n[node.Name]; ok {
-			domainMap.AddHost(clusterID, node.Name, host)
+		instanceID, ok := node.Annotations[topology.KeyNodeInstance]
+		if !ok || instanceID == "" {
+			klog.Warningf("missing or empty %q annotation in node %s", topology.KeyNodeInstance, node.Name)
+			continue
+		}
+
+		if host, ok := i2n[instanceID]; ok {
+			domainMap.AddHost(clusterID, instanceID, host)
 		}
 	}
 
