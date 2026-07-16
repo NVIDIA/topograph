@@ -132,6 +132,29 @@ engine:
   name: k8s
 ```
 
+### Periodic topology generation
+
+The Node Observer can periodically request a fresh topology independently of the selected provider. This is useful when the underlying fabric or cloud topology can change without producing a watched Kubernetes node or pod event:
+
+```yaml
+config:
+  requestAggregationDelay: 15s
+
+nodeObserver:
+  replicaCount: 1
+  topograph:
+    trigger:
+      periodicInterval: 5m
+```
+
+`periodicInterval` accepts a Go duration. It is disabled when omitted or set to a zero duration, and its first periodic request is sent only after one complete interval. Periodic events use the same single-slot queue, node-data-broker readiness gate, and HTTP retry path as informer events. Requests are therefore deduplicated while one is queued and are never executed concurrently by a Node Observer.
+
+The interval must be **significantly greater than** `config.requestAggregationDelay` (15 seconds by default). The API Server uses a trailing aggregation timer for identical requests; an interval less than or equal to that window can repeatedly reset the timer and prevent topology generation from starting. Leave operational margin rather than configuring values that differ by only a second or two.
+
+Periodic generation can be combined with node selectors, pod selectors, and the API readiness watch. To configure it without node or pod selectors, set only `periodicInterval`; to make it the only node/pod/API trigger, also set `nodeObserver.topograph.apiServer.enabled: false`. When the node-data-broker remains enabled, its readiness changes are still observed so the readiness gate can recover. Deployments whose provider does not need the broker can also set `nodeDataBroker.enabled: false` to remove those broker events.
+
+Each Node Observer replica owns an independent ticker; there is no leader election for periodic generation. Multiple replicas therefore produce multiple periodic requests and, if their phases are staggered, can also keep resetting the aggregation window. Use `nodeObserver.replicaCount: 1` for periodic mode unless duplicate triggers are explicitly acceptable.
+
 ## Exposing the Topograph API
 
 The Topograph API server listens on port `49021` by default. The Helm chart always creates a Kubernetes `Service`; how that Service is exposed depends on your deployment topology and access requirements.

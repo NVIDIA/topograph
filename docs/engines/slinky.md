@@ -141,7 +141,7 @@ data:
 
 ## Usage Examples
 
-Topograph runs autonomously in Kubernetes environments, including Slinky. When the Node Observer detects a selected node or pod change, or sees the Topograph API server become ready after startup or a container restart, it sends topology requests to the API server. The API server then triggers an update to the network topology information within the cluster. However, if you want to manually trigger network topology discovery, you can send HTTP requests to the API server, as shown below.
+Topograph runs autonomously in Kubernetes environments, including Slinky. When the Node Observer detects a selected node or pod change, sees the Topograph API server become ready after startup or a container restart, or reaches a configured periodic generation interval, it sends topology requests to the API server. Periodic generation is provider-independent and is configured through `nodeObserver.topograph.trigger.periodicInterval`; see the [Kubernetes engine documentation](./k8s.md#periodic-topology-generation) for its aggregation-window and replica-count constraints. However, if you want to manually trigger network topology discovery, you can send HTTP requests to the API server, as shown below.
 
 ### Topology Configuration in the Tree Format
 

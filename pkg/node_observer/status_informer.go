@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-2025 NVIDIA CORPORATION
+ * Copyright 2024-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@ package node_observer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -26,17 +27,21 @@ import (
 )
 
 type StatusInformer struct {
-	ctx           context.Context
-	nodeFactory   informers.SharedInformerFactory
-	podFactory    informers.SharedInformerFactory
-	apiFactory    informers.SharedInformerFactory
-	brokerFactory informers.SharedInformerFactory
-	reqFunc       httpreq.RequestFunc
-	reqExecFunc   func(httpreq.RequestFunc, bool) ([]byte, *httperr.Error)
-	retryDelay    time.Duration
-	timer         *time.Timer
-	queue         chan struct{}
-	stopCh        chan struct{}
+	ctx              context.Context
+	cancel           context.CancelFunc
+	nodeFactory      informers.SharedInformerFactory
+	podFactory       informers.SharedInformerFactory
+	apiFactory       informers.SharedInformerFactory
+	brokerFactory    informers.SharedInformerFactory
+	reqFunc          httpreq.RequestFunc
+	reqExecFunc      func(httpreq.RequestFunc, bool) ([]byte, *httperr.Error)
+	retryDelay       time.Duration
+	periodicInterval time.Duration
+	timer            *time.Timer
+	queue            chan struct{}
+	stopCh           chan struct{}
+	stopOnce         sync.Once
+	processMu        sync.Mutex
 
 	apiServerContainerName string
 }
@@ -45,12 +50,17 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 	klog.InfoS("Configuring status informer", "trigger", trigger, "apiServer", apiServer, "brokerName", brokerName, "brokerNamespace", brokerNamespace)
 
 	statusInformer := &StatusInformer{
-		ctx:         ctx,
-		retryDelay:  retryDelay,
-		reqFunc:     reqFunc,
-		reqExecFunc: httpreq.DoRequestWithRetries,
-		queue:       make(chan struct{}, 1),
-		stopCh:      make(chan struct{}),
+		retryDelay: retryDelay,
+		reqFunc:    reqFunc,
+		queue:      make(chan struct{}, 1),
+		stopCh:     make(chan struct{}),
+	}
+
+	if trigger != nil {
+		if err := validatePeriodicInterval(trigger.PeriodicInterval.Duration); err != nil {
+			return nil, err
+		}
+		statusInformer.periodicInterval = trigger.PeriodicInterval.Duration
 	}
 
 	if trigger != nil && len(trigger.NodeSelector) != 0 {
@@ -90,6 +100,10 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 		)
 	}
 
+	statusInformer.ctx, statusInformer.cancel = context.WithCancel(ctx)
+	statusInformer.reqExecFunc = func(f httpreq.RequestFunc, insecureSkipVerify bool) ([]byte, *httperr.Error) {
+		return httpreq.DoRequestWithRetriesContext(statusInformer.ctx, f, insecureSkipVerify)
+	}
 	return statusInformer, nil
 }
 
@@ -132,26 +146,31 @@ func (s *StatusInformer) Start() error {
 		return err
 	}
 
-	go s.run()
-
-	return nil
+	return s.run()
 }
 
 func (s *StatusInformer) Stop(_ error) {
 	klog.Info("Stopping status informer")
-	if s.nodeFactory != nil {
-		s.nodeFactory.Shutdown()
-	}
-	if s.podFactory != nil {
-		s.podFactory.Shutdown()
-	}
-	if s.apiFactory != nil {
-		s.apiFactory.Shutdown()
-	}
-	if s.brokerFactory != nil {
-		s.brokerFactory.Shutdown()
-	}
-	close(s.stopCh)
+	s.stopOnce.Do(func() {
+		if s.cancel != nil {
+			s.cancel()
+		}
+		close(s.stopCh)
+		s.processMu.Lock()
+		defer s.processMu.Unlock()
+		if s.nodeFactory != nil {
+			s.nodeFactory.Shutdown()
+		}
+		if s.podFactory != nil {
+			s.podFactory.Shutdown()
+		}
+		if s.apiFactory != nil {
+			s.apiFactory.Shutdown()
+		}
+		if s.brokerFactory != nil {
+			s.brokerFactory.Shutdown()
+		}
+	})
 }
 
 func (s *StatusInformer) startNodeInformer() error {
@@ -323,6 +342,9 @@ func (s *StatusInformer) startPodInformer() error {
 }
 
 func (s *StatusInformer) sendRequest() {
+	if s.stopped() {
+		return
+	}
 	select {
 	case s.queue <- struct{}{}:
 	default:
@@ -330,19 +352,51 @@ func (s *StatusInformer) sendRequest() {
 	}
 }
 
-func (s *StatusInformer) run() {
+func (s *StatusInformer) run() error {
+	var ctxDone <-chan struct{}
+	if s.ctx != nil {
+		ctxDone = s.ctx.Done()
+	}
+
+	var periodicTicker *time.Ticker
+	var periodicTick <-chan time.Time
+	if s.periodicInterval > 0 {
+		periodicTicker = time.NewTicker(s.periodicInterval)
+		periodicTick = periodicTicker.C
+		klog.Infof("Periodic topology generation enabled with interval %s", s.periodicInterval)
+	}
+
+	defer func() {
+		if s.cancel != nil {
+			s.cancel()
+		}
+		if periodicTicker != nil {
+			periodicTicker.Stop()
+		}
+		if s.timer != nil {
+			s.timer.Stop()
+		}
+	}()
+
 	for {
 		select {
+		case <-ctxDone:
+			return nil
+
 		case <-s.stopCh:
-			return
+			return nil
+
+		case <-periodicTick:
+			if s.stopped() {
+				return nil
+			}
+			klog.V(4).Info("Periodic topology generation interval elapsed")
+			s.sendRequest()
 
 		case <-s.queue:
-			// Cancel any pending retry
-			if s.timer != nil {
-				s.timer.Stop()
-				s.timer = nil
+			if !s.processNext(true) {
+				return nil
 			}
-			s.process()
 
 		case <-func() <-chan time.Time {
 			if s.timer != nil {
@@ -350,9 +404,44 @@ func (s *StatusInformer) run() {
 			}
 			return nil
 		}():
-			s.process()
+			if !s.processNext(false) {
+				return nil
+			}
 		}
 	}
+}
+
+func (s *StatusInformer) stopped() bool {
+	if s.ctx != nil {
+		select {
+		case <-s.ctx.Done():
+			return true
+		default:
+		}
+	}
+
+	select {
+	case <-s.stopCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *StatusInformer) processNext(cancelRetry bool) bool {
+	s.processMu.Lock()
+	defer s.processMu.Unlock()
+
+	if s.stopped() {
+		return false
+	}
+
+	if cancelRetry && s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
+	}
+	s.process()
+	return true
 }
 
 func shouldRequestOnAPIServerUpdate(oldPod, newPod *corev1.Pod, containerName string) bool {

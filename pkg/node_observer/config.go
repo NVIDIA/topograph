@@ -32,8 +32,9 @@ type Config struct {
 }
 
 type Trigger struct {
-	NodeSelector map[string]string     `yaml:"nodeSelector,omitempty"`
-	PodSelector  *metav1.LabelSelector `yaml:"podSelector,omitempty"`
+	NodeSelector     map[string]string     `yaml:"nodeSelector,omitempty"`
+	PodSelector      *metav1.LabelSelector `yaml:"podSelector,omitempty"`
+	PeriodicInterval metav1.Duration       `yaml:"periodicInterval,omitempty"`
 }
 
 type APIServer struct {
@@ -62,12 +63,24 @@ func NewConfigFromFile(fname string) (*Config, error) {
 		cfg.APIServer.ContainerName = defaultAPIServerContainerName
 	}
 
-	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil && cfg.APIServer.PodSelector == nil {
-		return nil, fmt.Errorf("must specify nodeSelector and/or podSelector in trigger, or apiServer.podSelector")
+	if err := validatePeriodicInterval(cfg.Trigger.PeriodicInterval.Duration); err != nil {
+		return nil, err
+	}
+
+	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil &&
+		cfg.Trigger.PeriodicInterval.Duration == 0 && cfg.APIServer.PodSelector == nil {
+		return nil, fmt.Errorf("must specify nodeSelector, podSelector, and/or periodicInterval in trigger, or apiServer.podSelector")
 	}
 
 	if cfg.RetryDelay.Duration == 0 {
 		cfg.RetryDelay.Duration = defaultRetryDelay
 	}
 	return cfg, nil
+}
+
+func validatePeriodicInterval(interval time.Duration) error {
+	if interval < 0 {
+		return fmt.Errorf("trigger.periodicInterval must not be negative")
+	}
+	return nil
 }

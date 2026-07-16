@@ -1,11 +1,12 @@
 /*
- * Copyright 2025 NVIDIA CORPORATION
+ * Copyright 2025-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
 package httpreq
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -113,6 +114,31 @@ func TestDoRequestWithRetries(t *testing.T) {
 			require.Equal(t, tc.status, err.Code())
 			require.Equal(t, tc.attempts, c.attempts)
 		})
+	}
+}
+
+func TestDoRequestWithRetriesContextStopsDuringBackoff(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	called := make(chan struct{}, 1)
+	request := func() (*http.Request, *httperr.Error) {
+		called <- struct{}{}
+		return nil, httperr.NewError(http.StatusServiceUnavailable, "retry later")
+	}
+
+	done := make(chan *httperr.Error, 1)
+	go func() {
+		_, err := DoRequestWithRetriesContext(ctx, request, false)
+		done <- err
+	}()
+
+	<-called
+	cancel()
+
+	select {
+	case err := <-done:
+		require.Equal(t, http.StatusRequestTimeout, err.Code())
+	case <-time.After(100 * time.Millisecond):
+		require.Fail(t, "retry backoff did not stop after context cancellation")
 	}
 }
 

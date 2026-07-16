@@ -207,7 +207,21 @@
         "env": { "type": "object" },
         "initContainers": { "type": "array" },
         "lifecycle": { "type": "object" },
-        "topograph": { "type": "object" },
+        "topograph": {
+          "type": "object",
+          "properties": {
+            "trigger": {
+              "type": ["object", "null"],
+              "properties": {
+                "periodicInterval": {
+                  "type": "string",
+                  "description": "Provider-independent periodic topology generation interval in Go duration syntax. Omit it or use a zero duration to disable. Positive values must be significantly greater than config.requestAggregationDelay so repeated requests do not continually reset the API server's trailing aggregation timer.",
+                  "pattern": "^[+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+                }
+              }
+            }
+          }
+        },
         "podAnnotations": { "type": "object" },
         "podLabels": { "type": "object" },
         "podSecurityContext": { "type": "object" },

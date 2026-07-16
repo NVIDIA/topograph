@@ -42,6 +42,17 @@
 
   NOTE: node-data-broker applies node annotations once when each broker pod starts.
 {{- end }}
+{{- $nodeObserverTrigger := default dict .Values.nodeObserver.topograph.trigger }}
+{{- $periodicInterval := default "0s" $nodeObserverTrigger.periodicInterval }}
+
+  NOTE: node-observer periodic topology generation interval: {{ $periodicInterval }}
+        A zero duration disables periodic requests. A positive interval must be
+        significantly greater than requestAggregationDelay
+        (currently {{ .Values.config.requestAggregationDelay }}) so identical requests do not
+        continually reset the API server's trailing aggregation timer.
+        Each of the {{ .Values.nodeObserver.replicaCount }} node-observer replica(s) runs its own
+        ticker; periodic mode is recommended with replicaCount: 1 because
+        node-observer does not use leader election.
 {{- if not .Values.serviceAccount.create }}
 
 2. Topograph is configured to use the existing ServiceAccount "{{ include "topograph.serviceAccountName" . }}".

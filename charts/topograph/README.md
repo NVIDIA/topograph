@@ -47,6 +47,22 @@ engine:
   name: k8s        # or slurm, slinky, graph
 ```
 
+### Periodic topology generation
+
+Kubernetes deployments can ask the Node Observer to regenerate topology on a fixed, provider-independent interval:
+
+```yaml
+config:
+  requestAggregationDelay: 15s
+nodeObserver:
+  replicaCount: 1
+  topograph:
+    trigger:
+      periodicInterval: 5m
+```
+
+The interval uses Go duration syntax. Omit it or set it to a zero duration to disable periodic requests. Its first request occurs after one complete interval. Keep it significantly greater than `config.requestAggregationDelay`; otherwise identical requests can repeatedly reset the API Server's trailing aggregation timer. Each Node Observer replica runs its own ticker without leader election, so periodic mode is recommended with `replicaCount: 1`. See the [Kubernetes engine documentation](../../docs/engines/k8s.md#periodic-topology-generation) for details, including selector-free configuration.
+
 For the full list of values and their defaults, see [`values.yaml`](./values.yaml). Example values files for specific deployment patterns:
 
 - [`values.k8s.ib-example.yaml`](./values.k8s.ib-example.yaml) — InfiniBand provider on Kubernetes
@@ -69,7 +85,7 @@ Set `rbac.create=false` only when ClusterRoles and ClusterRoleBindings are manag
 
 ### Values validation
 
-The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `provider.name` and `engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `serviceAccount`, `rbac`, `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
+The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `provider.name` and `engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, the non-negative Go duration syntax for `nodeObserver.topograph.trigger.periodicInterval`, and the expected shapes of `serviceAccount`, `rbac`, `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
 
 The schema is deliberately narrow: per-provider credential requirements (which fields a given provider needs in its credentials map) are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because the credential field sets evolve with upstream provider changes and are hard to keep accurate in a schema.
 
@@ -100,7 +116,7 @@ The main chart directly manages all three runtime workloads:
 
 - **Topograph API server** — serves topology generation and retrieval requests
 - **`node-data-broker`** — DaemonSet that collects per-node attributes (NVLink clique IDs, etc.) as node annotations for the Kubernetes engine
-- **`node-observer`** — watches configured node/pod changes and Topograph API readiness, waits for desired node-data-broker replicas when the broker is enabled, then triggers topology regeneration
+- **`node-observer`** — watches configured node/pod changes and Topograph API readiness, optionally schedules periodic generation, waits for desired node-data-broker replicas when the broker is enabled, then triggers topology regeneration
 
 The component templates live under `templates/nodeDataBroker` and `templates/nodeObserver`. Their settings use the top-level `nodeDataBroker` and `nodeObserver` values keys; the broker is enabled by default.
 

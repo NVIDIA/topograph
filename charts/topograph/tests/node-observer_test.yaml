@@ -66,6 +66,10 @@ tests:
           path: data["node-observer-config.yaml"]
           pattern: "app.kubernetes.io/component: api-server"
         template: templates/nodeObserver/configmap.yml
+      - matchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "periodicInterval: 0s"
+        template: templates/nodeObserver/configmap.yml
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -102,6 +106,43 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: NODE_DATA_BROKER_NAMESPACE
+
+  - it: renders a configured periodic topology interval
+    templates:
+      - templates/nodeObserver/configmap.yml
+    set:
+      nodeObserver:
+        topograph:
+          trigger:
+            periodicInterval: 5m
+    asserts:
+      - matchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "periodicInterval: 5m"
+
+  - it: supports a selector-free periodic trigger without API pod watches
+    templates:
+      - templates/nodeObserver/configmap.yml
+    set:
+      nodeObserver:
+        topograph:
+          apiServer:
+            enabled: false
+          trigger:
+            periodicInterval: 5m
+    asserts:
+      - matchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "periodicInterval: 5m"
+      - notMatchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "apiServer:"
+      - notMatchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "nodeSelector:"
+      - notMatchRegex:
+          path: data["node-observer-config.yaml"]
+          pattern: "podSelector:"
 
   - it: uses an existing service account when creation is disabled
     templates:

@@ -134,6 +134,23 @@ nodeDataBroker:
 
 The node-data-broker applies node annotations once when its pod starts. Restart the broker pod to re-apply them after relevant node or provider metadata changes.
 
+The Node Observer can optionally request periodic topology generation, which reruns InfiniBand fabric discovery even when no selected Kubernetes node or pod event occurs:
+
+```yaml
+config:
+  requestAggregationDelay: 15s
+
+nodeObserver:
+  replicaCount: 1
+  topograph:
+    trigger:
+      periodicInterval: 5m
+```
+
+This Node Observer option is provider-independent; it is shown here because fabric changes may not surface as Kubernetes object events. Keep the interval significantly greater than `requestAggregationDelay` so identical requests do not continually reset the API Server's trailing aggregation timer. Each Node Observer replica has its own ticker, so periodic mode is recommended with one replica.
+
+Periodic topology generation does **not** turn the broker's one-time annotation collection into a periodic refresh. Restart broker pods when broker-written annotations must be recollected. With `useGpuCliqueLabel: true`, each generation reads the current `nvidia.com/gpu.clique` labels directly.
+
 If `ibnetdiscover` needs extra config files, the chart can render ConfigMaps and mount them into the node-data-broker pods:
 
 ```yaml

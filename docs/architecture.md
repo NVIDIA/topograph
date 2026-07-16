@@ -18,7 +18,9 @@ The API Server receives topology generation requests and returns results asynchr
 
 ### 2. Node Observer
 
-The Node Observer is used in Kubernetes deployments. It monitors configured node and pod changes, and it also watches the Topograph API pod. When the node-data-broker is enabled, it waits for the broker DaemonSet's ready replica count to match its desired count. If a selected node or pod changes, or if the API server becomes ready after startup or a container restart, the Node Observer sends a request to the API Server to generate a new topology configuration.
+The Node Observer is used in Kubernetes deployments. It monitors configured node and pod changes, watches the Topograph API pod, and can optionally schedule topology generation at a fixed interval. All of these events enter the same single-slot queue, so bursts are deduplicated and HTTP requests are executed serially. When the node-data-broker is enabled, every queued request waits for the broker DaemonSet's ready replica count to match its desired count, then uses the same HTTP retry path.
+
+Periodic generation is disabled by default. When enabled, the first periodic event occurs after one complete interval; stopping the Controller or cancelling its context stops the ticker. The interval must be significantly greater than the API Server's request aggregation delay. Otherwise, repeated identical requests can continually reset the trailing aggregation timer and prevent generation from starting.
 
 ### 3. Node Data Broker
 
@@ -34,6 +36,6 @@ The Engine translates this internal representation into the format expected by t
 
 ## Workflow
 
-- The API Server listens on the port and notifies the Provider about incoming requests. In Kubernetes, the incoming requests are sent by the Node Observer, which watches selected node/pod status and API-server readiness.
+- The API Server listens on the port and notifies the Provider about incoming requests. In Kubernetes, the incoming requests are sent by the Node Observer in response to selected node/pod status, API-server readiness, or an optional periodic interval.
 - The Provider receives notifications and invokes CSP API to retrieve topology-related information.
 - The Engine converts the topology information into the format expected by the user cluster (e.g., SLURM or Kubernetes).

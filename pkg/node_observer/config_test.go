@@ -42,10 +42,49 @@ func TestNewConfigFromFile(t *testing.T) {
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 `,
-			err: "must specify nodeSelector and/or podSelector in trigger, or apiServer.podSelector",
+			err: "must specify nodeSelector, podSelector, and/or periodicInterval in trigger, or apiServer.podSelector",
 		},
 		{
-			name: "Case 5: valid with default retry delay",
+			name: "Case 5: zero periodic interval is disabled",
+			data: `
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+trigger:
+  periodicInterval: 0s
+`,
+			err: "must specify nodeSelector, podSelector, and/or periodicInterval in trigger, or apiServer.podSelector",
+		},
+		{
+			name: "Case 6: negative periodic interval",
+			data: `
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+trigger:
+  periodicInterval: -1m
+`,
+			err: "trigger.periodicInterval must not be negative",
+		},
+		{
+			name: "Case 7: periodic trigger without selectors",
+			data: `
+generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
+provider:
+  name: test
+engine:
+  name: test
+trigger:
+  periodicInterval: 5m
+`,
+			cfg: &Config{
+				GenerateTopologyURL: "http://topograph.default.svc.cluster.local:49021/v1/generate",
+				Provider:            topology.Provider{Name: "test"},
+				Engine:              topology.Engine{Name: "test"},
+				Trigger: Trigger{
+					PeriodicInterval: metav1.Duration{Duration: 5 * time.Minute},
+				},
+				RetryDelay: metav1.Duration{Duration: defaultRetryDelay},
+			},
+		},
+		{
+			name: "Case 8: valid with default retry delay",
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 provider:
@@ -100,7 +139,7 @@ trigger:
 			},
 		},
 		{
-			name: "Case 6: valid with configured retry delay",
+			name: "Case 9: valid with configured retry delay",
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 provider:
@@ -156,7 +195,7 @@ trigger:
 			},
 		},
 		{
-			name: "Case 7: valid with API server trigger and default container name",
+			name: "Case 10: valid with API server trigger and default container name",
 			data: `
 generateTopologyUrl: "http://topograph.default.svc.cluster.local:49021/v1/generate"
 provider:

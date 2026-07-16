@@ -255,6 +255,13 @@ nodeObserver:
       podSelector: {}
       containerName: topograph
     trigger:
+      # Optional provider-independent periodic topology generation. A value of
+      # 0s disables it. The first request is sent after one complete interval.
+      # Keep this significantly greater than config.requestAggregationDelay
+      # (15s by default); otherwise identical requests can continually reset
+      # the API server's trailing aggregation timer. Each node-observer replica
+      # runs its own ticker, so periodic mode is recommended with replicaCount: 1.
+      periodicInterval: 0s
       # nodeSelector: {}
       # podSelector: {}
 

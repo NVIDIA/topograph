@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-2025 NVIDIA CORPORATION
+ * Copyright 2024-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -120,17 +120,37 @@ func DoRequest(f RequestFunc, insecureSkipVerify bool) (*http.Response, []byte, 
 
 // DoRequestWithRetries sends HTTP requests and returns HTTP response; retries if needed
 func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) ([]byte, *httperr.Error) {
+	return DoRequestWithRetriesContext(context.Background(), f, insecureSkipVerify)
+}
+
+// DoRequestWithRetriesContext sends HTTP requests and returns HTTP response;
+// retries if needed and stops retrying when the context is cancelled.
+func DoRequestWithRetriesContext(ctx context.Context, f RequestFunc, insecureSkipVerify bool) ([]byte, *httperr.Error) {
 	klog.V(4).Infof("Sending HTTP request with retries")
 	attempt := 0
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, httperr.NewError(http.StatusRequestTimeout, err.Error())
+		}
+
 		attempt++
 		resp, body, err := DoRequest(f, insecureSkipVerify)
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return body, httperr.NewError(http.StatusRequestTimeout, ctxErr.Error())
+		}
 		if err == nil || attempt == maxRetries || !ShouldRetry(err.Code()) {
 			return body, err
 		}
 		wait := GetNextBackoff(resp, backOff, attempt-1)
 		klog.Infof("Attempt %d failed with error: %v. Retrying in %s", attempt, err, wait.String())
-		time.Sleep(wait)
+
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return body, httperr.NewError(http.StatusRequestTimeout, ctx.Err().Error())
+		case <-timer.C:
+		}
 	}
 }
 
