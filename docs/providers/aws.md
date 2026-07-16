@@ -16,10 +16,10 @@ Access to this API requires the following IAM permission:
 }
 ```
 
-There are two main authentication methods:
+There are two authentication modes:
 
-* Providing IAM credentials directly
-* Using the AWS SDK default credential chain
+1. Explicit credentials supplied through Topograph
+2. AWS SDK default credential chain
 
 ## Option 1: Using Explicit Credentials
 
@@ -78,6 +78,8 @@ When explicit credentials are not provided, Topograph uses the [AWS SDK default 
 ### EKS Pod Identity
 
 Install the [EKS Pod Identity Agent](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html), then [associate an IAM role](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-association.html) with the ServiceAccount used by the Topograph API server. EKS injects the container credentials endpoint and authorization token into the pod; the AWS SDK discovers and refreshes those temporary credentials automatically.
+
+Ensure that higher-priority environment or shared-file credentials are not present when EKS Pod Identity should be authoritative.
 
 ### Assigning IAM Role to an Instance
 

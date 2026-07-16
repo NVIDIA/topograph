@@ -100,11 +100,11 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *htt
 
 func getCredentialsProvider(creds map[string]any) (aws.CredentialsProvider, *httperr.Error) {
 	if len(creds) == 0 {
-		klog.Infof("Using AWS default credential chain")
+		klog.Infof("Using AWS SDK default credential chain")
 		return nil, nil
 	}
 
-	klog.Infof("Using provided AWS credentials")
+	klog.Infof("Using explicit Topograph AWS credentials")
 	parsedCreds, err := decodeCredentials(creds)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
