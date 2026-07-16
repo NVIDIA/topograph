@@ -1,6 +1,48 @@
 apiVersion: v1
 entries:
   topograph:
+  - annotations:
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://github.com/NVIDIA/topograph/blob/main/docs/overview.md
+        - name: Chart Source
+          url: https://github.com/NVIDIA/topograph/tree/main/charts/topograph
+      org.opencontainers.image.description: Discovers the physical network topology
+        of a cluster and exposes it to schedulers.
+      org.opencontainers.image.documentation: https://github.com/NVIDIA/topograph/blob/main/docs/overview.md
+      org.opencontainers.image.licenses: Apache-2.0
+      org.opencontainers.image.source: https://github.com/NVIDIA/topograph
+      org.opencontainers.image.title: Topograph
+      org.opencontainers.image.vendor: NVIDIA
+    apiVersion: v2
+    appVersion: v0.6.0-alpha.1
+    created: "2026-07-16T08:51:39.431875945-04:00"
+    description: Discovers the physical network topology of a cluster and exposes
+      it to schedulers.
+    digest: bf415e6869810367505e9ffac96aa1da7986faf10fb705873ebb0dc387f1353c
+    home: https://github.com/NVIDIA/topograph
+    icon: https://raw.githubusercontent.com/NVIDIA/topograph/main/docs/assets/topograph-logo.png
+    keywords:
+    - topograph
+    - topology
+    - kubernetes
+    - slurm
+    - slinky
+    - infiniband
+    - gpu
+    - scheduling
+    kubeVersion: '>=1.27.0-0'
+    maintainers:
+    - name: NVIDIA CORPORATION
+      url: https://www.nvidia.com
+    name: topograph
+    sources:
+    - https://github.com/NVIDIA/topograph
+    type: application
+    urls:
+    - https://NVIDIA.github.io/topograph/topograph-0.6.0-alpha.1.tgz
+    version: 0.6.0-alpha.1
   - apiVersion: v2
     appVersion: v0.5.0
     created: "2026-07-01T02:26:06.815919892-04:00"
@@ -88,4 +130,4 @@ entries:
     urls:
     - https://NVIDIA.github.io/topograph/topograph-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-01T02:26:06.814550721-04:00"
+generated: "2026-07-16T08:51:39.430562965-04:00"
