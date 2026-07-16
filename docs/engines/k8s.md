@@ -5,7 +5,7 @@ Topograph is a tool designed to enhance scheduling decisions in Kubernetes clust
 ## Overview
 
 Topograph maps both the multi-tier network hierarchy and accelerated network domains (such as NVLink) using node labels.
-Most cloud providers expose three levels of network topology through their APIs. To provide a unified view, Topograph assigns four labels to each node:
+Most cloud providers expose three levels of network topology through their APIs. To provide a unified view, Topograph can assign four labels to each node:
 * `network.topology.nvidia.com/accelerator`: Identifies high-speed interconnect domains, such as NVLink. If the node already has `nvidia.com/gpu.clique`, Topograph leaves the accelerator label unset and uses the GPU Operator label as the accelerator-domain signal.
 * `network.topology.nvidia.com/leaf`: Indicates the switches directly connected to compute nodes.
 * `network.topology.nvidia.com/spine`: Represents the next tier of switches above the leaf level.
@@ -21,6 +21,14 @@ For example, if a node belongs to NVLink domain `nvl1` and connects to switch `s
   network.topology.nvidia.com/spine: s2
   network.topology.nvidia.com/core: s3
 ```
+
+### Managed label reconciliation
+
+Each time the Kubernetes engine generates output, it builds a complete label plan from the newly discovered graph and then lists the nodes selected by `engine.params.nodeSelector`. It compares the plan with that fresh Node List snapshot and updates only nodes whose managed labels changed. A normal run therefore performs one logical, paginated List and one Update per changed node; it does not GET every node. If an Update conflicts, only that node is fetched again and retried.
+
+For every node present in the graph's tree topology, the currently configured `leaf`, `spine`, and `core` keys are authoritative. When a discovered path becomes shallower, the engine removes obsolete higher-tier labels, such as a stale `core` label after a three-tier path becomes two-tier. Accelerator labels are reconciled only for nodes present in an accelerator domain. A node that is absent from the current graph is left unchanged because an empty or partial discovery result does not prove that the node permanently left the fabric.
+
+Only the exact keys in the current `topologyNodeLabels` configuration are managed. Other labels, annotations, and Node fields are preserved, and keys from an older Topograph configuration are not removed automatically.
 
 <p align="center"><img src="../assets/topograph-k8s.png" width="600" alt="Design" /></p>
 

@@ -18,12 +18,16 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -68,40 +72,151 @@ func getComputeInstances(nodes *corev1.NodeList) []topology.ComputeInstances {
 	return cis
 }
 
-func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels map[string]string) error {
-	klog.Infof("Applying labels on node %s : %v", nodeName, labels)
-	node, err := eng.client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+func (eng *K8sEngine) reconcileNodeLabelPlans(ctx context.Context, plans nodeLabelPlans) error {
+	if len(plans) == 0 {
+		return nil
+	}
+
+	nodes, err := eng.listNodesForReconciliation(ctx)
 	if err != nil {
 		return err
 	}
 
-	MergeNodeLabels(node, labels)
+	for _, nodeName := range slices.Sorted(maps.Keys(plans)) {
+		node, ok := nodes[nodeName]
+		if !ok {
+			klog.Warningf("skipping topology labels for node %q because it was not returned by the Node List", nodeName)
+			continue
+		}
+		if err := eng.reconcileNodeLabels(ctx, node, plans[nodeName]); err != nil {
+			return fmt.Errorf("failed to reconcile topology labels on node %q: %w", nodeName, err)
+		}
+	}
 
-	_, err = eng.client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
-
-	return err
+	return nil
 }
 
-func MergeNodeLabels(node *corev1.Node, labels map[string]string) {
-	if node.Labels == nil {
-		node.Labels = make(map[string]string)
+func (eng *K8sEngine) listNodesForReconciliation(ctx context.Context) (map[string]*corev1.Node, error) {
+	baseOptions := metav1.ListOptions{}
+	if eng.params != nil && eng.params.nodeListOpt != nil {
+		baseOptions = *eng.params.nodeListOpt.DeepCopy()
 	}
+	baseOptions.Continue = ""
 
-	labels = skipAcceleratorLabelWhenGPUCliqueExists(node, labels)
-	maps.Copy(node.Labels, labels)
+	nodes := make(map[string]*corev1.Node)
+	continueToken := ""
+	for {
+		options := baseOptions
+		options.Continue = continueToken
+		page, err := eng.client.CoreV1().Nodes().List(ctx, options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list nodes for topology label reconciliation: %w", err)
+		}
+		for i := range page.Items {
+			node := page.Items[i].DeepCopy()
+			nodes[node.Name] = node
+		}
+
+		if page.Continue == "" {
+			return nodes, nil
+		}
+		if page.Continue == continueToken {
+			return nil, fmt.Errorf("node List returned repeated continue token %q", page.Continue)
+		}
+		continueToken = page.Continue
+	}
 }
 
-func skipAcceleratorLabelWhenGPUCliqueExists(node *corev1.Node, labels map[string]string) map[string]string {
-	if labelAccelerator == "" || strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
-		return labels
+func (eng *K8sEngine) reconcileNodeLabels(ctx context.Context, node *corev1.Node, plan *nodeLabelPlan) error {
+	updated, changed := nodeWithReconciledLabels(node, plan)
+	if !changed {
+		return nil
 	}
 
-	filtered := maps.Clone(labels)
-	delete(filtered, labelAccelerator)
+	klog.Infof("Reconciling managed topology labels on node %s", node.Name)
+	if _, err := eng.client.CoreV1().Nodes().Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
+		if apierrors.IsNotFound(err) {
+			klog.Warningf("skipping topology labels for node %q because it was deleted after the Node List", node.Name)
+			return nil
+		}
+		if !apierrors.IsConflict(err) {
+			return err
+		}
 
-	if labelAccelerator != topology.KeyNvidiaGPUClique {
-		delete(node.Labels, labelAccelerator)
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			latest, getErr := eng.client.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
+			if getErr != nil {
+				if apierrors.IsNotFound(getErr) {
+					klog.Warningf("skipping topology labels for node %q because it was deleted during conflict retry", node.Name)
+					return nil
+				}
+				return getErr
+			}
+
+			updated, changed := nodeWithReconciledLabels(latest, plan)
+			if !changed {
+				return nil
+			}
+			_, updateErr := eng.client.CoreV1().Nodes().Update(ctx, updated, metav1.UpdateOptions{})
+			if apierrors.IsNotFound(updateErr) {
+				klog.Warningf("skipping topology labels for node %q because it was deleted during conflict retry", node.Name)
+				return nil
+			}
+			return updateErr
+		})
 	}
 
-	return filtered
+	return nil
+}
+
+func nodeWithReconciledLabels(node *corev1.Node, plan *nodeLabelPlan) (*corev1.Node, bool) {
+	effectivePlan := effectiveNodeLabelPlan(node, plan)
+	updated := node.DeepCopy()
+	changed := false
+
+	for _, key := range slices.Sorted(maps.Keys(effectivePlan.ManagedKeys)) {
+		desired, desiredExists := effectivePlan.Desired[key]
+		current, currentExists := node.Labels[key]
+		switch {
+		case desiredExists && (!currentExists || current != desired):
+			if updated.Labels == nil {
+				updated.Labels = make(map[string]string)
+			}
+			updated.Labels[key] = desired
+			changed = true
+		case !desiredExists && currentExists:
+			delete(updated.Labels, key)
+			changed = true
+		}
+	}
+
+	return updated, changed
+}
+
+func effectiveNodeLabelPlan(node *corev1.Node, plan *nodeLabelPlan) nodeLabelPlan {
+	effective := nodeLabelPlan{
+		Desired:        maps.Clone(plan.Desired),
+		ManagedKeys:    maps.Clone(plan.ManagedKeys),
+		acceleratorKey: plan.acceleratorKey,
+	}
+	if strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
+		return effective
+	}
+
+	// nvidia.com/gpu.clique belongs to GPU Operator. Protect an existing,
+	// non-empty value even when a custom tier key collides with it.
+	delete(effective.Desired, topology.KeyNvidiaGPUClique)
+	delete(effective.ManagedKeys, topology.KeyNvidiaGPUClique)
+
+	if plan.acceleratorKey == "" || plan.acceleratorKey == topology.KeyNvidiaGPUClique {
+		return effective
+	}
+	if _, managed := plan.ManagedKeys[plan.acceleratorKey]; !managed {
+		return effective
+	}
+
+	// A distinct Topograph accelerator key remains managed, but should be
+	// absent while GPU Operator provides the authoritative clique value.
+	delete(effective.Desired, plan.acceleratorKey)
+	return effective
 }

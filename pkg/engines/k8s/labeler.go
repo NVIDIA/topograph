@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -33,8 +36,6 @@ const (
 
 var (
 	labelAccelerator, labelLeaf, labelSpine, labelCore string
-
-	switchNetworkHierarchy []string
 )
 
 func InitLabels(accelerator, leaf, spine, core string) {
@@ -42,104 +43,181 @@ func InitLabels(accelerator, leaf, spine, core string) {
 	labelLeaf = leaf
 	labelSpine = spine
 	labelCore = core
-	switchNetworkHierarchy = []string{labelLeaf, labelSpine, labelCore}
 }
 
-// map nodename:[label name: label value]
-type nodeLabelMap map[string]map[string]string
+type labelKeySet map[string]struct{}
 
-type Labeler interface {
-	AddNodeLabels(context.Context, string, map[string]string) error
+type nodeLabelPlan struct {
+	Desired        map[string]string
+	ManagedKeys    labelKeySet
+	acceleratorKey string
+}
+
+type nodeLabelPlans map[string]*nodeLabelPlan
+
+type nodeLabelReconciler interface {
+	reconcileNodeLabelPlans(context.Context, nodeLabelPlans) error
 }
 
 type topologyLabeler struct {
-	mapper map[string]string
+	mapper         map[string]string
+	acceleratorKey string
+	tierKeys       [3]string
 }
 
-func NewTopologyLabeler() *topologyLabeler {
+func newTopologyLabeler() *topologyLabeler {
 	return &topologyLabeler{
-		mapper: make(map[string]string),
+		mapper:         make(map[string]string),
+		acceleratorKey: labelAccelerator,
+		tierKeys:       [3]string{labelLeaf, labelSpine, labelCore},
 	}
 }
 
-func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, graph *topology.Graph, labeler Labeler) error {
-	if graph == nil || (graph.Domains == nil && graph.Tiers == nil) {
-		return nil
+func (l *topologyLabeler) applyNodeLabels(ctx context.Context, graph *topology.Graph, labeler nodeLabelReconciler) error {
+	plans, err := l.buildNodeLabelPlans(graph)
+	if err != nil || len(plans) == 0 {
+		return err
+	}
+	return labeler.reconcileNodeLabelPlans(ctx, plans)
+}
+
+func (l *topologyLabeler) buildNodeLabelPlans(graph *topology.Graph) (nodeLabelPlans, error) {
+	plans := make(nodeLabelPlans)
+	if graph == nil {
+		return plans, nil
 	}
 
-	nodeMap := make(nodeLabelMap)
-	if graph.Domains != nil {
-		if err := l.getDomainLabels(graph.Domains, nodeMap); err != nil {
-			return err
-		}
+	if err := l.getDomainLabels(graph.Domains, plans); err != nil {
+		return nil, err
 	}
 
 	if treeRoot := graph.Tiers; treeRoot != nil {
 		layers := []string{}
-		if len(treeRoot.ID) != 0 {
+		if treeRoot.ID != "" {
 			layers = append(layers, treeRoot.ID)
 		}
-		if err := l.getTierLabels(treeRoot, nodeMap, layers); err != nil {
-			return err
+		if err := l.getTierLabels(treeRoot, plans, layers); err != nil {
+			return nil, err
+		}
+	}
+	for nodeName, plan := range plans {
+		if len(plan.ManagedKeys) == 0 {
+			delete(plans, nodeName)
 		}
 	}
 
-	for nodeName, labels := range nodeMap {
-		if err := labeler.AddNodeLabels(ctx, nodeName, labels); err != nil {
-			return err
-		}
+	return plans, nil
+}
+
+func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, plans nodeLabelPlans) error {
+	if !validLabelKey(l.acceleratorKey) {
+		return nil
 	}
 
+	domainByNode := make(map[string]string)
+	for _, domainName := range slices.Sorted(maps.Keys(domains)) {
+		domain := domains[domainName]
+		for _, nodeName := range slices.Sorted(maps.Keys(domain)) {
+			if nodeName == "" {
+				return fmt.Errorf("accelerator domain %q contains an empty node name", domainName)
+			}
+			if previous, ok := domainByNode[nodeName]; ok && previous != domainName {
+				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", previous, domainName, nodeName)
+			}
+			domainByNode[nodeName] = domainName
+
+			plan := getOrCreatePlan(plans, nodeName)
+			plan.acceleratorKey = l.acceleratorKey
+			addManagedKey(plan, l.acceleratorKey)
+			if err := l.addDesiredLabel(nodeName, plan, l.acceleratorKey, domainName); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
-func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap nodeLabelMap) error {
-	for domainName, domain := range domains {
-		for nodeName := range domain {
-			labels, ok := nodeMap[nodeName]
-			if !ok {
-				labels = make(map[string]string)
-				nodeMap[nodeName] = labels
-			}
-			if val, ok := labels[labelAccelerator]; ok {
-				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, domainName, nodeName)
-			}
-			labels[labelAccelerator] = l.checkLabel(domainName)
-		}
+func (l *topologyLabeler) getTierLabels(v *topology.Vertex, plans nodeLabelPlans, layers []string) error {
+	if v == nil {
+		return fmt.Errorf("topology contains a nil vertex")
 	}
-	return nil
-}
 
-func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap nodeLabelMap, layers []string) error {
 	if len(v.Vertices) == 0 { // compute node
-		if len(layers) != 0 {
-			if v.ID != layers[0] {
-				return fmt.Errorf("instance ID mismatch: expected %s, got %s", v.ID, layers[0])
+		// An empty synthetic root represents an empty or partial topology, not a
+		// Kubernetes Node.
+		if v.Name == "" {
+			return nil
+		}
+		if len(layers) != 0 && v.ID != layers[0] {
+			return fmt.Errorf("instance ID mismatch: expected %s, got %s", v.ID, layers[0])
+		}
+
+		plan := getOrCreatePlan(plans, v.Name)
+		for _, key := range l.tierKeys {
+			addManagedKey(plan, key)
+		}
+		for i, sw := range layers[1:] {
+			if sw == "" || i >= len(l.tierKeys) {
+				break
 			}
-			nodeName := v.Name
-			labels, ok := nodeMap[nodeName]
-			if !ok {
-				labels = make(map[string]string)
-				nodeMap[nodeName] = labels
-			}
-			for i, sw := range layers[1:] {
-				if len(sw) == 0 {
-					break
-				}
-				if i < len(switchNetworkHierarchy) {
-					labels[(switchNetworkHierarchy[i])] = l.checkLabel(sw)
-				}
+			if err := l.addDesiredLabel(v.Name, plan, l.tierKeys[i], sw); err != nil {
+				return err
 			}
 		}
 		return nil
 	}
 
-	for _, w := range v.Vertices {
-		if err := l.getTierLabels(w, nodeMap, append([]string{w.ID}, layers...)); err != nil {
+	for _, vertexID := range slices.Sorted(maps.Keys(v.Vertices)) {
+		w := v.Vertices[vertexID]
+		if w == nil {
+			return fmt.Errorf("topology vertex %q contains a nil child", v.ID)
+		}
+		if err := l.getTierLabels(w, plans, append([]string{w.ID}, layers...)); err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func getOrCreatePlan(plans nodeLabelPlans, nodeName string) *nodeLabelPlan {
+	plan, ok := plans[nodeName]
+	if ok {
+		return plan
+	}
+	plan = &nodeLabelPlan{
+		Desired:     make(map[string]string),
+		ManagedKeys: make(labelKeySet),
+	}
+	plans[nodeName] = plan
+	return plan
+}
+
+func validLabelKey(key string) bool {
+	return strings.TrimSpace(key) != ""
+}
+
+func addManagedKey(plan *nodeLabelPlan, key string) {
+	if validLabelKey(key) {
+		plan.ManagedKeys[key] = struct{}{}
+	}
+}
+
+func (l *topologyLabeler) addDesiredLabel(nodeName string, plan *nodeLabelPlan, key, value string) error {
+	if !validLabelKey(key) {
+		return nil
+	}
+	value = l.checkLabel(value)
+	if previous, ok := plan.Desired[key]; ok && previous != value {
+		return fmt.Errorf(
+			"conflicting desired values %q and %q for label %q on node %q",
+			previous,
+			value,
+			key,
+			nodeName,
+		)
+	}
+	plan.Desired[key] = value
 	return nil
 }
 

@@ -35,7 +35,7 @@ const NAME = "k8s"
 
 type K8sEngine struct {
 	config *rest.Config
-	client *kubernetes.Clientset
+	client kubernetes.Interface
 	params *Params
 }
 
@@ -90,7 +90,7 @@ func getParameters(params engines.Config) (*Params, error) {
 }
 
 func (eng *K8sEngine) GenerateOutput(ctx context.Context, graph *topology.Graph, _ map[string]any) ([]byte, *httperr.Error) {
-	if err := NewTopologyLabeler().ApplyNodeLabels(ctx, graph, eng); err != nil {
+	if err := newTopologyLabeler().applyNodeLabels(ctx, graph, eng); err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 

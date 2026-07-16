@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The Kubernetes engine now reconciles its configured topology label keys, removing stale higher-tier labels when a node's network path becomes shallower while avoiding per-node GETs and unchanged-node Updates.
 - `kwok-nodes` now maps generated instance IDs back to model hostnames when naming Kubernetes nodes and writing the Topograph instance annotation.
 - The node-observer now discovers the optional node-data-broker through `NODE_DATA_BROKER_NAME` and `NODE_DATA_BROKER_NAMESPACE` and gates topology generation on the broker DaemonSet's desired and ready replica counts. Helm injects the variables only when `nodeDataBroker.enabled=true`, so disabling the broker cannot leave the observer waiting for nonexistent pods.
 - The node-observer reports an actionable error and defers topology generation when an enabled node-data-broker DaemonSet has zero desired replicas.

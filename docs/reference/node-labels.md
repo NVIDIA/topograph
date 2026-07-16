@@ -15,7 +15,14 @@ Labels are set by the [Kubernetes engine](../engines/k8s.md) (`engine: k8s`) and
 | `network.topology.nvidia.com/spine` | Tree (`topology/tree`) | Spine switch identifier — second-tier aggregation switch |
 | `network.topology.nvidia.com/core` | Tree (`topology/tree`) | Core switch identifier — third tier, present in large three-tier fabrics |
 
-Labels are **additive**: a node that belongs to both a block topology (NVLink domain) and a tree topology (switch fabric) normally carries both `accelerator` and `leaf`/`spine`/`core` simultaneously. The exception is nodes that already have `nvidia.com/gpu.clique`; for those, the k8s engine leaves the accelerator domain on `nvidia.com/gpu.clique` and only writes the switch-hierarchy labels.
+Block and tree labels are combined: a node that belongs to both a block topology (NVLink domain) and a tree topology (switch fabric) normally carries both `accelerator` and `leaf`/`spine`/`core` simultaneously. The exception is nodes that already have `nvidia.com/gpu.clique`; for those, the k8s engine leaves the accelerator domain on `nvidia.com/gpu.clique` and only writes the switch-hierarchy labels.
+
+On every generation, the Kubernetes engine reconciles only the exact label keys in the current `topologyNodeLabels` configuration:
+
+- A node present in the tree topology has its configured `leaf`, `spine`, and `core` keys reconciled. Labels for higher tiers that are no longer present in its path are removed.
+- A node present in an accelerator domain has only its configured `accelerator` key reconciled by that domain. Domain-only nodes retain existing tree labels, while tree-only nodes retain their accelerator label.
+- A Kubernetes node absent from both parts of the current graph is not modified. This protects labels when discovery returns an empty or partial topology.
+- Non-Topograph labels, annotations, and other Node fields are preserved. Topograph does not remove keys from an older configuration because the current process cannot safely establish ownership of them.
 
 Not all providers produce both topology types:
 
