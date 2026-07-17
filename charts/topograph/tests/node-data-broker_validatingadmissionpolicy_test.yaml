@@ -1,0 +1,101 @@
+suite: node-data-broker validating admission policy
+templates:
+  - templates/nodeDataBroker/validatingadmissionpolicy.yaml
+release:
+  name: chart-ci
+  namespace: topograph
+capabilities:
+  majorVersion: "1"
+  minorVersion: "30"
+tests:
+  - it: is omitted by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: is omitted when the component is disabled
+    set:
+      nodeDataBroker:
+        enabled: false
+        validatingAdmissionPolicy:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders both resources when enabled
+    set:
+      nodeDataBroker:
+        enabled: true
+        validatingAdmissionPolicy:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: renders correct API versions and kinds for ValidatingAdmissionPolicy
+    set:
+      nodeDataBroker:
+        enabled: true
+        validatingAdmissionPolicy:
+          enabled: true
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ValidatingAdmissionPolicy
+      - equal:
+          path: apiVersion
+          value: admissionregistration.k8s.io/v1
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph-node-data-broker
+      - equal:
+          path: spec.failurePolicy
+          value: Fail
+
+  - it: renders correct API versions and kinds for ValidatingAdmissionPolicyBinding
+    set:
+      nodeDataBroker:
+        enabled: true
+        validatingAdmissionPolicy:
+          enabled: true
+    documentIndex: 1
+    asserts:
+      - isKind:
+          of: ValidatingAdmissionPolicyBinding
+      - equal:
+          path: apiVersion
+          value: admissionregistration.k8s.io/v1
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph-node-data-broker
+      - equal:
+          path: spec.policyName
+          value: chart-ci-topograph-node-data-broker
+      - equal:
+          path: spec.validationActions[0]
+          value: Deny
+
+  - it: configures the CEL expression and dynamic ServiceAccount matching
+    set:
+      nodeDataBroker:
+        enabled: true
+        validatingAdmissionPolicy:
+          enabled: true
+        serviceAccount:
+          create: true
+          name: custom-node-data-broker-sa
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: spec.validations[0].expression
+          content: "request.userInfo.username != 'system:serviceaccount:topograph:custom-node-data-broker-sa'"
+      - contains:
+          path: spec.validations[0].expression
+          content: "authentication.kubernetes.io/node-name"
+      - contains:
+          path: spec.validations[0].expression
+          content: "request.name"
+      - equal:
+          path: spec.validations[0].message
+          value: "node-data-broker ServiceAccount is only authorized to update its own Node resource (audit F1)."
