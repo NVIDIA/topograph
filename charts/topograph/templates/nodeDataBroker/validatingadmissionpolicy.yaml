@@ -18,6 +18,7 @@ spec:
         request.userInfo.username != 'system:serviceaccount:{{ .Release.Namespace }}:{{ include "nodeDataBroker.serviceAccountName" . }}' ||
         (has(request.userInfo.extra) &&
         has(request.userInfo.extra['authentication.kubernetes.io/node-name']) &&
+        size(request.userInfo.extra['authentication.kubernetes.io/node-name']) > 0 &&
         request.name == request.userInfo.extra['authentication.kubernetes.io/node-name'][0])
       message: "node-data-broker ServiceAccount is only authorized to update its own Node resource (audit F1)."
 ---

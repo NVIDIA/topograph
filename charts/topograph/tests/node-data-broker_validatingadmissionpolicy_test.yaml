@@ -87,15 +87,15 @@ tests:
           name: custom-node-data-broker-sa
     documentIndex: 0
     asserts:
-      - contains:
+      - matchRegex:
           path: spec.validations[0].expression
-          content: "request.userInfo.username != 'system:serviceaccount:topograph:custom-node-data-broker-sa'"
-      - contains:
+          pattern: "request\\.userInfo\\.username != 'system:serviceaccount:topograph:custom-node-data-broker-sa'"
+      - matchRegex:
           path: spec.validations[0].expression
-          content: "authentication.kubernetes.io/node-name"
-      - contains:
+          pattern: "authentication\\.kubernetes\\.io/node-name"
+      - matchRegex:
           path: spec.validations[0].expression
-          content: "request.name"
+          pattern: "request\\.name"
       - equal:
           path: spec.validations[0].message
           value: "node-data-broker ServiceAccount is only authorized to update its own Node resource (audit F1)."
