@@ -64,19 +64,6 @@ switches:
     switches:
     - leaf-6-1
     - leaf-6-2
-  leaf-1-1: {}
-  leaf-1-2: {}
-  leaf-2-1: {}
-  leaf-2-2: {}
-  leaf-3-1: {}
-  leaf-3-2: {}
-  leaf-4-1: {}
-  leaf-4-2: {}
-  leaf-5-1: {}
-  leaf-5-2: {}
-  leaf-6-1: {}
-  leaf-6-2: {}
-
 blocks:
 - switch: leaf-1-1
   nodes:
