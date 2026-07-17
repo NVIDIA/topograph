@@ -137,6 +137,20 @@ tests:
             resources: [configmaps]
             verbs: [create, get, list, update]
 
+  - it: does not render NFD namespace RBAC for an explicit non-NFD engine
+    set:
+      engine:
+        name: slinky
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ClusterRole
+        documentIndex: 0
+      - isKind:
+          of: ClusterRoleBinding
+        documentIndex: 1
+
   - it: grants NFD CR access for the nfd engine
     set:
       engine:

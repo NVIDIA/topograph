@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2026, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package nfd
@@ -23,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -175,6 +165,68 @@ func TestGenerateOutputCleansStaleObjects(t *testing.T) {
 	require.NoError(t, err)
 	staleGroup, err := makeNodeFeatureGroup(topologyTypeLeaf, "stale-leaf", k8sengine.DefaultLabelLeaf)
 	require.NoError(t, err)
+	retainedFeature, err := makeNodeFeature("node-a", map[string]string{topologyTypeLeaf: "old-leaf"})
+	require.NoError(t, err)
+	retainedGroup, err := makeNodeFeatureGroup(topologyTypeLeaf, "leaf-1", k8sengine.DefaultLabelLeaf)
+	require.NoError(t, err)
+	staleFeature.SetNamespace(testNFDNamespace)
+	staleGroup.SetNamespace(testNFDNamespace)
+	retainedFeature.SetNamespace(testNFDNamespace)
+	retainedGroup.SetNamespace(testNFDNamespace)
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			nodeFeatureGVR:      "NodeFeatureList",
+			nodeFeatureGroupGVR: "NodeFeatureGroupList",
+		},
+		staleFeature,
+		staleGroup,
+		retainedFeature,
+		retainedGroup,
+	)
+	eng := &NfdEngine{
+		client:        k8sfake.NewSimpleClientset(),
+		dynamicClient: dynamicClient,
+		params:        &Params{Cleanup: true},
+		namespace:     testNFDNamespace,
+	}
+
+	out, httpErr := eng.GenerateOutput(context.Background(), testGraph(), nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, "OK nodeFeatures=3 nodeFeatureGroups=5\n", string(out))
+
+	features, err := dynamicClient.Resource(nodeFeatureGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
+	require.NoError(t, err)
+	require.Len(t, features.Items, 3)
+	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
+	require.NoError(t, err)
+	require.Len(t, groups.Items, 5)
+
+	resource := dynamicClient.Resource(nodeFeatureGVR).Namespace(testNFDNamespace)
+	_, err = resource.Get(context.Background(), retainedFeature.GetName(), metav1.GetOptions{})
+	require.NoError(t, err)
+	_, err = resource.Get(context.Background(), staleFeature.GetName(), metav1.GetOptions{})
+	require.True(t, apierrors.IsNotFound(err))
+
+	resource = dynamicClient.Resource(nodeFeatureGroupGVR).Namespace(testNFDNamespace)
+	_, err = resource.Get(context.Background(), retainedGroup.GetName(), metav1.GetOptions{})
+	require.NoError(t, err)
+	_, err = resource.Get(context.Background(), staleGroup.GetName(), metav1.GetOptions{})
+	require.True(t, apierrors.IsNotFound(err))
+}
+
+func TestGenerateOutputRejectsEmptyDesiredStateWithCleanup(t *testing.T) {
+	k8sengine.InitLabels(
+		k8sengine.DefaultLabelAccelerator,
+		k8sengine.DefaultLabelLeaf,
+		k8sengine.DefaultLabelSpine,
+		k8sengine.DefaultLabelCore,
+	)
+
+	staleFeature, err := makeNodeFeature("stale-node", map[string]string{topologyTypeLeaf: "stale-leaf"})
+	require.NoError(t, err)
+	staleGroup, err := makeNodeFeatureGroup(topologyTypeLeaf, "stale-leaf", k8sengine.DefaultLabelLeaf)
+	require.NoError(t, err)
 	staleFeature.SetNamespace(testNFDNamespace)
 	staleGroup.SetNamespace(testNFDNamespace)
 	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
@@ -194,15 +246,29 @@ func TestGenerateOutputCleansStaleObjects(t *testing.T) {
 	}
 
 	out, httpErr := eng.GenerateOutput(context.Background(), nil, nil)
-	require.Nil(t, httpErr)
-	require.Equal(t, "OK nodeFeatures=0 nodeFeatureGroups=0\n", string(out))
+	require.Nil(t, out)
+	require.Equal(t, http.StatusBadGateway, httpErr.Code())
+	require.ErrorContains(t, httpErr, "generated no NFD topology objects; keeping the existing topology")
 
 	features, err := dynamicClient.Resource(nodeFeatureGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
 	require.NoError(t, err)
-	require.Empty(t, features.Items)
+	require.Len(t, features.Items, 1)
 	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
 	require.NoError(t, err)
-	require.Empty(t, groups.Items)
+	require.Len(t, groups.Items, 1)
+}
+
+func TestGenerateOutputAllowsEmptyDesiredStateWithoutCleanup(t *testing.T) {
+	eng := &NfdEngine{
+		client:        k8sfake.NewSimpleClientset(),
+		dynamicClient: dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()),
+		params:        &Params{Cleanup: false},
+		namespace:     testNFDNamespace,
+	}
+
+	out, httpErr := eng.GenerateOutput(context.Background(), nil, nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, "OK nodeFeatures=0 nodeFeatureGroups=0\n", string(out))
 }
 
 func TestUpsertObjectRemovesStaleTopologyAttributes(t *testing.T) {

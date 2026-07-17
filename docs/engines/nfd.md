@@ -70,7 +70,7 @@ Parameters:
 | Parameter | Required | Default | Description |
 |---|---:|---|---|
 | `nodeSelector` | No | all nodes | Limits the Kubernetes nodes used as provider input. Same meaning as the `k8s` engine selector. |
-| `cleanup` | No | `true` | Deletes stale Topograph-managed `NodeFeature` and `NodeFeatureGroup` objects that are no longer present in the generated topology. |
+| `cleanup` | No | `true` | Deletes stale Topograph-managed `NodeFeature` and `NodeFeatureGroup` objects that are no longer present in the generated topology. If generation produces no objects, the engine returns an error and preserves the existing topology. |
 
 `nfdNamespace` is a deployment-level Helm value, not an engine request
 parameter. It must be the namespace where NFD master runs because NFD updates
