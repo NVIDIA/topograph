@@ -122,7 +122,6 @@ func TestModelCompletion(t *testing.T) {
 switches:
   core:
     switches: [leaf]
-  leaf: {}
 blocks:
 - switch: leaf
   nodes: ["n[1-2]"]

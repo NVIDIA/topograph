@@ -110,6 +110,17 @@ func (m *Model) UnmarshalYAML(value *yaml.Node) error {
 		}
 		sw.Name = name
 	}
+
+	// Leaf switches have no configuration of their own, so model files may omit
+	// their otherwise-empty top-level definitions. Materialize every switch
+	// referenced by a parent to keep the derived model and graph complete.
+	for _, parent := range m.Switches {
+		for _, name := range parent.Switches {
+			if _, ok := m.Switches[name]; !ok {
+				m.Switches[name] = &Switch{Name: name}
+			}
+		}
+	}
 	return nil
 }
 

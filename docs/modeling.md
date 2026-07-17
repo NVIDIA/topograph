@@ -152,13 +152,13 @@ switches:
     labels:
       topology.kubernetes.io/zone: zone1
     switches: [leaf1, leaf2]
-  leaf1: {}
-  leaf2: {}
 ```
 
 Switch rules:
 
 - A switch can have at most one parent switch.
+- Empty leaf switches may be omitted from the `switches` map. A child switch named in a parent's `switches` list is created automatically when it has no top-level definition.
+- A switch that defines labels or child switches must have a top-level entry.
 - If a block names a switch with `blocks[].switch`, that block's `nodes` are attached to the switch before switch validation runs.
 
 ## Blocks
@@ -185,7 +185,7 @@ Block rules:
 
 - The `blocks` section is the only place model files declare compute node names.
 - Each block entry must declare at least one node.
-- `switch` is optional. When set, it must reference an existing switch.
+- `switch` is optional. When set, it must reference a switch declared at the top level or named as a child in the switch hierarchy.
 - `blocks[].nodes` creates node entries automatically.
 
 ## Compact Ranges
@@ -231,7 +231,6 @@ This model creates nodes from block membership and attaches them to a leaf switc
 switches:
   core:
     switches: [leaf]
-  leaf: {}
 
 blocks:
 - switch: leaf
