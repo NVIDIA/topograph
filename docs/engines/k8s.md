@@ -302,6 +302,22 @@ Apply alongside the chart. A bundled template is under consideration.
 
 The node-observer `ClusterRole` grants `pods [list, watch]` unconditionally, `apps/daemonsets [list, watch]` when `nodeDataBroker.enabled=true`, and `nodes [list, watch]` only when `nodeObserver.topograph.trigger.nodeSelector` is set. Set `nodeObserver.rbac.create: false` to suppress the `ClusterRole`/`ClusterRoleBinding` when managing RBAC externally.
 
+### Node Data Broker write-scoping via ValidatingAdmissionPolicy
+
+The node-data-broker's RBAC grants update permission on nodes cluster-wide. To enforce least-privilege scoping, the chart supports deploying an opt-in `ValidatingAdmissionPolicy` and its binding:
+
+```yaml
+nodeDataBroker:
+  validatingAdmissionPolicy:
+    enabled: true
+```
+
+When enabled, the policy matches node `UPDATE` operations performed by the broker's ServiceAccount and validates that the name of the node being modified matches the node name claim bound to the requester's ServiceAccount token (`authentication.kubernetes.io/node-name`).
+
+**Prerequisites:**
+1. A Kubernetes cluster with the **`ValidatingAdmissionPolicy` API enabled** (`admissionregistration.k8s.io/v1`).
+2. ServiceAccount tokens carrying the node-binding identity claim (e.g., via `ServiceAccountTokenNodeBinding`). The policy denies updates from the broker ServiceAccount if this required node-name claim is missing from the request context.
+
 ## Validation and Testing
 
 The Helm chart ships two layers of validation for operators.

@@ -1,0 +1,34 @@
+{{- if and .Values.nodeDataBroker.enabled .Values.nodeDataBroker.validatingAdmissionPolicy.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ include "nodeDataBroker.fullname" . }}
+  labels:
+    {{- include "nodeDataBroker.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["UPDATE"]
+        resources: ["nodes"]
+  validations:
+    - expression: >-
+        request.userInfo.username != 'system:serviceaccount:{{ .Release.Namespace }}:{{ include "nodeDataBroker.serviceAccountName" . }}' ||
+        (has(request.userInfo.extra) &&
+        has(request.userInfo.extra['authentication.kubernetes.io/node-name']) &&
+        size(request.userInfo.extra['authentication.kubernetes.io/node-name']) > 0 &&
+        request.name == request.userInfo.extra['authentication.kubernetes.io/node-name'][0])
+      message: "node-data-broker ServiceAccount is only authorized to update its own Node resource (audit F1)."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ include "nodeDataBroker.fullname" . }}
+  labels:
+    {{- include "nodeDataBroker.labels" . | nindent 4 }}
+spec:
+  policyName: {{ include "nodeDataBroker.fullname" . }}
+  validationActions: [Deny]
+{{- end }}
