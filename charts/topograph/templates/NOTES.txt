@@ -48,9 +48,6 @@
         {{ .Values.nfdNamespace }}. This must be the namespace where NFD master runs.
 {{- end }}
 
-  Topology label families use closest-first numeric levels:
-    fabric:      {{ .Values.topologyNodeLabels.fabricPrefix }}N
-    accelerated: {{ .Values.topologyNodeLabels.acceleratedPrefix }}N
 {{- if not .Values.serviceAccount.create }}
 
 2. Topograph is configured to use the existing ServiceAccount "{{ include "topograph.serviceAccountName" . }}".

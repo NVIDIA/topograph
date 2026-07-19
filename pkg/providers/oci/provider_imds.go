@@ -81,9 +81,9 @@ func (p *imdsProvider) getComputeHostInfo(ctx context.Context, ci topology.Compu
 	for instanceID, node := range ci.Instances {
 		if nodeTopology, ok := topoMap[node]; ok {
 			topo.Instances = append(topo.Instances, &topology.InstanceTopology{
-				InstanceID:       instanceID,
-				FabricTiers:      topology.ClosestFirstFabricTiers(nodeTopology.LocalBlock, nodeTopology.NetworkBlock, nodeTopology.HPCIslandId),
-				AcceleratedTiers: []string{nodeTopology.GpuMemoryFabric},
+				InstanceID:    instanceID,
+				FabricTiers:   topology.ClosestFirstFabricTiers(nodeTopology.LocalBlock, nodeTopology.NetworkBlock, nodeTopology.HPCIslandId),
+				AcceleratorID: nodeTopology.GpuMemoryFabric,
 			})
 		}
 	}

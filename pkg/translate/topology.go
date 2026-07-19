@@ -175,18 +175,23 @@ func toBlockInfos(domains topology.DomainMap) []*blockInfo {
 }
 
 func (nt *NetworkTopology) initBlocks(graph *topology.Graph) {
-	if graph == nil || graph.Domains == nil {
+	if graph == nil {
+		klog.Warning("block topology data not found")
+		return
+	}
+	domains := graph.Domains
+	if domains == nil {
 		klog.Warning("block topology data not found")
 		return
 	}
 
-	if len(graph.Domains) == 0 {
+	if len(domains) == 0 {
 		klog.Warning("no blocks found in block topology")
 		return
 	}
 
-	nt.domains = graph.Domains
-	domainBlocks := toBlockInfos(graph.Domains)
+	nt.domains = domains
+	domainBlocks := toBlockInfos(domains)
 	nt.blocks = make([]*blockInfo, 0, len(domainBlocks))
 	indx := 0
 
@@ -194,7 +199,7 @@ func (nt *NetworkTopology) initBlocks(graph *topology.Graph) {
 		for _, bInfo := range domainBlocks {
 			bInfo.indx = indx
 			for _, node := range bInfo.nodes {
-				hostInfo := graph.Domains[bInfo.name][node]
+				hostInfo := domains[bInfo.name][node]
 				if hostInfo == nil {
 					klog.Warningf("initBlocks: missing host info for node %q in domain %q", node, bInfo.name)
 					continue

@@ -31,11 +31,11 @@ blocks:
 - switch: tor1
   nodes: [n11,n12]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 - switch: tor2
   nodes: [n21,n22]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl2
+    network.topology.nvidia.com/accelerator: nvl2
 `
 )
 

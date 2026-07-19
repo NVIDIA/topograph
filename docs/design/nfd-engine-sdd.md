@@ -9,7 +9,7 @@ Implemented.
 Add an experimental `nfd` engine that converts Topograph's canonical
 `topology.Graph` into Node Feature Discovery (NFD) `NodeFeatureGroup` objects.
 The engine creates one group for each distinct topology label value, such as one
-group for each distinct fabric-level or accelerated-level value.
+group for each distinct fabric-tier or accelerator value.
 
 This should not replace the current `k8s` engine. The `k8s` engine writes node
 labels that can be consumed by native Kubernetes affinity and topology-aware
@@ -20,10 +20,10 @@ NFD CRs for consumers that already watch NFD.
 
 Topograph already maps topology into four Kubernetes label dimensions:
 
-- `accelerated.topology.nvidia.com/level-0`
-- `network.topology.nvidia.com/level-0`
-- `network.topology.nvidia.com/level-1`
-- `network.topology.nvidia.com/level-2`
+- `network.topology.nvidia.com/accelerator`
+- `network.topology.nvidia.com/tier-0`
+- `network.topology.nvidia.com/tier-1`
+- `network.topology.nvidia.com/tier-2`
 
 NFD `NodeFeatureGroup` is an alpha NFD API. NFD master watches
 `NodeFeatureGroup` objects, evaluates their feature-group rules, and writes the
@@ -72,9 +72,9 @@ spec:
       topograph.network:
         elements:
           accelerator: nvl3
-          leaf: leaf-12
-          spine: spine-2
-          core: core-1
+          fabric-tier-0: leaf-12
+          fabric-tier-1: spine-2
+          fabric-tier-2: core-1
 ```
 
 Example generated group for one leaf switch:
@@ -83,20 +83,20 @@ Example generated group for one leaf switch:
 apiVersion: nfd.k8s-sigs.io/v1alpha1
 kind: NodeFeatureGroup
 metadata:
-  name: topograph-leaf-x3f91c4a0
+  name: topograph-fabric-tier-0-leaf-12-...
   labels:
     app.kubernetes.io/managed-by: topograph
-    topograph.nvidia.com/group-type: leaf
+    topograph.nvidia.com/group-type: fabric-tier-0
   annotations:
-    topograph.nvidia.com/label-key: network.topology.nvidia.com/level-0
+    topograph.nvidia.com/label-key: network.topology.nvidia.com/tier-0
     topograph.nvidia.com/label-value: leaf-12
 spec:
   featureGroupRules:
-    - name: leaf equals leaf-12
+    - name: fabric-tier-0 equals leaf-12
       matchFeatures:
         - feature: topograph.network
           matchExpressions:
-            leaf:
+            fabric-tier-0:
               op: In
               value: ["leaf-12"]
 ```
@@ -127,7 +127,7 @@ returns an error if `NFD_NAMESPACE` is unset or blank.
 - Add `pkg/engines/nfd` with the standard `NamedLoader`.
 - Register it in `pkg/registry/registry.go`.
 - Factor the current `k8s` label projection into a shared helper so both engines
-  produce identical values at every discovered fabric and accelerated level.
+  produce identical values at every discovered fabric tier and accelerator domain.
 - Use the dynamic Kubernetes client or generated NFD client types, depending on
   whether the project wants to pin an NFD API dependency.
 - Update Helm RBAC to allow create, update, patch, list, watch, and delete for
@@ -151,7 +151,7 @@ label name is the same on every node, but the label value differs from one switc
 to another.
 
 The current Kubernetes label model handles this naturally: pod affinity can use
-`topologyKey: network.topology.nvidia.com/level-0`, and Kubernetes compares values
+`topologyKey: network.topology.nvidia.com/tier-0`, and Kubernetes compares values
 on candidate nodes. `NodeFeatureGroup` exposes precomputed groups instead, so
 the consumer needs extra logic to choose among them.
 
@@ -190,7 +190,7 @@ overhead.
 Assumptions:
 
 - 10,000 `NodeFeature` objects, one per node.
-- One topology attribute for every discovered fabric and accelerated level.
+- One topology attribute for every discovered fabric tier and accelerator domain.
 - Each node appears in one `NodeFeatureGroup.status.nodes` list per topology
   dimension, so status contains about 40,000 node references total.
 - Average node names and topology values are short, roughly 10-30 characters.
@@ -220,7 +220,7 @@ small patches to reduce write amplification.
 
 ## Test Plan
 
-- Unit-test graph-to-group generation across variable fabric and accelerated levels.
+- Unit-test graph-to-group generation across variable fabric tiers and accelerator domains.
 - Verify long and invalid topology values produce stable CR names.
 - Verify stale Topograph-managed groups are removed when `cleanup` is enabled.
 - Verify an empty generated object set returns an error and preserves existing

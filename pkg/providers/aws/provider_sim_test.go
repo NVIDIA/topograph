@@ -47,11 +47,11 @@ blocks:
 - switch: tor1
   nodes: [n11,n12]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 - switch: tor2
   nodes: [n21,n22]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl2
+    network.topology.nvidia.com/accelerator: nvl2
 `
 
 	largeClusterModel = `
@@ -68,11 +68,11 @@ blocks:
 - switch: tor1
   nodes: ["n[100-199]"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 - switch: tor2
   nodes: ["n[200-299]"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl2
+    network.topology.nvidia.com/accelerator: nvl2
 `
 )
 
@@ -110,7 +110,7 @@ blocks:
 - switch: tor
   nodes: [n11,n12]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 `,
 		},
 		{
@@ -148,7 +148,7 @@ blocks:
 - switch: tor
   nodes: [n11]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 `,
 			region:    "region",
 			intervals: []interval{{11, 11}},

@@ -7,7 +7,6 @@ package topology
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 // Instances is the top-level JSON envelope for instance-oriented topology export.
@@ -35,41 +34,8 @@ func AcceleratorID(labels map[string]string) string {
 	return labels[KeyNvidiaGPUClique]
 }
 
-func AcceleratedLevelIDs(labels map[string]string) map[int]string {
-	levels := make(map[int]string)
-	for key, value := range labels {
-		if value == "" || !strings.HasPrefix(key, KeyAcceleratedLevelPrefix) {
-			continue
-		}
-		level, err := strconv.Atoi(strings.TrimPrefix(key, KeyAcceleratedLevelPrefix))
-		if err == nil && level >= 0 {
-			levels[level] = value
-		}
-	}
-	return levels
-}
-
-func FabricLevelKey(level int) string {
-	return KeyFabricLevelPrefix + strconv.Itoa(level)
-}
-
-func AcceleratedLevelKey(level int) string {
-	return KeyAcceleratedLevelPrefix + strconv.Itoa(level)
-}
-
-// AcceleratedLevels returns the graph's accelerated tiers closest-first while
-// preserving Domains as the legacy level-zero source.
-func (graph *Graph) AcceleratedLevels() []DomainMap {
-	if graph == nil {
-		return nil
-	}
-	if len(graph.AcceleratedTiers) != 0 {
-		return graph.AcceleratedTiers
-	}
-	if len(graph.Domains) != 0 {
-		return []DomainMap{graph.Domains}
-	}
-	return nil
+func FabricTierKey(tier int) string {
+	return KeyFabricTierPrefix + strconv.Itoa(tier)
 }
 
 // String summarizes an instance for logging (simulation / derived fields).

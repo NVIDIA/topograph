@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package topology
@@ -25,14 +14,14 @@ import (
 var (
 	instances = []*InstanceTopology{
 		{
-			InstanceID:       "i-001",
-			FabricTiers:      ClosestFirstFabricTiers("nn-11111111", "nn-55555555", "nn-77777777"),
-			AcceleratedTiers: []string{"acc-111111"},
+			InstanceID:    "i-001",
+			FabricTiers:   ClosestFirstFabricTiers("nn-11111111", "nn-55555555", "nn-77777777"),
+			AcceleratorID: "acc-111111",
 		},
 		{
-			InstanceID:       "i-002",
-			FabricTiers:      ClosestFirstFabricTiers("nn-22222222", "nn-55555555", "nn-77777777"),
-			AcceleratedTiers: []string{"acc-222222"},
+			InstanceID:    "i-002",
+			FabricTiers:   ClosestFirstFabricTiers("nn-22222222", "nn-55555555", "nn-77777777"),
+			AcceleratorID: "acc-222222",
 		},
 		{
 			InstanceID:  "i-003",
@@ -68,10 +57,10 @@ func TestToGraphNoNorm(t *testing.T) {
 	}
 	require.Equal(t, len(instances), topo.Len())
 
-	inst0 := "Instance:i-001 Level-0:nn-11111111 Level-1:nn-55555555 Level-2:nn-77777777 Accelerated-Level-0:acc-111111"
+	inst0 := "Instance:i-001 Fabric-Tier-0:nn-11111111 Fabric-Tier-1:nn-55555555 Fabric-Tier-2:nn-77777777 Accelerator:acc-111111"
 	require.Equal(t, inst0, topo.Instances[0].String())
 
-	inst2 := "Instance:i-003 Level-0:nn-33333333 Level-1:nn-66666666 Level-2:nn-77777777"
+	inst2 := "Instance:i-003 Fabric-Tier-0:nn-33333333 Fabric-Tier-1:nn-66666666 Fabric-Tier-2:nn-77777777"
 	require.Equal(t, inst2, topo.Instances[2].String())
 
 	v31 := &Vertex{ID: "nn-11111111", Vertices: map[string]*Vertex{"i-001": n1}}
@@ -175,19 +164,19 @@ func TestToGraphNorm(t *testing.T) {
 	graph := topo.ToGraph("test", []ComputeInstances{{Instances: i2n}}, 0, true)
 	require.Equal(t, expected, graph)
 
-	inst0 := "Instance:i-001 Level-0:nn-11111111 (switch.1.1) Level-1:nn-55555555 (switch.2.1) Level-2:nn-77777777 (switch.3.1) Accelerated-Level-0:acc-111111"
+	inst0 := "Instance:i-001 Fabric-Tier-0:nn-11111111 (switch.1.1) Fabric-Tier-1:nn-55555555 (switch.2.1) Fabric-Tier-2:nn-77777777 (switch.3.1) Accelerator:acc-111111"
 	require.Equal(t, inst0, topo.Instances[0].String())
 
-	inst2 := "Instance:i-003 Level-0:nn-33333333 (switch.1.3) Level-1:nn-66666666 (switch.2.2) Level-2:nn-77777777 (switch.3.1)"
+	inst2 := "Instance:i-003 Fabric-Tier-0:nn-33333333 (switch.1.3) Fabric-Tier-1:nn-66666666 (switch.2.2) Fabric-Tier-2:nn-77777777 (switch.3.1)"
 	require.Equal(t, inst2, topo.Instances[2].String())
 }
 
 func TestToGraphIncludesInstanceData(t *testing.T) {
 	topo := NewClusterTopology()
 	topo.Append(&InstanceTopology{
-		InstanceID:       "i-001",
-		FabricTiers:      ClosestFirstFabricTiers("leaf-1", "spine-1", "core-1"),
-		AcceleratedTiers: []string{"nvl-1"},
+		InstanceID:    "i-001",
+		FabricTiers:   ClosestFirstFabricTiers("leaf-1", "spine-1", "core-1"),
+		AcceleratorID: "nvl-1",
 		Instance: &Instance{
 			ID:            "i-001",
 			NetworkLayers: []string{"leaf-1", "spine-1", "core-1"},
@@ -279,9 +268,9 @@ func TestTrimTiers(t *testing.T) {
 func TestToGraphSupportsVariableTierCount(t *testing.T) {
 	topo := NewClusterTopology()
 	topo.Append(&InstanceTopology{
-		InstanceID:       "instance-1",
-		FabricTiers:      ClosestFirstFabricTiers("fabric-0", "fabric-1", "fabric-2", "fabric-3"),
-		AcceleratedTiers: []string{"accelerated-0", "accelerated-1"},
+		InstanceID:    "instance-1",
+		FabricTiers:   ClosestFirstFabricTiers("fabric-0", "fabric-1", "fabric-2", "fabric-3"),
+		AcceleratorID: "accelerator",
 	})
 
 	graph := topo.ToGraph("test", []ComputeInstances{{
@@ -294,9 +283,7 @@ func TestToGraphSupportsVariableTierCount(t *testing.T) {
 		vertex = vertex.Vertices[id]
 	}
 	require.Equal(t, "node-1", vertex.Name)
-	require.Contains(t, graph.AcceleratedTiers[0]["accelerated-0"], "node-1")
-	require.Contains(t, graph.AcceleratedTiers[1]["accelerated-1"], "node-1")
-	require.Equal(t, graph.Domains, graph.AcceleratedTiers[0])
+	require.Contains(t, graph.Domains["accelerator"], "node-1")
 }
 
 func TestToGraphKeepsSameIDAtDifferentLevelsDistinct(t *testing.T) {
@@ -314,6 +301,32 @@ func TestToGraphKeepsSameIDAtDifferentLevelsDistinct(t *testing.T) {
 	inner := outer.Vertices["shared"]
 	require.NotSame(t, outer, inner)
 	require.Equal(t, "node-1", inner.Vertices["instance-1"].Name)
+}
+
+func TestToGraphMergesMixedDepthPathsAtSharedRoot(t *testing.T) {
+	topo := NewClusterTopology()
+	topo.Append(&InstanceTopology{
+		InstanceID:  "instance-1",
+		FabricTiers: ClosestFirstFabricTiers("leaf-1", "shared-root"),
+	})
+	topo.Append(&InstanceTopology{
+		InstanceID:  "instance-2",
+		FabricTiers: ClosestFirstFabricTiers("leaf-2", "spine-2", "shared-root"),
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{
+			"instance-1": "node-1",
+			"instance-2": "node-2",
+		},
+	}}, 0, false)
+
+	root := graph.Tiers.Vertices["shared-root"]
+	require.NotNil(t, root)
+	require.Contains(t, root.Vertices, "leaf-1")
+	require.Contains(t, root.Vertices, "spine-2")
+	require.Equal(t, "node-1", root.Vertices["leaf-1"].Vertices["instance-1"].Name)
+	require.Equal(t, "node-2", root.Vertices["spine-2"].Vertices["leaf-2"].Vertices["instance-2"].Name)
 }
 
 func TestTrimTiersTreatsNegativeAsZero(t *testing.T) {

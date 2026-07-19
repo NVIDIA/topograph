@@ -99,9 +99,9 @@ func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHo
 				host.HpcIslandId = ptr.String(node.NetLayers[i])
 			}
 		}
-		acceleratorID := node.AcceleratorID()
-		if acceleratorID != "" {
-			host.GpuMemoryFabricId = &acceleratorID
+		domainID := node.Labels[topology.KeyTopologyAccelerator]
+		if domainID != "" {
+			host.GpuMemoryFabricId = &domainID
 		}
 		resp.Items = append(resp.Items, host)
 	}

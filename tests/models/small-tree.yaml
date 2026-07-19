@@ -21,8 +21,8 @@ blocks:
 - switch: S2
   nodes: ["I[21-22]", "I25"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl2
+    network.topology.nvidia.com/accelerator: nvl2
 - switch: S3
   nodes: ["I[34-36]"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl3
+    network.topology.nvidia.com/accelerator: nvl3

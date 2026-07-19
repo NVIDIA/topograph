@@ -73,8 +73,6 @@ func TestGetComputeInstances(t *testing.T) {
 }
 
 func TestMergeNodeLabels(t *testing.T) {
-	InitLabels(DefaultFabricLabelPrefix, DefaultAcceleratedLabelPrefix)
-
 	testCases := []struct {
 		name             string
 		acceleratorLabel string
@@ -110,29 +108,30 @@ func TestMergeNodeLabels(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						topology.KeyNvidiaGPUClique:        "cluster-a.0",
-						topology.AcceleratedLevelKey(0):    "old-domain",
-						topology.FabricLevelKey(0):         "old-leaf",
-						topology.FabricLevelKey(3):         "stale-fabric",
+						topology.KeyTopologyAccelerator:    "old-domain",
+						topology.FabricTierKey(0):          "old-leaf",
+						topology.FabricTierKey(3):          "stale-fabric",
 						"network.topology.nvidia.com/core": "legacy-core",
 						"workload.example/label":           "keep",
 					},
 				},
 			},
 			in: map[string]string{
-				topology.AcceleratedLevelKey(0): "api-domain",
-				topology.FabricLevelKey(0):      "new-leaf",
-				topology.FabricLevelKey(1):      "new-spine",
+				topology.KeyTopologyAccelerator: "api-domain",
+				topology.FabricTierKey(0):       "new-leaf",
+				topology.FabricTierKey(1):       "new-spine",
 			},
 			out: map[string]string{
-				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				topology.FabricLevelKey(0):  "new-leaf",
-				topology.FabricLevelKey(1):  "new-spine",
-				"workload.example/label":    "keep",
+				topology.KeyNvidiaGPUClique:        "cluster-a.0",
+				topology.FabricTierKey(0):          "new-leaf",
+				topology.FabricTierKey(1):          "new-spine",
+				"network.topology.nvidia.com/core": "legacy-core",
+				"workload.example/label":           "keep",
 			},
 		},
 		{
-			name:             "Case 5: custom accelerated prefix still protects GPU clique",
-			acceleratorLabel: "custom.example/accelerated-",
+			name:             "Case 5: do not overwrite GPU clique when it is the configured accelerator label",
+			acceleratorLabel: topology.KeyNvidiaGPUClique,
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -141,25 +140,54 @@ func TestMergeNodeLabels(t *testing.T) {
 				},
 			},
 			in: map[string]string{
-				"custom.example/accelerated-0": "api-domain",
-				topology.FabricLevelKey(0):     "new-leaf",
-				topology.FabricLevelKey(1):     "new-spine",
+				topology.KeyNvidiaGPUClique: "api-domain",
+				topology.FabricTierKey(0):   "new-leaf",
 			},
 			out: map[string]string{
 				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				topology.FabricLevelKey(0):  "new-leaf",
-				topology.FabricLevelKey(1):  "new-spine",
+				topology.FabricTierKey(0):   "new-leaf",
+			},
+		},
+		{
+			name:             "Case 6: custom accelerator label still protects GPU clique",
+			acceleratorLabel: "custom.example/accelerator",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						topology.KeyNvidiaGPUClique: "cluster-a.0",
+					},
+				},
+			},
+			in: map[string]string{
+				"custom.example/accelerator": "api-domain",
+				topology.FabricTierKey(0):    "new-leaf",
+				topology.FabricTierKey(1):    "new-spine",
+			},
+			out: map[string]string{
+				topology.KeyNvidiaGPUClique: "cluster-a.0",
+				topology.FabricTierKey(0):   "new-leaf",
+				topology.FabricTierKey(1):   "new-spine",
+			},
+		},
+		{
+			name: "Case 7: apply accelerator label when GPU clique is absent",
+			node: &corev1.Node{},
+			in: map[string]string{
+				topology.KeyTopologyAccelerator: "api-domain",
+			},
+			out: map[string]string{
+				topology.KeyTopologyAccelerator: "api-domain",
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			keys := NewTopologyLabelKeys(nil, "")
 			if tc.acceleratorLabel != "" {
-				InitLabels(DefaultFabricLabelPrefix, tc.acceleratorLabel)
-				defer InitLabels(DefaultFabricLabelPrefix, DefaultAcceleratedLabelPrefix)
+				keys = NewTopologyLabelKeys(nil, tc.acceleratorLabel)
 			}
-			MergeNodeLabels(tc.node, tc.in)
+			MergeNodeLabels(tc.node, tc.in, keys)
 			require.Equal(t, tc.out, tc.node.Labels)
 		})
 	}

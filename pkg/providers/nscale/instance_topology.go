@@ -65,7 +65,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, topo 
 			t.FabricTiers = topology.RootFirstFabricTiers(inst.NetworkPath...)
 
 			if inst.BlockID != nil {
-				t.AcceleratedTiers = []string{*inst.BlockID}
+				t.AcceleratorID = *inst.BlockID
 			}
 
 			klog.Infof("Adding topology: %s", t.String())

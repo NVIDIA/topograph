@@ -94,7 +94,7 @@ func convert(host *core.ComputeHostSummary) (*topology.InstanceTopology, error) 
 	}
 
 	if host.GpuMemoryFabricId != nil {
-		topo.AcceleratedTiers = []string{*host.GpuMemoryFabricId}
+		topo.AcceleratorID = *host.GpuMemoryFabricId
 	}
 
 	return topo, nil

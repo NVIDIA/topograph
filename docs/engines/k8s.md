@@ -4,26 +4,26 @@ Topograph is a tool designed to enhance scheduling decisions in Kubernetes clust
 
 ## Overview
 
-Topograph maps network-fabric and accelerated-network locality as two
-variable-depth label families:
+Topograph maps network-fabric locality as a variable-depth label family and
+accelerator-network locality as a single label:
 
-* `network.topology.nvidia.com/level-N` identifies fabric switch tiers.
-* `accelerated.topology.nvidia.com/level-N` identifies accelerated-network domains.
+* `network.topology.nvidia.com/tier-N` identifies fabric switch tiers.
+* `network.topology.nvidia.com/accelerator` identifies the accelerator domain.
 
-In both families, level 0 is closest to the compute node and levels increase
-outwards. Topograph writes only the levels returned by the provider. If a node
-already has `nvidia.com/gpu.clique`, accelerated level 0 remains unset and the
-GPU Operator label is used as the authoritative closest accelerated domain.
+Fabric tier 0 is closest to the compute node, and tier numbers increase
+outwards. Topograph writes only the fabric tiers enabled by the label
+configuration. If a node already has `nvidia.com/gpu.clique`, the accelerator
+label remains unset and the GPU Operator label is authoritative.
 
 The names of these node labels are configurable via the [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
 
 For example, if a node belongs to NVLink domain `nvl1` and connects to switch `s1`, which connects to switch `s2`, and then to switch `s3`, Topograph will apply the following labels to the node:
 
 ```
-  accelerated.topology.nvidia.com/level-0: nvl1
-  network.topology.nvidia.com/level-0: s1
-  network.topology.nvidia.com/level-1: s2
-  network.topology.nvidia.com/level-2: s3
+  network.topology.nvidia.com/accelerator: nvl1
+  network.topology.nvidia.com/tier-0: s1
+  network.topology.nvidia.com/tier-1: s2
+  network.topology.nvidia.com/tier-2: s3
 ```
 
 <p align="center"><img src="../assets/topograph-k8s.png" width="600" alt="Design" /></p>
@@ -61,12 +61,12 @@ graph TB
 
 The GPU Operator device plugin sets `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs (e.g., GB200 NVL72). This label identifies the NVLink clique a node belongs to and can be used as a topology key for Pod placement.
 
-Topograph treats `nvidia.com/gpu.clique` as the authoritative accelerator-domain node label when it is already present:
+Topograph treats `nvidia.com/gpu.clique` as the authoritative accelerator node label when it is already present:
 
-- On **MNNVL systems**: if `nvidia.com/gpu.clique` exists on a node, the k8s engine does not write accelerated level 0 for that node. It still writes every fabric level and any broader accelerated levels returned by the provider.
+- On **MNNVL systems**: if `nvidia.com/gpu.clique` exists on a node, the k8s engine does not write the accelerator label for that node. It still writes every configured fabric tier.
 - On **non-MNNVL systems** (e.g., DGX B200, B300): `nvidia.com/gpu.clique` is not set (see the [node labels reference](../reference/node-labels.md) for the Fabric Manager init and `GPU_FABRIC_STATE_COMPLETED` details). Topograph writes the configured accelerator label when the selected provider supplies an accelerator domain.
 
-In addition to NVLink domain membership, Topograph provides the full IB switch hierarchy as numbered fabric levels, giving schedulers both dimensions simultaneously.
+In addition to NVLink domain membership, Topograph provides the full IB switch hierarchy as numbered fabric tiers, giving schedulers both dimensions simultaneously.
 
 For `infiniband-k8s`, operators can set `provider.params.useGpuCliqueLabel: true` so the provider reads the GPU Operator's existing clique label instead of collecting the same value through a `nvidia-smi` exec in the GPU Operator device-plugin DaemonSet.
 
@@ -92,7 +92,7 @@ closer network proximity.
                     operator: In
                     values:
                       - myapp
-              topologyKey: network.topology.nvidia.com/level-1
+              topologyKey: network.topology.nvidia.com/tier-1
           - weight: 90
             podAffinityTerm:
               labelSelector:
@@ -101,15 +101,15 @@ closer network proximity.
                     operator: In
                     values:
                       - myapp
-              topologyKey: network.topology.nvidia.com/level-0
+              topologyKey: network.topology.nvidia.com/tier-0
 ```
-Pods are prioritized to be placed on nodes sharing the label `network.topology.nvidia.com/level-0`.
+Pods are prioritized to be placed on nodes sharing the label `network.topology.nvidia.com/tier-0`.
 These nodes are connected to the same network switch, ensuring the lowest latency for communication.
 
-Nodes with the label `network.topology.nvidia.com/level-1` are next in priority.
+Nodes with the label `network.topology.nvidia.com/tier-1` are next in priority.
 Pods on these nodes will still be relatively close, but with slightly higher latency.
 
-In the three-tier network, all nodes will share the same `network.topology.nvidia.com/level-2` label,
+In the three-tier network, all nodes will share the same `network.topology.nvidia.com/tier-2` label,
 so it doesn’t need to be included in pod affinity settings.
 
 Since the default Kubernetes scheduler places one pod at a time, the placement may vary depending on where
@@ -134,6 +134,13 @@ provider:
   name: aws
 engine:
   name: k8s
+  params:
+    # Optional closest-first fabric keys and single accelerator key.
+    # Additional fabric tiers are omitted when the array is configured.
+    fabricLabels:
+      - example.com/rack
+      - example.com/pod
+    acceleratorLabel: example.com/nvl-domain
 ```
 
 ## Exposing the Topograph API

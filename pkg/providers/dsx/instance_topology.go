@@ -73,9 +73,11 @@ func responseToClusterTopology(response *TopologyResponse, cis []topology.Comput
 
 			//create the instance topology
 			inst := &topology.InstanceTopology{
-				InstanceID:       n.NodeID,
-				FabricTiers:      topology.ClosestFirstFabricTiers(leafID, spineID, coreID),
-				AcceleratedTiers: []string{n.AcceleratedNetworkID},
+				InstanceID:  n.NodeID,
+				FabricTiers: topology.ClosestFirstFabricTiers(leafID, spineID, coreID),
+			}
+			if n.AcceleratedNetworkID != "" {
+				inst.AcceleratorID = n.AcceleratedNetworkID
 			}
 			klog.V(4).Infof("Adding instance topology %s", inst.String())
 			topo.Append(inst)

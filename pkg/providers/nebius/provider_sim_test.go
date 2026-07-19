@@ -32,7 +32,7 @@ blocks:
 - switch: tor
   nodes: ["11"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 `
 
 	clusterModel = `
@@ -47,11 +47,11 @@ blocks:
 - switch: tor1
   nodes: ["11","12"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 - switch: tor2
   nodes: ["21","22"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl2
+    network.topology.nvidia.com/accelerator: nvl2
 `
 )
 

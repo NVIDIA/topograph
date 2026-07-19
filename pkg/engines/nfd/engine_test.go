@@ -85,8 +85,6 @@ func TestGetParametersDefaults(t *testing.T) {
 }
 
 func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
-	k8sengine.InitLabels(k8sengine.DefaultFabricLabelPrefix, k8sengine.DefaultAcceleratedLabelPrefix)
-
 	client := k8sfake.NewSimpleClientset(
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}},
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{
@@ -123,17 +121,17 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 	nodeA := findNodeFeature(t, features.Items, "node-a")
 	require.Equal(t, map[string]string{nfdNodeName: "node-a"}, attributeElements(t, nodeA, nfdSystemName))
 	require.Equal(t, map[string]string{
-		topologyTypeAccelerated + "0": "nvl-a",
-		topologyTypeFabric + "0":      "leaf-1",
-		topologyTypeFabric + "1":      "spine-1",
+		topologyTypeAccelerator:  "nvl-a",
+		topologyTypeFabric + "0": "leaf-1",
+		topologyTypeFabric + "1": "spine-1",
 	}, attributeElements(t, nodeA, nfdFeatureSet))
 
 	nodeB := findNodeFeature(t, features.Items, "node-b")
 	require.Equal(t, map[string]string{nfdNodeName: "node-b"}, attributeElements(t, nodeB, nfdSystemName))
 	require.Equal(t, map[string]string{
-		topologyTypeAccelerated + "0": "cluster.0",
-		topologyTypeFabric + "0":      "leaf-1",
-		topologyTypeFabric + "1":      "spine-1",
+		topologyTypeAccelerator:  "cluster.0",
+		topologyTypeFabric + "0": "leaf-1",
+		topologyTypeFabric + "1": "spine-1",
 	}, attributeElements(t, nodeB, nfdFeatureSet))
 
 	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
@@ -143,21 +141,19 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 
 	leafGroup := findGroup(t, groups.Items, topologyTypeFabric+"0", "leaf-1")
 	require.Equal(t, []interface{}{"leaf-1"}, groupRuleValues(t, leafGroup, topologyTypeFabric+"0"))
-	cliqueGroup := findGroup(t, groups.Items, topologyTypeAccelerated+"0", "cluster.0")
+	cliqueGroup := findGroup(t, groups.Items, topologyTypeAccelerator, "cluster.0")
 	require.Equal(t, topology.KeyNvidiaGPUClique, cliqueGroup.GetAnnotations()[annotationTopologyLabelKey])
-	require.Equal(t, []interface{}{"cluster.0"}, groupRuleValues(t, cliqueGroup, topologyTypeAccelerated+"0"))
+	require.Equal(t, []interface{}{"cluster.0"}, groupRuleValues(t, cliqueGroup, topologyTypeAccelerator))
 }
 
 func TestGenerateOutputCleansStaleObjects(t *testing.T) {
-	k8sengine.InitLabels(k8sengine.DefaultFabricLabelPrefix, k8sengine.DefaultAcceleratedLabelPrefix)
-
 	staleFeature, err := makeNodeFeature("stale-node", map[string]string{topologyTypeFabric + "0": "stale-leaf"})
 	require.NoError(t, err)
-	staleGroup, err := makeNodeFeatureGroup(topologyTypeFabric+"0", "stale-leaf", topology.FabricLevelKey(0))
+	staleGroup, err := makeNodeFeatureGroup(topologyTypeFabric+"0", "stale-leaf", topology.FabricTierKey(0))
 	require.NoError(t, err)
 	retainedFeature, err := makeNodeFeature("node-a", map[string]string{topologyTypeFabric + "0": "old-leaf"})
 	require.NoError(t, err)
-	retainedGroup, err := makeNodeFeatureGroup(topologyTypeFabric+"0", "leaf-1", topology.FabricLevelKey(0))
+	retainedGroup, err := makeNodeFeatureGroup(topologyTypeFabric+"0", "leaf-1", topology.FabricTierKey(0))
 	require.NoError(t, err)
 	staleFeature.SetNamespace(testNFDNamespace)
 	staleGroup.SetNamespace(testNFDNamespace)
@@ -206,11 +202,9 @@ func TestGenerateOutputCleansStaleObjects(t *testing.T) {
 }
 
 func TestGenerateOutputRejectsEmptyDesiredStateWithCleanup(t *testing.T) {
-	k8sengine.InitLabels(k8sengine.DefaultFabricLabelPrefix, k8sengine.DefaultAcceleratedLabelPrefix)
-
 	staleFeature, err := makeNodeFeature("stale-node", map[string]string{topologyTypeFabric + "0": "stale-leaf"})
 	require.NoError(t, err)
-	staleGroup, err := makeNodeFeatureGroup(topologyTypeFabric+"0", "stale-leaf", topology.FabricLevelKey(0))
+	staleGroup, err := makeNodeFeatureGroup(topologyTypeFabric+"0", "stale-leaf", topology.FabricTierKey(0))
 	require.NoError(t, err)
 	staleFeature.SetNamespace(testNFDNamespace)
 	staleGroup.SetNamespace(testNFDNamespace)
@@ -291,16 +285,53 @@ func TestUpsertObjectRemovesStaleTopologyAttributes(t *testing.T) {
 }
 
 func TestBuildNFDObjectsRejectsInvalidNFDNodeNameLabelValue(t *testing.T) {
-	k8sengine.InitLabels(k8sengine.DefaultFabricLabelPrefix, k8sengine.DefaultAcceleratedLabelPrefix)
-
 	nodeLabels := k8sengine.NodeLabelMap{
 		"node-name-that-is-too-long-for-a-kubernetes-label-value-because-it-has-more-than-sixty-three-characters": {
-			topology.FabricLevelKey(0): "leaf-1",
+			topology.FabricTierKey(0): "leaf-1",
 		},
 	}
 
 	_, _, err := buildNFDObjects(nodeLabels, nil)
 	require.ErrorContains(t, err, "cannot be used as")
+}
+
+func TestBuildNFDObjectsDoesNotGroupShadowedAcceleratorDomains(t *testing.T) {
+	nodeLabels := k8sengine.NodeLabelMap{
+		"node-a": {
+			topology.KeyTopologyAccelerator: "provider-domain-a",
+			topology.FabricTierKey(0):       "leaf-a",
+		},
+		"node-b": {
+			topology.KeyTopologyAccelerator: "provider-domain-b",
+		},
+	}
+
+	features, groups, err := buildNFDObjects(nodeLabels, map[string]string{"node-a": "gpu-clique-a"})
+
+	require.NoError(t, err)
+	require.Len(t, features, 2)
+	require.Equal(t, "gpu-clique-a", attributeElements(t, *features[0], nfdFeatureSet)[topologyTypeAccelerator])
+	require.Equal(t, "provider-domain-b", attributeElements(t, *features[1], nfdFeatureSet)[topologyTypeAccelerator])
+	require.Len(t, groups, 3)
+	acceleratorValues := make(map[string]struct{})
+	for _, group := range groups {
+		if group.GetLabels()[labelGroupType] == topologyTypeAccelerator {
+			acceleratorValues[group.GetAnnotations()[annotationTopologyValue]] = struct{}{}
+		}
+	}
+	require.Equal(t, map[string]struct{}{
+		"gpu-clique-a":      {},
+		"provider-domain-b": {},
+	}, acceleratorValues)
+}
+
+func TestTopologyKindUsesFabricTierAndAcceleratorLabels(t *testing.T) {
+	kind, ok := topologyKind(topology.FabricTierKey(2))
+	require.True(t, ok)
+	require.Equal(t, topologyTypeFabric+"2", kind)
+	kind, ok = topologyKind(topology.KeyTopologyAccelerator)
+	require.True(t, ok)
+	require.Equal(t, topologyTypeAccelerator, kind)
 }
 
 func testGraph() *topology.Graph {

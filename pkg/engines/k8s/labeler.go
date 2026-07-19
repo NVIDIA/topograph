@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package k8s
@@ -20,34 +9,68 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"slices"
+	"strings"
+
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const (
-	DefaultFabricLabelPrefix      = topology.KeyFabricLevelPrefix
-	DefaultAcceleratedLabelPrefix = topology.KeyAcceleratedLevelPrefix
-)
-
 type TopologyLabelKeys struct {
-	Fabric      string
-	Accelerated string
+	Fabric      []string
+	Accelerator string
 }
 
-var topologyLabelKeys = TopologyLabelKeys{
-	Fabric:      DefaultFabricLabelPrefix,
-	Accelerated: DefaultAcceleratedLabelPrefix,
-}
-
-func InitLabels(fabric, accelerated string) {
-	topologyLabelKeys = TopologyLabelKeys{
-		Fabric:      fabric,
-		Accelerated: accelerated,
+// NewTopologyLabelKeys creates an independent copy of the configured
+// closest-first fabric label keys and accelerator label key.
+func NewTopologyLabelKeys(fabric []string, accelerator string) *TopologyLabelKeys {
+	if accelerator == "" {
+		accelerator = topology.KeyTopologyAccelerator
+	}
+	return &TopologyLabelKeys{
+		Fabric:      slices.Clone(fabric),
+		Accelerator: accelerator,
 	}
 }
 
-func CurrentTopologyLabelKeys() TopologyLabelKeys {
-	return topologyLabelKeys
+// Validate checks that configured keys are valid and unique across both label
+// families.
+func (keys *TopologyLabelKeys) Validate() error {
+	seen := make(map[string]string)
+	validate := func(location, key string) error {
+		if errs := validation.IsQualifiedName(key); len(errs) != 0 {
+			return fmt.Errorf("%s %q is not a valid Kubernetes label key: %s", location, key, strings.Join(errs, "; "))
+		}
+		if previous, ok := seen[key]; ok {
+			return fmt.Errorf("topology label key %q is configured for both %s and %s", key, previous, location)
+		}
+		seen[key] = location
+		return nil
+	}
+	for tier, key := range keys.Fabric {
+		if err := validate(fmt.Sprintf("fabricLabels[%d]", tier), key); err != nil {
+			return err
+		}
+	}
+	return validate("acceleratorLabel", keys.Accelerator)
+}
+
+// FabricKey returns the fabric key for tier. Defaults are used when no custom
+// fabric keys were supplied; an empty result means the tier is omitted.
+func (keys *TopologyLabelKeys) FabricKey(tier int) string {
+	if len(keys.Fabric) == 0 {
+		return topology.FabricTierKey(tier)
+	}
+	if tier >= 0 && tier < len(keys.Fabric) {
+		return keys.Fabric[tier]
+	}
+	return ""
+}
+
+// AcceleratorKey returns the configured accelerator label key.
+func (keys *TopologyLabelKeys) AcceleratorKey() string {
+	return keys.Accelerator
 }
 
 // map nodename:[label name: label value]
@@ -59,14 +82,20 @@ type Labeler interface {
 
 type topologyLabeler struct {
 	mapper map[string]string
+	keys   *TopologyLabelKeys
 }
 
-func NewTopologyLabeler() *topologyLabeler {
+// NewTopologyLabeler creates a graph-to-label translator using the supplied
+// topology label keys.
+func NewTopologyLabeler(keys *TopologyLabelKeys) *topologyLabeler {
 	return &topologyLabeler{
 		mapper: make(map[string]string),
+		keys:   keys,
 	}
 }
 
+// ApplyNodeLabels builds the desired labels and delegates each node update to
+// the supplied Labeler.
 func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, graph *topology.Graph, labeler Labeler) error {
 	nodeMap, err := l.BuildNodeLabels(graph)
 	if err != nil {
@@ -82,15 +111,17 @@ func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, graph *topology.G
 	return nil
 }
 
+// BuildNodeLabels converts accelerator domains and fabric tiers into desired
+// Kubernetes labels keyed by node name.
 func (l *topologyLabeler) BuildNodeLabels(graph *topology.Graph) (NodeLabelMap, error) {
 	nodeMap := make(NodeLabelMap)
 
-	if graph == nil || (len(graph.AcceleratedLevels()) == 0 && graph.Tiers == nil) {
+	if graph == nil || (graph.Domains == nil && graph.Tiers == nil) {
 		return nodeMap, nil
 	}
 
-	for level, domains := range graph.AcceleratedLevels() {
-		if err := l.getDomainLabels(domains, nodeMap, level); err != nil {
+	if graph.Domains != nil {
+		if err := l.getDomainLabels(graph.Domains, nodeMap); err != nil {
 			return nil, err
 		}
 	}
@@ -108,20 +139,21 @@ func (l *topologyLabeler) BuildNodeLabels(graph *topology.Graph) (NodeLabelMap, 
 	return nodeMap, nil
 }
 
-func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap NodeLabelMap, level int) error {
-	labelKey := levelKey(topologyLabelKeys.Accelerated, level)
-	if labelKey == "" {
-		return nil
-	}
+// getDomainLabels adds one accelerator label for each node in each domain.
+func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap NodeLabelMap) error {
+	labelKey := l.keys.AcceleratorKey()
 	for domainName, domain := range domains {
 		for nodeName := range domain {
+			if nodeName == "" {
+				continue
+			}
 			labels, ok := nodeMap[nodeName]
 			if !ok {
 				labels = make(map[string]string)
 				nodeMap[nodeName] = labels
 			}
 			if val, ok := labels[labelKey]; ok {
-				return fmt.Errorf("multiple accelerated level %d labels %s, %s for node %s", level, val, domainName, nodeName)
+				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, domainName, nodeName)
 			}
 			labels[labelKey] = l.checkLabel(domainName)
 		}
@@ -129,6 +161,8 @@ func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap No
 	return nil
 }
 
+// getTierLabels walks the fabric tree and records closest-first switch labels
+// when it reaches each compute-node vertex.
 func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap NodeLabelMap, layers []string) error {
 	if len(v.Vertices) == 0 { // compute node
 		if len(layers) != 0 {
@@ -136,18 +170,20 @@ func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap NodeLabelMap
 				return fmt.Errorf("instance ID mismatch: expected %s, got %s", v.ID, layers[0])
 			}
 			nodeName := v.Name
+			if nodeName == "" {
+				return nil
+			}
 			labels, ok := nodeMap[nodeName]
 			if !ok {
 				labels = make(map[string]string)
 				nodeMap[nodeName] = labels
 			}
 			for i, sw := range layers[1:] {
-				if len(sw) == 0 {
+				labelKey := l.keys.FabricKey(i)
+				if len(sw) == 0 || labelKey == "" {
 					break
 				}
-				if key := levelKey(topologyLabelKeys.Fabric, i); key != "" {
-					labels[key] = l.checkLabel(sw)
-				}
+				labels[labelKey] = l.checkLabel(sw)
 			}
 		}
 		return nil
@@ -162,15 +198,8 @@ func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap NodeLabelMap
 	return nil
 }
 
-func levelKey(prefix string, level int) string {
-	if prefix == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s%d", prefix, level)
-}
-
-// checkLabel checks the length of the label value.
-// If more than 63 characters (Kubernetes limit), it will replace it with hash
+// checkLabel preserves valid-length values and hashes values that exceed the
+// Kubernetes 63-character label-value limit.
 func (l *topologyLabeler) checkLabel(val string) string {
 	v, ok := l.mapper[val]
 	if ok {

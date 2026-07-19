@@ -120,7 +120,9 @@ func (eng *NfdEngine) GenerateOutput(ctx context.Context, graph *topology.Graph,
 		}
 	}
 
-	nodeLabels, err := k8sengine.NewTopologyLabeler().BuildNodeLabels(graph)
+	nodeLabels, err := k8sengine.NewTopologyLabeler(
+		k8sengine.NewTopologyLabelKeys(nil, ""),
+	).BuildNodeLabels(graph)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}

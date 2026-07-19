@@ -8,7 +8,7 @@ It creates:
 
 - one `NodeFeature` per topology node, carrying Topograph topology as
   `spec.features.attributes.topograph.network.elements`
-- one `NodeFeatureGroup` per distinct fabric or accelerated level value
+- one `NodeFeatureGroup` per distinct fabric tier or accelerator domain value
 
 NFD master evaluates those features and writes matching nodes to
 `NodeFeatureGroup.status.nodes`.
@@ -107,10 +107,10 @@ spec:
           nodename: node-a
       topograph.network:
         elements:
-          accelerated-level-0: nvl3
-          fabric-level-0: leaf-12
-          fabric-level-1: spine-2
-          fabric-level-2: core-1
+          accelerator: nvl3
+          fabric-tier-0: leaf-12
+          fabric-tier-1: spine-2
+          fabric-tier-2: core-1
 ```
 
 For each distinct value, it writes a matching `NodeFeatureGroup`:
@@ -119,22 +119,22 @@ For each distinct value, it writes a matching `NodeFeatureGroup`:
 apiVersion: nfd.k8s-sigs.io/v1alpha1
 kind: NodeFeatureGroup
 metadata:
-  name: topograph-fabric-level-0-leaf-12-...
+  name: topograph-fabric-tier-0-leaf-12-...
   namespace: node-feature-discovery
   labels:
     app.kubernetes.io/managed-by: topograph
     topograph.nvidia.com/engine: nfd
-    topograph.nvidia.com/group-type: fabric-level-0
+    topograph.nvidia.com/group-type: fabric-tier-0
   annotations:
-    topograph.nvidia.com/label-key: network.topology.nvidia.com/level-0
+    topograph.nvidia.com/label-key: network.topology.nvidia.com/tier-0
     topograph.nvidia.com/label-value: leaf-12
 spec:
   featureGroupRules:
-    - name: fabric-level-0 equals leaf-12
+    - name: fabric-tier-0 equals leaf-12
       matchFeatures:
         - feature: topograph.network
           matchExpressions:
-            fabric-level-0:
+            fabric-tier-0:
               op: In
               value: ["leaf-12"]
 ```
@@ -146,7 +146,7 @@ KWOK nodes. Topograph does not write `status.nodes`; NFD owns status updates.
 If a Kubernetes node already has `nvidia.com/gpu.clique`, the engine uses that
 label's value as the authoritative accelerator attribute instead of the value
 derived from the provider graph. The matching `NodeFeatureGroup` records
-`nvidia.com/gpu.clique` as its source label key. All fabric-level attributes
+`nvidia.com/gpu.clique` as its source label key. All fabric-tier attributes
 are still published.
 
 ## Caveats

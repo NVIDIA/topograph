@@ -17,6 +17,8 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const nebiusFabricTierCount = 3
+
 func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {
 	client, err := p.clientFactory(pageSize)
 	if err != nil {
@@ -65,13 +67,13 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			}
 
 			inst := &topology.InstanceTopology{
-				InstanceID:       instanceID,
-				AcceleratedTiers: []string{instance.GetSpec().GetNvlInstanceGroupId()},
+				InstanceID:    instanceID,
+				AcceleratorID: instance.GetSpec().GetNvlInstanceGroupId(),
 			}
 
 			path := ibTopology.GetPath()
-			if len(path) == 0 {
-				klog.Warningf("empty topology path for node %q", hostname)
+			if len(path) != nebiusFabricTierCount {
+				klog.Warningf("invalid topology path for node %q: expected %d tiers, got %d", hostname, nebiusFabricTierCount, len(path))
 				continue
 			}
 			inst.FabricTiers = topology.RootFirstFabricTiers(path...)

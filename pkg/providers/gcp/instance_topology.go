@@ -103,7 +103,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 						instance.ResourceStatus.PhysicalHostTopology.GetCluster(),
 					),
 				}
-				inst.AcceleratedTiers = []string{inst.FabricTiers[0].ID}
+				inst.AcceleratorID = inst.FabricTiers[0].ID
 				klog.Infof("Adding topology: %s", inst.String())
 				topo.Append(inst)
 			}

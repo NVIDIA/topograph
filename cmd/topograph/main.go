@@ -28,17 +28,13 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/version"
 	"github.com/NVIDIA/topograph/pkg/config"
-	"github.com/NVIDIA/topograph/pkg/engines/k8s"
 	"github.com/NVIDIA/topograph/pkg/server"
 )
 
 func main() {
 	var cfg string
-	var fabricLabelPrefix, acceleratedLabelPrefix string
 	var ver bool
 	flag.StringVar(&cfg, "c", "/etc/topograph/topograph-config.yaml", "config file")
-	flag.StringVar(&fabricLabelPrefix, "k8s-topology-key-fabric-prefix", k8s.DefaultFabricLabelPrefix, "K8s node-label prefix for fabric levels")
-	flag.StringVar(&acceleratedLabelPrefix, "k8s-topology-key-accelerated-prefix", k8s.DefaultAcceleratedLabelPrefix, "K8s node-label prefix for accelerated-network levels")
 	flag.BoolVar(&ver, "version", false, "show the version")
 
 	klog.InitFlags(nil)
@@ -49,8 +45,6 @@ func main() {
 		fmt.Println("Version:", version.Version)
 		os.Exit(0)
 	}
-
-	k8s.InitLabels(fabricLabelPrefix, acceleratedLabelPrefix)
 
 	if err := mainInternal(cfg); err != nil {
 		klog.Error(err.Error())

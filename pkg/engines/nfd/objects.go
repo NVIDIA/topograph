@@ -41,8 +41,8 @@ const (
 
 	nfdNodeFeatureKind      = "NodeFeature"
 	nfdNodeFeatureGroupKind = "NodeFeatureGroup"
-	topologyTypeFabric      = "fabric-level-"
-	topologyTypeAccelerated = "accelerated-level-"
+	topologyTypeFabric      = "fabric-tier-"
+	topologyTypeAccelerator = "accelerator"
 
 	labelNFDNodeName = "nfd.node.kubernetes.io/node-name"
 	labelManagedBy   = "app.kubernetes.io/managed-by"
@@ -74,7 +74,6 @@ var (
 // buildNFDObjects converts node topology labels into per-node features and
 // groups for each distinct topology value.
 func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[string]string) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
-	keys := k8sengine.CurrentTopologyLabelKeys()
 	groupValues := make(map[string]map[string]string)
 	nodeFeatures := make([]*unstructured.Unstructured, 0, len(nodeLabels))
 
@@ -85,10 +84,14 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 		}
 
 		labels := nodeLabels[nodeName]
+		gpuCliqueValue := strings.TrimSpace(gpuCliqueValues[nodeName])
 		elements := make(map[string]string, len(labels))
 		for _, labelKey := range slices.Sorted(maps.Keys(labels)) {
-			kind, ok := topologyKind(labelKey, keys)
+			kind, ok := topologyKind(labelKey)
 			if !ok {
+				continue
+			}
+			if kind == topologyTypeAccelerator && gpuCliqueValue != "" {
 				continue
 			}
 			value := strings.TrimSpace(labels[labelKey])
@@ -102,8 +105,8 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 			}
 			groupValues[kind][value] = labelKey
 		}
-		if gpuCliqueValue := strings.TrimSpace(gpuCliqueValues[nodeName]); gpuCliqueValue != "" {
-			kind := topologyTypeAccelerated + "0"
+		if gpuCliqueValue != "" {
+			kind := topologyTypeAccelerator
 			elements[kind] = gpuCliqueValue
 			if _, ok := groupValues[kind]; !ok {
 				groupValues[kind] = make(map[string]string)
@@ -136,20 +139,14 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 	return nodeFeatures, nodeFeatureGroups, nil
 }
 
-func topologyKind(labelKey string, keys k8sengine.TopologyLabelKeys) (string, bool) {
-	for _, family := range []struct {
-		labelPrefix string
-		kindPrefix  string
-	}{
-		{labelPrefix: keys.Fabric, kindPrefix: topologyTypeFabric},
-		{labelPrefix: keys.Accelerated, kindPrefix: topologyTypeAccelerated},
-	} {
-		if family.labelPrefix == "" || !strings.HasPrefix(labelKey, family.labelPrefix) {
-			continue
-		}
-		level := strings.TrimPrefix(labelKey, family.labelPrefix)
+func topologyKind(labelKey string) (string, bool) {
+	if labelKey == topology.KeyTopologyAccelerator {
+		return topologyTypeAccelerator, true
+	}
+	if strings.HasPrefix(labelKey, topology.KeyFabricTierPrefix) {
+		level := strings.TrimPrefix(labelKey, topology.KeyFabricTierPrefix)
 		if _, err := strconv.Atoi(level); err == nil {
-			return family.kindPrefix + level, true
+			return topologyTypeFabric + level, true
 		}
 	}
 	return "", false

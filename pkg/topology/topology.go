@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package topology
@@ -48,11 +37,10 @@ const (
 	KeyNvidiaGPUClique  = "nvidia.com/gpu.clique"
 	KeyNvidiaGPUProduct = "nvidia.com/gpu.product"
 
-	// Topograph default node-label families. Level zero is closest to the
-	// compute node and level numbers increase outwards.
-	KeyFabricLevelPrefix      = "network.topology.nvidia.com/level-"
-	KeyAcceleratedLevelPrefix = "accelerated.topology.nvidia.com/level-"
-	KeyTopologyAccelerator    = KeyAcceleratedLevelPrefix + "0"
+	// Topograph default node labels. Fabric tier zero is closest to the compute
+	// node.
+	KeyFabricTierPrefix    = "network.topology.nvidia.com/tier-"
+	KeyTopologyAccelerator = "network.topology.nvidia.com/accelerator"
 
 	// ConfigMap annotation keys for metadata tracking
 	KeyConfigMapEngine            = "topograph.nvidia.com/engine"
@@ -73,11 +61,6 @@ const (
 type Graph struct {
 	Tiers   *Vertex
 	Domains DomainMap
-	// AcceleratedTiers contains accelerated-network domains ordered from the
-	// level closest to compute nodes outwards. Domains is retained as the
-	// level-zero representation for providers and engines that consume block
-	// topology; when AcceleratedTiers is empty, Domains is level zero.
-	AcceleratedTiers []DomainMap
 	// Instances optionally carries per-instance metadata keyed by instance ID.
 	// Engines that do not need instance-oriented output ignore it.
 	Instances map[string]Instance

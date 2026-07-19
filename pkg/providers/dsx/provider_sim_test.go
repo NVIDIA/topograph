@@ -35,11 +35,11 @@ blocks:
 - switch: leaf1
   nodes: [n11,n12]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 - switch: leaf2
   nodes: [n21,n22]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl2
+    network.topology.nvidia.com/accelerator: nvl2
 `
 
 	largeClusterModel = `
@@ -56,11 +56,11 @@ blocks:
 - switch: leaf1
   nodes: ["n[100-164]"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 - switch: leaf2
   nodes: ["n[200-264]"]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl2
+    network.topology.nvidia.com/accelerator: nvl2
 `
 
 	singleNodeModel = `
@@ -72,7 +72,7 @@ blocks:
 - switch: leaf
   nodes: [n1]
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 `
 )
 
@@ -365,6 +365,20 @@ func TestProviderSimWithNVLink(t *testing.T) {
 	require.NotNil(t, domains)
 	_, hasNVL := domains["nvl1"]
 	require.True(t, hasNVL, "cluster model places cb1 nodes in NVLink domain nvl1 under topology/block")
+}
+
+func TestResponseToClusterTopologyOmitsEmptyAccelerator(t *testing.T) {
+	response := &TopologyResponse{Switches: map[string]SwitchInfo{
+		"leaf": {Nodes: []NodeInfo{{NodeID: "n1"}}},
+	}}
+	instances := []topology.ComputeInstances{{
+		Instances: map[string]string{"n1": "node1"},
+	}}
+
+	topo := responseToClusterTopology(response, instances)
+
+	require.Len(t, topo.Instances, 1)
+	require.Empty(t, topo.Instances[0].AcceleratorID)
 }
 
 func TestLoaderSimMissingModelFile(t *testing.T) {

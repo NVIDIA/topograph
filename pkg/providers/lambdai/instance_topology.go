@@ -60,7 +60,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 				if len(inst.NVLink.DomainID) == 0 || len(inst.NVLink.CliqueID) == 0 {
 					klog.Warningf("incomplete NVL data for instance %s: DomainID=%q CliqueID=%q", inst.ID, inst.NVLink.DomainID, inst.NVLink.CliqueID)
 				} else {
-					t.AcceleratedTiers = []string{inst.NVLink.DomainID + "." + inst.NVLink.CliqueID}
+					t.AcceleratorID = inst.NVLink.DomainID + "." + inst.NVLink.CliqueID
 				}
 			}
 

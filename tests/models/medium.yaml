@@ -41,19 +41,19 @@ blocks:
   nodes:
   - "[1101-1102]"
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl1
+    network.topology.nvidia.com/accelerator: nvl1
 - switch: sw12
   nodes:
   - "[1201-1202]"
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl2
+    network.topology.nvidia.com/accelerator: nvl2
 - switch: sw13
   nodes:
   - "[1301-1302]"
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl3
+    network.topology.nvidia.com/accelerator: nvl3
 - switch: sw14
   nodes:
   - "[1401-1402]"
   labels:
-    accelerated.topology.nvidia.com/level-0: nvl4
+    network.topology.nvidia.com/accelerator: nvl4

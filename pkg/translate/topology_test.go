@@ -124,6 +124,13 @@ func TestValidateConfig(t *testing.T) {
 			err: "missing block topology",
 		},
 		{
+			name: "Case 3.1: nil block root",
+			cfg: &Config{
+				Plugin: topology.TopologyBlock,
+			},
+			err: "missing block topology",
+		},
+		{
 			name: "Case 4: mutually exclusive parameters",
 			root: emptyRoot,
 			cfg: &Config{
@@ -153,6 +160,14 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "Case 7: missing block root in topology spec",
 			root: emptyRoot,
+			cfg: &Config{
+				Topologies: map[string]*TopologySpec{
+					"topo": {Plugin: topology.TopologyBlock}},
+			},
+			err: `missing block topology for topology "topo"`,
+		},
+		{
+			name: "Case 7.1: nil block root in topology spec",
 			cfg: &Config{
 				Topologies: map[string]*TopologySpec{
 					"topo": {Plugin: topology.TopologyBlock}},

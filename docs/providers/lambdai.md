@@ -180,7 +180,7 @@ helm install topograph oci://ghcr.io/nvidia/topograph/topograph \
 kubectl get nodes --show-labels | grep network.topology.nvidia
 ```
 
-Only fabric `level-N` labels appear until the API returns `nvlink` data (see the note above); accelerated `level-0` follows once it does.
+Only fabric `tier-N` labels appear until the API returns `nvlink` data (see the note above); the accelerator label follows once it does.
 
 ## Verifying the Output
 
