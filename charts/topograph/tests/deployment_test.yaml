@@ -223,6 +223,31 @@ tests:
             value: topograph
         template: templates/deployment.yaml
 
+  - it: injects the default NFD namespace for the nfd engine
+    set:
+      engine:
+        name: nfd
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NFD_NAMESPACE
+            value: node-feature-discovery
+        template: templates/deployment.yaml
+
+  - it: injects the configured NFD namespace
+    set:
+      engine:
+        name: nfd
+      nfdNamespace: custom-nfd
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NFD_NAMESPACE
+            value: custom-nfd
+        template: templates/deployment.yaml
+
   - it: omits the node-data-broker coordinates when the broker is disabled
     set:
       nodeDataBroker:

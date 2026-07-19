@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft.
+Implemented.
 
 ## Summary
 
@@ -66,6 +66,9 @@ metadata:
 spec:
   features:
     attributes:
+      system.name:
+        elements:
+          nodename: node-a
       topograph.network:
         elements:
           accelerator: nvl3
@@ -107,12 +110,17 @@ raw topology value is too long or contains invalid name characters.
 Initial parameters:
 
 - `nodeSelector`: optional, same meaning as the `k8s` engine.
-- `namespace`: optional if the installed NFD CRDs are namespaced. The
-  implementation should use discovery or the REST mapper rather than assuming
-  CRD scope.
 - `cleanup`: optional boolean, default `true`, deleting stale Topograph-managed
   `NodeFeature` and `NodeFeatureGroup` objects no longer present in the latest
-  graph.
+  graph. An empty generated object set is rejected while cleanup is enabled so
+  a transient empty provider result cannot delete the entire published
+  topology.
+
+The NFD master namespace is deployment-scoped rather than request-scoped. Helm
+configures it through the top-level `nfdNamespace` value and passes it to the
+engine as `NFD_NAMESPACE`; non-Helm deployments set that environment variable
+directly. The Helm value defaults to `node-feature-discovery`; the engine
+returns an error if `NFD_NAMESPACE` is unset or blank.
 
 ## Implementation Notes
 
@@ -215,6 +223,8 @@ small patches to reduce write amplification.
 - Unit-test graph-to-group generation for accelerator, leaf, spine, and core.
 - Verify long and invalid topology values produce stable CR names.
 - Verify stale Topograph-managed groups are removed when `cleanup` is enabled.
+- Verify an empty generated object set returns an error and preserves existing
+  objects when `cleanup` is enabled.
 - Verify nodes with `nvidia.com/gpu.clique` follow the same accelerator behavior
   as the `k8s` engine.
 - Add a fake dynamic-client test that applies generated `NodeFeature` and

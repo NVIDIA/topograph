@@ -19,12 +19,14 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
+	golang.org/x/sync v0.21.0
 	google.golang.org/api v0.276.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.35.4
 	k8s.io/apimachinery v0.35.4
 	k8s.io/client-go v0.35.4
 	k8s.io/klog/v2 v2.140.0
+	sigs.k8s.io/node-feature-discovery/api/nfd v0.18.3
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -103,7 +105,6 @@ require (
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect

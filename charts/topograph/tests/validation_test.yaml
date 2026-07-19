@@ -50,3 +50,13 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "workloadIdentityFederation requires both credentialsConfigmap and audience"
+
+  - it: rejects overriding the chart-managed NFD namespace environment variable
+    set:
+      engine:
+        name: nfd
+      env:
+        NFD_NAMESPACE: other-nfd
+    asserts:
+      - failedTemplate:
+          errorMessage: "env.NFD_NAMESPACE is managed by the chart for the nfd engine; configure nfdNamespace instead"

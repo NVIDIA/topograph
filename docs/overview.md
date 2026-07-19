@@ -49,6 +49,7 @@ Currently supported engines:
 
 - [SLURM](./engines/slurm.md)
 - [Kubernetes](./engines/k8s.md)
+- [Node Feature Discovery](./engines/nfd.md)
 - [SLURM-on-Kubernetes (Slinky)](./engines/slinky.md)
 - [Graph](./engines/graph.md) - returns instance-oriented topology metadata as JSON
 
