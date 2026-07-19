@@ -65,20 +65,16 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			}
 
 			inst := &topology.InstanceTopology{
-				InstanceID:    instanceID,
-				AcceleratorID: instance.GetSpec().GetNvlInstanceGroupId(),
+				InstanceID:       instanceID,
+				AcceleratedTiers: []string{instance.GetSpec().GetNvlInstanceGroupId()},
 			}
 
 			path := ibTopology.GetPath()
-			switch len(path) {
-			case 3:
-				inst.CoreID = path[0]
-				inst.SpineID = path[1]
-				inst.LeafID = path[2]
-			default:
-				klog.Warningf("unsupported size %d of topology path for node %q", len(path), hostname)
+			if len(path) == 0 {
+				klog.Warningf("empty topology path for node %q", hostname)
 				continue
 			}
+			inst.FabricTiers = topology.RootFirstFabricTiers(path...)
 
 			klog.Infof("Adding topology: %s", inst.String())
 			topo.Append(inst)

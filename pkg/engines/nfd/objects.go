@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
@@ -40,10 +41,8 @@ const (
 
 	nfdNodeFeatureKind      = "NodeFeature"
 	nfdNodeFeatureGroupKind = "NodeFeatureGroup"
-	topologyTypeAccelerator = "accelerator"
-	topologyTypeLeaf        = "leaf"
-	topologyTypeSpine       = "spine"
-	topologyTypeCore        = "core"
+	topologyTypeFabric      = "fabric-level-"
+	topologyTypeAccelerated = "accelerated-level-"
 
 	labelNFDNodeName = "nfd.node.kubernetes.io/node-name"
 	labelManagedBy   = "app.kubernetes.io/managed-by"
@@ -76,15 +75,6 @@ var (
 // groups for each distinct topology value.
 func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[string]string) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	keys := k8sengine.CurrentTopologyLabelKeys()
-	configuredLabels := [...]struct {
-		kind string
-		key  string
-	}{
-		{kind: topologyTypeAccelerator, key: keys.Accelerator},
-		{kind: topologyTypeLeaf, key: keys.Leaf},
-		{kind: topologyTypeSpine, key: keys.Spine},
-		{kind: topologyTypeCore, key: keys.Core},
-	}
 	groupValues := make(map[string]map[string]string)
 	nodeFeatures := make([]*unstructured.Unstructured, 0, len(nodeLabels))
 
@@ -95,31 +85,30 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 		}
 
 		labels := nodeLabels[nodeName]
-		elements := make(map[string]string, len(configuredLabels))
-		for _, label := range configuredLabels {
-			labelKey := label.key
-			value := ""
-			if label.kind == topologyTypeAccelerator {
-				if gpuCliqueValue := gpuCliqueValues[nodeName]; gpuCliqueValue != "" {
-					labelKey = topology.KeyNvidiaGPUClique
-					value = gpuCliqueValue
-				}
-			}
-			if labelKey == "" {
+		elements := make(map[string]string, len(labels))
+		for _, labelKey := range slices.Sorted(maps.Keys(labels)) {
+			kind, ok := topologyKind(labelKey, keys)
+			if !ok {
 				continue
 			}
-			if value == "" {
-				value = strings.TrimSpace(labels[labelKey])
-			}
+			value := strings.TrimSpace(labels[labelKey])
 			if value == "" {
 				continue
 			}
 
-			elements[label.kind] = value
-			if _, ok := groupValues[label.kind]; !ok {
-				groupValues[label.kind] = make(map[string]string)
+			elements[kind] = value
+			if _, ok := groupValues[kind]; !ok {
+				groupValues[kind] = make(map[string]string)
 			}
-			groupValues[label.kind][value] = labelKey
+			groupValues[kind][value] = labelKey
+		}
+		if gpuCliqueValue := strings.TrimSpace(gpuCliqueValues[nodeName]); gpuCliqueValue != "" {
+			kind := topologyTypeAccelerated + "0"
+			elements[kind] = gpuCliqueValue
+			if _, ok := groupValues[kind]; !ok {
+				groupValues[kind] = make(map[string]string)
+			}
+			groupValues[kind][gpuCliqueValue] = topology.KeyNvidiaGPUClique
 		}
 		if len(elements) == 0 {
 			continue
@@ -133,11 +122,8 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 	}
 
 	nodeFeatureGroups := make([]*unstructured.Unstructured, 0)
-	for _, kind := range topologyTypeOrder {
-		valuesByLabelKey, ok := groupValues[kind]
-		if !ok {
-			continue
-		}
+	for _, kind := range slices.Sorted(maps.Keys(groupValues)) {
+		valuesByLabelKey := groupValues[kind]
 		for _, value := range slices.Sorted(maps.Keys(valuesByLabelKey)) {
 			nodeFeatureGroup, err := makeNodeFeatureGroup(kind, value, valuesByLabelKey[value])
 			if err != nil {
@@ -148,6 +134,25 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 	}
 
 	return nodeFeatures, nodeFeatureGroups, nil
+}
+
+func topologyKind(labelKey string, keys k8sengine.TopologyLabelKeys) (string, bool) {
+	for _, family := range []struct {
+		labelPrefix string
+		kindPrefix  string
+	}{
+		{labelPrefix: keys.Fabric, kindPrefix: topologyTypeFabric},
+		{labelPrefix: keys.Accelerated, kindPrefix: topologyTypeAccelerated},
+	} {
+		if family.labelPrefix == "" || !strings.HasPrefix(labelKey, family.labelPrefix) {
+			continue
+		}
+		level := strings.TrimPrefix(labelKey, family.labelPrefix)
+		if _, err := strconv.Atoi(level); err == nil {
+			return family.kindPrefix + level, true
+		}
+	}
+	return "", false
 }
 
 // makeNodeFeature builds the NFD feature data published for one node.
@@ -367,13 +372,6 @@ func objectNames(objects []*unstructured.Unstructured) map[string]struct{} {
 		names[obj.GetName()] = struct{}{}
 	}
 	return names
-}
-
-var topologyTypeOrder = []string{
-	topologyTypeAccelerator,
-	topologyTypeLeaf,
-	topologyTypeSpine,
-	topologyTypeCore,
 }
 
 // stableObjectName produces a deterministic DNS label from a prefix and value.

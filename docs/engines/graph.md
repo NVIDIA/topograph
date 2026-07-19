@@ -16,7 +16,7 @@ By default, the generated JSON is returned in the `/v1/topology` response:
       "network_layers": ["leaf-a", "spine-a"],
       "labels": {
         "nvidia.com/gpu.product": "H100",
-        "network.topology.nvidia.com/accelerator": "nvl-1"
+        "accelerated.topology.nvidia.com/level-0": "nvl-1"
       }
     }
   ]

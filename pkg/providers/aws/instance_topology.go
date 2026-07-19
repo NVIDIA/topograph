@@ -102,13 +102,11 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 
 func convert(inst *types.InstanceTopology) *topology.InstanceTopology {
 	topo := &topology.InstanceTopology{
-		InstanceID: *inst.InstanceId,
-		LeafID:     inst.NetworkNodes[2],
-		SpineID:    inst.NetworkNodes[1],
-		CoreID:     inst.NetworkNodes[0],
+		InstanceID:  *inst.InstanceId,
+		FabricTiers: topology.RootFirstFabricTiers(inst.NetworkNodes...),
 	}
 	if inst.CapacityBlockId != nil {
-		topo.AcceleratorID = *inst.CapacityBlockId
+		topo.AcceleratedTiers = []string{*inst.CapacityBlockId}
 	}
 	klog.V(4).Infof("Adding instance topology %s", topo.String())
 	return topo

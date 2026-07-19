@@ -48,8 +48,11 @@ const (
 	KeyNvidiaGPUClique  = "nvidia.com/gpu.clique"
 	KeyNvidiaGPUProduct = "nvidia.com/gpu.product"
 
-	// Topograph default node labels
-	KeyTopologyAccelerator = "network.topology.nvidia.com/accelerator"
+	// Topograph default node-label families. Level zero is closest to the
+	// compute node and level numbers increase outwards.
+	KeyFabricLevelPrefix      = "network.topology.nvidia.com/level-"
+	KeyAcceleratedLevelPrefix = "accelerated.topology.nvidia.com/level-"
+	KeyTopologyAccelerator    = KeyAcceleratedLevelPrefix + "0"
 
 	// ConfigMap annotation keys for metadata tracking
 	KeyConfigMapEngine            = "topograph.nvidia.com/engine"
@@ -70,6 +73,11 @@ const (
 type Graph struct {
 	Tiers   *Vertex
 	Domains DomainMap
+	// AcceleratedTiers contains accelerated-network domains ordered from the
+	// level closest to compute nodes outwards. Domains is retained as the
+	// level-zero representation for providers and engines that consume block
+	// topology; when AcceleratedTiers is empty, Domains is level zero.
+	AcceleratedTiers []DomainMap
 	// Instances optionally carries per-instance metadata keyed by instance ID.
 	// Engines that do not need instance-oriented output ignore it.
 	Instances map[string]Instance

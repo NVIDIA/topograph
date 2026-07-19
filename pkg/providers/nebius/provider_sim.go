@@ -74,7 +74,10 @@ func (c *simClient) GetComputeInstanceList(ctx context.Context, req *compute.Lis
 		if c.apiErr == errTopologyPath {
 			path = []string{}
 		} else {
-			path = []string{node.NetLayers[2], node.NetLayers[1], node.NetLayers[0]}
+			path = make([]string, len(node.NetLayers))
+			for i, layer := range node.NetLayers {
+				path[len(node.NetLayers)-i-1] = layer
+			}
 		}
 		instance.Status.GpuClusterTopology = &compute.InstanceStatus_InfinibandTopologyPath{
 			InfinibandTopologyPath: &compute.InstanceStatusInfinibandTopologyPath{
@@ -164,5 +167,5 @@ func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int,
 	if err != nil {
 		return nil, err
 	}
-	return p.ToThreeTierGraph(NAME_SIM, topo, instances, false), nil
+	return p.ToGraph(NAME_SIM, topo, instances, false), nil
 }

@@ -330,6 +330,7 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 	swVertexMap := make(map[string]*topology.Vertex)
 	swRootMap := make(map[string]bool)
 	domainMap := topology.NewDomainMap()
+	acceleratedTiers := []topology.DomainMap{}
 
 	for hostName := range model.Nodes {
 		instance2node[fmt.Sprintf("i-%s", hostName)] = hostName
@@ -350,12 +351,18 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 		swRootMap[sw.Name] = true
 	}
 
-	// Initializes accelerator domain membership from node labels.
+	// Initializes accelerated-network membership from closest-first level labels.
 	for hostName, instance := range model.Nodes {
-		if accelerator := instance.AcceleratorID(); accelerator != "" {
-			instanceID := fmt.Sprintf("i-%s", hostName)
-			domainMap.AddHost(accelerator, instanceID, instance2node[instanceID])
+		instanceID := fmt.Sprintf("i-%s", hostName)
+		for level, domain := range topology.AcceleratedLevelIDs(instance.Labels) {
+			for len(acceleratedTiers) <= level {
+				acceleratedTiers = append(acceleratedTiers, topology.NewDomainMap())
+			}
+			acceleratedTiers[level].AddHost(domain, instanceID, instance2node[instanceID])
 		}
+	}
+	if len(acceleratedTiers) != 0 {
+		domainMap = acceleratedTiers[0]
 	}
 
 	// Connect all the switches to their sub-switches and sub-nodes
@@ -383,6 +390,9 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 
 	if len(domainMap) != 0 {
 		graph.Domains = domainMap
+	}
+	if len(acceleratedTiers) > 1 {
+		graph.AcceleratedTiers = acceleratedTiers
 	}
 	if instanceMap := model.graphInstanceMap(instances); len(instanceMap) != 0 {
 		graph.Instances = instanceMap

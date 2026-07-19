@@ -8,6 +8,10 @@ renders default values.yaml:
         kubectl --namespace topograph port-forward $POD_NAME 8080:$CONTAINER_PORT
 
         NOTE: node-data-broker applies node annotations once when each broker pod starts.
+
+        Topology label families use closest-first numeric levels:
+          fabric:      network.topology.nvidia.com/level-N
+          accelerated: accelerated.topology.nvidia.com/level-N
   2: |
     apiVersion: v1
     data:
@@ -59,6 +63,8 @@ renders default values.yaml:
           containers:
             - args:
                 - -v=3
+                - -k8s-topology-key-fabric-prefix=network.topology.nvidia.com/level-
+                - -k8s-topology-key-accelerated-prefix=accelerated.topology.nvidia.com/level-
               command:
                 - /usr/local/bin/topograph
               env:
@@ -551,6 +557,10 @@ renders values.k8s.gateway-api-example.yaml:
               it and (if needed) published its listener address in DNS.
 
         NOTE: node-data-broker applies node annotations once when each broker pod starts.
+
+        Topology label families use closest-first numeric levels:
+          fabric:      network.topology.nvidia.com/level-N
+          accelerated: accelerated.topology.nvidia.com/level-N
   2: |
     apiVersion: v1
     data:
@@ -602,6 +612,8 @@ renders values.k8s.gateway-api-example.yaml:
           containers:
             - args:
                 - -v=3
+                - -k8s-topology-key-fabric-prefix=network.topology.nvidia.com/level-
+                - -k8s-topology-key-accelerated-prefix=accelerated.topology.nvidia.com/level-
               command:
                 - /usr/local/bin/topograph
               env:
@@ -1116,6 +1128,10 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
         kubectl --namespace topograph port-forward $POD_NAME 8080:$CONTAINER_PORT
 
         NOTE: node-data-broker applies node annotations once when each broker pod starts.
+
+        Topology label families use closest-first numeric levels:
+          fabric:      network.topology.nvidia.com/level-N
+          accelerated: accelerated.topology.nvidia.com/level-N
   2: |
     apiVersion: v1
     data:
@@ -1167,6 +1183,8 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
           containers:
             - args:
                 - -v=3
+                - -k8s-topology-key-fabric-prefix=network.topology.nvidia.com/level-
+                - -k8s-topology-key-accelerated-prefix=accelerated.topology.nvidia.com/level-
               command:
                 - /usr/local/bin/topograph
               env:
@@ -1691,6 +1709,10 @@ renders values.k8s.gcp-service-account-example.yaml:
         kubectl --namespace topograph port-forward $POD_NAME 8080:$CONTAINER_PORT
 
         NOTE: node-data-broker applies node annotations once when each broker pod starts.
+
+        Topology label families use closest-first numeric levels:
+          fabric:      network.topology.nvidia.com/level-N
+          accelerated: accelerated.topology.nvidia.com/level-N
   2: |
     apiVersion: v1
     data:
@@ -1742,6 +1764,8 @@ renders values.k8s.gcp-service-account-example.yaml:
           containers:
             - args:
                 - -v=3
+                - -k8s-topology-key-fabric-prefix=network.topology.nvidia.com/level-
+                - -k8s-topology-key-accelerated-prefix=accelerated.topology.nvidia.com/level-
               command:
                 - /usr/local/bin/topograph
               env:
@@ -2254,6 +2278,10 @@ renders values.k8s.ib-example.yaml:
         kubectl --namespace topograph port-forward $POD_NAME 8080:$CONTAINER_PORT
 
         NOTE: node-data-broker applies node annotations once when each broker pod starts.
+
+        Topology label families use closest-first numeric levels:
+          fabric:      network.topology.nvidia.com/level-N
+          accelerated: accelerated.topology.nvidia.com/level-N
   2: |
     apiVersion: v1
     data:
@@ -2305,6 +2333,8 @@ renders values.k8s.ib-example.yaml:
           containers:
             - args:
                 - -v=3
+                - -k8s-topology-key-fabric-prefix=network.topology.nvidia.com/level-
+                - -k8s-topology-key-accelerated-prefix=accelerated.topology.nvidia.com/level-
               command:
                 - /usr/local/bin/topograph
               env:
@@ -2825,6 +2855,10 @@ renders values.slinky.block-example.yaml:
         kubectl --namespace topograph port-forward $POD_NAME 8080:$CONTAINER_PORT
 
         NOTE: node-data-broker applies node annotations once when each broker pod starts.
+
+        Topology label families use closest-first numeric levels:
+          fabric:      network.topology.nvidia.com/level-N
+          accelerated: accelerated.topology.nvidia.com/level-N
   2: |
     apiVersion: v1
     data:
@@ -2876,6 +2910,8 @@ renders values.slinky.block-example.yaml:
           containers:
             - args:
                 - -v=3
+                - -k8s-topology-key-fabric-prefix=network.topology.nvidia.com/level-
+                - -k8s-topology-key-accelerated-prefix=accelerated.topology.nvidia.com/level-
               command:
                 - /usr/local/bin/topograph
               env:
@@ -3400,6 +3436,10 @@ renders values.slinky.partition-example.yaml:
         kubectl --namespace topograph port-forward $POD_NAME 8080:$CONTAINER_PORT
 
         NOTE: node-data-broker applies node annotations once when each broker pod starts.
+
+        Topology label families use closest-first numeric levels:
+          fabric:      network.topology.nvidia.com/level-N
+          accelerated: accelerated.topology.nvidia.com/level-N
   2: |
     apiVersion: v1
     data:
@@ -3451,6 +3491,8 @@ renders values.slinky.partition-example.yaml:
           containers:
             - args:
                 - -v=3
+                - -k8s-topology-key-fabric-prefix=network.topology.nvidia.com/level-
+                - -k8s-topology-key-accelerated-prefix=accelerated.topology.nvidia.com/level-
               command:
                 - /usr/local/bin/topograph
               env:
@@ -3992,6 +4034,10 @@ renders values.slinky.tree-example.yaml:
         kubectl --namespace topograph port-forward $POD_NAME 8080:$CONTAINER_PORT
 
         NOTE: node-data-broker applies node annotations once when each broker pod starts.
+
+        Topology label families use closest-first numeric levels:
+          fabric:      network.topology.nvidia.com/level-N
+          accelerated: accelerated.topology.nvidia.com/level-N
   2: |
     apiVersion: v1
     data:
@@ -4043,6 +4089,8 @@ renders values.slinky.tree-example.yaml:
           containers:
             - args:
                 - -v=3
+                - -k8s-topology-key-fabric-prefix=network.topology.nvidia.com/level-
+                - -k8s-topology-key-accelerated-prefix=accelerated.topology.nvidia.com/level-
               command:
                 - /usr/local/bin/topograph
               env:

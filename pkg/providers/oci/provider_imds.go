@@ -52,7 +52,7 @@ func (p *imdsProvider) GenerateTopologyConfig(ctx context.Context, _ *int, insta
 		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, p.trimTiers, true), nil
+	return topo.ToGraph(NAME, instances, p.trimTiers, true), nil
 }
 
 func (p *imdsProvider) generateInstanceTopology(ctx context.Context, cis []topology.ComputeInstances) (*topology.ClusterTopology, error) {
@@ -81,11 +81,9 @@ func (p *imdsProvider) getComputeHostInfo(ctx context.Context, ci topology.Compu
 	for instanceID, node := range ci.Instances {
 		if nodeTopology, ok := topoMap[node]; ok {
 			topo.Instances = append(topo.Instances, &topology.InstanceTopology{
-				InstanceID:    instanceID,
-				LeafID:        nodeTopology.LocalBlock,
-				SpineID:       nodeTopology.NetworkBlock,
-				CoreID:        nodeTopology.HPCIslandId,
-				AcceleratorID: nodeTopology.GpuMemoryFabric,
+				InstanceID:       instanceID,
+				FabricTiers:      topology.ClosestFirstFabricTiers(nodeTopology.LocalBlock, nodeTopology.NetworkBlock, nodeTopology.HPCIslandId),
+				AcceleratedTiers: []string{nodeTopology.GpuMemoryFabric},
 			})
 		}
 	}

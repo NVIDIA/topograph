@@ -126,11 +126,11 @@ blocks:
 - switch: leaf
   nodes: ["n[1-2]"]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 - switch: leaf
   nodes: [n3]
   labels:
-    network.topology.nvidia.com/accelerator: nvl2
+    accelerated.topology.nvidia.com/level-0: nvl2
 `,
 			model: &Model{
 				Switches: map[string]*Switch{
@@ -183,7 +183,7 @@ blocks:
 blocks:
 - nodes: ["n[1-2]"]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 `,
 			model: &Model{
 				Nodes: map[string]*topology.Instance{
@@ -216,7 +216,7 @@ blocks:
 blocks:
 - nodes: [n1]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 - labels: {}
 `,
 			err: `capacity block at index 1 must declare at least one node`,
@@ -308,7 +308,7 @@ blocks:
 - switch: leaf
   nodes: [instance-1]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 `), "inline")
 	require.NoError(t, err)
 

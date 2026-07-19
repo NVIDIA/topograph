@@ -73,7 +73,7 @@ func TestGetComputeInstances(t *testing.T) {
 }
 
 func TestMergeNodeLabels(t *testing.T) {
-	InitLabels(DefaultLabelAccelerator, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
+	InitLabels(DefaultFabricLabelPrefix, DefaultAcceleratedLabelPrefix)
 
 	testCases := []struct {
 		name             string
@@ -109,28 +109,30 @@ func TestMergeNodeLabels(t *testing.T) {
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						topology.KeyNvidiaGPUClique: "cluster-a.0",
-						DefaultLabelAccelerator:     "old-domain",
-						DefaultLabelLeaf:            "old-leaf",
-						"workload.example/label":    "keep",
+						topology.KeyNvidiaGPUClique:        "cluster-a.0",
+						topology.AcceleratedLevelKey(0):    "old-domain",
+						topology.FabricLevelKey(0):         "old-leaf",
+						topology.FabricLevelKey(3):         "stale-fabric",
+						"network.topology.nvidia.com/core": "legacy-core",
+						"workload.example/label":           "keep",
 					},
 				},
 			},
 			in: map[string]string{
-				DefaultLabelAccelerator: "api-domain",
-				DefaultLabelLeaf:        "new-leaf",
-				DefaultLabelSpine:       "new-spine",
+				topology.AcceleratedLevelKey(0): "api-domain",
+				topology.FabricLevelKey(0):      "new-leaf",
+				topology.FabricLevelKey(1):      "new-spine",
 			},
 			out: map[string]string{
 				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				DefaultLabelLeaf:            "new-leaf",
-				DefaultLabelSpine:           "new-spine",
+				topology.FabricLevelKey(0):  "new-leaf",
+				topology.FabricLevelKey(1):  "new-spine",
 				"workload.example/label":    "keep",
 			},
 		},
 		{
-			name:             "Case 5: do not overwrite GPU clique when it is the configured accelerator label",
-			acceleratorLabel: topology.KeyNvidiaGPUClique,
+			name:             "Case 5: custom accelerated prefix still protects GPU clique",
+			acceleratorLabel: "custom.example/accelerated-",
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -139,14 +141,14 @@ func TestMergeNodeLabels(t *testing.T) {
 				},
 			},
 			in: map[string]string{
-				topology.KeyNvidiaGPUClique: "api-domain",
-				DefaultLabelLeaf:            "new-leaf",
-				DefaultLabelSpine:           "new-spine",
+				"custom.example/accelerated-0": "api-domain",
+				topology.FabricLevelKey(0):     "new-leaf",
+				topology.FabricLevelKey(1):     "new-spine",
 			},
 			out: map[string]string{
 				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				DefaultLabelLeaf:            "new-leaf",
-				DefaultLabelSpine:           "new-spine",
+				topology.FabricLevelKey(0):  "new-leaf",
+				topology.FabricLevelKey(1):  "new-spine",
 			},
 		},
 	}
@@ -154,8 +156,8 @@ func TestMergeNodeLabels(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.acceleratorLabel != "" {
-				InitLabels(tc.acceleratorLabel, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
-				defer InitLabels(DefaultLabelAccelerator, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
+				InitLabels(DefaultFabricLabelPrefix, tc.acceleratorLabel)
+				defer InitLabels(DefaultFabricLabelPrefix, DefaultAcceleratedLabelPrefix)
 			}
 			MergeNodeLabels(tc.node, tc.in)
 			require.Equal(t, tc.out, tc.node.Labels)

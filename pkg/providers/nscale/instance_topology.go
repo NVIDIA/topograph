@@ -62,34 +62,14 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, topo 
 				InstanceID: inst.ID,
 			}
 
-			for indx := range minPathSize(inst.NetworkPath) {
-				switch indx {
-				case 0:
-					t.CoreID = inst.NetworkPath[indx]
-				case 1:
-					t.SpineID = inst.NetworkPath[indx]
-				case 2:
-					t.LeafID = inst.NetworkPath[indx]
-				default:
-					klog.Warningf("unsupported size %d of topology path for instance %q", len(inst.NetworkPath), inst.ID)
-				}
-			}
+			t.FabricTiers = topology.RootFirstFabricTiers(inst.NetworkPath...)
 
 			if inst.BlockID != nil {
-				t.AcceleratorID = *inst.BlockID
+				t.AcceleratedTiers = []string{*inst.BlockID}
 			}
 
 			klog.Infof("Adding topology: %s", t.String())
 			topo.Append(t)
 		}
 	}
-}
-
-func minPathSize(path []string) int {
-	n := len(path)
-	if n > 3 {
-		// return one extra index to print warning
-		return 4
-	}
-	return n
 }

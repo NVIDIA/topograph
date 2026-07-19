@@ -20,6 +20,7 @@ import (
 	"context"
 	"maps"
 	"net/http"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -59,19 +60,47 @@ func MergeNodeLabels(node *corev1.Node, labels map[string]string) {
 	}
 
 	labels = skipAcceleratorLabelWhenGPUCliqueExists(node, labels)
+	removeManagedTopologyLabels(node.Labels)
 	maps.Copy(node.Labels, labels)
 }
 
+func removeManagedTopologyLabels(labels map[string]string) {
+	legacyKeys := map[string]struct{}{
+		"network.topology.nvidia.com/accelerator": {},
+		"network.topology.nvidia.com/leaf":        {},
+		"network.topology.nvidia.com/spine":       {},
+		"network.topology.nvidia.com/core":        {},
+	}
+	for key := range labels {
+		if key == topology.KeyNvidiaGPUClique {
+			continue
+		}
+		_, legacy := legacyKeys[key]
+		if legacy || isLevelLabel(key, topologyLabelKeys.Fabric) || isLevelLabel(key, topologyLabelKeys.Accelerated) {
+			delete(labels, key)
+		}
+	}
+}
+
+func isLevelLabel(key, prefix string) bool {
+	if prefix == "" || !strings.HasPrefix(key, prefix) {
+		return false
+	}
+	level, err := strconv.Atoi(strings.TrimPrefix(key, prefix))
+	return err == nil && level >= 0
+}
+
 func skipAcceleratorLabelWhenGPUCliqueExists(node *corev1.Node, labels map[string]string) map[string]string {
-	if topologyLabelKeys.Accelerator == "" || strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
+	acceleratedLevelZero := levelKey(topologyLabelKeys.Accelerated, 0)
+	if acceleratedLevelZero == "" || strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
 		return labels
 	}
 
 	filtered := maps.Clone(labels)
-	delete(filtered, topologyLabelKeys.Accelerator)
+	delete(filtered, acceleratedLevelZero)
 
-	if topologyLabelKeys.Accelerator != topology.KeyNvidiaGPUClique {
-		delete(node.Labels, topologyLabelKeys.Accelerator)
+	if acceleratedLevelZero != topology.KeyNvidiaGPUClique {
+		delete(node.Labels, acceleratedLevelZero)
 	}
 
 	return filtered

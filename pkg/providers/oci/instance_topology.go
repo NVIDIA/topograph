@@ -88,13 +88,13 @@ func convert(host *core.ComputeHostSummary) (*topology.InstanceTopology, error) 
 
 	topo := &topology.InstanceTopology{
 		InstanceID: *host.InstanceId,
-		LeafID:     *host.LocalBlockId,
-		SpineID:    *host.NetworkBlockId,
-		CoreID:     *host.HpcIslandId,
+		FabricTiers: topology.ClosestFirstFabricTiers(
+			*host.LocalBlockId, *host.NetworkBlockId, *host.HpcIslandId,
+		),
 	}
 
 	if host.GpuMemoryFabricId != nil {
-		topo.AcceleratorID = *host.GpuMemoryFabricId
+		topo.AcceleratedTiers = []string{*host.GpuMemoryFabricId}
 	}
 
 	return topo, nil

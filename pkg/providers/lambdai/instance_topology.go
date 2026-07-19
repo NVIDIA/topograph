@@ -52,24 +52,15 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 				InstanceID: inst.ID,
 			}
 
-			for indx := range len(inst.NetworkPath) {
-				switch indx {
-				case 0:
-					t.LeafID = inst.NetworkPath[indx].ID
-				case 1:
-					t.SpineID = inst.NetworkPath[indx].ID
-				case 2:
-					t.CoreID = inst.NetworkPath[indx].ID
-				default:
-					klog.Warningf("unsupported size %d of topology path for instance %q", len(inst.NetworkPath), inst.ID)
-				}
+			for _, hop := range inst.NetworkPath {
+				t.FabricTiers = append(t.FabricTiers, topology.FabricTier{ID: hop.ID})
 			}
 
 			if inst.NVLink != nil {
 				if len(inst.NVLink.DomainID) == 0 || len(inst.NVLink.CliqueID) == 0 {
 					klog.Warningf("incomplete NVL data for instance %s: DomainID=%q CliqueID=%q", inst.ID, inst.NVLink.DomainID, inst.NVLink.CliqueID)
 				} else {
-					t.AcceleratorID = inst.NVLink.DomainID + "." + inst.NVLink.CliqueID
+					t.AcceleratedTiers = []string{inst.NVLink.DomainID + "." + inst.NVLink.CliqueID}
 				}
 			}
 

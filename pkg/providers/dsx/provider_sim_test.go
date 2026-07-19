@@ -35,11 +35,11 @@ blocks:
 - switch: leaf1
   nodes: [n11,n12]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 - switch: leaf2
   nodes: [n21,n22]
   labels:
-    network.topology.nvidia.com/accelerator: nvl2
+    accelerated.topology.nvidia.com/level-0: nvl2
 `
 
 	largeClusterModel = `
@@ -56,11 +56,11 @@ blocks:
 - switch: leaf1
   nodes: ["n[100-164]"]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 - switch: leaf2
   nodes: ["n[200-264]"]
   labels:
-    network.topology.nvidia.com/accelerator: nvl2
+    accelerated.topology.nvidia.com/level-0: nvl2
 `
 
 	singleNodeModel = `
@@ -72,7 +72,7 @@ blocks:
 - switch: leaf
   nodes: [n1]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 `
 )
 
@@ -360,7 +360,7 @@ func TestProviderSimWithNVLink(t *testing.T) {
 	require.Nil(t, httpErr)
 	require.NotNil(t, topo)
 
-	// NVLink / accelerator domain is emitted as graph domains (same as AWS ToThreeTierGraph path).
+	// NVLink / accelerator domain is emitted as graph domains (same as AWS ToGraph path).
 	domains := topo.Domains
 	require.NotNil(t, domains)
 	_, hasNVL := domains["nvl1"]

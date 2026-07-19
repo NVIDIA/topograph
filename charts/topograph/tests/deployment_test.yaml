@@ -276,7 +276,8 @@ tests:
     set:
       verbosity: 5
       topologyNodeLabels:
-        accelerator: network.topology.nvidia.com/accelerator
+        fabricPrefix: example.com/fabric-
+        acceleratedPrefix: example.com/accelerated-
     asserts:
       - contains:
           path: spec.template.spec.containers[0].args
@@ -284,7 +285,11 @@ tests:
         template: templates/deployment.yaml
       - contains:
           path: spec.template.spec.containers[0].args
-          content: -k8s-topology-key-accelerator=network.topology.nvidia.com/accelerator
+          content: -k8s-topology-key-fabric-prefix=example.com/fabric-
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: -k8s-topology-key-accelerated-prefix=example.com/accelerated-
         template: templates/deployment.yaml
 
   - it: renders user-supplied environment variables, initContainers, and lifecycle

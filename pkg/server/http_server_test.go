@@ -223,7 +223,7 @@ BlockSizes=8,16,32
         "S1"
       ],
       "labels": {
-        "network.topology.nvidia.com/accelerator": "nvl2"
+        "accelerated.topology.nvidia.com/level-0": "nvl2"
       }
     },
     {
@@ -233,7 +233,7 @@ BlockSizes=8,16,32
         "S1"
       ],
       "labels": {
-        "network.topology.nvidia.com/accelerator": "nvl2"
+        "accelerated.topology.nvidia.com/level-0": "nvl2"
       }
     }
   ]

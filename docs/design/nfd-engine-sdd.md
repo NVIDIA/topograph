@@ -9,7 +9,7 @@ Implemented.
 Add an experimental `nfd` engine that converts Topograph's canonical
 `topology.Graph` into Node Feature Discovery (NFD) `NodeFeatureGroup` objects.
 The engine creates one group for each distinct topology label value, such as one
-group for each accelerator domain, leaf switch, spine switch, and core switch.
+group for each distinct fabric-level or accelerated-level value.
 
 This should not replace the current `k8s` engine. The `k8s` engine writes node
 labels that can be consumed by native Kubernetes affinity and topology-aware
@@ -20,10 +20,10 @@ NFD CRs for consumers that already watch NFD.
 
 Topograph already maps topology into four Kubernetes label dimensions:
 
-- `network.topology.nvidia.com/accelerator`
-- `network.topology.nvidia.com/leaf`
-- `network.topology.nvidia.com/spine`
-- `network.topology.nvidia.com/core`
+- `accelerated.topology.nvidia.com/level-0`
+- `network.topology.nvidia.com/level-0`
+- `network.topology.nvidia.com/level-1`
+- `network.topology.nvidia.com/level-2`
 
 NFD `NodeFeatureGroup` is an alpha NFD API. NFD master watches
 `NodeFeatureGroup` objects, evaluates their feature-group rules, and writes the
@@ -88,7 +88,7 @@ metadata:
     app.kubernetes.io/managed-by: topograph
     topograph.nvidia.com/group-type: leaf
   annotations:
-    topograph.nvidia.com/label-key: network.topology.nvidia.com/leaf
+    topograph.nvidia.com/label-key: network.topology.nvidia.com/level-0
     topograph.nvidia.com/label-value: leaf-12
 spec:
   featureGroupRules:
@@ -127,7 +127,7 @@ returns an error if `NFD_NAMESPACE` is unset or blank.
 - Add `pkg/engines/nfd` with the standard `NamedLoader`.
 - Register it in `pkg/registry/registry.go`.
 - Factor the current `k8s` label projection into a shared helper so both engines
-  produce identical accelerator, leaf, spine, and core values.
+  produce identical values at every discovered fabric and accelerated level.
 - Use the dynamic Kubernetes client or generated NFD client types, depending on
   whether the project wants to pin an NFD API dependency.
 - Update Helm RBAC to allow create, update, patch, list, watch, and delete for
@@ -151,7 +151,7 @@ label name is the same on every node, but the label value differs from one switc
 to another.
 
 The current Kubernetes label model handles this naturally: pod affinity can use
-`topologyKey: network.topology.nvidia.com/leaf`, and Kubernetes compares values
+`topologyKey: network.topology.nvidia.com/level-0`, and Kubernetes compares values
 on candidate nodes. `NodeFeatureGroup` exposes precomputed groups instead, so
 the consumer needs extra logic to choose among them.
 
@@ -190,7 +190,7 @@ overhead.
 Assumptions:
 
 - 10,000 `NodeFeature` objects, one per node.
-- Four topology attributes per node: accelerator, leaf, spine, and core.
+- One topology attribute for every discovered fabric and accelerated level.
 - Each node appears in one `NodeFeatureGroup.status.nodes` list per topology
   dimension, so status contains about 40,000 node references total.
 - Average node names and topology values are short, roughly 10-30 characters.
@@ -220,7 +220,7 @@ small patches to reduce write amplification.
 
 ## Test Plan
 
-- Unit-test graph-to-group generation for accelerator, leaf, spine, and core.
+- Unit-test graph-to-group generation across variable fabric and accelerated levels.
 - Verify long and invalid topology values produce stable CR names.
 - Verify stale Topograph-managed groups are removed when `cleanup` is enabled.
 - Verify an empty generated object set returns an error and preserves existing

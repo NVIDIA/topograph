@@ -67,11 +67,10 @@ config:
   # Optional secret with API credentials
   # credentialsSecret:
 
-#topologyNodeLabels:
-#  accelerator: network.topology.nvidia.com/accelerator
-#  leaf: network.topology.nvidia.com/leaf
-#  spine: network.topology.nvidia.com/spine
-#  core: network.topology.nvidia.com/core
+topologyNodeLabels:
+  # Level numbers are appended to these prefixes. Level 0 is closest to a node.
+  fabricPrefix: network.topology.nvidia.com/level-
+  acceleratedPrefix: accelerated.topology.nvidia.com/level-
 
 podAnnotations: {}
 podLabels: {}

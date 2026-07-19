@@ -4,8 +4,8 @@ Topograph models are YAML files used to simulate discovered topology without que
 
 A model describes the same canonical topology that real providers eventually produce:
 
-- A switch tree, used for Slurm `topology/tree` output and Kubernetes `leaf` / `spine` / `core` labels
-- Node membership in hardware/connectivity blocks, used for block topology and optional accelerator labels
+- A variable-depth switch tree, used for Slurm `topology/tree` output and Kubernetes `network.topology.nvidia.com/level-N` labels
+- Node membership in one or more accelerated domains, used for block topology and optional `accelerated.topology.nvidia.com/level-N` labels
 - Optional per-node labels used by provider simulations
 
 Model loading lives in `pkg/models`. Model fixtures live under `tests/models/`.
@@ -60,7 +60,7 @@ The utility uses the model-derived instance-to-hostname mapping, so model hostna
 - `topograph.nvidia.com/instance: i-1101`
 - `topograph.nvidia.com/region: <derived-region-or-none>`
 - `kwok.x-k8s.io/node=fake` as both a label and annotation
-- Model-derived labels such as `topology.kubernetes.io/region`, `topology.kubernetes.io/zone`, and `network.topology.nvidia.com/accelerator`
+- Model-derived labels such as `topology.kubernetes.io/region`, `topology.kubernetes.io/zone`, and `accelerated.topology.nvidia.com/level-0`
 
 Generated Kubernetes node names come from model hostnames and are normalized to valid lowercase DNS names. For example, model hostname `I21` becomes Kubernetes node `i21`, while its generated instance ID `i-I21` is stored in `topograph.nvidia.com/instance`.
 
@@ -169,7 +169,7 @@ The `blocks` list describes sets of compute instances with similar hardware and 
 |---|---|
 | `switch` | Optional leaf switch ID. When set, this block's `nodes` are attached to that switch. |
 | `nodes` | Required non-empty list of hostnames in this block. Compact ranges are supported. The model-backed test provider generates each instance ID by prefixing the hostname with `i-`. |
-| `labels` | Optional labels applied to nodes generated from this block. For example, `network.topology.nvidia.com/accelerator` can identify an NVLink / accelerator domain. |
+| `labels` | Optional labels applied to nodes generated from this block. For example, `accelerated.topology.nvidia.com/level-0` can identify an NVLink / accelerator domain. |
 
 Example:
 
@@ -178,7 +178,7 @@ blocks:
 - switch: leaf1
   nodes: ["n[1-2]"]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 ```
 
 Block rules:
@@ -236,18 +236,18 @@ blocks:
 - switch: leaf
   nodes: ["n[1-2]"]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 - switch: leaf
   nodes: [n3]
   labels:
-    network.topology.nvidia.com/accelerator: nvl2
+    accelerated.topology.nvidia.com/level-0: nvl2
 ```
 
 After loading:
 
 - `n1`, `n2`, and `n3` are hostnames mapped from instance IDs `i-n1`, `i-n2`, and `i-n3`
-- `n1` and `n2` belong to the first block and have `network.topology.nvidia.com/accelerator: nvl1` label
-- `n3` belongs to the second block and has `network.topology.nvidia.com/accelerator: nvl2` label
+- `n1` and `n2` belong to the first block and have `accelerated.topology.nvidia.com/level-0: nvl1` label
+- `n3` belongs to the second block and has `accelerated.topology.nvidia.com/level-0: nvl2` label
 - All three nodes have network layers `[leaf, core]`
 
 ### Blocks Without Switches
@@ -258,13 +258,13 @@ This model omits `switches`. Nodes are still created, block labels are still app
 blocks:
 - nodes: ["n[1-2]"]
   labels:
-    network.topology.nvidia.com/accelerator: nvl1
+    accelerated.topology.nvidia.com/level-0: nvl1
 ```
 
 After loading:
 
 - `n1` and `n2` belong to the first block
-- `n1` and `n2` have `network.topology.nvidia.com/accelerator: nvl1` label
+- `n1` and `n2` have `accelerated.topology.nvidia.com/level-0: nvl1` label
 - `n1` and `n2` have no network layers
 
 ## Simulating the API

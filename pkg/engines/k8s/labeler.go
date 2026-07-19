@@ -25,32 +25,24 @@ import (
 )
 
 const (
-	DefaultLabelAccelerator = "network.topology.nvidia.com/accelerator"
-	DefaultLabelLeaf        = "network.topology.nvidia.com/leaf"
-	DefaultLabelSpine       = "network.topology.nvidia.com/spine"
-	DefaultLabelCore        = "network.topology.nvidia.com/core"
+	DefaultFabricLabelPrefix      = topology.KeyFabricLevelPrefix
+	DefaultAcceleratedLabelPrefix = topology.KeyAcceleratedLevelPrefix
 )
 
 type TopologyLabelKeys struct {
-	Accelerator string
-	Leaf        string
-	Spine       string
-	Core        string
+	Fabric      string
+	Accelerated string
 }
 
 var topologyLabelKeys = TopologyLabelKeys{
-	Accelerator: DefaultLabelAccelerator,
-	Leaf:        DefaultLabelLeaf,
-	Spine:       DefaultLabelSpine,
-	Core:        DefaultLabelCore,
+	Fabric:      DefaultFabricLabelPrefix,
+	Accelerated: DefaultAcceleratedLabelPrefix,
 }
 
-func InitLabels(accelerator, leaf, spine, core string) {
+func InitLabels(fabric, accelerated string) {
 	topologyLabelKeys = TopologyLabelKeys{
-		Accelerator: accelerator,
-		Leaf:        leaf,
-		Spine:       spine,
-		Core:        core,
+		Fabric:      fabric,
+		Accelerated: accelerated,
 	}
 }
 
@@ -93,12 +85,12 @@ func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, graph *topology.G
 func (l *topologyLabeler) BuildNodeLabels(graph *topology.Graph) (NodeLabelMap, error) {
 	nodeMap := make(NodeLabelMap)
 
-	if graph == nil || (graph.Domains == nil && graph.Tiers == nil) {
+	if graph == nil || (len(graph.AcceleratedLevels()) == 0 && graph.Tiers == nil) {
 		return nodeMap, nil
 	}
 
-	if graph.Domains != nil {
-		if err := l.getDomainLabels(graph.Domains, nodeMap); err != nil {
+	for level, domains := range graph.AcceleratedLevels() {
+		if err := l.getDomainLabels(domains, nodeMap, level); err != nil {
 			return nil, err
 		}
 	}
@@ -116,7 +108,11 @@ func (l *topologyLabeler) BuildNodeLabels(graph *topology.Graph) (NodeLabelMap, 
 	return nodeMap, nil
 }
 
-func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap NodeLabelMap) error {
+func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap NodeLabelMap, level int) error {
+	labelKey := levelKey(topologyLabelKeys.Accelerated, level)
+	if labelKey == "" {
+		return nil
+	}
 	for domainName, domain := range domains {
 		for nodeName := range domain {
 			labels, ok := nodeMap[nodeName]
@@ -124,10 +120,10 @@ func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap No
 				labels = make(map[string]string)
 				nodeMap[nodeName] = labels
 			}
-			if val, ok := labels[topologyLabelKeys.Accelerator]; ok {
-				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, domainName, nodeName)
+			if val, ok := labels[labelKey]; ok {
+				return fmt.Errorf("multiple accelerated level %d labels %s, %s for node %s", level, val, domainName, nodeName)
 			}
-			labels[topologyLabelKeys.Accelerator] = l.checkLabel(domainName)
+			labels[labelKey] = l.checkLabel(domainName)
 		}
 	}
 	return nil
@@ -145,17 +141,12 @@ func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap NodeLabelMap
 				labels = make(map[string]string)
 				nodeMap[nodeName] = labels
 			}
-			switchNetworkHierarchy := [...]string{
-				topologyLabelKeys.Leaf,
-				topologyLabelKeys.Spine,
-				topologyLabelKeys.Core,
-			}
 			for i, sw := range layers[1:] {
 				if len(sw) == 0 {
 					break
 				}
-				if i < len(switchNetworkHierarchy) {
-					labels[(switchNetworkHierarchy[i])] = l.checkLabel(sw)
+				if key := levelKey(topologyLabelKeys.Fabric, i); key != "" {
+					labels[key] = l.checkLabel(sw)
 				}
 			}
 		}
@@ -169,6 +160,13 @@ func (l *topologyLabeler) getTierLabels(v *topology.Vertex, nodeMap NodeLabelMap
 	}
 
 	return nil
+}
+
+func levelKey(prefix string, level int) string {
+	if prefix == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s%d", prefix, level)
 }
 
 // checkLabel checks the length of the label value.

@@ -97,11 +97,13 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 				}
 				inst := &topology.InstanceTopology{
 					InstanceID: instanceId,
-					CoreID:     instance.ResourceStatus.PhysicalHostTopology.GetCluster(),
-					SpineID:    instance.ResourceStatus.PhysicalHostTopology.GetBlock(),
-					LeafID:     instance.ResourceStatus.PhysicalHostTopology.GetSubblock(),
+					FabricTiers: topology.ClosestFirstFabricTiers(
+						instance.ResourceStatus.PhysicalHostTopology.GetSubblock(),
+						instance.ResourceStatus.PhysicalHostTopology.GetBlock(),
+						instance.ResourceStatus.PhysicalHostTopology.GetCluster(),
+					),
 				}
-				inst.AcceleratorID = inst.LeafID
+				inst.AcceleratedTiers = []string{inst.FabricTiers[0].ID}
 				klog.Infof("Adding topology: %s", inst.String())
 				topo.Append(inst)
 			}

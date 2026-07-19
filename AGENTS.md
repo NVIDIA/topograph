@@ -56,7 +56,7 @@ These structures propagate across every provider and engine. Changing them in a 
 |---|---|
 | `pkg/topology/` — `Graph`, the `Vertex` tree, and topology constants | Every provider returns it; every engine consumes it. A shape change ripples to all of them. |
 | Helm `provider.name` / `engine.name` / `topologyNodeLabels` | External contract for operators deploying Topograph. |
-| The four default label keys `network.topology.nvidia.com/{accelerator,leaf,spine,core}` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue). |
+| The variable label families `network.topology.nvidia.com/level-N` and `accelerated.topology.nvidia.com/level-N` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue); level 0 is closest to the node. |
 
 ## 2. Setup and Installation
 
@@ -138,7 +138,7 @@ type Provider interface {
 }
 ```
 
-A provider returns a `*topology.Graph` of the discovered topology. `Tiers` is the root of the switch hierarchy; `Domains` is a `topology.DomainMap` mapping accelerator/block domains to hosts, with each finalized domain carrying the enumerated ID used by block-topology output. Leaf vertices are compute nodes; interior tier vertices are switches. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
+A provider returns a `*topology.Graph` of the discovered topology. Providers using `ClusterTopology` populate `InstanceTopology.FabricTiers` and `InstanceTopology.AcceleratedTiers` closest-first, then call `ToGraph`; neither path has a fixed depth. `Graph.Tiers` is the fabric hierarchy. `Graph.AcceleratedTiers` contains accelerated-domain maps in the same order; the legacy `Domains` map mirrors accelerated level 0 and remains the block-topology source. Leaf vertices are compute nodes; interior tier vertices are switches. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
 
 ### Adding a new provider
 

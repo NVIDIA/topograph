@@ -182,5 +182,5 @@ func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int,
 	if err != nil {
 		return nil, err
 	}
-	return p.ToThreeTierGraph(NAME_SIM, topo, instances, true), nil
+	return p.ToGraph(NAME_SIM, topo, instances, true), nil
 }

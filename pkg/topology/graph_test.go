@@ -25,30 +25,22 @@ import (
 var (
 	instances = []*InstanceTopology{
 		{
-			InstanceID:    "i-001",
-			CoreID:        "nn-77777777",
-			SpineID:       "nn-55555555",
-			LeafID:        "nn-11111111",
-			AcceleratorID: "acc-111111",
+			InstanceID:       "i-001",
+			FabricTiers:      ClosestFirstFabricTiers("nn-11111111", "nn-55555555", "nn-77777777"),
+			AcceleratedTiers: []string{"acc-111111"},
 		},
 		{
-			InstanceID:    "i-002",
-			CoreID:        "nn-77777777",
-			SpineID:       "nn-55555555",
-			LeafID:        "nn-22222222",
-			AcceleratorID: "acc-222222",
+			InstanceID:       "i-002",
+			FabricTiers:      ClosestFirstFabricTiers("nn-22222222", "nn-55555555", "nn-77777777"),
+			AcceleratedTiers: []string{"acc-222222"},
 		},
 		{
-			InstanceID: "i-003",
-			CoreID:     "nn-77777777",
-			SpineID:    "nn-66666666",
-			LeafID:     "nn-33333333",
+			InstanceID:  "i-003",
+			FabricTiers: ClosestFirstFabricTiers("nn-33333333", "nn-66666666", "nn-77777777"),
 		},
 		{
-			InstanceID: "i-004",
-			CoreID:     "nn-77777777",
-			SpineID:    "nn-66666666",
-			LeafID:     "nn-44444444",
+			InstanceID:  "i-004",
+			FabricTiers: ClosestFirstFabricTiers("nn-44444444", "nn-66666666", "nn-77777777"),
 		},
 	}
 
@@ -69,17 +61,17 @@ var (
 	}
 )
 
-func TestToThreeTierGraphNoNorm(t *testing.T) {
+func TestToGraphNoNorm(t *testing.T) {
 	topo := NewClusterTopology()
 	for _, inst := range instances {
 		topo.Append(inst)
 	}
 	require.Equal(t, len(instances), topo.Len())
 
-	inst0 := "Instance:i-001 Leaf:nn-11111111 Spine:nn-55555555 Core:nn-77777777 Accelerator:acc-111111"
+	inst0 := "Instance:i-001 Level-0:nn-11111111 Level-1:nn-55555555 Level-2:nn-77777777 Accelerated-Level-0:acc-111111"
 	require.Equal(t, inst0, topo.Instances[0].String())
 
-	inst2 := "Instance:i-003 Leaf:nn-33333333 Spine:nn-66666666 Core:nn-77777777"
+	inst2 := "Instance:i-003 Level-0:nn-33333333 Level-1:nn-66666666 Level-2:nn-77777777"
 	require.Equal(t, inst2, topo.Instances[2].String())
 
 	v31 := &Vertex{ID: "nn-11111111", Vertices: map[string]*Vertex{"i-001": n1}}
@@ -124,11 +116,11 @@ func TestToThreeTierGraphNoNorm(t *testing.T) {
 		Domains: domains,
 	}
 
-	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, 0, false)
+	graph := topo.ToGraph("test", []ComputeInstances{{Instances: i2n}}, 0, false)
 	require.Equal(t, expected, graph)
 }
 
-func TestToThreeTierGraphNorm(t *testing.T) {
+func TestToGraphNorm(t *testing.T) {
 	topo := NewClusterTopology()
 	for _, inst := range instances {
 		topo.Append(inst)
@@ -180,24 +172,22 @@ func TestToThreeTierGraphNorm(t *testing.T) {
 		Domains: domains,
 	}
 
-	graph := topo.ToThreeTierGraph("test", []ComputeInstances{{Instances: i2n}}, 0, true)
+	graph := topo.ToGraph("test", []ComputeInstances{{Instances: i2n}}, 0, true)
 	require.Equal(t, expected, graph)
 
-	inst0 := "Instance:i-001 Leaf:nn-11111111 (switch.1.1) Spine:nn-55555555 (switch.2.1) Core:nn-77777777 (switch.3.1) Accelerator:acc-111111"
+	inst0 := "Instance:i-001 Level-0:nn-11111111 (switch.1.1) Level-1:nn-55555555 (switch.2.1) Level-2:nn-77777777 (switch.3.1) Accelerated-Level-0:acc-111111"
 	require.Equal(t, inst0, topo.Instances[0].String())
 
-	inst2 := "Instance:i-003 Leaf:nn-33333333 (switch.1.3) Spine:nn-66666666 (switch.2.2) Core:nn-77777777 (switch.3.1)"
+	inst2 := "Instance:i-003 Level-0:nn-33333333 (switch.1.3) Level-1:nn-66666666 (switch.2.2) Level-2:nn-77777777 (switch.3.1)"
 	require.Equal(t, inst2, topo.Instances[2].String())
 }
 
-func TestToThreeTierGraphIncludesInstanceData(t *testing.T) {
+func TestToGraphIncludesInstanceData(t *testing.T) {
 	topo := NewClusterTopology()
 	topo.Append(&InstanceTopology{
-		InstanceID:    "i-001",
-		LeafID:        "leaf-1",
-		SpineID:       "spine-1",
-		CoreID:        "core-1",
-		AcceleratorID: "nvl-1",
+		InstanceID:       "i-001",
+		FabricTiers:      ClosestFirstFabricTiers("leaf-1", "spine-1", "core-1"),
+		AcceleratedTiers: []string{"nvl-1"},
 		Instance: &Instance{
 			ID:            "i-001",
 			NetworkLayers: []string{"leaf-1", "spine-1", "core-1"},
@@ -205,7 +195,7 @@ func TestToThreeTierGraphIncludesInstanceData(t *testing.T) {
 		},
 	})
 
-	graph := topo.ToThreeTierGraph("test", []ComputeInstances{
+	graph := topo.ToGraph("test", []ComputeInstances{
 		{
 			Region:    "region-1",
 			Instances: map[string]string{"i-001": "node1"},
@@ -235,9 +225,7 @@ func TestTrimTiers(t *testing.T) {
 			name:      "Case 1: trim none",
 			trimTiers: 0,
 			in: InstanceTopology{
-				CoreID:  "core1",
-				SpineID: "spine1",
-				LeafID:  "leaf1",
+				FabricTiers: ClosestFirstFabricTiers("leaf1", "spine1", "core1"),
 			},
 			out: []string{"leaf1", "spine1", "core1"},
 		},
@@ -245,48 +233,90 @@ func TestTrimTiers(t *testing.T) {
 			name:      "Case 2: trim 1 tier",
 			trimTiers: 1,
 			in: InstanceTopology{
-				CoreID:  "core1",
-				SpineID: "spine1",
-				LeafID:  "leaf1",
+				FabricTiers: ClosestFirstFabricTiers("leaf1", "spine1", "core1"),
 			},
-			out: []string{"leaf1", "spine1", ""},
+			out: []string{"leaf1", "spine1"},
 		},
 		{
 			name:      "Case 3: trim 2 tiers",
 			trimTiers: 2,
 			in: InstanceTopology{
-				CoreID:  "core1",
-				SpineID: "spine1",
-				LeafID:  "leaf1",
+				FabricTiers: ClosestFirstFabricTiers("leaf1", "spine1", "core1"),
 			},
-			out: []string{"leaf1", "", ""},
+			out: []string{"leaf1"},
 		},
 		{
 			name:      "Case 4: trim all tiers",
 			trimTiers: 3,
 			in: InstanceTopology{
-				CoreID:  "core1",
-				SpineID: "spine1",
-				LeafID:  "leaf1",
+				FabricTiers: ClosestFirstFabricTiers("leaf1", "spine1", "core1"),
 			},
-			out: []string{"", "", ""},
+			out: []string{},
 		},
 		{
 			name:      "Case 5: trim more than available",
 			trimTiers: 10,
 			in: InstanceTopology{
-				CoreID:  "core1",
-				SpineID: "spine1",
-				LeafID:  "leaf1",
+				FabricTiers: ClosestFirstFabricTiers("leaf1", "spine1", "core1"),
 			},
-			out: []string{"", "", ""},
+			out: []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			inst := tt.in
-			require.Equal(t, tt.out, trimmedTiers(&inst, tt.trimTiers))
+			tiers := trimmedTiers(&inst, tt.trimTiers)
+			ids := make([]string, len(tiers))
+			for i := range tiers {
+				ids[i] = tiers[i].ID
+			}
+			require.Equal(t, tt.out, ids)
 		})
 	}
+}
+
+func TestToGraphSupportsVariableTierCount(t *testing.T) {
+	topo := NewClusterTopology()
+	topo.Append(&InstanceTopology{
+		InstanceID:       "instance-1",
+		FabricTiers:      ClosestFirstFabricTiers("fabric-0", "fabric-1", "fabric-2", "fabric-3"),
+		AcceleratedTiers: []string{"accelerated-0", "accelerated-1"},
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{"instance-1": "node-1"},
+	}}, 0, false)
+
+	vertex := graph.Tiers.Vertices["fabric-3"]
+	for _, id := range []string{"fabric-2", "fabric-1", "fabric-0", "instance-1"} {
+		require.NotNil(t, vertex)
+		vertex = vertex.Vertices[id]
+	}
+	require.Equal(t, "node-1", vertex.Name)
+	require.Contains(t, graph.AcceleratedTiers[0]["accelerated-0"], "node-1")
+	require.Contains(t, graph.AcceleratedTiers[1]["accelerated-1"], "node-1")
+	require.Equal(t, graph.Domains, graph.AcceleratedTiers[0])
+}
+
+func TestToGraphKeepsSameIDAtDifferentLevelsDistinct(t *testing.T) {
+	topo := NewClusterTopology()
+	topo.Append(&InstanceTopology{
+		InstanceID:  "instance-1",
+		FabricTiers: ClosestFirstFabricTiers("shared", "shared"),
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{"instance-1": "node-1"},
+	}}, 0, false)
+
+	outer := graph.Tiers.Vertices["shared"]
+	inner := outer.Vertices["shared"]
+	require.NotSame(t, outer, inner)
+	require.Equal(t, "node-1", inner.Vertices["instance-1"].Name)
+}
+
+func TestTrimTiersTreatsNegativeAsZero(t *testing.T) {
+	inst := &InstanceTopology{FabricTiers: ClosestFirstFabricTiers("fabric-0", "fabric-1")}
+	require.Equal(t, inst.FabricTiers, trimmedTiers(inst, -1))
 }

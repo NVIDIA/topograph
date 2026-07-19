@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
@@ -39,16 +40,16 @@ func (l *testLabeler) AddNodeLabels(_ context.Context, nodeName string, labels m
 }
 
 func TestApplyNodeLabelsWithTree(t *testing.T) {
-	InitLabels(DefaultLabelAccelerator, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
+	InitLabels(DefaultFabricLabelPrefix, DefaultAcceleratedLabelPrefix)
 	root, _ := translate.GetTreeTestSet(true)
 	labeler := &testLabeler{data: make(map[string]map[string]string)}
 	data := map[string]map[string]string{
-		"Node201": {"network.topology.nvidia.com/leaf": "S2", "network.topology.nvidia.com/spine": "S1"},
-		"Node202": {"network.topology.nvidia.com/leaf": "S2", "network.topology.nvidia.com/spine": "S1"},
-		"Node205": {"network.topology.nvidia.com/leaf": "S2", "network.topology.nvidia.com/spine": "S1"},
-		"Node304": {"network.topology.nvidia.com/leaf": "xf946c4acef2d5939", "network.topology.nvidia.com/spine": "S1"},
-		"Node305": {"network.topology.nvidia.com/leaf": "xf946c4acef2d5939", "network.topology.nvidia.com/spine": "S1"},
-		"Node306": {"network.topology.nvidia.com/leaf": "xf946c4acef2d5939", "network.topology.nvidia.com/spine": "S1"},
+		"Node201": {"network.topology.nvidia.com/level-0": "S2", "network.topology.nvidia.com/level-1": "S1"},
+		"Node202": {"network.topology.nvidia.com/level-0": "S2", "network.topology.nvidia.com/level-1": "S1"},
+		"Node205": {"network.topology.nvidia.com/level-0": "S2", "network.topology.nvidia.com/level-1": "S1"},
+		"Node304": {"network.topology.nvidia.com/level-0": "xf946c4acef2d5939", "network.topology.nvidia.com/level-1": "S1"},
+		"Node305": {"network.topology.nvidia.com/level-0": "xf946c4acef2d5939", "network.topology.nvidia.com/level-1": "S1"},
+		"Node306": {"network.topology.nvidia.com/level-0": "xf946c4acef2d5939", "network.topology.nvidia.com/level-1": "S1"},
 	}
 
 	err := NewTopologyLabeler().ApplyNodeLabels(context.TODO(), root, labeler)
@@ -57,81 +58,81 @@ func TestApplyNodeLabelsWithTree(t *testing.T) {
 }
 
 func TestApplyNodeLabelsWithBlock(t *testing.T) {
-	InitLabels(DefaultLabelAccelerator, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
+	InitLabels(DefaultFabricLabelPrefix, DefaultAcceleratedLabelPrefix)
 	root, _ := translate.GetBlockWithMultiIBTestSet()
 	labeler := &testLabeler{data: make(map[string]map[string]string)}
 	data := map[string]map[string]string{
 		"Node104": {
-			"network.topology.nvidia.com/accelerator": "B1",
-			"network.topology.nvidia.com/leaf":        "S2",
-			"network.topology.nvidia.com/spine":       "S1",
-			"network.topology.nvidia.com/core":        "IB2",
+			"accelerated.topology.nvidia.com/level-0": "B1",
+			"network.topology.nvidia.com/level-0":     "S2",
+			"network.topology.nvidia.com/level-1":     "S1",
+			"network.topology.nvidia.com/level-2":     "IB2",
 		},
 		"Node105": {
-			"network.topology.nvidia.com/accelerator": "B1",
-			"network.topology.nvidia.com/leaf":        "S2",
-			"network.topology.nvidia.com/spine":       "S1",
-			"network.topology.nvidia.com/core":        "IB2",
+			"accelerated.topology.nvidia.com/level-0": "B1",
+			"network.topology.nvidia.com/level-0":     "S2",
+			"network.topology.nvidia.com/level-1":     "S1",
+			"network.topology.nvidia.com/level-2":     "IB2",
 		},
 		"Node106": {
-			"network.topology.nvidia.com/accelerator": "B1",
-			"network.topology.nvidia.com/leaf":        "S2",
-			"network.topology.nvidia.com/spine":       "S1",
-			"network.topology.nvidia.com/core":        "IB2",
+			"accelerated.topology.nvidia.com/level-0": "B1",
+			"network.topology.nvidia.com/level-0":     "S2",
+			"network.topology.nvidia.com/level-1":     "S1",
+			"network.topology.nvidia.com/level-2":     "IB2",
 		},
 		"Node201": {
-			"network.topology.nvidia.com/accelerator": "B2",
-			"network.topology.nvidia.com/leaf":        "S3",
-			"network.topology.nvidia.com/spine":       "S1",
-			"network.topology.nvidia.com/core":        "IB2",
+			"accelerated.topology.nvidia.com/level-0": "B2",
+			"network.topology.nvidia.com/level-0":     "S3",
+			"network.topology.nvidia.com/level-1":     "S1",
+			"network.topology.nvidia.com/level-2":     "IB2",
 		},
 		"Node202": {
-			"network.topology.nvidia.com/accelerator": "B2",
-			"network.topology.nvidia.com/leaf":        "S3",
-			"network.topology.nvidia.com/spine":       "S1",
-			"network.topology.nvidia.com/core":        "IB2",
+			"accelerated.topology.nvidia.com/level-0": "B2",
+			"network.topology.nvidia.com/level-0":     "S3",
+			"network.topology.nvidia.com/level-1":     "S1",
+			"network.topology.nvidia.com/level-2":     "IB2",
 		},
 		"Node205": {
-			"network.topology.nvidia.com/accelerator": "B2",
-			"network.topology.nvidia.com/leaf":        "S3",
-			"network.topology.nvidia.com/spine":       "S1",
-			"network.topology.nvidia.com/core":        "IB2",
+			"accelerated.topology.nvidia.com/level-0": "B2",
+			"network.topology.nvidia.com/level-0":     "S3",
+			"network.topology.nvidia.com/level-1":     "S1",
+			"network.topology.nvidia.com/level-2":     "IB2",
 		},
 		"Node301": {
-			"network.topology.nvidia.com/accelerator": "B3",
-			"network.topology.nvidia.com/leaf":        "S5",
-			"network.topology.nvidia.com/spine":       "S4",
-			"network.topology.nvidia.com/core":        "IB1",
+			"accelerated.topology.nvidia.com/level-0": "B3",
+			"network.topology.nvidia.com/level-0":     "S5",
+			"network.topology.nvidia.com/level-1":     "S4",
+			"network.topology.nvidia.com/level-2":     "IB1",
 		},
 		"Node302": {
-			"network.topology.nvidia.com/accelerator": "B3",
-			"network.topology.nvidia.com/leaf":        "S5",
-			"network.topology.nvidia.com/spine":       "S4",
-			"network.topology.nvidia.com/core":        "IB1",
+			"accelerated.topology.nvidia.com/level-0": "B3",
+			"network.topology.nvidia.com/level-0":     "S5",
+			"network.topology.nvidia.com/level-1":     "S4",
+			"network.topology.nvidia.com/level-2":     "IB1",
 		},
 		"Node303": {
-			"network.topology.nvidia.com/accelerator": "B3",
-			"network.topology.nvidia.com/leaf":        "S5",
-			"network.topology.nvidia.com/spine":       "S4",
-			"network.topology.nvidia.com/core":        "IB1",
+			"accelerated.topology.nvidia.com/level-0": "B3",
+			"network.topology.nvidia.com/level-0":     "S5",
+			"network.topology.nvidia.com/level-1":     "S4",
+			"network.topology.nvidia.com/level-2":     "IB1",
 		},
 		"Node401": {
-			"network.topology.nvidia.com/accelerator": "B4",
-			"network.topology.nvidia.com/leaf":        "S6",
-			"network.topology.nvidia.com/spine":       "S4",
-			"network.topology.nvidia.com/core":        "IB1",
+			"accelerated.topology.nvidia.com/level-0": "B4",
+			"network.topology.nvidia.com/level-0":     "S6",
+			"network.topology.nvidia.com/level-1":     "S4",
+			"network.topology.nvidia.com/level-2":     "IB1",
 		},
 		"Node402": {
-			"network.topology.nvidia.com/accelerator": "B4",
-			"network.topology.nvidia.com/leaf":        "S6",
-			"network.topology.nvidia.com/spine":       "S4",
-			"network.topology.nvidia.com/core":        "IB1",
+			"accelerated.topology.nvidia.com/level-0": "B4",
+			"network.topology.nvidia.com/level-0":     "S6",
+			"network.topology.nvidia.com/level-1":     "S4",
+			"network.topology.nvidia.com/level-2":     "IB1",
 		},
 		"Node403": {
-			"network.topology.nvidia.com/accelerator": "B4",
-			"network.topology.nvidia.com/leaf":        "S6",
-			"network.topology.nvidia.com/spine":       "S4",
-			"network.topology.nvidia.com/core":        "IB1",
+			"accelerated.topology.nvidia.com/level-0": "B4",
+			"network.topology.nvidia.com/level-0":     "S6",
+			"network.topology.nvidia.com/level-1":     "S4",
+			"network.topology.nvidia.com/level-2":     "IB1",
 		},
 	}
 
@@ -141,11 +142,36 @@ func TestApplyNodeLabelsWithBlock(t *testing.T) {
 }
 
 func TestInitLabels(t *testing.T) {
-	InitLabels("a", "b", "c", "d")
+	InitLabels("fabric-", "accelerated-")
 	require.Equal(t, TopologyLabelKeys{
-		Accelerator: "a",
-		Leaf:        "b",
-		Spine:       "c",
-		Core:        "d",
+		Fabric:      "fabric-",
+		Accelerated: "accelerated-",
 	}, CurrentTopologyLabelKeys())
+}
+
+func TestBuildNodeLabelsWithVariableLevels(t *testing.T) {
+	InitLabels(DefaultFabricLabelPrefix, DefaultAcceleratedLabelPrefix)
+	node := &topology.Vertex{ID: "instance-1", Name: "node-1"}
+	fabric0 := &topology.Vertex{ID: "fabric-0", Vertices: map[string]*topology.Vertex{node.ID: node}}
+	fabric1 := &topology.Vertex{ID: "fabric-1", Vertices: map[string]*topology.Vertex{fabric0.ID: fabric0}}
+	fabric2 := &topology.Vertex{ID: "fabric-2", Vertices: map[string]*topology.Vertex{fabric1.ID: fabric1}}
+	fabric3 := &topology.Vertex{ID: "fabric-3", Vertices: map[string]*topology.Vertex{fabric2.ID: fabric2}}
+	graph := &topology.Graph{
+		Tiers: &topology.Vertex{Vertices: map[string]*topology.Vertex{fabric3.ID: fabric3}},
+		AcceleratedTiers: []topology.DomainMap{
+			{"accelerated-0": {"node-1": &topology.HostInfo{}}},
+			{"accelerated-1": {"node-1": &topology.HostInfo{}}},
+		},
+	}
+
+	labels, err := NewTopologyLabeler().BuildNodeLabels(graph)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		topology.FabricLevelKey(0):      "fabric-0",
+		topology.FabricLevelKey(1):      "fabric-1",
+		topology.FabricLevelKey(2):      "fabric-2",
+		topology.FabricLevelKey(3):      "fabric-3",
+		topology.AcceleratedLevelKey(0): "accelerated-0",
+		topology.AcceleratedLevelKey(1): "accelerated-1",
+	}, labels["node-1"])
 }
