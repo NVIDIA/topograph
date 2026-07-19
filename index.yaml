@@ -17,10 +17,10 @@ entries:
       org.opencontainers.image.vendor: NVIDIA
     apiVersion: v2
     appVersion: v0.6.0-alpha.1
-    created: "2026-07-16T08:51:39.431875945-04:00"
+    created: "2026-07-19T04:15:45.895998596-04:00"
     description: Discovers the physical network topology of a cluster and exposes
       it to schedulers.
-    digest: bf415e6869810367505e9ffac96aa1da7986faf10fb705873ebb0dc387f1353c
+    digest: 9c93fb7b7dd60820a890e89df1309c1c30978fbdee291818c683307bbf5dfd10
     home: https://github.com/NVIDIA/topograph
     icon: https://raw.githubusercontent.com/NVIDIA/topograph/main/docs/assets/topograph-logo.png
     keywords:
@@ -130,4 +130,4 @@ entries:
     urls:
     - https://NVIDIA.github.io/topograph/topograph-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-16T08:51:39.430562965-04:00"
+generated: "2026-07-19T04:15:45.894611403-04:00"
