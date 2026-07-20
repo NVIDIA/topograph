@@ -29,6 +29,9 @@ spec:
             name: node-01
             labels:
               kubernetes.io/os: linux
+            annotations:
+              topograph.nvidia.com/instance: node-01
+              topograph.nvidia.com/region: local
     - apply:
         resource:
           apiVersion: v1
@@ -41,11 +44,9 @@ spec:
                 s1:
                   switches:
                   - AVERYLONGSWITCHNAMETHATEXCEEDSSIXTYCHARACTERSFORTESTINGPURPOSES01
-                AVERYLONGSWITCHNAMETHATEXCEEDSSIXTYCHARACTERSFORTESTINGPURPOSES01:
-                  nodes:
-                  - node-01
-              nodes:
-                node-01: {}
+              blocks:
+              - switch: AVERYLONGSWITCHNAMETHATEXCEEDSSIXTYCHARACTERSFORTESTINGPURPOSES01
+                nodes: [node-01]
 
   - name: install-topograph
     description: >
@@ -73,9 +74,6 @@ spec:
             --set "image.repository=${IMAGE_REPO}" \
             ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
             --set "image.pullPolicy=${PULL_POLICY}" \
-            --set "node-observer.image.repository=${IMAGE_REPO}" \
-            ${IMAGE_TAG:+--set "node-observer.image.tag=${IMAGE_TAG}"} \
-            --set "node-observer.image.pullPolicy=${PULL_POLICY}" \
             --wait --timeout 90s
     catch:
     - description: Pod status on install failure

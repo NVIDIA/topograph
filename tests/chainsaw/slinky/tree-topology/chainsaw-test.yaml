@@ -33,15 +33,11 @@ spec:
                   switches:
                   - S2
                   - S3
-                S2:
-                  nodes:
-                  - node-01
-                S3:
-                  nodes:
-                  - node-02
-              nodes:
-                node-01: {}
-                node-02: {}
+              blocks:
+              - switch: S2
+                nodes: [node-01]
+              - switch: S3
+                nodes: [node-02]
 
   - name: install-topograph
     description: >
@@ -70,10 +66,7 @@ spec:
             --set "image.repository=${IMAGE_REPO}" \
             ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
             --set "image.pullPolicy=${PULL_POLICY}" \
-            --set "node-observer.image.repository=${IMAGE_REPO}" \
-            ${IMAGE_TAG:+--set "node-observer.image.tag=${IMAGE_TAG}"} \
-            --set "node-observer.image.pullPolicy=${PULL_POLICY}" \
-            --set "global.engine.params.namespace=${NAMESPACE}" \
+            --set "engine.params.namespace=${NAMESPACE}" \
             --wait --timeout 90s
     catch:
     - description: Pod status on install failure

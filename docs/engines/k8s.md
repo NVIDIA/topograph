@@ -372,10 +372,12 @@ tests:
 
 | Suite | What it checks |
 |---|---|
-| `k8s/label-application` | `leaf`, `spine`, and `accelerator` labels applied to nodes after generation |
+| `k8s/label-application` | `leaf` and `spine` labels applied correctly to nodes after generation |
 | `k8s/label-truncation` | Switch names >63 chars replaced with an FNV64a hash (valid label value) |
 | `slinky/tree-topology` | Slinky engine writes correct `topology.conf` (tree topology) into a ConfigMap |
 | `slinky/dra-provider` | DRA provider discovers NVLink clique topology; Slinky engine writes correct `topology.conf` (block topology) into a ConfigMap |
+| `slinky/block-complement` | Slinky engine pads incomplete block trees with empty placeholder `BlockName` lines when base-block slots are only partially filled |
+| `slinky/dynamic-nodes` | Slinky engine writes skeleton-format `BlockName` lines (no `Nodes=`) and annotates each K8s node with its assigned block via `topology.slinky.slurm.net/spec` |
 
 #### How suites map topology to nodes
 

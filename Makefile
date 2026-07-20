@@ -149,12 +149,15 @@ e2e-local: chainsaw-install image-build
 	  --config tests/chainsaw/kind-config.yaml --wait 120s \
 	  || kind get clusters | grep -q "^$(KIND_CLUSTER)$$"
 	kind load docker-image $(IMAGE_REPO):$(E2E_IMAGE_TAG) --name $(KIND_CLUSTER)
-	KUBECONFIG="$$(kind get kubeconfig --name $(KIND_CLUSTER))" \
+	KUBECONFIG_FILE=$$(mktemp) && \
+	kind export kubeconfig --name $(KIND_CLUSTER) --kubeconfig $$KUBECONFIG_FILE && \
+	KUBECONFIG="$$KUBECONFIG_FILE" \
 	TOPOGRAPH_IMAGE_REPO=$(IMAGE_REPO) \
 	TOPOGRAPH_IMAGE_TAG=$(E2E_IMAGE_TAG) \
 	TOPOGRAPH_IMAGE_PULL_POLICY=Never \
 	$(CHAINSAW_BIN) test --test-dir tests/chainsaw; \
 	E2E_STATUS=$$?; \
+	rm -f $$KUBECONFIG_FILE; \
 	kind delete cluster --name $(KIND_CLUSTER); \
 	exit $$E2E_STATUS
 
