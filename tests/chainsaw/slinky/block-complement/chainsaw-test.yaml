@@ -46,29 +46,19 @@ spec:
                   - leaf-1
                   - leaf-2
                   - leaf-3
-                leaf-1:
-                  nodes:
-                  - node-01
-                leaf-2:
-                  nodes:
-                  - node-03
-                  - node-04
-                leaf-3:
-                  nodes:
-                  - node-06
-              nodes:
-                node-01:
-                  attributes:
-                    nvlink: clique-1
-                node-03:
-                  attributes:
-                    nvlink: clique-2
-                node-04:
-                  attributes:
-                    nvlink: clique-2
-                node-06:
-                  attributes:
-                    nvlink: clique-3
+              blocks:
+              - switch: leaf-1
+                nodes: [node-01]
+                labels:
+                  network.topology.nvidia.com/accelerator: clique-1
+              - switch: leaf-2
+                nodes: [node-03, node-04]
+                labels:
+                  network.topology.nvidia.com/accelerator: clique-2
+              - switch: leaf-3
+                nodes: [node-06]
+                labels:
+                  network.topology.nvidia.com/accelerator: clique-3
     - apply:
         resource:
           apiVersion: v1
@@ -164,10 +154,7 @@ spec:
             --set "image.repository=${IMAGE_REPO}" \
             ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
             --set "image.pullPolicy=${PULL_POLICY}" \
-            --set "node-observer.image.repository=${IMAGE_REPO}" \
-            ${IMAGE_TAG:+--set "node-observer.image.tag=${IMAGE_TAG}"} \
-            --set "node-observer.image.pullPolicy=${PULL_POLICY}" \
-            --set "global.engine.params.namespace=${NAMESPACE}" \
+            --set "engine.params.namespace=${NAMESPACE}" \
             --wait --timeout 90s
     catch:
     - description: Pod status on install failure

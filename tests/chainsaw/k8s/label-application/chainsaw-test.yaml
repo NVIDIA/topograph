@@ -29,6 +29,9 @@ spec:
             name: node-01
             labels:
               kubernetes.io/os: linux
+            annotations:
+              topograph.nvidia.com/instance: node-01
+              topograph.nvidia.com/region: local
     - apply:
         resource:
           apiVersion: v1
@@ -37,6 +40,9 @@ spec:
             name: node-02
             labels:
               kubernetes.io/os: linux
+            annotations:
+              topograph.nvidia.com/instance: node-02
+              topograph.nvidia.com/region: local
     - apply:
         resource:
           apiVersion: v1
@@ -50,15 +56,11 @@ spec:
                   switches:
                   - s2
                   - s3
-                s2:
-                  nodes:
-                  - node-01
-                s3:
-                  nodes:
-                  - node-02
-              nodes:
-                node-01: {}
-                node-02: {}
+              blocks:
+              - switch: s2
+                nodes: [node-01]
+              - switch: s3
+                nodes: [node-02]
 
   - name: install-topograph
     description: >
@@ -86,9 +88,6 @@ spec:
             --set "image.repository=${IMAGE_REPO}" \
             ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
             --set "image.pullPolicy=${PULL_POLICY}" \
-            --set "node-observer.image.repository=${IMAGE_REPO}" \
-            ${IMAGE_TAG:+--set "node-observer.image.tag=${IMAGE_TAG}"} \
-            --set "node-observer.image.pullPolicy=${PULL_POLICY}" \
             --wait --timeout 90s
     catch:
     - description: Pod status on install failure

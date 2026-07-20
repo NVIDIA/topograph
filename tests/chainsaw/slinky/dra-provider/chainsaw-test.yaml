@@ -144,10 +144,7 @@ spec:
             --set "image.repository=${IMAGE_REPO}" \
             ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
             --set "image.pullPolicy=${PULL_POLICY}" \
-            --set "node-observer.image.repository=${IMAGE_REPO}" \
-            ${IMAGE_TAG:+--set "node-observer.image.tag=${IMAGE_TAG}"} \
-            --set "node-observer.image.pullPolicy=${PULL_POLICY}" \
-            --set "global.engine.params.namespace=${NAMESPACE}" \
+            --set "engine.params.namespace=${NAMESPACE}" \
             --wait --timeout 90s
     catch:
     - description: Pod status on install failure

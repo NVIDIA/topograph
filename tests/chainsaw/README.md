@@ -110,7 +110,7 @@ otherwise the cluster has a stale image or the tag does not exist at all.
 To use a fixed tag instead of the SHA:
 
 ```bash
-make image-build E2E_IMAGE_TAG=my-tag
+make image-build IMAGE_TAG=my-tag
 make kind-load KIND_CLUSTER=<cluster-name> E2E_IMAGE_TAG=my-tag
 make e2e E2E_IMAGE_TAG=my-tag
 ```

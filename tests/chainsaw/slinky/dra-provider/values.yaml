@@ -1,25 +1,25 @@
-global:
-  provider:
-    name: dra
-  engine:
-    name: slinky
-    params:
-      plugin: topology/block
-      podSelector:
-        matchLabels:
-          app: slurmd
-      topologyConfigmapName: slurm-topology
-      topologyConfigPath: topology.conf
-      # namespace is injected at install time via --set global.engine.params.namespace=$NAMESPACE
+provider:
+  name: dra
+
+engine:
+  name: slinky
+  params:
+    plugin: topology/block
+    podSelector:
+      matchLabels:
+        app: slurmd
+    topologyConfigmapName: slurm-topology
+    topologyConfigPath: topology.conf
+    # namespace is injected at install time via --set engine.params.namespace=$NAMESPACE
 
 config:
   requestAggregationDelay: 1s
 
-node-observer:
+nodeObserver:
   topograph:
     trigger:
       nodeSelector:
         kubernetes.io/os: linux
 
-node-data-broker:
+nodeDataBroker:
   enabled: false
