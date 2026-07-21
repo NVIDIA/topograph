@@ -315,8 +315,8 @@ nodeDataBroker:
 When enabled, the policy matches node `UPDATE` operations performed by the broker's ServiceAccount and validates that the name of the node being modified matches the node name claim bound to the requester's ServiceAccount token (`authentication.kubernetes.io/node-name`).
 
 **Prerequisites:**
-1. A Kubernetes cluster with the **`ValidatingAdmissionPolicy` API enabled** (`admissionregistration.k8s.io/v1`).
-2. ServiceAccount tokens carrying the node-binding identity claim (e.g., via `ServiceAccountTokenNodeBinding`). The policy denies updates from the broker ServiceAccount if this required node-name claim is missing from the request context.
+1. A Kubernetes cluster running **Kubernetes 1.30+** with the **`ValidatingAdmissionPolicy` API enabled** (`admissionregistration.k8s.io/v1`).
+2. ServiceAccount tokens carrying the node-binding identity claim (e.g., via `ServiceAccountTokenPodNodeInfo`). The policy denies updates from the broker ServiceAccount if this required node-name claim is missing from the request context.
 
 ## Validation and Testing
 

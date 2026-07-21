@@ -13,13 +13,16 @@ spec:
         apiVersions: ["v1"]
         operations: ["UPDATE"]
         resources: ["nodes"]
+  matchConditions:
+    - name: match-node-data-broker-serviceaccount
+      expression: >-
+        request.userInfo.username == 'system:serviceaccount:{{ .Release.Namespace }}:{{ include "nodeDataBroker.serviceAccountName" . }}'
   validations:
     - expression: >-
-        request.userInfo.username != 'system:serviceaccount:{{ .Release.Namespace }}:{{ include "nodeDataBroker.serviceAccountName" . }}' ||
-        (has(request.userInfo.extra) &&
-        has(request.userInfo.extra['authentication.kubernetes.io/node-name']) &&
+        has(request.userInfo.extra) &&
+        'authentication.kubernetes.io/node-name' in request.userInfo.extra &&
         size(request.userInfo.extra['authentication.kubernetes.io/node-name']) > 0 &&
-        request.name == request.userInfo.extra['authentication.kubernetes.io/node-name'][0])
+        request.name == request.userInfo.extra['authentication.kubernetes.io/node-name'][0]
       message: "node-data-broker ServiceAccount is only authorized to update its own Node resource (audit F1)."
 ---
 apiVersion: admissionregistration.k8s.io/v1

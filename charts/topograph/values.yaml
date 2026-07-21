@@ -313,7 +313,7 @@ nodeDataBroker:
     create: true
 
   # Opt-in ValidatingAdmissionPolicy to scope node writes. Requires
-  # Kubernetes >= 1.26 (GA in 1.30) and ServiceAccountTokenNodeBinding enabled.
+  # Kubernetes >= 1.30 (admissionregistration.k8s.io/v1) and ServiceAccountTokenPodNodeInfo enabled.
   validatingAdmissionPolicy:
     enabled: false
 
