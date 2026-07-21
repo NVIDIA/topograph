@@ -14,6 +14,7 @@ fi
 SCRIPT_PATH="update-topology-config.sh"
 PROVIDER=""
 TOPOLOGY_CONFIG_PATH=""
+SUPPORTED_PROVIDERS=(aws gcp oci nebius netq nscale lambdai infiniband-bm)
 if [[ ! -z "$SLURM_CONF" ]]; then 
   TOPOLOGY_CONFIG_PATH="$(dirname $SLURM_CONF)/topology.conf"
 fi
@@ -30,8 +31,8 @@ Options:
     Default: $SCRIPT_PATH
   -c <path to the topology config>
     Default: $TOPOLOGY_CONFIG_PATH
-  -p <CSP provider>
-    Options: aws, oci, gcp, azure
+  -p <provider>
+    Options: ${SUPPORTED_PROVIDERS[*]}
   -h
     Print this message
 EOF
@@ -73,21 +74,19 @@ if [[ -z "$PROVIDER" ]]; then
   exit 1
 fi
 
-case $PROVIDER in
-  "aws")
-    ;;
-  "oci")
-    ;;
-  "gcp")
-    ;;
-  "azure")
-    ;;
-  *)
-    echo "unsupported provider $PROVIDER"
-    usage
-    exit 1
-    ;;
-esac
+provider_supported=false
+for supported_provider in "${SUPPORTED_PROVIDERS[@]}"; do
+  if [[ "$PROVIDER" == "$supported_provider" ]]; then
+    provider_supported=true
+    break
+  fi
+done
+
+if [[ "$provider_supported" != true ]]; then
+  echo "unsupported provider $PROVIDER"
+  usage
+  exit 1
+fi
 
 echo "Creating $SCRIPT_PATH to update topology config $TOPOLOGY_CONFIG_PATH"
 echo ""
