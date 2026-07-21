@@ -18,6 +18,7 @@ package aws
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -27,8 +28,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/stretchr/testify/require"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+type recordingEC2Client struct {
+	calls atomic.Int32
+	err   error
+}
+
+func (c *recordingEC2Client) DescribeInstanceTopology(context.Context, *ec2.DescribeInstanceTopologyInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error) {
+	c.calls.Add(1)
+	if c.err != nil {
+		return nil, c.err
+	}
+	return &ec2.DescribeInstanceTopologyOutput{}, nil
+}
 
 func TestGetCredentialsProvider(t *testing.T) {
 	testCases := []struct {
@@ -94,6 +112,60 @@ func TestGetCredentialsProvider(t *testing.T) {
 			require.Equal(t, tc.ret.Token, creds.SessionToken)
 		})
 	}
+}
+
+func TestGenerateTopologyConfigReturnsUnauthorizedWhenCredentialsUnavailable(t *testing.T) {
+	ec2Client := &recordingEC2Client{}
+	provider := New(func(_ string, pageSize *int) (*Client, error) {
+		return &Client{
+			ec2: ec2Client,
+			credentials: aws.CredentialsProviderFunc(func(context.Context) (aws.Credentials, error) {
+				return aws.Credentials{}, errors.New("credentials unavailable")
+			}),
+			pageSize: setPageSize(pageSize),
+		}, nil
+	}, 0)
+
+	_, httpErr := provider.GenerateTopologyConfig(context.Background(), nil, []topology.ComputeInstances{
+		{
+			Region: "us-east-2",
+			Instances: map[string]string{
+				"i-123": "node-1",
+			},
+		},
+	})
+
+	require.NotNil(t, httpErr)
+	require.Equal(t, http.StatusUnauthorized, httpErr.Code())
+	require.ErrorContains(t, httpErr, "failed to retrieve AWS credentials: credentials unavailable")
+	require.Zero(t, ec2Client.calls.Load())
+}
+
+func TestGenerateTopologyConfigReturnsBadGatewayForEC2Error(t *testing.T) {
+	ec2Client := &recordingEC2Client{err: errors.New("EC2 authorization failed")}
+	provider := New(func(_ string, pageSize *int) (*Client, error) {
+		return &Client{
+			ec2: ec2Client,
+			credentials: aws.CredentialsProviderFunc(func(context.Context) (aws.Credentials, error) {
+				return aws.Credentials{AccessKeyID: "id", SecretAccessKey: "secret"}, nil
+			}),
+			pageSize: setPageSize(pageSize),
+		}, nil
+	}, 0)
+
+	_, httpErr := provider.GenerateTopologyConfig(context.Background(), nil, []topology.ComputeInstances{
+		{
+			Region: "us-east-2",
+			Instances: map[string]string{
+				"i-123": "node-1",
+			},
+		},
+	})
+
+	require.NotNil(t, httpErr)
+	require.Equal(t, http.StatusBadGateway, httpErr.Code())
+	require.ErrorContains(t, httpErr, "failed to describe instance topology: EC2 authorization failed")
+	require.Equal(t, int32(1), ec2Client.calls.Load())
 }
 
 func TestLoadAWSConfigExplicitCredentialsTakePrecedence(t *testing.T) {

@@ -52,8 +52,9 @@ type EC2Client interface {
 type ClientFactory func(region string, pageSize *int) (*Client, error)
 
 type Client struct {
-	ec2      EC2Client
-	pageSize int32
+	ec2         EC2Client
+	credentials aws.CredentialsProvider
+	pageSize    int32
 }
 
 func (c *Client) PageSize() *int32 {
@@ -90,8 +91,9 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *htt
 		ec2Client := ec2.NewFromConfig(awsCfg)
 
 		return &Client{
-			ec2:      ec2Client,
-			pageSize: setPageSize(pageSize),
+			ec2:         ec2Client,
+			credentials: awsCfg.Credentials,
+			pageSize:    setPageSize(pageSize),
 		}, nil
 	}
 

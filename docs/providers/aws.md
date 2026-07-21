@@ -79,7 +79,7 @@ When explicit credentials are not provided, Topograph uses the [AWS SDK default 
 
 Install the [EKS Pod Identity Agent](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html), then [associate an IAM role](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-association.html) with the ServiceAccount used by the Topograph API server. EKS injects the container credentials endpoint and authorization token into the pod; the AWS SDK discovers and refreshes those temporary credentials automatically.
 
-Ensure that higher-priority environment or shared-file credentials are not present when EKS Pod Identity should be authoritative.
+The SDK may select environment or shared-profile credentials before EKS Pod Identity or an EC2 instance role. If either role should be authoritative, make sure higher-priority sources are not configured, including `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, `AWS_PROFILE`, `~/.aws/config`, and `~/.aws/credentials`.
 
 ### Assigning IAM Role to an Instance
 
