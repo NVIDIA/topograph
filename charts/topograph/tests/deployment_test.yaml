@@ -272,19 +272,13 @@ tests:
             name: NODE_DATA_BROKER_NAMESPACE
         template: templates/deployment.yaml
 
-  - it: passes the verbosity flag and topology key args
+  - it: passes the verbosity flag
     set:
       verbosity: 5
-      topologyNodeLabels:
-        accelerator: network.topology.nvidia.com/accelerator
     asserts:
       - contains:
           path: spec.template.spec.containers[0].args
           content: -v=5
-        template: templates/deployment.yaml
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: -k8s-topology-key-accelerator=network.topology.nvidia.com/accelerator
         template: templates/deployment.yaml
 
   - it: renders user-supplied environment variables, initContainers, and lifecycle

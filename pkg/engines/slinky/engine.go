@@ -335,12 +335,12 @@ func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*t
 	}
 
 	if graph == nil {
-		graph = &topology.Graph{}
+		graph = &topology.Graph{Domains: domains}
 	} else {
 		cloned := *graph
+		cloned.Domains = domains
 		graph = &cloned
 	}
-	graph.Domains = domains
 
 	return graph, nil
 }

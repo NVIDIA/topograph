@@ -6,7 +6,12 @@ The engine preserves the provider/engine boundary: providers still discover topo
 
 ## Output
 
-By default, the generated JSON is returned in the `/v1/topology` response:
+By default, the generated JSON is returned in the `/v1/topology` response.
+
+Each instance entry contains:
+- `id` — the provider instance ID
+- `network_layers` — switch names or IDs in closest-first order (tier 0 is the switch directly connected to the node, increasing outward); the depth is variable and provider-dependent
+- `labels` — per-instance topology labels inherited from the model or provider (e.g., accelerator domain)
 
 ```json
 {

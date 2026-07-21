@@ -22,13 +22,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
-func acceleratorLabels(accelerator string) map[string]string {
-	if accelerator == "" {
+func acceleratorDomainLabels(domain string) map[string]string {
+	if domain == "" {
 		return nil
 	}
-	return map[string]string{LabelAccelerator: accelerator}
+	return map[string]string{topology.KeyTopologyAccelerator: domain}
 }
 
 func TestNewModelFromFileMedium(t *testing.T) {
@@ -44,31 +45,31 @@ func TestNewModelFromFileMedium(t *testing.T) {
 		{
 			Switch: "sw11",
 			Nodes:  []string{"1101", "1102"},
-			Labels: acceleratorLabels("nvl1"),
+			Labels: acceleratorDomainLabels("nvl1"),
 		},
 		{
 			Switch: "sw12",
 			Nodes:  []string{"1201", "1202"},
-			Labels: acceleratorLabels("nvl2"),
+			Labels: acceleratorDomainLabels("nvl2"),
 		},
 		{
 			Switch: "sw13",
 			Nodes:  []string{"1301", "1302"},
-			Labels: acceleratorLabels("nvl3"),
+			Labels: acceleratorDomainLabels("nvl3"),
 		},
 		{
 			Switch: "sw14",
 			Nodes:  []string{"1401", "1402"},
-			Labels: acceleratorLabels("nvl4"),
+			Labels: acceleratorDomainLabels("nvl4"),
 		},
 	}, cfg.CapacityBlocks)
 
 	require.Equal(t, &topology.Instance{
 		ID: "1101",
 		Labels: map[string]string{
-			LabelTopologyRegion: "us-west",
-			LabelTopologyZone:   "zone1",
-			LabelAccelerator:    "nvl1",
+			LabelTopologyRegion:             "us-west",
+			LabelTopologyZone:               "zone1",
+			topology.KeyTopologyAccelerator: "nvl1",
 		},
 		NetLayers: []string{"sw11", "sw21", "sw3"},
 	}, cfg.Nodes["1101"])
@@ -101,9 +102,9 @@ func TestNewModelFromFileNVL72(t *testing.T) {
 	require.Equal(t, &topology.Instance{
 		ID: "node2215",
 		Labels: map[string]string{
-			LabelTopologyRegion: "us-east",
-			LabelTopologyZone:   "zone1",
-			LabelAccelerator:    "nvl-2-2",
+			LabelTopologyRegion:             "us-east",
+			LabelTopologyZone:               "zone1",
+			topology.KeyTopologyAccelerator: "nvl-2-2",
 		},
 		NetLayers: []string{"leaf-2-2", "spine-2", "core"},
 	}, cfg.Nodes["node2215"])
@@ -144,29 +145,29 @@ blocks:
 					"n1": {
 						ID:        "n1",
 						NetLayers: []string{"leaf", "core"},
-						Labels:    acceleratorLabels("nvl1"),
+						Labels:    acceleratorDomainLabels("nvl1"),
 					},
 					"n2": {
 						ID:        "n2",
 						NetLayers: []string{"leaf", "core"},
-						Labels:    acceleratorLabels("nvl1"),
+						Labels:    acceleratorDomainLabels("nvl1"),
 					},
 					"n3": {
 						ID:        "n3",
 						NetLayers: []string{"leaf", "core"},
-						Labels:    acceleratorLabels("nvl2"),
+						Labels:    acceleratorDomainLabels("nvl2"),
 					},
 				},
 				CapacityBlocks: []CapacityBlock{
 					{
 						Switch: "leaf",
 						Nodes:  []string{"n1", "n2"},
-						Labels: acceleratorLabels("nvl1"),
+						Labels: acceleratorDomainLabels("nvl1"),
 					},
 					{
 						Switch: "leaf",
 						Nodes:  []string{"n3"},
-						Labels: acceleratorLabels("nvl2"),
+						Labels: acceleratorDomainLabels("nvl2"),
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -189,17 +190,17 @@ blocks:
 				Nodes: map[string]*topology.Instance{
 					"n1": {
 						ID:     "n1",
-						Labels: acceleratorLabels("nvl1"),
+						Labels: acceleratorDomainLabels("nvl1"),
 					},
 					"n2": {
 						ID:     "n2",
-						Labels: acceleratorLabels("nvl1"),
+						Labels: acceleratorDomainLabels("nvl1"),
 					},
 				},
 				CapacityBlocks: []CapacityBlock{
 					{
 						Nodes:  []string{"n1", "n2"},
-						Labels: acceleratorLabels("nvl1"),
+						Labels: acceleratorDomainLabels("nvl1"),
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -343,4 +344,8 @@ blocks:
 	require.Equal(t, "node1", instance2node["i-node1"])
 	require.Equal(t, "node1", graph.Tiers.Vertices["leaf"].Vertices["i-node1"].Name)
 	require.Contains(t, graph.Instances, "i-node1")
+	require.Nil(t, graph.Domains)
+
+	_, err = translate.NewNetworkTopology(graph, &translate.Config{Plugin: topology.TopologyBlock})
+	require.EqualError(t, err, "missing block topology")
 }

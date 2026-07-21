@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package topology
@@ -27,26 +16,38 @@ import (
 	"github.com/NVIDIA/topograph/pkg/metrics"
 )
 
-type band int
-
-const (
-	leafBand band = iota + 1
-	spineBand
-	coreBand
-)
-
 type ClusterTopology struct {
 	Instances []*InstanceTopology
 }
 
+// FabricTier identifies one fabric layer. InstanceTopology stores tiers
+// closest-first, so index zero is the switch closest to the compute node.
+type FabricTier struct {
+	ID   string
+	Name string // optional normalized / display name
+}
+
+// ClosestFirstFabricTiers converts closest-first switch IDs to fabric tiers.
+func ClosestFirstFabricTiers(ids ...string) []FabricTier {
+	tiers := make([]FabricTier, len(ids))
+	for i, id := range ids {
+		tiers[i].ID = id
+	}
+	return tiers
+}
+
+// RootFirstFabricTiers converts root-first switch IDs to closest-first tiers.
+func RootFirstFabricTiers(ids ...string) []FabricTier {
+	tiers := make([]FabricTier, len(ids))
+	for i, id := range ids {
+		tiers[len(ids)-i-1].ID = id
+	}
+	return tiers
+}
+
 type InstanceTopology struct {
 	InstanceID    string
-	LeafID        string
-	LeafName      string // optional
-	SpineID       string
-	SpineName     string // optional
-	CoreID        string
-	CoreName      string // optional
+	FabricTiers   []FabricTier
 	AcceleratorID string
 	// Instance optionally carries enriched metadata for instance-oriented output.
 	Instance *Instance
@@ -54,27 +55,17 @@ type InstanceTopology struct {
 
 func (inst *InstanceTopology) String() string {
 	var buf strings.Builder
-	buf.WriteString("Instance:" + inst.InstanceID)
-	if len(inst.LeafID) != 0 {
-		buf.WriteString(" Leaf:" + inst.LeafID)
-		if len(inst.LeafName) != 0 {
-			buf.WriteString(" (" + inst.LeafName + ")")
+	fmt.Fprintf(&buf, "Instance:%s", inst.InstanceID)
+	for index, tier := range inst.FabricTiers {
+		if tier.ID != "" {
+			fmt.Fprintf(&buf, " Fabric-Tier-%d:%s", index, tier.ID)
+			if tier.Name != "" {
+				fmt.Fprintf(&buf, " (%s)", tier.Name)
+			}
 		}
 	}
-	if len(inst.SpineID) != 0 {
-		buf.WriteString(" Spine:" + inst.SpineID)
-		if len(inst.SpineName) != 0 {
-			buf.WriteString(" (" + inst.SpineName + ")")
-		}
-	}
-	if len(inst.CoreID) != 0 {
-		buf.WriteString(" Core:" + inst.CoreID)
-		if len(inst.CoreName) != 0 {
-			buf.WriteString(" (" + inst.CoreName + ")")
-		}
-	}
-	if len(inst.AcceleratorID) != 0 {
-		buf.WriteString(" Accelerator:" + inst.AcceleratorID)
+	if inst.AcceleratorID != "" {
+		fmt.Fprintf(&buf, " Accelerator:%s", inst.AcceleratorID)
 	}
 
 	return buf.String()
@@ -92,14 +83,18 @@ func (c *ClusterTopology) Len() int {
 	return len(c.Instances)
 }
 
-func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstances, trimTiers int, normalize bool) *Graph {
+func (c *ClusterTopology) ToGraph(provider string, cis []ComputeInstances, trimTiers int, normalize bool) *Graph {
 	i2n := make(map[string]string)
 	for _, ci := range cis {
 		maps.Copy(i2n, ci.Instances)
 	}
 
 	forest := make(map[string]*Vertex)
-	nodes := make(map[string]*Vertex)
+	type tierKey struct {
+		level int
+		id    string
+	}
+	nodes := make(map[tierKey]*Vertex)
 	domainMap := NewDomainMap()
 
 	if normalize {
@@ -121,33 +116,37 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 			ID:   inst.InstanceID,
 		}
 
-		if len(inst.AcceleratorID) != 0 {
+		if inst.AcceleratorID != "" {
 			domainMap.AddHost(inst.AcceleratorID, inst.InstanceID, nodeName)
 		}
 		if inst.Instance != nil {
 			instances[inst.InstanceID] = inst.toInstance(trimTiers)
 		}
 
-		swNames := [3]string{inst.LeafName, inst.SpineName, inst.CoreName}
-
-		for i, swID := range trimmedTiers(inst, trimTiers) {
+		for level, tier := range trimmedTiers(inst, trimTiers) {
+			swID := tier.ID
 			if len(swID) == 0 {
 				continue
 			}
 
-			sw, ok := nodes[swID]
+			key := tierKey{level: level, id: swID}
+			sw, ok := nodes[key]
 			if !ok {
 				sw = &Vertex{
 					ID:       swID,
-					Name:     swNames[i],
+					Name:     tier.Name,
 					Vertices: make(map[string]*Vertex),
 				}
-				nodes[swID] = sw
+				nodes[key] = sw
 			}
 			sw.Vertices[instance.ID] = instance
 			instance = sw
 		}
-		forest[instance.ID] = instance
+		if root, ok := forest[instance.ID]; ok {
+			mergeVertices(root, instance)
+		} else {
+			forest[instance.ID] = instance
+		}
 	}
 
 	if len(i2n) != 0 {
@@ -172,10 +171,7 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 	}
 	maps.Copy(treeRoot.Vertices, forest)
 
-	graph := &Graph{
-		Tiers: treeRoot,
-	}
-
+	graph := &Graph{Tiers: treeRoot}
 	if len(domainMap) != 0 {
 		graph.Domains = domainMap
 	}
@@ -184,6 +180,27 @@ func (c *ClusterTopology) ToThreeTierGraph(provider string, cis []ComputeInstanc
 	}
 
 	return graph
+}
+
+// mergeVertices preserves branches that use the same switch ID at different
+// depths by recursively merging their children.
+func mergeVertices(dst, src *Vertex) {
+	if dst == src {
+		return
+	}
+	if dst.Name == "" {
+		dst.Name = src.Name
+	}
+	if dst.Vertices == nil {
+		dst.Vertices = make(map[string]*Vertex)
+	}
+	for id, child := range src.Vertices {
+		if existing, ok := dst.Vertices[id]; ok {
+			mergeVertices(existing, child)
+			continue
+		}
+		dst.Vertices[id] = child
+	}
 }
 
 func (c *ClusterTopology) AttachInstances(instances map[string]Instance) {
@@ -200,58 +217,50 @@ func (c *ClusterTopology) AttachInstances(instances map[string]Instance) {
 func (c *ClusterTopology) Normalize() {
 	// sort by network hierarchy
 	sort.Slice(c.Instances, func(i, j int) bool {
-		if c.Instances[i].CoreID != c.Instances[j].CoreID {
-			return c.Instances[i].CoreID < c.Instances[j].CoreID
-		}
-
-		if c.Instances[i].SpineID != c.Instances[j].SpineID {
-			return c.Instances[i].SpineID < c.Instances[j].SpineID
-		}
-
-		if c.Instances[i].LeafID != c.Instances[j].LeafID {
-			return c.Instances[i].LeafID < c.Instances[j].LeafID
+		a, b := c.Instances[i].FabricTiers, c.Instances[j].FabricTiers
+		for level := max(len(a), len(b)) - 1; level >= 0; level-- {
+			var aID, bID string
+			if level < len(a) {
+				aID = a[level].ID
+			}
+			if level < len(b) {
+				bID = b[level].ID
+			}
+			if aID != bID {
+				return aID < bID
+			}
 		}
 
 		return c.Instances[i].InstanceID < c.Instances[j].InstanceID
 	})
 
 	// normalize switch names
-	bandCounts := map[band]int{leafBand: 0, spineBand: 0, coreBand: 0}
-
-	switches := make(map[string]string)
+	levelCounts := make(map[int]int)
+	switches := make(map[int]map[string]string)
 	for i, inst := range c.Instances {
-		name, ok := switches[inst.LeafID]
-		if !ok {
-			bandCounts[leafBand]++
-			name = fmt.Sprintf("switch.%d.%d", leafBand, bandCounts[leafBand])
-			switches[inst.LeafID] = name
+		for level, tier := range inst.FabricTiers {
+			if tier.ID == "" {
+				continue
+			}
+			if switches[level] == nil {
+				switches[level] = make(map[string]string)
+			}
+			name, ok := switches[level][tier.ID]
+			if !ok {
+				levelCounts[level]++
+				name = fmt.Sprintf("switch.%d.%d", level+1, levelCounts[level])
+				switches[level][tier.ID] = name
+			}
+			c.Instances[i].FabricTiers[level].Name = name
 		}
-		c.Instances[i].LeafName = name
-
-		name, ok = switches[inst.SpineID]
-		if !ok {
-			bandCounts[spineBand]++
-			name = fmt.Sprintf("switch.%d.%d", spineBand, bandCounts[spineBand])
-			switches[inst.SpineID] = name
-		}
-		c.Instances[i].SpineName = name
-
-		name, ok = switches[inst.CoreID]
-		if !ok {
-			bandCounts[coreBand]++
-			name = fmt.Sprintf("switch.%d.%d", coreBand, bandCounts[coreBand])
-			switches[inst.CoreID] = name
-		}
-		c.Instances[i].CoreName = name
 	}
 }
 
-func trimmedTiers(inst *InstanceTopology, trimTiers int) []string {
-	tiers := []string{inst.LeafID, inst.SpineID, inst.CoreID}
-	n := len(tiers)
-	for i := 0; i < trimTiers && i < n; i++ {
-		tiers[n-i-1] = ""
-	}
+func trimmedTiers(inst *InstanceTopology, trimTiers int) []FabricTier {
+	trim := min(max(0, trimTiers), len(inst.FabricTiers))
+	keep := len(inst.FabricTiers) - trim
+	tiers := make([]FabricTier, keep)
+	copy(tiers, inst.FabricTiers[:keep])
 	return tiers
 }
 
@@ -271,18 +280,16 @@ func (inst *InstanceTopology) toInstance(trimTiers int) Instance {
 }
 
 func (inst *InstanceTopology) networkLayers(trimTiers int) []string {
-	ids := trimmedTiers(inst, trimTiers)
-	names := []string{inst.LeafName, inst.SpineName, inst.CoreName}
 	layers := []string{}
-	for i, id := range ids {
-		if id == "" {
+	for _, tier := range trimmedTiers(inst, trimTiers) {
+		if tier.ID == "" {
 			continue
 		}
-		if names[i] != "" {
-			layers = append(layers, names[i])
+		if tier.Name != "" {
+			layers = append(layers, tier.Name)
 			continue
 		}
-		layers = append(layers, id)
+		layers = append(layers, tier.ID)
 	}
 	return layers
 }

@@ -42,7 +42,7 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 	return responseToClusterTopology(response, cis), nil
 }
 
-// responseToClusterTopology maps switch/node API output to per-instance records for ToThreeTierGraph.
+// responseToClusterTopology maps switch/node API output to per-instance records for ToGraph.
 func responseToClusterTopology(response *TopologyResponse, cis []topology.ComputeInstances) *topology.ClusterTopology {
 	want := make(map[string]struct{})
 	for _, ci := range cis {
@@ -73,11 +73,11 @@ func responseToClusterTopology(response *TopologyResponse, cis []topology.Comput
 
 			//create the instance topology
 			inst := &topology.InstanceTopology{
-				InstanceID:    n.NodeID,
-				LeafID:        leafID,
-				SpineID:       spineID,
-				CoreID:        coreID,
-				AcceleratorID: n.AcceleratedNetworkID,
+				InstanceID:  n.NodeID,
+				FabricTiers: topology.ClosestFirstFabricTiers(leafID, spineID, coreID),
+			}
+			if n.AcceleratedNetworkID != "" {
+				inst.AcceleratorID = n.AcceleratedNetworkID
 			}
 			klog.V(4).Infof("Adding instance topology %s", inst.String())
 			topo.Append(inst)

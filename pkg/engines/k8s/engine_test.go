@@ -22,7 +22,9 @@ func TestGetParameters(t *testing.T) {
 		{
 			name:   "Case 1: no params",
 			params: nil,
-			ret:    &Params{},
+			ret: &Params{
+				labelKeys: NewTopologyLabelKeys(nil, ""),
+			},
 		},
 		{
 			name:   "Case 2: bad params",
@@ -30,14 +32,53 @@ func TestGetParameters(t *testing.T) {
 			err:    "could not decode configuration: 1 error(s) decoding:\n\n* 'nodeSelector' expected a map, got 'float64'",
 		},
 		{
-			name:   "Case 3: valid input",
-			params: map[string]any{"nodeSelector": map[string]string{"key": "val"}},
+			name: "Case 3: valid input",
+			params: map[string]any{
+				"nodeSelector":     map[string]string{"key": "val"},
+				"fabricLabels":     []string{"example.com/rack", "example.com/pod"},
+				"acceleratorLabel": "example.com/nvl",
+			},
 			ret: &Params{
-				NodeSelector: map[string]string{"key": "val"},
+				NodeSelector:     map[string]string{"key": "val"},
+				FabricLabels:     []string{"example.com/rack", "example.com/pod"},
+				AcceleratorLabel: "example.com/nvl",
 				nodeListOpt: &metav1.ListOptions{
 					LabelSelector: "key=val",
 				},
+				labelKeys: NewTopologyLabelKeys(
+					[]string{"example.com/rack", "example.com/pod"},
+					"example.com/nvl",
+				),
 			},
+		},
+		{
+			name: "Case 4: reject duplicate topology label keys",
+			params: map[string]any{
+				"fabricLabels":     []string{"example.com/shared"},
+				"acceleratorLabel": "example.com/shared",
+			},
+			err: `topology label key "example.com/shared" is configured for both fabricLabels[0] and acceleratorLabel`,
+		},
+		{
+			name: "Case 5: reject invalid topology label key",
+			params: map[string]any{
+				"fabricLabels": []string{"not a label"},
+			},
+			err: `fabricLabels[0] "not a label" is not a valid Kubernetes label key`,
+		},
+		{
+			name: "Case 6: reject duplicate label within one family",
+			params: map[string]any{
+				"fabricLabels": []string{"example.com/shared", "example.com/shared"},
+			},
+			err: `topology label key "example.com/shared" is configured for both fabricLabels[0] and fabricLabels[1]`,
+		},
+		{
+			name: "Case 7: reject empty custom label key",
+			params: map[string]any{
+				"fabricLabels": []string{""},
+			},
+			err: `fabricLabels[0] "" is not a valid Kubernetes label key`,
 		},
 	}
 

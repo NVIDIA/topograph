@@ -50,9 +50,6 @@ spec:
             - /usr/local/bin/topograph
           args:
             - -v={{ .Values.verbosity }}
-            {{- range $key, $value := .Values.topologyNodeLabels }}
-            - -k8s-topology-key-{{ $key }}={{ $value }}
-            {{- end }}
           {{- if or .Values.nodeDataBroker.enabled $hasGcpCredentials $isNFDEngine .Values.env }}
           env:
             {{- if .Values.nodeDataBroker.enabled }}

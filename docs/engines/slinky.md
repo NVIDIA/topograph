@@ -79,7 +79,7 @@ engine:
 
 ### Using `nvidia.com/gpu.clique` for block topology
 
-On MNNVL Kubernetes clusters, the NVIDIA GPU Operator can label nodes with `nvidia.com/gpu.clique`. When `useGpuCliqueLabel` is enabled, the Slinky engine uses that label as the source for `topology/block` domains instead of the accelerator domains returned by the provider. This is useful with cloud API providers whose `InstanceTopology.AcceleratorID` describes a broader provider domain than the GPU Operator clique label.
+On MNNVL Kubernetes clusters, the NVIDIA GPU Operator can label nodes with `nvidia.com/gpu.clique`. When `useGpuCliqueLabel` is enabled, the Slinky engine uses that label as the source for `topology/block` domains instead of the accelerator domains returned by the provider. This is useful with cloud API providers whose accelerator ID describes a broader provider domain than the GPU Operator clique label.
 
 The option only affects block topology. Tree topology still comes from the selected provider, and the engine still maps Kubernetes nodes to Slurm nodes through the configured slurmd pod selector.
 

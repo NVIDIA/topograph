@@ -90,6 +90,8 @@ Topograph exposes three endpoints for interacting with the service. Below are th
       - **namespace**: Used in: [`slinky`]. The required namespace where the SLURM cluster is running. The NFD namespace is deployment-scoped and cannot be supplied in a topology request; Helm deployments configure it with the top-level `nfdNamespace` value.
       - **podSelector**: Used in: [`slinky`]. A required Kubernetes label selector for pods running SLURM nodes.
       - **nodeSelector**: (optional) Used in: [`k8s`, `nfd`, `slinky`]. A Kubernetes node label map that filters which nodes participate in topology generation.
+      - **fabricLabels**: (optional) Used in: [`k8s`]. Closest-first array of Kubernetes label keys for fabric tiers. If omitted, every discovered fabric tier uses its default numbered key; if provided, tiers beyond the array are omitted.
+      - **acceleratorLabel**: (optional) Used in: [`k8s`]. Kubernetes label key for the single accelerator domain. Defaults to `network.topology.nvidia.com/accelerator`.
       - **topologyConfigmapName**: Used in: [`slinky`]. The required name of the ConfigMap containing the topology config.
       - **useDynamicNodes**: (optional) Used in: [`slinky`]. If `true`, Kubernetes nodes matched by the Node Selector will be annotated with the topology spec.
       - **useGpuCliqueLabel**: (optional) Used in: [`slinky`]. If `true`, `topology/block` domains are built from the GPU Operator's `nvidia.com/gpu.clique` node label instead of provider accelerator-domain data.

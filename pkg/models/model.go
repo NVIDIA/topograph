@@ -32,7 +32,6 @@ import (
 const (
 	LabelTopologyRegion = "topology.kubernetes.io/region"
 	LabelTopologyZone   = "topology.kubernetes.io/zone"
-	LabelAccelerator    = topology.KeyTopologyAccelerator
 )
 
 // Switch is a switch vertex in a simulation model YAML tree (tests/models).
@@ -279,7 +278,7 @@ func addInstanceRegion(regions map[string]map[string]string, labels map[string]s
 		r = make(map[string]string)
 		regions[region] = r
 	}
-	r[fmt.Sprintf("i-%s", hostName)] = hostName
+	r[getInstanceID(hostName)] = hostName
 }
 
 func (m *Model) setInstances(regions map[string]map[string]string) {
@@ -332,12 +331,12 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 	domainMap := topology.NewDomainMap()
 
 	for hostName := range model.Nodes {
-		instance2node[fmt.Sprintf("i-%s", hostName)] = hostName
+		instance2node[getInstanceID(hostName)] = hostName
 	}
 
 	// Create all the vertices for each node.
 	for hostName := range model.Nodes {
-		instanceID := fmt.Sprintf("i-%s", hostName)
+		instanceID := getInstanceID(hostName)
 		nodeVertexMap[hostName] = &topology.Vertex{
 			ID:   instanceID,
 			Name: instance2node[instanceID],
@@ -350,11 +349,11 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 		swRootMap[sw.Name] = true
 	}
 
-	// Initializes accelerator domain membership from node labels.
+	// Initializes accelerator-network membership.
 	for hostName, instance := range model.Nodes {
-		if accelerator := instance.AcceleratorID(); accelerator != "" {
-			instanceID := fmt.Sprintf("i-%s", hostName)
-			domainMap.AddHost(accelerator, instanceID, instance2node[instanceID])
+		if domain := instance.AcceleratorID(); domain != "" {
+			instanceID := getInstanceID(hostName)
+			domainMap.AddHost(domain, instanceID, instance2node[instanceID])
 		}
 	}
 
@@ -377,10 +376,7 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 			treeRoot.Vertices[k] = swVertexMap[k]
 		}
 	}
-	graph := &topology.Graph{
-		Tiers: treeRoot,
-	}
-
+	graph := &topology.Graph{Tiers: treeRoot}
 	if len(domainMap) != 0 {
 		graph.Domains = domainMap
 	}
@@ -396,7 +392,7 @@ func (model *Model) graphInstanceMap(computeInstances []topology.ComputeInstance
 	instances := make(map[string]topology.Instance)
 
 	for hostName, inst := range model.Nodes {
-		instanceID := fmt.Sprintf("i-%s", hostName)
+		instanceID := getInstanceID(hostName)
 		if len(wanted) != 0 {
 			if _, ok := wanted[instanceID]; !ok {
 				continue
@@ -432,4 +428,8 @@ func requestedInstanceIDs(computeInstances []topology.ComputeInstances) map[stri
 		}
 	}
 	return ids
+}
+
+func getInstanceID(hostName string) string {
+	return fmt.Sprintf("i-%s", hostName)
 }
