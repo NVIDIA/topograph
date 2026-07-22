@@ -373,6 +373,54 @@ tests:
   enabled: false
 ```
 
+### Conformance testing with Chainsaw
+
+`helm test` verifies that a deployed instance is healthy. To verify that the engine actually **applies correct topology labels** to nodes, use the Chainsaw E2E suite in `tests/chainsaw/`.
+
+[Chainsaw](https://kyverno.github.io/chainsaw/) is Kyverno's declarative E2E framework. Each suite drives `apply → wait → assert → cleanup` against a real cluster using the built-in **test provider** — no cloud credentials required.
+
+#### Test suites
+
+| Suite | What it checks |
+|---|---|
+| `k8s/label-application` | `leaf` and `spine` labels applied correctly to nodes after generation |
+| `k8s/label-truncation` | Switch names >63 chars replaced with an FNV64a hash (valid label value) |
+| `slinky/tree-topology` | Slinky engine writes correct `topology.conf` (tree topology) into a ConfigMap |
+| `slinky/dra-provider` | DRA provider discovers NVLink clique topology; Slinky engine writes correct `topology.conf` (block topology) into a ConfigMap |
+| `slinky/block-complement` | Slinky engine pads incomplete block trees with empty placeholder `BlockName` lines when base-block slots are only partially filled |
+| `slinky/dynamic-nodes` | Slinky engine writes skeleton-format `BlockName` lines (no `Nodes=`) and annotates each K8s node with its assigned block via `topology.slinky.slurm.net/spec` |
+
+#### How suites map topology to nodes
+
+Each suite ships a `topology-model.yaml` in its directory. The suite creates
+fake K8s Node objects whose names match the node IDs in that file, loads the
+file into a ConfigMap, and mounts it at `/etc/topograph/models/` inside the
+pod. The `/v1/generate` request passes `modelFileName` pointing at the mounted
+file. No node annotations are required.
+
+#### Running locally
+
+```bash
+# Prerequisites: chainsaw, kind, helm, kubectl, docker
+
+# Full lifecycle — build, create cluster, run all suites, delete cluster:
+make e2e-local
+
+# Against an existing local kind cluster (repeat after each commit):
+make image-build                             # rebuild with the current commit SHA tag
+make kind-load KIND_CLUSTER=<cluster-name>   # load into the cluster
+make e2e
+
+# Single suite only:
+chainsaw test --test-dir tests/chainsaw/k8s/label-application
+```
+
+See `tests/chainsaw/README.md` for full prerequisites and environment variable reference.
+
+#### Running in CI
+
+The `.github/workflows/e2e.yml` workflow runs on `workflow_dispatch`. Trigger it manually from the GitHub UI before merging changes to the Helm chart, Node Observer, or engine output code paths.
+
 ### Chart README
 
 For installation, prerequisites, values reference, and configuration examples, see [`charts/topograph/README.md`](../../charts/topograph/README.md) — also surfaced via `helm show readme topograph/topograph`.

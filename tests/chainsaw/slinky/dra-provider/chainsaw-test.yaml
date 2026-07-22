@@ -1,0 +1,223 @@
+# Copyright 2026 NVIDIA CORPORATION
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: slinky-dra-provider
+spec:
+  description: >
+    Verify that the DRA provider discovers NVLink clique topology from
+    nvidia.com/gpu.clique node labels and that the Slinky engine writes a
+    correct block topology.conf into a ConfigMap. Four fake nodes are arranged
+    in two cliques (node-01/node-02 in clique-1, node-03/node-04 in clique-2).
+    Each node carries the topograph.nvidia.com/instance and
+    topograph.nvidia.com/region annotations that the Slinky engine uses to build
+    the instance map. A fake slurmd pod (status-patched to Ready) is placed on
+    each fake node so the Slinky engine can resolve the k8s-node→SLURM-hostname
+    mapping it requires. The Node Observer fires on startup and auto-triggers
+    generation. The Slinky engine translates the DRA domain map into
+    topology/block format: one BlockName entry per NVLink clique.
+  concurrent: false
+  steps:
+
+  - name: prepare
+    description: >
+      Create four fake K8s Node objects arranged in two NVLink cliques, then
+      create one fake slurmd Pod per node (status-patched to Ready) so the
+      Slinky engine can build its k8s-node→SLURM-hostname mapping.
+      Each node carries:
+        - nvidia.com/gpu.clique: the NVLink clique ID (read by the DRA provider)
+        - topograph.nvidia.com/instance: the instance ID (= node name)
+        - topograph.nvidia.com/region: "local" (set by node-data-broker in production)
+        - kubernetes.io/os: linux (triggers the Node Observer)
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-01
+            labels:
+              kubernetes.io/os: linux
+              nvidia.com/gpu.clique: clique-1
+            annotations:
+              topograph.nvidia.com/instance: node-01
+              topograph.nvidia.com/region: local
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-02
+            labels:
+              kubernetes.io/os: linux
+              nvidia.com/gpu.clique: clique-1
+            annotations:
+              topograph.nvidia.com/instance: node-02
+              topograph.nvidia.com/region: local
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-03
+            labels:
+              kubernetes.io/os: linux
+              nvidia.com/gpu.clique: clique-2
+            annotations:
+              topograph.nvidia.com/instance: node-03
+              topograph.nvidia.com/region: local
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-04
+            labels:
+              kubernetes.io/os: linux
+              nvidia.com/gpu.clique: clique-2
+            annotations:
+              topograph.nvidia.com/instance: node-04
+              topograph.nvidia.com/region: local
+    - script:
+        timeout: 30s
+        content: |
+          set -euo pipefail
+          # Create one fake slurmd pod per fake node, directly assigned via spec.nodeName.
+          # The Slinky engine requires ready slurmd pods to build its k8s-node to
+          # SLURM-hostname map. Without pods nodeMap is empty and no nodes are resolved.
+          for NODE in node-01 node-02 node-03 node-04; do
+            kubectl apply -n "$NAMESPACE" -f - <<EOF
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: slurmd-${NODE}
+            namespace: ${NAMESPACE}
+            labels:
+              app: slurmd
+          spec:
+            nodeName: ${NODE}
+            hostname: ${NODE}
+            tolerations:
+            - operator: Exists
+            containers:
+            - name: slurmd
+              image: registry.k8s.io/pause:3.9
+          EOF
+          done
+          # Patch each pod's status to Ready so IsPodReady() returns true.
+          for NODE in node-01 node-02 node-03 node-04; do
+            kubectl patch pod "slurmd-${NODE}" -n "$NAMESPACE" \
+              --type=merge \
+              --subresource=status \
+              -p '{"status":{"conditions":[{"type":"Ready","status":"True","lastTransitionTime":"2024-01-01T00:00:00Z"}]}}'
+          done
+
+  - name: install-topograph
+    description: >
+      Install Topograph together with the Node Observer using the DRA provider
+      and Slinky engine. No model ConfigMap is needed — the DRA provider reads
+      nvidia.com/gpu.clique labels and topograph.nvidia.com/* annotations
+      directly from the K8s API. The namespace is injected via --set so the
+      Slinky engine writes the slurm-topology ConfigMap into the correct test
+      namespace (where the fake slurmd pods already exist). The observer fires
+      on startup and auto-triggers generation.
+    try:
+    - script:
+        timeout: 120s
+        content: |
+          set -euo pipefail
+          REPO_ROOT=$(git rev-parse --show-toplevel)
+          IMAGE_REPO="${TOPOGRAPH_IMAGE_REPO:-ghcr.io/nvidia/topograph}"
+          IMAGE_TAG="${TOPOGRAPH_IMAGE_TAG:-}"
+          PULL_POLICY="${TOPOGRAPH_IMAGE_PULL_POLICY:-IfNotPresent}"
+
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+
+          helm upgrade --install topograph "${REPO_ROOT}/charts/topograph" \
+            --namespace "$NAMESPACE" --create-namespace \
+            --values "$(pwd)/values.yaml" \
+            --set "image.repository=${IMAGE_REPO}" \
+            ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
+            --set "image.pullPolicy=${PULL_POLICY}" \
+            --set "engine.params.namespace=${NAMESPACE}" \
+            --wait --timeout 90s
+    catch:
+    - description: Pod status on install failure
+      script:
+        content: |
+          kubectl get pods -n "$NAMESPACE" -o wide
+          kubectl describe pods -n "$NAMESPACE"
+
+  - name: assert
+    description: >
+      The Node Observer fires on the fake nodes on startup, triggering generation
+      automatically. The DRA provider groups nodes by nvidia.com/gpu.clique into
+      two domains. The Slinky engine uses the fake slurmd pods to resolve k8s
+      node names to SLURM hostnames, then translates the domain map into
+      topology/block format and writes the slurm-topology ConfigMap. Assert the
+      ConfigMap contains the correct BlockName entries for each NVLink clique and
+      the auto-calculated BlockSizes (2 cliques x 2 nodes each -> BlockSizes=2,4).
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: slurm-topology
+          data:
+            topology.conf: |
+              # block001=clique-1
+              BlockName=block001 Nodes=node-[01-02]
+              # block002=clique-2
+              BlockName=block002 Nodes=node-[03-04]
+              BlockSizes=2,4
+    catch:
+    - description: Topograph and Node Observer logs on failure
+      script:
+        content: |
+          echo "=== Topograph logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph --tail=80 || true
+          echo "=== Node Observer logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph-node-observer --tail=50 || true
+          echo "=== ConfigMaps ==="
+          kubectl get configmaps -n "$NAMESPACE"
+          echo "=== slurm-topology content ==="
+          kubectl get configmap slurm-topology -n "$NAMESPACE" -o yaml 2>/dev/null || true
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          helm uninstall topograph -n "$NAMESPACE" --wait --timeout 60s || true
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete pod slurmd-node-01 slurmd-node-02 slurmd-node-03 slurmd-node-04 \
+            -n "$NAMESPACE" --ignore-not-found --grace-period=0 --force 2>/dev/null || true
+          kubectl delete namespace "$NAMESPACE" --timeout=60s || true
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-01
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-02
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-03
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-04

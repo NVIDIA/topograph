@@ -1,0 +1,155 @@
+# Copyright 2026 NVIDIA CORPORATION
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: k8s-label-application
+spec:
+  description: >
+    Verify that the Kubernetes engine applies the correct topology labels to
+    cluster nodes. The test uses a static topology model (s1→s2/s3, node-01
+    under s2 and node-02 under s3) embedded inline in a ConfigMap and mounted
+    into the pod. Fake Node objects matching those instance IDs are created so
+    the engine can label them. After triggering generation the test asserts
+    leaf/spine labels on node-01 (s2) and node-02 (s3).
+  concurrent: false
+  steps:
+
+  - name: prepare
+    description: >
+      Create fake K8s Node objects (node-01, node-02) matching the model
+      instance IDs, then create the topology-model ConfigMap with inline content.
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-01
+            labels:
+              kubernetes.io/os: linux
+            annotations:
+              topograph.nvidia.com/instance: node-01
+              topograph.nvidia.com/region: local
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-02
+            labels:
+              kubernetes.io/os: linux
+            annotations:
+              topograph.nvidia.com/instance: node-02
+              topograph.nvidia.com/region: local
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: topology-test-model
+          data:
+            topology-model.yaml: |
+              switches:
+                s1:
+                  switches:
+                  - s2
+                  - s3
+              blocks:
+              - switch: s2
+                nodes: [node-01]
+              - switch: s3
+                nodes: [node-02]
+
+  - name: install-topograph
+    description: >
+      Install Topograph together with the Node Observer. The observer fires
+      "Added" events for the fake nodes on startup, automatically triggering
+      topology generation via the modelFileName configured in values.yaml.
+    try:
+    - script:
+        timeout: 120s
+        content: |
+          set -euo pipefail
+          REPO_ROOT=$(git rev-parse --show-toplevel)
+          IMAGE_REPO="${TOPOGRAPH_IMAGE_REPO:-ghcr.io/nvidia/topograph}"
+          IMAGE_TAG="${TOPOGRAPH_IMAGE_TAG:-}"
+          PULL_POLICY="${TOPOGRAPH_IMAGE_PULL_POLICY:-IfNotPresent}"
+
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+
+          helm upgrade --install topograph "${REPO_ROOT}/charts/topograph" \
+            --namespace "$NAMESPACE" --create-namespace \
+            --values "$(pwd)/values.yaml" \
+            --set "image.repository=${IMAGE_REPO}" \
+            ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
+            --set "image.pullPolicy=${PULL_POLICY}" \
+            --wait --timeout 90s
+    catch:
+    - description: Pod status on install failure
+      script:
+        content: |
+          kubectl get pods -n "$NAMESPACE" -o wide
+          kubectl describe pods -n "$NAMESPACE"
+
+  - name: assert
+    description: >
+      The Node Observer fires "Added" events for the fake nodes on startup,
+      triggering generation automatically. Wait for topology labels to appear:
+      node-01 → leaf=s2 spine=s1, node-02 → leaf=s3 spine=s1.
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-01
+            labels:
+              network.topology.nvidia.com/leaf: s2
+              network.topology.nvidia.com/spine: s1
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-02
+            labels:
+              network.topology.nvidia.com/leaf: s3
+              network.topology.nvidia.com/spine: s1
+    catch:
+    - description: Topograph and Node Observer logs on assertion failure
+      script:
+        content: |
+          echo "=== Topograph logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph --tail=50 || true
+          echo "=== Node Observer logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph-node-observer --tail=50 || true
+          echo "=== Node labels ==="
+          kubectl get nodes node-01 node-02 \
+            -o custom-columns='NAME:.metadata.name,LEAF:.metadata.labels.network\.topology\.nvidia\.com/leaf,SPINE:.metadata.labels.network\.topology\.nvidia\.com/spine' || true
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          helm uninstall topograph -n "$NAMESPACE" --wait --timeout 60s || true
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete namespace "$NAMESPACE" --timeout=60s || true
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-01
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-02
