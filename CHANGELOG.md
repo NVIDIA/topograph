@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The NFD engine now rejects an empty generated object set when cleanup is enabled, preserving the last published topology instead of deleting every Topograph-managed NFD object after an empty provider result or over-narrow node selection.
 - The NFD engine now groups nodes with `nvidia.com/gpu.clique` by that authoritative accelerator value instead of omitting their accelerator attribute.
 - The NFD engine now publishes the `system.name/nodename` attribute required by NFD to populate `NodeFeatureGroup.status.nodes`, including for simulated KWOK nodes where no NFD worker executes.
+- The DRA provider now matches nodes using the `topograph.nvidia.com/instance` annotation instead of assuming the instance ID equals the Kubernetes node name.
 - `kwok-nodes` now maps generated instance IDs back to model hostnames when naming Kubernetes nodes and writing the Topograph instance annotation.
 - The node-observer now discovers the optional node-data-broker through `NODE_DATA_BROKER_NAME` and `NODE_DATA_BROKER_NAMESPACE` and gates topology generation on the broker DaemonSet's desired and ready replica counts. Helm injects the variables only when `nodeDataBroker.enabled=true`, so disabling the broker cannot leave the observer waiting for nonexistent pods.
 - The node-observer reports an actionable error and defers topology generation when an enabled node-data-broker DaemonSet has zero desired replicas.

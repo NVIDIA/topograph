@@ -6,10 +6,14 @@
 package dra
 
 import (
+	"context"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestGetParameters(t *testing.T) {
@@ -52,4 +56,34 @@ func TestGetParameters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGenerateTopologyConfigUsesAnnotatedInstanceID(t *testing.T) {
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name: "k8s-node-1",
+		Labels: map[string]string{
+			DomainLabel: "clique-1",
+		},
+		Annotations: map[string]string{
+			topology.KeyNodeInstance: "instance-123",
+			topology.KeyNodeRegion:   "local",
+		},
+	}}
+	provider := &Provider{
+		client: fake.NewSimpleClientset(node),
+		params: &Params{},
+	}
+	instances := []topology.ComputeInstances{{
+		Region: "local",
+		Instances: map[string]string{
+			"instance-123": "scheduler-node-1",
+		},
+	}}
+
+	graph, httpErr := provider.GenerateTopologyConfig(context.Background(), nil, instances)
+
+	require.Nil(t, httpErr)
+	expectedDomains := topology.NewDomainMap()
+	expectedDomains.AddHost("clique-1", "instance-123", "scheduler-node-1")
+	require.Equal(t, expectedDomains, graph.Domains)
 }
