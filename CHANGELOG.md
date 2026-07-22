@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- AWS provider authentication now uses the standard SDK credential chain when explicit credentials are absent, enabling EKS Pod Identity and IRSA with automatic temporary-credential refresh instead of forcing EC2 instance-role credentials.
 - The NFD engine now rejects an empty generated object set when cleanup is enabled, preserving the last published topology instead of deleting every Topograph-managed NFD object after an empty provider result or over-narrow node selection.
 - The NFD engine now groups nodes with `nvidia.com/gpu.clique` by that authoritative accelerator value instead of omitting their accelerator attribute.
 - The NFD engine now publishes the `system.name/nodename` attribute required by NFD to populate `NodeFeatureGroup.status.nodes`, including for simulated KWOK nodes where no NFD worker executes.

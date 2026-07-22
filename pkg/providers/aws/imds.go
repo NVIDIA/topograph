@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -36,8 +35,6 @@ const (
 	IMDSTokenHeaderVal = "60"
 	IMDSTokenHeader    = IMDSTokenHeaderKey + ": " + IMDSTokenHeaderVal
 	IMDSHeaderKey      = "X-aws-ec2-metadata-token"
-
-	tokenTimeDelay = 15 * time.Second
 )
 
 func instanceToNodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
