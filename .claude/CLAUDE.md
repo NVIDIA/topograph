@@ -42,6 +42,7 @@ internal/             # Shared utilities not part of the public API
 charts/topograph/     # Helm chart for all Kubernetes components; tests/ holds the helm-unittest suites + snapshots
 CHANGELOG.md          # Release history (Keep a Changelog format); update [Unreleased] for user-facing PRs
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
+demos/                # Interactive Kubernetes/KWOK deployment demos
 tests/models/         # YAML simulation fixtures
 config/               # Sample topograph-config.yaml
 scripts/              # Build scripts (deb, rpm, SSL, clean)
