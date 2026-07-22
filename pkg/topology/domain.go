@@ -18,6 +18,7 @@ package topology
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -27,6 +28,9 @@ type HostInfo struct {
 	Domain     string
 	InstanceID string
 	HostName   string
+	Level1     string
+	Level2     string
+	Level3     string
 }
 
 // DomainMap maps accelerator domain name to host metadata.
@@ -63,4 +67,50 @@ func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
 	} else {
 		m[hostInfo.Domain] = map[string]*HostInfo{hostInfo.HostName: hostInfo}
 	}
+}
+
+func (m DomainMap) GetLevelInfo(level int) (present bool, members map[string][]string) {
+	children := make(map[string]map[string]struct{})
+	for _, hosts := range m {
+		for _, host := range hosts {
+			var key, child string
+			switch level {
+			case 1:
+				key = host.Level1
+				child = host.Level2
+			case 2:
+				key = host.Level2
+				child = host.Level3
+			case 3:
+				key = host.Level3
+				child = host.Domain
+			case 4:
+				key = host.Domain
+				child = host.HostName
+			default:
+				continue
+			}
+			if len(key) > 0 {
+				if _, ok := children[key]; !ok {
+					children[key] = make(map[string]struct{})
+				}
+				if len(child) > 0 {
+					children[key][child] = struct{}{}
+				}
+			}
+		}
+	}
+	if len(children) == 0 {
+		return false, nil
+	}
+	members = make(map[string][]string, len(children))
+	for key, childMap := range children {
+		childList := make([]string, 0, len(childMap))
+		for child := range childMap {
+			childList = append(childList, child)
+		}
+		slices.Sort(childList)
+		members[key] = childList
+	}
+	return true, members
 }
