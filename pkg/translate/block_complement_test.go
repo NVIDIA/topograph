@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
@@ -394,6 +395,108 @@ func TestGetBlockTopologyUnitSingleBlockSize(t *testing.T) {
 		"          nodes: n[31-32]",
 		"        - block: block5",
 		"          nodes: n33",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementNVL576 validates multi-level block tree construction using the nvl576
+// simulation model. The topology is: building-1 → room-1 (16 switches, 14 with nodes) and
+// room-2 (15 switches, all with nodes) → racks → 9 nodes each.
+// rack-1-03, rack-1-13, and rack-2-11 have no block entries and are absent from domains.
+//
+// With BlockSizes=[9,144]:
+//
+//   - Domain capacity: each rack holds exactly 9 nodes (1 base block), so domCapacity=9.
+//
+//   - Level3 (room) fanout: blockSizes[last]/domCapacity = 144/9 = 16. Both rooms are
+//     padded to 16 slots: room-1 gets 2 empty padding slots (blocks 015–016); room-2
+//     gets 1 empty padding slot (block 032).
+//
+//   - After Level3, currentCapacity = 16×9 = 144 = blockSizes[last], so remaining is
+//     empty and the loop exits. No Level2 or "root" aggregation tier is added.
+//
+//   - Total output: 32 blocks (16 room-1 + 16 room-2) followed by BlockSizes=9,144.
+func TestComplementNVL576(t *testing.T) {
+	model, err := models.NewModelFromFile("nvl576.yaml")
+	require.NoError(t, err)
+
+	graph, _ := model.ToGraph(nil)
+	require.NotNil(t, graph.Domains)
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{9, 144},
+	}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=rack-1-01",
+		"BlockName=block001 Nodes=node[0001-0009]",
+		"# block002=rack-1-02",
+		"BlockName=block002 Nodes=node[0010-0018]",
+		"# block003=rack-1-04",
+		"BlockName=block003 Nodes=node[0028-0030,0032,0034-0036]",
+		"# block004=rack-1-05",
+		"BlockName=block004 Nodes=node[0037-0045]",
+		"# block005=rack-1-06",
+		"BlockName=block005 Nodes=node[0046-0054]",
+		"# block006=rack-1-07",
+		"BlockName=block006 Nodes=node[0055-0063]",
+		"# block007=rack-1-08",
+		"BlockName=block007 Nodes=node[0064-0072]",
+		"# block008=rack-1-09",
+		"BlockName=block008 Nodes=node[0073-0081]",
+		"# block009=rack-1-10",
+		"BlockName=block009 Nodes=node[0082-0090]",
+		"# block010=rack-1-11",
+		"BlockName=block010 Nodes=node[0091-0099]",
+		"# block011=rack-1-12",
+		"BlockName=block011 Nodes=node[0100-0108]",
+		"# block012=rack-1-14",
+		"BlockName=block012 Nodes=node[0118-0126]",
+		"# block013=rack-1-15",
+		"BlockName=block013 Nodes=node[0127-0135]",
+		"# block014=rack-1-16",
+		"BlockName=block014 Nodes=node[0136-0144]",
+		"BlockName=block015",
+		"BlockName=block016",
+		"# block017=rack-2-01",
+		"BlockName=block017 Nodes=node[0145-0153]",
+		"# block018=rack-2-02",
+		"BlockName=block018 Nodes=node[0154-0162]",
+		"# block019=rack-2-03",
+		"BlockName=block019 Nodes=node[0163-0171]",
+		"# block020=rack-2-04",
+		"BlockName=block020 Nodes=node[0172-0180]",
+		"# block021=rack-2-05",
+		"BlockName=block021 Nodes=node[0181-0189]",
+		"# block022=rack-2-06",
+		"BlockName=block022 Nodes=node[0190-0198]",
+		"# block023=rack-2-07",
+		"BlockName=block023 Nodes=node[0199-0207]",
+		"# block024=rack-2-08",
+		"BlockName=block024 Nodes=node[0208-0216]",
+		"# block025=rack-2-09",
+		"BlockName=block025 Nodes=node[0217-0225]",
+		"# block026=rack-2-10",
+		"BlockName=block026 Nodes=node[0226-0234]",
+		"# block027=rack-2-12",
+		"BlockName=block027 Nodes=node[0244-0252]",
+		"# block028=rack-2-13",
+		"BlockName=block028 Nodes=node[0253-0261]",
+		"# block029=rack-2-14",
+		"BlockName=block029 Nodes=node[0262-0270]",
+		"# block030=rack-2-15",
+		"BlockName=block030 Nodes=node[0271-0275]",
+		"# block031=rack-2-16",
+		"BlockName=block031 Nodes=node[0280-0288]",
+		"BlockName=block032",
+		"BlockSizes=9,144",
 		"",
 	}, "\n")
 	require.Equal(t, expected, buf.String())
