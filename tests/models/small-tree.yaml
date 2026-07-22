@@ -17,8 +17,6 @@ switches:
     switches:
     - S2
     - S3
-  S2: {}
-  S3: {}
 blocks:
 - switch: S2
   nodes: ["I[21-22]", "I25"]

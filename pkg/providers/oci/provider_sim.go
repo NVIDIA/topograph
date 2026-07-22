@@ -99,9 +99,9 @@ func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHo
 				host.HpcIslandId = ptr.String(node.NetLayers[i])
 			}
 		}
-		acceleratorID := node.AcceleratorID()
-		if acceleratorID != "" {
-			host.GpuMemoryFabricId = &acceleratorID
+		domainID := node.Labels[topology.KeyTopologyAccelerator]
+		if domainID != "" {
+			host.GpuMemoryFabricId = &domainID
 		}
 		resp.Items = append(resp.Items, host)
 	}
@@ -182,5 +182,5 @@ func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int,
 	if err != nil {
 		return nil, err
 	}
-	return p.ToThreeTierGraph(NAME_SIM, topo, instances, true), nil
+	return p.ToGraph(NAME_SIM, topo, instances, true), nil
 }

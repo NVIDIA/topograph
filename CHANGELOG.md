@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Simulation model files may omit empty leaf-switch definitions; the model loader now creates leaf switches referenced by the parent switch hierarchy.
 - `govulncheck` job in the Go CI workflow for symbol-level vulnerability scanning on pull requests.
+- **NFD engine** (`engine: nfd`) that publishes Topograph topology as NFD `NodeFeature` and `NodeFeatureGroup` custom resources.
 - OCI labels missing from `docker/metadata-action` on the Topograph container image: `org.opencontainers.image.documentation`, `authors`, and `vendor` ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 - Helm chart metadata: `home`, `icon`, `maintainers`, `keywords`, and Artifact Hub annotations ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 - Helm `env`, `initContainers`, and `lifecycle` overrides across the API server, node-observer, and node-data-broker containers.
@@ -17,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The Slurm topology-update trigger script now accepts AWS, GCP, OCI, Nebius, NetQ, Nscale, Lambda, and bare-metal InfiniBand providers.
+- **BREAKING:** Fabric topology now uses variable, closest-first tiers labeled `network.topology.nvidia.com/tier-N`; `InstanceTopology.FabricTiers` and graph conversion support arbitrary fabric depth. Accelerator topology remains a single `AcceleratorID`/`Graph.Domains` dimension labeled `network.topology.nvidia.com/accelerator`. The fixed `leaf`, `spine`, and `core` keys and process-wide Helm/CLI label overrides are replaced by optional `fabricLabels` and `acceleratorLabel` parameters on the `k8s` engine.
 - Simulation model node names are now treated as hostnames; the model-backed test provider generates their instance IDs with an `i-` prefix.
 - The node-observer and node-data-broker are now rendered directly by the main Topograph Helm chart instead of local subcharts. Their existing `node-observer.*` and `node-data-broker.*` values paths are unchanged.
 - **BREAKING (Helm chart `0.5.0` → `0.6.0`):** the chart now ships a hardened default security context across the API server, node-observer, and node-data-broker: non-root (`runAsNonRoot`, UID/GID `65532`), `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, and all capabilities dropped — satisfying the Kubernetes `restricted` Pod Security Standard out of the box. This changes the default runtime posture of every workload; operators who relied on root, a writable rootfs, or added capabilities must override the relevant keys (see the migration note below). `appVersion` is unchanged (`v0.5.0`; no binary change).
@@ -28,6 +32,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - AWS provider authentication now uses the standard SDK credential chain when explicit credentials are absent, enabling EKS Pod Identity and IRSA with automatic temporary-credential refresh instead of forcing EC2 instance-role credentials.
+- The NFD engine now rejects an empty generated object set when cleanup is enabled, preserving the last published topology instead of deleting every Topograph-managed NFD object after an empty provider result or over-narrow node selection.
+- The NFD engine now groups nodes with `nvidia.com/gpu.clique` by that authoritative accelerator value instead of omitting their accelerator attribute.
+- The NFD engine now publishes the `system.name/nodename` attribute required by NFD to populate `NodeFeatureGroup.status.nodes`, including for simulated KWOK nodes where no NFD worker executes.
+- The DRA provider now matches nodes using the `topograph.nvidia.com/instance` annotation instead of assuming the instance ID equals the Kubernetes node name.
 - `kwok-nodes` now maps generated instance IDs back to model hostnames when naming Kubernetes nodes and writing the Topograph instance annotation.
 - The node-observer now discovers the optional node-data-broker through `NODE_DATA_BROKER_NAME` and `NODE_DATA_BROKER_NAMESPACE` and gates topology generation on the broker DaemonSet's desired and ready replica counts. Helm injects the variables only when `nodeDataBroker.enabled=true`, so disabling the broker cannot leave the observer waiting for nonexistent pods.
 - The node-observer reports an actionable error and defers topology generation when an enabled node-data-broker DaemonSet has zero desired replicas.
@@ -40,6 +48,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Periodic node annotation refreshes, including the `--refresh-interval` broker flag and `nodeDataBroker.refreshInterval` Helm value. The broker now applies annotations once at startup.
 
 ### Security
+
+- Upgraded `golang.org/x/text` from `v0.38.0` to `v0.39.0` to address a dependency vulnerability.
+
+- Scoped the NFD engine's `NodeFeature` and `NodeFeatureGroup` permissions to the deployment-level `nfdNamespace` instead of granting them cluster-wide. Helm configures the same namespace at runtime through `NFD_NAMESPACE`; the namespace is no longer a request-level engine parameter, and the engine rejects a missing or blank environment variable.
 
 - Removed unused RBAC verbs from the Topograph API server and node-data-broker ClusterRoles (least-privilege): API server `pods` rule dropped `get` (list-only), `daemonsets` rule dropped `list` (get-only), and the Slinky `configmaps` rule dropped `list`; node-data-broker `nodes` rule dropped `list` (get/update), and the InfiniBand `daemonsets`/`pods` rules dropped `list`/`get` respectively (get-only, list-only).
 

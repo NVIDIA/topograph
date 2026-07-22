@@ -74,7 +74,7 @@ Topograph exposes three endpoints for interacting with the service. Below are th
     - **params**: (optional) A key-value map with provider-specific parameters. The `test` provider uses these parameters for response simulation; for complete behavior and examples, see [Test Mode and Test Provider](./providers/test.md).
       - **useGpuCliqueLabel**: (optional) Used in: [`infiniband-k8s`]. If `true`, reads the GPU Operator's `nvidia.com/gpu.clique` node label as the accelerator-domain source instead of using the `topograph.nvidia.com/cluster-id` node annotation.
   - **engine**: (optional) Selects the topology output and provides any engine-specific parameters.
-    - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, `slinky`, or `graph`. This parameter will override the engine set in the topograph config.
+    - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, `nfd`, `slinky`, or `graph`. This parameter will override the engine set in the topograph config.
     - **params**: (optional) A key-value map with engine-specific parameters.
       - **plugin**: (optional) Used in: [`slurm`, `slinky`]. A string specifying the cluster-wide topology plugin: `topology/tree` or `topology/block`. For `slurm`, this defaults to `topology/tree` when neither `plugin` nor `topologies` is set. Do not set `plugin` together with `topologies`.
       - **blockSizes**: (optional) Used in: [`slurm`, `slinky`]. An array of block sizes for `topology/block`.
@@ -87,9 +87,11 @@ Topograph exposes three endpoints for interacting with the service. Below are th
         - **podSelector**: (optional) Used in: [`slinky`]. A Kubernetes label selector for slurmd pods in this partition. `nodes` and `podSelector` are mutually exclusive on the same topology entry.
         - **clusterDefault**: (optional) Used in: [`slurm`, `slinky`]. If `true`, marks this topology as the default for nodes not assigned to another topology; commonly used with `plugin: topology/flat`.
       - **reconfigure**: (optional) Used in: [`slurm`]. If `true`, invoke `scontrol reconfigure` after topology config is generated. Default `false`.
-      - **namespace**: Used in: [`slinky`]. The required namespace where the SLURM cluster is running.
+      - **namespace**: Used in: [`slinky`]. The required namespace where the SLURM cluster is running. The NFD namespace is deployment-scoped and cannot be supplied in a topology request; Helm deployments configure it with the top-level `nfdNamespace` value.
       - **podSelector**: Used in: [`slinky`]. A required Kubernetes label selector for pods running SLURM nodes.
-      - **nodeSelector**: (optional) Used in: [`k8s`, `slinky`]. A Kubernetes node label map that filters which nodes participate in topology generation.
+      - **nodeSelector**: (optional) Used in: [`k8s`, `nfd`, `slinky`]. A Kubernetes node label map that filters which nodes participate in topology generation.
+      - **fabricLabels**: (optional) Used in: [`k8s`]. Closest-first array of Kubernetes label keys for fabric tiers. If omitted, every discovered fabric tier uses its default numbered key; if provided, tiers beyond the array are omitted.
+      - **acceleratorLabel**: (optional) Used in: [`k8s`]. Kubernetes label key for the single accelerator domain. Defaults to `network.topology.nvidia.com/accelerator`.
       - **topologyConfigmapName**: Used in: [`slinky`]. The required name of the ConfigMap containing the topology config.
       - **useDynamicNodes**: (optional) Used in: [`slinky`]. If `true`, Kubernetes nodes matched by the Node Selector will be annotated with the topology spec.
       - **useGpuCliqueLabel**: (optional) Used in: [`slinky`]. If `true`, `topology/block` domains are built from the GPU Operator's `nvidia.com/gpu.clique` node label instead of provider accelerator-domain data.

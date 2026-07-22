@@ -8,18 +8,21 @@ Labels are set by the [Kubernetes engine](../engines/k8s.md) (`engine: k8s`) and
 
 ### Default label keys
 
+Topograph publishes a variable-depth fabric label family and one accelerator
+label. Fabric tier `0` is closest to the compute node, and tier numbers increase
+outwards. Only entries present in the discovered topology are written.
+
 | Label key | Topology type | Semantics |
 |---|---|---|
-| `network.topology.nvidia.com/accelerator` | Block (`topology/block`) | Accelerated interconnect domain identifier — nodes that share the same value are in the same accelerated domain. Exact semantics are provider-dependent: for MNNVL-aware providers (DRA, InfiniBand, Lambda AI) the value is an NVL Partition identifier (Fabric-Manager-derived `<ClusterUUID>.<CliqueID>`, identifying a logical sub-domain within the physical NVL Domain); for the AWS provider it is the AWS CapacityBlockId (a reservation-scoped identifier co-extensive with an UltraServer — i.e., the NVL Domain — on P6e-GB200). If `nvidia.com/gpu.clique` already exists on a Kubernetes node, the k8s engine does not write this label for that node. See the provider matrix below. |
-| `network.topology.nvidia.com/leaf` | Tree (`topology/tree`) | Leaf switch identifier — top-of-rack or first-tier fabric switch |
-| `network.topology.nvidia.com/spine` | Tree (`topology/tree`) | Spine switch identifier — second-tier aggregation switch |
-| `network.topology.nvidia.com/core` | Tree (`topology/tree`) | Core switch identifier — third tier, present in large three-tier fabrics |
+| `network.topology.nvidia.com/accelerator` | Accelerator | Accelerator-interconnect locality. If `nvidia.com/gpu.clique` exists, the k8s engine leaves this label unset for that node. |
+| `network.topology.nvidia.com/tier-N` | Fabric | Switch-fabric locality at tier `N`. Tier 0 is the switch closest to the node; each higher tier is the next switch tier outward. There is no fixed maximum depth. |
 
-Labels are **additive**: a node that belongs to both a block topology (NVLink domain) and a tree topology (switch fabric) normally carries both `accelerator` and `leaf`/`spine`/`core` simultaneously. The exception is nodes that already have `nvidia.com/gpu.clique`; for those, the k8s engine leaves the accelerator domain on `nvidia.com/gpu.clique` and only writes the switch-hierarchy labels.
+Labels are **additive**: a node can carry every discovered fabric tier and its
+accelerator domain simultaneously.
 
 Not all providers produce both topology types:
 
-| Provider | Block (`accelerator`) | Tree (`leaf`/`spine`/`core`) |
+| Provider | Accelerator domains | Fabric tiers |
 |---|---|---|
 | `aws` | Yes (CapacityBlockId) | Yes |
 | `cw` | No | Yes (InfiniBand switch hierarchy) |
@@ -39,20 +42,20 @@ Not all providers produce both topology types:
 
 On non-MNNVL systems (e.g., DGX B200, B300), the GPU fabric never reaches `GPU_FABRIC_STATE_COMPLETED`, so `nvidia.com/gpu.clique` is not set at all. On these systems, Topograph with an InfiniBand provider is the only source of network topology for scheduling decisions.
 
-### Choosing between `accelerator` and `nvidia.com/gpu.clique` for scheduling
+### Choosing between the accelerator label and `nvidia.com/gpu.clique` for scheduling
 
-Workload schedulers consuming topology labels may need to choose between Topograph's `network.topology.nvidia.com/accelerator` and the NVIDIA GPU Operator's `nvidia.com/gpu.clique`. The k8s engine automatically avoids writing `accelerator` on nodes where `nvidia.com/gpu.clique` is already present, so schedulers can use `gpu.clique` for those nodes and fall back to `accelerator` where it is absent:
+Workload schedulers consuming topology labels may need to choose between Topograph's `network.topology.nvidia.com/accelerator` and the NVIDIA GPU Operator's `nvidia.com/gpu.clique`. The k8s engine automatically avoids writing the accelerator label on nodes where `nvidia.com/gpu.clique` is already present, so schedulers can use `gpu.clique` for those nodes and fall back to the accelerator label where it is absent:
 
-- **MNNVL hardware + Fabric Manager completed + NVL Partition granularity desired:** use `nvidia.com/gpu.clique`. On the AWS provider this is finer granularity than `accelerator` (which carries the CapacityBlockId, i.e., the NVL Domain). On DRA, InfiniBand, and Lambda AI providers the two labels carry the same value.
+- **MNNVL hardware + Fabric Manager completed + NVL Partition granularity desired:** use `nvidia.com/gpu.clique`. On the AWS provider this is finer granularity than the accelerator label (which carries the CapacityBlockId, i.e., the NVL Domain). On DRA, InfiniBand, and Lambda AI providers the two labels carry the same value.
 - **MNNVL but Fabric Manager not yet completed, or non-MNNVL hardware:** `nvidia.com/gpu.clique` is absent. Use `network.topology.nvidia.com/accelerator`.
 - **Slurm clusters (no Kubernetes node labels):** neither label applies. Consumers read Slurm's `topology.conf` directly.
 
 **Caveats when preferring `nvidia.com/gpu.clique`:**
 
 - The label encodes node identity within MNNVL domains, not fabric proximity between them. NVL Partition is encoded as the full `<ClusterUUID>.<CliqueID>` value; NVL Domain is encoded as the `ClusterUUID` prefix. A scheduler can therefore distinguish racks — two nodes with different `ClusterUUID` are in different NVL Domains — and act on that distinction (same-Domain affinity to pack a job onto a single rack, cross-Domain anti-affinity to spread independent jobs across racks). What the label does **not** encode is the *physical proximity* between Domains: `ClusterUUID`s are opaque identifiers, so the label cannot tell a scheduler which racks share a top-of-rack switch, an aggregation tier, or a core. For cross-rack proximity-aware placement, Topograph populates the following labels from the InfiniBand or NetQ providers regardless of whether `gpu.clique` is present:
-    - **Same top-of-rack switch** (cross-rack within a first-tier fabric) — Topograph's `leaf` label.
-    - **Same second-tier aggregation** (typically Scalable-Unit / pod-scale grouping above individual racks) — Topograph's `spine` label.
-    - **Same third-tier aggregation** (present in large three-tier fabrics — typically cross-SU grouping in multi-SU SuperPOD deployments) — Topograph's `core` label.
+    - **Same top-of-rack switch** (cross-rack within a first-tier fabric) — Topograph's fabric tier 0 label.
+    - **Same second-tier aggregation** (typically Scalable-Unit / pod-scale grouping above individual racks) — Topograph's fabric tier 1 label.
+    - **Same third-tier aggregation** (present in large three-tier fabrics — typically cross-SU grouping in multi-SU SuperPOD deployments) — Topograph's fabric tier 2 label.
 
   These labels are also relevant for mixed-workload fragmentation avoidance (see [`docs/engines/k8s.md` § Mixed Workload Considerations](../engines/k8s.md#mixed-workload-considerations)).
 - The label is refreshed by GPU Feature Discovery at its configured interval (the k8s-device-plugin default is 60s) rather than propagated instantly. Fabric-state changes in the window between refreshes are not yet reflected in the label.
@@ -64,7 +67,13 @@ Label values are used as-is when they are 63 characters or shorter (the Kubernet
 
 ### Configuring label keys
 
-The default `network.topology.nvidia.com/` prefix is configurable via the Helm `topologyNodeLabels` value. If you need to map topograph's topology layers to a custom label schema, override the keys at deploy time. The label _values_ (topology identifiers) are always derived from the provider's topology discovery and cannot be configured.
+The `k8s` engine accepts an optional closest-first `fabricLabels` array and an
+optional singular `acceleratorLabel`. When `fabricLabels` is omitted, Topograph
+uses `network.topology.nvidia.com/tier-N` for every discovered fabric tier. When
+provided, only explicitly listed tiers are labeled; additional tiers are
+omitted. `acceleratorLabel` defaults to
+`network.topology.nvidia.com/accelerator`. Every configured key must be a valid
+Kubernetes label key. Label values always come from provider discovery.
 
 ### Relationship to upstream standardization (KEP-4962)
 
@@ -130,9 +139,9 @@ transformers:
       # ... existing labels ...
       # Topograph topology labels (requires Topograph deployed in the cluster)
       - "network.topology.nvidia.com/accelerator"
-      - "network.topology.nvidia.com/leaf"
-      - "network.topology.nvidia.com/spine"
-      - "network.topology.nvidia.com/core"
+      - "network.topology.nvidia.com/tier-0"
+      - "network.topology.nvidia.com/tier-1"
+      - "network.topology.nvidia.com/tier-2"
 ```
 
 See NVSentinel's [`docs/INTEGRATIONS.md` § Topology Awareness (Topograph)](https://github.com/NVIDIA/NVSentinel/blob/main/docs/INTEGRATIONS.md#topology-awareness-topograph).

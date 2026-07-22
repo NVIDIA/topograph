@@ -8,6 +8,10 @@
   {{- fail "gatewayAPI.enabled=true requires at least one entry in gatewayAPI.parentRefs referencing the existing Gateway resource this HTTPRoute should attach to. See charts/topograph/values.k8s.gateway-api-example.yaml for a complete example." }}
 {{- end }}
 
+{{- if and (eq .Values.engine.name "nfd") (hasKey (default dict .Values.env) "NFD_NAMESPACE") }}
+  {{- fail "env.NFD_NAMESPACE is managed by the chart for the nfd engine; configure nfdNamespace instead" }}
+{{- end }}
+
 {{- if eq .Values.provider.name "gcp" }}
 {{- $params := default dict .Values.provider.params }}
 

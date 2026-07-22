@@ -28,6 +28,7 @@ Both variants produce the same topology representation, and are in turn consumed
 
 - **Slurm engine** (`engine: slurm`) — writes a `topology.conf` file describing the switch tree, used by the Slurm topology plugin for topology-aware scheduling
 - **Kubernetes engine** (`engine: k8s`) — applies `network.topology.nvidia.com/` labels to nodes reflecting their position in the switch hierarchy and (where applicable) their NVLink domain
+- **NFD engine** (`engine: nfd`) — publishes topology as Node Feature Discovery `NodeFeature` and `NodeFeatureGroup` custom resources
 - **Slinky engine** (`engine: slinky`) — writes topology data to a Kubernetes ConfigMap for Slurm-on-Kubernetes deployments
 
 See the engine documentation (`docs/engines/`) for details on each output format.
@@ -85,7 +86,7 @@ For the Slurm engine, verify the generated `topology.conf` reflects the expected
 ### How It Works
 
 1. Runs `ibnetdiscover` by exec-ing into a node-data-broker pod on each node to map the switch tree
-2. On NVIDIA GPU nodes: reads NVLink clique IDs from the `topograph.nvidia.com/cluster-id` node annotations set by the node-data-broker. If `useGpuCliqueLabel` is enabled, it reads `nvidia.com/gpu.clique` directly instead. The accelerator domain value is `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems. When the k8s engine sees `nvidia.com/gpu.clique` already present on a node, it does not write a duplicate Topograph accelerator label for that node.
+2. On NVIDIA GPU nodes: reads NVLink clique IDs from the `topograph.nvidia.com/cluster-id` node annotations set by the node-data-broker. If `useGpuCliqueLabel` is enabled, it reads `nvidia.com/gpu.clique` directly instead. The accelerator ID is `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems. When the k8s engine sees `nvidia.com/gpu.clique` already present on a node, it does not write the duplicate accelerator label for that node.
 3. Combines the switch tree and any NVLink clique data into the topology graph
 
 ### Configuration

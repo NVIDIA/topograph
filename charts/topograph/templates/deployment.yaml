@@ -1,6 +1,7 @@
 {{ include "topograph.validation" . }}
 {{- $providerParams := default dict .Values.provider.params }}
 {{- $hasGcpCredentials := and (eq .Values.provider.name "gcp") (or $providerParams.serviceAccountKeysSecret $providerParams.workloadIdentityFederation) }}
+{{- $isNFDEngine := eq .Values.engine.name "nfd" }}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -49,10 +50,7 @@ spec:
             - /usr/local/bin/topograph
           args:
             - -v={{ .Values.verbosity }}
-            {{- range $key, $value := .Values.topologyNodeLabels }}
-            - -k8s-topology-key-{{ $key }}={{ $value }}
-            {{- end }}
-          {{- if or .Values.nodeDataBroker.enabled $hasGcpCredentials .Values.env }}
+          {{- if or .Values.nodeDataBroker.enabled $hasGcpCredentials $isNFDEngine .Values.env }}
           env:
             {{- if .Values.nodeDataBroker.enabled }}
             - name: NODE_DATA_BROKER_NAME
@@ -68,6 +66,10 @@ spec:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /etc/topograph/gcp/credentials-config.json
             {{- end }}
+            {{- end }}
+            {{- if $isNFDEngine }}
+            - name: NFD_NAMESPACE
+              value: {{ .Values.nfdNamespace | quote }}
             {{- end }}
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}

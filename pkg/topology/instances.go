@@ -6,6 +6,7 @@ package topology
 
 import (
 	"fmt"
+	"strconv"
 )
 
 // Instances is the top-level JSON envelope for instance-oriented topology export.
@@ -31,6 +32,10 @@ func AcceleratorID(labels map[string]string) string {
 		return accelerator
 	}
 	return labels[KeyNvidiaGPUClique]
+}
+
+func FabricTierKey(tier int) string {
+	return KeyFabricTierPrefix + strconv.Itoa(tier)
 }
 
 // String summarizes an instance for logging (simulation / derived fields).

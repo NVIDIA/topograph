@@ -42,6 +42,12 @@
 
   NOTE: node-data-broker applies node annotations once when each broker pod starts.
 {{- end }}
+{{- if eq .Values.engine.name "nfd" }}
+
+  NOTE: The NFD engine writes NodeFeature and NodeFeatureGroup resources in
+        {{ .Values.nfdNamespace }}. This must be the namespace where NFD master runs.
+{{- end }}
+
 {{- if not .Values.serviceAccount.create }}
 
 2. Topograph is configured to use the existing ServiceAccount "{{ include "topograph.serviceAccountName" . }}".

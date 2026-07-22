@@ -26,11 +26,10 @@ import (
 )
 
 func TestConvert(t *testing.T) {
+	leaf, spine, root := "leaf", "net", "core"
 	valid := &topology.InstanceTopology{
-		InstanceID: "id",
-		LeafID:     "leaf",
-		SpineID:    "net",
-		CoreID:     "core",
+		InstanceID:  "id",
+		FabricTiers: topology.ClosestFirstFabricTiers(leaf, spine, root),
 	}
 
 	testCases := []struct {
@@ -55,7 +54,7 @@ func TestConvert(t *testing.T) {
 			name: "Case 3: missing NetworkBlockId",
 			host: &core.ComputeHostSummary{
 				InstanceId:   &valid.InstanceID,
-				LocalBlockId: &valid.LeafID,
+				LocalBlockId: &leaf,
 			},
 			err: `missing NetworkBlockId for instance "id"`,
 		},
@@ -63,8 +62,8 @@ func TestConvert(t *testing.T) {
 			name: "Case 4: missing HpcIslandId",
 			host: &core.ComputeHostSummary{
 				InstanceId:     &valid.InstanceID,
-				LocalBlockId:   &valid.LeafID,
-				NetworkBlockId: &valid.SpineID,
+				LocalBlockId:   &leaf,
+				NetworkBlockId: &spine,
 			},
 			err: `missing HpcIslandId for instance "id"`,
 		},
@@ -72,9 +71,9 @@ func TestConvert(t *testing.T) {
 			name: "Case 5: valid input",
 			host: &core.ComputeHostSummary{
 				InstanceId:     &valid.InstanceID,
-				LocalBlockId:   &valid.LeafID,
-				NetworkBlockId: &valid.SpineID,
-				HpcIslandId:    &valid.CoreID,
+				LocalBlockId:   &leaf,
+				NetworkBlockId: &spine,
+				HpcIslandId:    &root,
 			},
 			topo: valid,
 		},

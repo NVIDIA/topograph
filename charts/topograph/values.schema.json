@@ -35,7 +35,7 @@
         },
         "params": {
           "type": "object",
-          "description": "Provider-specific parameters. For infiniband-k8s, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the accelerator-domain source."
+          "description": "Provider-specific parameters. Requirements are documented in docs/providers/<name>.md."
         }
       },
       "required": ["name"]
@@ -46,14 +46,19 @@
         "name": {
           "type": "string",
           "description": "Scheduler-output engine. Must match a registered engine in pkg/registry/registry.go.",
-          "enum": ["graph", "k8s", "slinky", "slurm"]
+          "enum": ["graph", "k8s", "nfd", "slinky", "slurm"]
         },
         "params": {
           "type": "object",
-          "description": "Engine-specific parameters. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
+          "description": "Engine-specific parameters. The k8s engine accepts a closest-first fabricLabels array and a singular acceleratorLabel. Omitted values use the default label keys; when fabricLabels is provided, additional fabric tiers are omitted. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
         }
       },
       "required": ["name"]
+    },
+    "nfdNamespace": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Namespace where NFD master runs and where the nfd engine creates NodeFeature and NodeFeatureGroup resources."
     },
     "service": {
       "type": "object",
@@ -114,7 +119,6 @@
     "initContainers": { "type": "array" },
     "lifecycle": { "type": "object" },
     "config": { "type": "object" },
-    "topologyNodeLabels": { "type": "object" },
     "podAnnotations": { "type": "object" },
     "podLabels": { "type": "object" },
     "podSecurityContext": { "type": "object" },

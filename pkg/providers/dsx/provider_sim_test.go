@@ -360,11 +360,25 @@ func TestProviderSimWithNVLink(t *testing.T) {
 	require.Nil(t, httpErr)
 	require.NotNil(t, topo)
 
-	// NVLink / accelerator domain is emitted as graph domains (same as AWS ToThreeTierGraph path).
+	// NVLink / accelerator domain is emitted as graph domains (same as AWS ToGraph path).
 	domains := topo.Domains
 	require.NotNil(t, domains)
 	_, hasNVL := domains["nvl1"]
 	require.True(t, hasNVL, "cluster model places cb1 nodes in NVLink domain nvl1 under topology/block")
+}
+
+func TestResponseToClusterTopologyOmitsEmptyAccelerator(t *testing.T) {
+	response := &TopologyResponse{Switches: map[string]SwitchInfo{
+		"leaf": {Nodes: []NodeInfo{{NodeID: "n1"}}},
+	}}
+	instances := []topology.ComputeInstances{{
+		Instances: map[string]string{"n1": "node1"},
+	}}
+
+	topo := responseToClusterTopology(response, instances)
+
+	require.Len(t, topo.Instances, 1)
+	require.Empty(t, topo.Instances[0].AcceleratorID)
 }
 
 func TestLoaderSimMissingModelFile(t *testing.T) {

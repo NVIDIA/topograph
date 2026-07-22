@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package k8s
@@ -20,6 +9,7 @@ import (
 	"context"
 	"maps"
 	"net/http"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -36,36 +26,7 @@ func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ any) ([]topolog
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
-	return getComputeInstances(nodes), nil
-}
-
-func getComputeInstances(nodes *corev1.NodeList) []topology.ComputeInstances {
-	regions := make(map[string]map[string]string)
-	regionNames := []string{}
-	for _, node := range nodes.Items {
-		instance, ok := node.Annotations[topology.KeyNodeInstance]
-		if !ok {
-			klog.Warningf("missing %q annotation in node %s", topology.KeyNodeInstance, node.Name)
-			continue
-		}
-		region, ok := node.Annotations[topology.KeyNodeRegion]
-		if !ok {
-			klog.Warningf("missing %q annotation in node %s", topology.KeyNodeRegion, node.Name)
-			continue
-		}
-		if _, ok = regions[region]; !ok {
-			regions[region] = make(map[string]string)
-			regionNames = append(regionNames, region)
-		}
-		regions[region][instance] = node.Name
-	}
-
-	cis := make([]topology.ComputeInstances, 0, len(regions))
-	for _, region := range regionNames {
-		cis = append(cis, topology.ComputeInstances{Region: region, Instances: regions[region]})
-	}
-
-	return cis
+	return k8s.GetComputeInstances(nodes), nil
 }
 
 func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels map[string]string) error {
@@ -75,32 +36,65 @@ func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels
 		return err
 	}
 
-	MergeNodeLabels(node, labels)
+	MergeNodeLabels(node, labels, eng.params.labelKeys)
 
 	_, err = eng.client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 
 	return err
 }
 
-func MergeNodeLabels(node *corev1.Node, labels map[string]string) {
+func MergeNodeLabels(node *corev1.Node, labels map[string]string, keys *TopologyLabelKeys) {
 	if node.Labels == nil {
 		node.Labels = make(map[string]string)
 	}
 
-	labels = skipAcceleratorLabelWhenGPUCliqueExists(node, labels)
+	labels = skipAcceleratorLabelWhenGPUCliqueExists(node, labels, keys)
+	removeManagedTopologyLabels(node.Labels, keys)
 	maps.Copy(node.Labels, labels)
 }
 
-func skipAcceleratorLabelWhenGPUCliqueExists(node *corev1.Node, labels map[string]string) map[string]string {
-	if labelAccelerator == "" || strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
+func removeManagedTopologyLabels(labels map[string]string, keys *TopologyLabelKeys) {
+	for key := range labels {
+		if key == topology.KeyNvidiaGPUClique {
+			continue
+		}
+		if isManagedLevelLabel(key, keys) {
+			delete(labels, key)
+		}
+	}
+}
+
+func isManagedLevelLabel(key string, keys *TopologyLabelKeys) bool {
+	if key == topology.KeyTopologyAccelerator {
+		return true
+	}
+	for _, configured := range append(append([]string(nil), keys.Fabric...), keys.Accelerator) {
+		if configured != "" && key == configured {
+			return true
+		}
+	}
+	for _, prefix := range []string{topology.KeyFabricTierPrefix} {
+		if strings.HasPrefix(key, prefix) {
+			level, err := strconv.Atoi(strings.TrimPrefix(key, prefix))
+			if err == nil && level >= 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func skipAcceleratorLabelWhenGPUCliqueExists(node *corev1.Node, labels map[string]string, keys *TopologyLabelKeys) map[string]string {
+	acceleratorLabel := keys.AcceleratorKey()
+	if strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]) == "" {
 		return labels
 	}
 
 	filtered := maps.Clone(labels)
-	delete(filtered, labelAccelerator)
+	delete(filtered, acceleratorLabel)
 
-	if labelAccelerator != topology.KeyNvidiaGPUClique {
-		delete(node.Labels, labelAccelerator)
+	if acceleratorLabel != topology.KeyNvidiaGPUClique {
+		delete(node.Labels, acceleratorLabel)
 	}
 
 	return filtered

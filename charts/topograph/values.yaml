@@ -12,12 +12,16 @@ provider:
   #   useGpuCliqueLabel: true
 
 engine:
-  # name: "k8s", "slinky", "slurm" or "graph"
+  # name: "k8s", "nfd", "slinky", "slurm" or "graph"
   name: k8s
   # params:
   #   # For slinky topology/block output, use the GPU Operator's existing
   #   # Kubernetes node label as the block-domain source.
   #   useGpuCliqueLabel: true
+
+# Namespace where NFD master runs. The nfd engine creates NodeFeature and
+# NodeFeatureGroup resources here, and its Role/RoleBinding are scoped here.
+nfdNamespace: node-feature-discovery
 
 service:
   type: ClusterIP
@@ -62,12 +66,6 @@ config:
   requestAggregationDelay: 15s
   # Optional secret with API credentials
   # credentialsSecret:
-
-#topologyNodeLabels:
-#  accelerator: network.topology.nvidia.com/accelerator
-#  leaf: network.topology.nvidia.com/leaf
-#  spine: network.topology.nvidia.com/spine
-#  core: network.topology.nvidia.com/core
 
 podAnnotations: {}
 podLabels: {}

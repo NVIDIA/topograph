@@ -186,7 +186,7 @@ func (p *apiProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int,
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, p.trimTiers, true), nil
+	return topo.ToGraph(NAME, instances, p.trimTiers, true), nil
 }
 
 func (p *apiProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {

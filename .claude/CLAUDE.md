@@ -26,7 +26,7 @@ This separation is load-bearing. If you find yourself reading the fabric in an e
 cmd/                  # Entry points: topograph, node-observer, node-data-broker, kwok-nodes
 pkg/
   providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, cw, test
-  engines/            # One directory per engine: k8s, slinky, slurm
+  engines/            # One directory per engine: k8s, nfd, slinky, slurm
   topology/           # Canonical Graph, Vertex tree, and topology constants (DO NOT CHANGE CASUALLY)
   registry/           # Central NamedLoader wiring for providers + engines
   translate/          # topology.conf and block/tree generation shared by engines
@@ -55,8 +55,8 @@ These structures propagate across every provider and engine. Changing them in a 
 | Surface | Why it's load-bearing |
 |---|---|
 | `pkg/topology/` — `Graph`, the `Vertex` tree, and topology constants | Every provider returns it; every engine consumes it. A shape change ripples to all of them. |
-| Helm `provider.name` / `engine.name` / `topologyNodeLabels` | External contract for operators deploying Topograph. |
-| The four default label keys `network.topology.nvidia.com/{accelerator,leaf,spine,core}` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue). |
+| Helm `provider.name` / `engine.name` | External contract for operators deploying Topograph. |
+| The variable fabric labels `network.topology.nvidia.com/tier-N` and single accelerator label `network.topology.nvidia.com/accelerator` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue); fabric tier 0 is closest to the node. |
 
 ## 2. Setup and Installation
 
@@ -138,7 +138,7 @@ type Provider interface {
 }
 ```
 
-A provider returns a `*topology.Graph` of the discovered topology. `Tiers` is the root of the switch hierarchy; `Domains` is a `topology.DomainMap` mapping accelerator/block domains to hosts, with each finalized domain carrying the enumerated ID used by block-topology output. Leaf vertices are compute nodes; interior tier vertices are switches. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
+A provider returns a `*topology.Graph` of the discovered topology. Providers using `ClusterTopology` populate `InstanceTopology.FabricTiers` closest-first and the optional single `InstanceTopology.AcceleratorID`, then call `ToGraph`; the fabric path has no fixed depth. `Graph.Tiers` is the fabric hierarchy, and `Graph.Domains` is the `topology/block` source. Leaf vertices are compute nodes; interior tier vertices are switches. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
 
 ### Adding a new provider
 
@@ -151,7 +151,7 @@ A provider returns a `*topology.Graph` of the discovered topology. `Tiers` is th
 
 ### Adding a new engine
 
-Engines are much rarer (three exist: slurm, k8s, slinky). Follow the same registry pattern but register in `engines.NewRegistry(...)`. Coordinate with maintainers before starting — adding an engine implies a new output format that every provider's output must be translatable into.
+Engines are much rarer (four exist: slurm, k8s, nfd, slinky). Follow the same registry pattern but register in `engines.NewRegistry(...)`. Coordinate with maintainers before starting — adding an engine implies a new output format that every provider's output must be translatable into.
 
 ### Anti-patterns
 
@@ -169,7 +169,7 @@ Engines are much rarer (three exist: slurm, k8s, slinky). Follow the same regist
 
 ### Label and annotation reference
 
-Label keys written by the Kubernetes and Slinky engines are documented in `docs/reference/node-labels.md`. Do not invent new keys in provider or engine code — values flow through the canonical graph; keys are configured via Helm `topologyNodeLabels`.
+Label keys written by the Kubernetes engine are documented in `docs/reference/node-labels.md`. Do not invent new keys in provider code — values flow through the canonical graph. Optional custom keys are configured through the k8s engine's closest-first `fabricLabels` array and singular `acceleratorLabel`; when `fabricLabels` is provided, only explicitly listed fabric tiers are labeled.
 
 ## 5. Pull Request Guidelines
 

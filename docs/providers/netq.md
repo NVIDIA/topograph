@@ -32,6 +32,7 @@ The NetQ provider produces the same topology representation as the InfiniBand pr
 
 - **Slurm engine** (`engine: slurm`) — writes a `topology.conf` file for Slurm topology-aware scheduling
 - **Kubernetes engine** (`engine: k8s`) — applies `network.topology.nvidia.com/` labels to nodes
+- **NFD engine** (`engine: nfd`) — publishes topology as Node Feature Discovery `NodeFeature` and `NodeFeatureGroup` custom resources
 - **Slinky engine** (`engine: slinky`) — writes topology data to a Kubernetes ConfigMap
 
 See the engine documentation (`docs/engines/`) for details on each output format.
