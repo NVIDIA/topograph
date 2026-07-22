@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Corrected DRA provider guidance to document its Slinky-only block-topology scope, dependency on pre-existing `nvidia.com/gpu.clique` labels, and inability to guide placement across NVLink partitions without backend-fabric topology.
 - The NFD engine now rejects an empty generated object set when cleanup is enabled, preserving the last published topology instead of deleting every Topograph-managed NFD object after an empty provider result or over-narrow node selection.
 - The NFD engine now groups nodes with `nvidia.com/gpu.clique` by that authoritative accelerator value instead of omitting their accelerator attribute.
 - The NFD engine now publishes the `system.name/nodename` attribute required by NFD to populate `NodeFeatureGroup.status.nodes`, including for simulated KWOK nodes where no NFD worker executes.
@@ -245,7 +246,7 @@ Initial release.
 ### Added
 
 - Core **Topograph API server** with `/v1/generate` and asynchronous topology retrieval.
-- **Providers**: AWS, GCP, OCI, Nebius, InfiniBand (bare-metal and Kubernetes), DRA, and CoreWeave (`cw`).
+- **Providers**: AWS, GCP, OCI, Nebius, InfiniBand (bare-metal and Kubernetes), and DRA).
 - **Engines**: Kubernetes (node labels), Slurm (`topology.conf`), and Slinky (ConfigMap).
 - **Kubernetes components**: node-observer Deployment and node-data-broker DaemonSet (Helm subcharts).
 - **Helm chart** for deploying Topograph on Kubernetes.

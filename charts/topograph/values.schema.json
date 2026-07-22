@@ -13,7 +13,6 @@
           "enum": [
             "aws",
             "aws-sim",
-            "cw",
             "dra",
             "gcp",
             "gcp-sim",

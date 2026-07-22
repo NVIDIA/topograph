@@ -10,15 +10,15 @@ Topology discovery scope is determined by the NetQ server and the premises acces
 
 **Spectrum-X environments**: NetQ is the standard management plane for Spectrum-X and is the recommended provider — it has authoritative, real-time visibility into the fabric that `ibnetdiscover`-based approaches cannot provide.
 
-**Multi-node NVLink (MNNVL) environments**: NetQ includes NVLink Management (previously packaged as NMX-M), which provides native visibility into NVLink fabric topology, domain membership, and partitions at the infrastructure level. Note that for Kubernetes MNNVL scheduling, the [DRA provider](./dra.md) is the appropriate Topograph integration — it reads `nvidia.com/gpu.clique` labels set by the GPU Operator's DRA driver and feeds them directly to Kubernetes schedulers. NetQ and DRA operate at different layers and can coexist.
+**Multi-node NVLink (MNNVL) environments**: NetQ includes NVLink Management (previously packaged as NMX-M), which provides native visibility into NVLink fabric topology, domain membership, and partitions at the infrastructure level. The [DRA provider](./dra.md) is a narrower option for Slinky `topology/block`: it groups nodes using pre-existing `nvidia.com/gpu.clique` labels but does not discover the backend switch fabric between NVLink partitions. Use NetQ when workloads can span partitions and placement must account for network proximity.
 
 **Traditional IB environments**: If NetQ is already deployed and managing your IB fabric, use this provider to leverage its existing topology data. If NetQ is not present, use the [InfiniBand provider](./infiniband.md) instead.
 
 | Scenario | Recommended Topograph provider |
 |---|---|
 | Spectrum-X fabric | NetQ |
-| MNNVL fabric, infrastructure visibility | NetQ |
-| MNNVL fabric, Kubernetes scheduling | [DRA](./dra.md) |
+| MNNVL fabric, including cross-partition locality | NetQ |
+| MNNVL with Slinky, single-partition workloads, and `nvidia.com/gpu.clique` present | [DRA](./dra.md) |
 | Traditional IB fabric, NetQ deployed | NetQ |
 | Traditional IB fabric, no NetQ | `infiniband-bm` or `infiniband-k8s` |
 

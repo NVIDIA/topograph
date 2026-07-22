@@ -40,7 +40,7 @@ Currently supported providers:
 - [Nscale](./providers/nscale.md)
 - [Lambda](./providers/lambdai.md)
 - [NetQ](./providers/netq.md)
-- [DRA](./providers/dra.md) — reads `nvidia.com/gpu.clique` labels set by the NVIDIA GPU operator DRA driver
+- [DRA](./providers/dra.md) — provides Slinky block topology from pre-existing `nvidia.com/gpu.clique` labels; it does not discover the backend switch fabric
 - [InfiniBand (bare-metal)](./providers/infiniband.md#infiniband-bm-bare-metal)
 - [InfiniBand (Kubernetes)](./providers/infiniband.md#infiniband-k8s-kubernetes)
 - [Test](./providers/test.md) - simulates Topograph success, pending, and error responses for integration testing
@@ -59,14 +59,14 @@ Currently supported engines:
 |---|---|
 | Cloud cluster (AWS, GCP, OCI, Nebius, Nscale, Lambda) | Use the matching CSP provider |
 | Spectrum-X fabric | [NetQ](./providers/netq.md) |
-| Multi-Node NVLink (MNNVL), infrastructure visibility | [NetQ](./providers/netq.md) |
-| MNNVL on Kubernetes (scheduling) | [DRA](./providers/dra.md) |
+| Multi-Node NVLink (MNNVL), including cross-partition fabric locality | [NetQ](./providers/netq.md) or [InfiniBand (Kubernetes)](./providers/infiniband.md#infiniband-k8s-kubernetes) |
+| MNNVL with Slinky, workloads contained within one NVLink partition, and `nvidia.com/gpu.clique` present | [DRA](./providers/dra.md) |
 | InfiniBand fabric, NetQ deployed | [NetQ](./providers/netq.md) |
 | InfiniBand fabric, no NetQ, bare-metal / Slurm | [InfiniBand (bare-metal)](./providers/infiniband.md) |
 | InfiniBand fabric, no NetQ, Kubernetes | [InfiniBand (Kubernetes)](./providers/infiniband.md) |
 | Client integration and regression testing | [Test](./providers/test.md) |
 
-For MNNVL environments, NetQ and DRA operate at different layers and can coexist: NetQ provides infrastructure-level visibility into the NVLink fabric while DRA feeds topology directly to Kubernetes schedulers via `nvidia.com/gpu.clique` node labels.
+The DRA provider is a narrow Slinky integration, not a general Kubernetes MNNVL topology provider. It groups nodes into Slurm `topology/block` domains from existing `nvidia.com/gpu.clique` labels. Those labels are not present in every GPU Operator deployment, and DRA does not discover the backend switch fabric between NVLink partitions. Consequently, if a workload cannot fit in one partition, selection of additional partitions is not informed by network proximity. Use NetQ or `infiniband-k8s` when cross-partition fabric locality is required.
 
 For non-MNNVL GPU clusters (such as DGX B200 or B300 SuperPODs), `nvidia.com/gpu.clique` is not set — Topograph with an InfiniBand provider is the only source of network topology for scheduling decisions on these systems.
 
