@@ -19,7 +19,9 @@ package aws
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -35,7 +37,7 @@ var defaultPageSize int32 = 100
 func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {
 	topo := topology.NewClusterTopology()
 
-	for _, ci := range cis {
+	for _, ci := range topology.CanonicalComputeInstances(cis) {
 		if err := p.generateRegionInstanceTopology(ctx, pageSize, &ci, topo); err != nil {
 			return nil, err
 		}
@@ -60,10 +62,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 	// AWS allows up to 100 explicitly specified instance IDs
 	if n := len(ci.Instances); n <= 100 {
 		klog.Infof("Getting instance topology for %d instances", n)
-		input.InstanceIds = make([]string, 0, n)
-		for instanceID := range ci.Instances {
-			input.InstanceIds = append(input.InstanceIds, instanceID)
-		}
+		input.InstanceIds = slices.Sorted(maps.Keys(ci.Instances))
 	} else {
 		klog.Infof("Getting instance topology with page size %d", pageSize)
 		input.MaxResults = client.PageSize()
