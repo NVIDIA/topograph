@@ -18,7 +18,7 @@ package topology
 
 import (
 	"fmt"
-	"slices"
+	"maps"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -28,9 +28,15 @@ type HostInfo struct {
 	Domain     string
 	InstanceID string
 	HostName   string
-	Level1     string
-	Level2     string
-	Level3     string
+	SubDomain  string // optional: sub-domain name this host belongs to within its accelerator domain
+}
+
+type DomainTreeNode struct {
+	Name             string
+	ActualNodeCount  int // Actual number of nodes for this tree node.
+	DesiredNodeCount int // Desired number of nodes expected at this level based on the BlockSizes Configuration
+	Children         map[string]*DomainTreeNode
+	Hosts            map[string]*HostInfo
 }
 
 // DomainMap maps accelerator domain name to host metadata.
@@ -69,48 +75,121 @@ func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
 	}
 }
 
-func (m DomainMap) GetLevelInfo(level int) (present bool, members map[string][]string) {
-	children := make(map[string]map[string]struct{})
-	for _, hosts := range m {
+// GetDomainTree builds a flat DomainTreeNode tree from the DomainMap:
+//
+//   - When no host in a domain has a SubDomain, the domain node is a leaf that
+//     holds its hosts directly (one level below root).
+//   - When hosts carry a SubDomain, the domain node has one child per distinct
+//     SubDomain, and each group node holds the hosts that belong to it
+//     (two levels below root).
+//
+// DesiredNodeCount is then set on every node via a BFS pass: all nodes at the
+// same tree depth receive the smallest blockSize >= the maximum ActualNodeCount
+// at that depth. Root (ActualNodeCount == 0) always receives blockSizes[last].
+func (m DomainMap) GetDomainTree(blockSizes []int) *DomainTreeNode {
+	root := &DomainTreeNode{Name: "root", Children: make(map[string]*DomainTreeNode)}
+
+	for domain, hosts := range m {
+		domainNode := &DomainTreeNode{
+			Name:            domain,
+			ActualNodeCount: len(hosts),
+			Children:        make(map[string]*DomainTreeNode),
+		}
+		root.Children[domain] = domainNode
+
+		hasSubDomain := false
 		for _, host := range hosts {
-			var key, child string
-			switch level {
-			case 1:
-				key = host.Level1
-				child = host.Level2
-			case 2:
-				key = host.Level2
-				child = host.Level3
-			case 3:
-				key = host.Level3
-				child = host.Domain
-			case 4:
-				key = host.Domain
-				child = host.HostName
-			default:
-				continue
+			if host.SubDomain != "" {
+				hasSubDomain = true
+				break
 			}
-			if len(key) > 0 {
-				if _, ok := children[key]; !ok {
-					children[key] = make(map[string]struct{})
+		}
+
+		if !hasSubDomain {
+			// One-level: domain node is the leaf; hosts live here directly.
+			domainNode.Hosts = make(map[string]*HostInfo, len(hosts))
+			maps.Copy(domainNode.Hosts, hosts)
+		} else {
+			// Two-level: one subdomain node per distinct SubDomain under the domain.
+			for _, host := range hosts {
+				gn := host.SubDomain
+				if gn == "" {
+					// A host with no SubDomain in a domain where other hosts carry
+					// SubDomains indicates a partially-configured provider. Bucketing
+					// it under key "" would create a group that sorts before all real
+					// groups, shifting block numbers and emitting a nameless block.
+					klog.Warningf("domain %q: host %q has no SubDomain while other hosts in the domain do; skipping", domain, host.HostName)
+					continue
 				}
-				if len(child) > 0 {
-					children[key][child] = struct{}{}
+				if _, ok := domainNode.Children[gn]; !ok {
+					domainNode.Children[gn] = &DomainTreeNode{
+						Name:  gn,
+						Hosts: make(map[string]*HostInfo),
+					}
 				}
+				group := domainNode.Children[gn]
+				group.Hosts[host.HostName] = host
+				group.ActualNodeCount++
 			}
 		}
 	}
-	if len(children) == 0 {
-		return false, nil
+
+	root.setDesiredCountByLevel(blockSizes)
+	return root
+}
+
+// setDesiredCountByLevel assigns DesiredNodeCount via a BFS pass: all nodes at
+// the same depth receive the smallest blockSize >= the maximum ActualNodeCount
+// at that depth. Root (ActualNodeCount == 0) always receives blockSizes[last].
+func (tree *DomainTreeNode) setDesiredCountByLevel(blockSizes []int) {
+	if tree == nil || len(blockSizes) == 0 {
+		return
 	}
-	members = make(map[string][]string, len(children))
-	for key, childMap := range children {
-		childList := make([]string, 0, len(childMap))
-		for child := range childMap {
-			childList = append(childList, child)
+	last := blockSizes[len(blockSizes)-1]
+
+	type entry struct {
+		node  *DomainTreeNode
+		depth int
+	}
+
+	queue := []entry{{tree, 0}}
+	depthMax := map[int]int{}
+	var visited []entry
+
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+		visited = append(visited, curr)
+		// Always insert the depth key so depthMax covers every level, including
+		// root (NodeCount==0). Without this, depth 0 is absent from the map and
+		// root.DesiredCount would be left at 0.
+		if curr.node.ActualNodeCount > depthMax[curr.depth] {
+			depthMax[curr.depth] = curr.node.ActualNodeCount
+		} else if _, seen := depthMax[curr.depth]; !seen {
+			depthMax[curr.depth] = 0
 		}
-		slices.Sort(childList)
-		members[key] = childList
+		for _, child := range curr.node.Children {
+			queue = append(queue, entry{child, curr.depth + 1})
+		}
 	}
-	return true, members
+
+	desiredByDepth := make(map[int]int, len(depthMax))
+	for depth, maxCount := range depthMax {
+		if maxCount == 0 {
+			desiredByDepth[depth] = last
+			continue
+		}
+		desired := last
+		for _, v := range blockSizes {
+			if v >= maxCount {
+				desired = v
+				break
+			}
+		}
+		desiredByDepth[depth] = desired
+	}
+
+	for _, e := range visited {
+		e.node.DesiredNodeCount = desiredByDepth[e.depth]
+	}
 }

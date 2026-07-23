@@ -86,9 +86,11 @@ func TestComplementMissingLeafSegment(t *testing.T) {
 	require.Equal(t, expected, buf.String())
 }
 
-// TestNoComplementWithoutTree verifies that complementBlocks is a no-op when the graph
-// has no Tiers (no switch tree). maxAcceleratorSize=3 ≤ baseBlockSize=4, so groupSize=1
-// and no structural padding is applied; the output contains no empty block slots.
+// TestNoComplementWithoutTree verifies that complementBlocks produces no empty placeholder
+// slots when the graph has no Tiers (no switch tree) and no host carries a SubDomain.
+// With blockSizes=[4,8,16] and each domain holding 3 nodes (DesiredNodeCount=4 = 1 base
+// block), the root's DesiredNodeCount=16 drives padding only at the root level, not within
+// individual domains. The per-domain output contains no empty block slots.
 func TestNoComplementWithoutTree(t *testing.T) {
 	root, _ := getBlockTestSet()
 	cfg := &Config{
@@ -400,25 +402,25 @@ func TestGetBlockTopologyUnitSingleBlockSize(t *testing.T) {
 	require.Equal(t, expected, buf.String())
 }
 
-// TestComplementNVL576 validates multi-level block tree construction using the nvl576
-// simulation model. The topology is: building-1 → room-1 (16 switches, 14 with nodes) and
-// room-2 (15 switches, all with nodes) → racks → 9 nodes each.
-// rack-1-03, rack-1-13, and rack-2-11 have no block entries and are absent from domains.
+// TestComplementDualLevel validates dual-level block tree construction using the
+// dual-level simulation model. Two accelerator domains (domain-01, domain-02) each
+// contain rack groups identified by SubDomain (rack-1-01 … rack-1-16 and
+// rack-2-01 … rack-2-16). rack-1-03 and rack-1-13 have no nodes; rack-2-11 is absent.
 //
 // With BlockSizes=[9,144]:
 //
-//   - Domain capacity: each rack holds exactly 9 nodes (1 base block), so domCapacity=9.
+//   - Group level (depth 2): max ActualNodeCount = 9 → DesiredNodeCount = 9 per group.
+//     Each group leaf emits exactly 1 base block (groupSize = 9/9 = 1).
 //
-//   - Level3 (room) fanout: blockSizes[last]/domCapacity = 144/9 = 16. Both rooms are
-//     padded to 16 slots: room-1 gets 2 empty padding slots (blocks 015–016); room-2
-//     gets 1 empty padding slot (block 032).
+//   - Domain level (depth 1): max ActualNodeCount = 130 (domain-02) → DesiredNodeCount = 144.
+//     domain-01 has 14 active groups → 14 real + 2 empty = 16 slots (blocks 001–016).
+//     domain-02 has 15 active groups → 15 real + 1 empty = 16 slots (blocks 017–032).
 //
-//   - After Level3, currentCapacity = 16×9 = 144 = blockSizes[last], so remaining is
-//     empty and the loop exits. No Level2 or "root" aggregation tier is added.
+//   - Root (depth 0): DesiredNodeCount = 144; 2 domain children total 288 > 144 → no padding.
 //
-//   - Total output: 32 blocks (16 room-1 + 16 room-2) followed by BlockSizes=9,144.
-func TestComplementNVL576(t *testing.T) {
-	model, err := models.NewModelFromFile("nvl576.yaml")
+//   - Total output: 32 blocks (16 per domain) followed by BlockSizes=9,144.
+func TestComplementDualLevel(t *testing.T) {
+	model, err := models.NewModelFromFile("dual-level.yaml")
 	require.NoError(t, err)
 
 	graph, _ := model.ToGraph(nil)
