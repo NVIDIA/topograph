@@ -278,7 +278,7 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 		cis = append(cis, topology.ComputeInstances{Region: region, Instances: regions[region]})
 	}
 
-	return cis, nil
+	return topology.CanonicalComputeInstances(cis), nil
 }
 
 func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*topology.Graph, *httperr.Error) {

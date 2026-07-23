@@ -150,7 +150,7 @@ func aggregateComputeInstances(i2n, nodeRegions map[string]string) []topology.Co
 	}
 	klog.V(4).Infof("Detected regions: %v", regions)
 
-	return cis
+	return topology.CanonicalComputeInstances(cis)
 }
 
 func GetNodeList(ctx context.Context) ([]string, error) {

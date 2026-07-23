@@ -17,6 +17,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -27,6 +28,23 @@ import (
 	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+func TestGetComputeInstancesCanonicalizesRequestedInstances(t *testing.T) {
+	requested := []topology.ComputeInstances{
+		{Region: "region-b", Instances: map[string]string{"i2": "node2"}},
+		{Region: "region-a", Instances: map[string]string{"i1": "node1"}},
+	}
+	original := append([]topology.ComputeInstances(nil), requested...)
+
+	actual, err := getComputeInstances(context.Background(), nil, nil, requested)
+
+	require.Nil(t, err)
+	require.Equal(t, []topology.ComputeInstances{
+		{Region: "region-a", Instances: map[string]string{"i1": "node1"}},
+		{Region: "region-b", Instances: map[string]string{"i2": "node2"}},
+	}, actual)
+	require.Equal(t, original, requested)
+}
 
 func TestCheckCredentials(t *testing.T) {
 	credPayload := map[string]any{"key1": "val1"}

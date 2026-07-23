@@ -276,7 +276,21 @@ func TestGetComputeInstances(t *testing.T) {
 		},
 		{
 			name:  "Case 3: valid input",
-			nodes: &corev1.NodeList{Items: []corev1.Node{node1, node2, node3, nodeNone}},
+			nodes: &corev1.NodeList{Items: []corev1.Node{node3, node2, node1, nodeNone}},
+			cis: []topology.ComputeInstances{
+				{
+					Region:    "r1",
+					Instances: map[string]string{"i1": "node1", "i2": "node2"},
+				},
+				{
+					Region:    "r2",
+					Instances: map[string]string{"i3": "node3"},
+				},
+			},
+		},
+		{
+			name:  "Case 4: valid input permutation",
+			nodes: &corev1.NodeList{Items: []corev1.Node{node2, nodeNone, node1, node3}},
 			cis: []topology.ComputeInstances{
 				{
 					Region:    "r1",
