@@ -59,7 +59,7 @@ graph TB
 
 ### Relationship to `nvidia.com/gpu.clique`
 
-The GPU Operator device plugin sets `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs (e.g., GB200 NVL72). This label identifies the NVLink clique a node belongs to and can be used as a topology key for Pod placement.
+Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs (e.g., GB200 NVL72). When present, this label identifies the NVLink clique a node belongs to and can be used as a topology key for Pod placement; its presence is not guaranteed on every MNNVL cluster.
 
 Topograph treats `nvidia.com/gpu.clique` as the authoritative accelerator node label when it is already present:
 
@@ -319,12 +319,12 @@ The Helm chart ships two layers of validation for operators.
 
 ### Schema-backed values validation at install time
 
-`charts/topograph/values.schema.json` is a JSON Schema that Helm enforces during `helm template` and `helm install`. Misspelled provider names, wrong engine enums, out-of-range replica counts, bad pull policies, invalid service port numbers, and malformed `serviceMonitor` / `tests` / `ingress` shapes are rejected with a clear `at '/field/path': <explanation>` error before any template rendering happens. For example, `--set provider.name=bogus` produces:
+`charts/topograph/values.schema.json` is a JSON Schema that Helm enforces during `helm template` and `helm install`. Misspelled provider names, wrong engine enums, out-of-range replica counts, bad pull policies, invalid service port numbers, and malformed `serviceMonitor` / `tests` / `ingress` shapes are rejected with a clear `at '/field/path': <explanation>` error before any template rendering happens. For example, `--set engine.name=bogus` produces:
 
 ```
 Error: values don't meet the specifications of the schema(s) in the following chart(s):
 topograph:
-- at '/provider/name': value must be one of 'aws', 'oci', 'gcp', 'cw', 'infiniband-k8s', 'lambdai', 'nebius', 'nscale', 'netq', 'test'
+- at '/engine/name': value must be one of 'graph', 'k8s', 'nfd', 'slinky', 'slurm'
 ```
 
 The schema is deliberately narrow: per-provider credential requirements are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because credential field sets evolve with upstream provider changes.

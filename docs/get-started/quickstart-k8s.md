@@ -6,7 +6,9 @@ Topograph installs on a Kubernetes cluster via a Helm chart. This quickstart cov
 - **[`nfd` engine](#engine-nfd)** — publishes topology as Node Feature Discovery `NodeFeature` and `NodeFeatureGroup` custom resources for NFD-aware consumers
 - **[`slinky` engine](#engine-slinky)** — writes Slurm topology configuration into a `ConfigMap` for [Slinky](https://github.com/SlinkyProject) (Slurm-on-Kubernetes) deployments
 
-Prerequisites, install flow, and verification are common to both — the engines differ only in a few `engine.*` values and in what downstream artifact is produced.
+Prerequisites, install flow, and verification are common to all three engines —
+they differ only in a few `engine.*` values and in what downstream artifact is
+produced.
 
 ## Prerequisites
 
@@ -34,7 +36,12 @@ helm install topograph topograph/topograph \
   # ... engine-specific flags ...
 ```
 
-Replace `<provider>` with one of the supported values (`aws`, `gcp`, `oci`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `lambdai`, `cw`). To see available chart versions, run `helm search repo topograph/topograph --versions`.
+Replace `<provider>` with one of the supported values (`aws`, `gcp`, `oci`,
+`nebius`, `nscale`, `netq`, `infiniband-k8s`, `lambdai`). For Slinky
+`topology/block` deployments only, `dra` is also supported when every
+participating node already has a valid `nvidia.com/gpu.clique` label; see the
+[DRA provider documentation](../providers/dra.md). To see available chart
+versions, run `helm search repo topograph/topograph --versions`.
 
 Provider-specific credentials and parameters are passed via Helm values. See the [chart README](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/README.md) and [`values.yaml`](https://github.com/NVIDIA/topograph/blob/main/charts/topograph/values.yaml) for the full values shape, plus the example values files shipped in the chart directory.
 
