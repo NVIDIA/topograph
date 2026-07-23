@@ -30,11 +30,9 @@ import (
 )
 
 const (
-	LabelTopologyRegion = "topology.kubernetes.io/region"
-	LabelTopologyZone   = "topology.kubernetes.io/zone"
-	LabelTopologyLevel1 = "network.topology.nvidia.com/level1"
-	LabelTopologyLevel2 = "network.topology.nvidia.com/level2"
-	LabelTopologyLevel3 = "network.topology.nvidia.com/level3"
+	LabelTopologyRegion    = "topology.kubernetes.io/region"
+	LabelTopologyZone      = "topology.kubernetes.io/zone"
+	LabelTopologySubDomain = "network.topology.nvidia.com/sub-domain"
 )
 
 // Switch is a switch vertex in a simulation model YAML tree (tests/models).
@@ -360,9 +358,7 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 				Domain:     domain,
 				InstanceID: instanceID,
 				HostName:   instance2node[instanceID],
-				Level1:     instance.Labels[LabelTopologyLevel1],
-				Level2:     instance.Labels[LabelTopologyLevel2],
-				Level3:     instance.Labels[LabelTopologyLevel3],
+				SubDomain:  instance.Labels[LabelTopologySubDomain],
 			})
 		}
 	}

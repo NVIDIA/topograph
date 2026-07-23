@@ -10,45 +10,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// groupSizeFromDomains computes how many base blocks a fully-populated accelerator
-// occupies, rounded up to the nearest power of two. It finds the maximum accelerator
-// host count across all domains, then returns 2^n where 2^n * baseBlockSize is the
-// smallest power-of-two multiple of baseBlockSize that is >= maxAcceleratorSize.
-//
-// When there is only a single block tier, no aggregate-level group alignment is
-// required and the group size remains 1.
-func groupSizeFromDomains(domains topology.DomainMap, baseBlockSize, lastBlockSize int) int {
-	if lastBlockSize == baseBlockSize {
-		return 1
-	}
-
-	maxNodes := 0
-	for _, hosts := range domains {
-		if len(hosts) > maxNodes {
-			maxNodes = len(hosts)
-		}
-	}
-
-	groupSize := 1
-	capacity := baseBlockSize
-	for capacity < maxNodes {
-		groupSize *= 2
-		capacity *= 2
-	}
-	return groupSize
-}
-
 // complementBlocks builds a block tree shaped by BlockSizes, packs domain hosts into
 // it, and returns the flat block list derived from low-level tree nodes.
 //
 // Only domains for accelerators present in blocks are used so per-partition YAML
 // complementing is not masked by domains owned by other partitions in nt.domains.
 //
-// The group size is derived from the maximum accelerator host count: it is the smallest
-// 2^n such that 2^n * baseBlockSize >= maxAcceleratorSize. Each accelerator's base
-// block count is then padded to a multiple of that groupSize so every accelerator
-// occupies complete aggregate groups within the tree. Aggregate nodes whose total leaf
-// count already satisfies blockSizes[last] or 2^n * blockSizes[last] are left unpadded.
+// buildBlockTree calls GetDomainTree to produce a flat one- or two-level DomainTreeNode
+// tree (one level when no host carries a SubDomain, two levels otherwise), assigns
+// DesiredNodeCount to every node via a BFS pass, and recursively converts the result
+// into an aggregateBlockNode tree with empty placeholder slots for absent groups or
+// domains. The flat base-block slot list is then numbered sequentially.
 func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []int) []*blockInfo {
 	if len(blockSizes) < 1 || nt.domains == nil {
 		return blocks

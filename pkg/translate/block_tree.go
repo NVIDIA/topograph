@@ -222,255 +222,68 @@ func newEmptyBaseBlock(baseBlockSize int) *baseBlockNode {
 	return &baseBlockNode{leaves: leaves}
 }
 
-// buildBlockTree constructs a padded aggregate tree from domain nodes, shaped by
-// blockSizes and the optional Level3/Level2/Level1 hierarchy in the DomainMap.
-//
-// # Phase 1 – domain nodes
-//
-// packDomainNodes splits each domain's hosts into base blocks of baseBlockSize,
-// pads each domain to a multiple of groupSize blocks, and returns one aggregateBlockNode
-// per domain. groupSize is derived from the maximum domain size relative to baseBlockSize;
-// when all domains fit within a single base block, groupSize is 1.
-//
-// If every domain's padded capacity already meets blockSizes[last], no further
-// aggregation is needed and the flat list is returned immediately.
-//
-// # Phase 2 – level aggregation (Level3 → Level2 → Level1)
-//
-// When HostInfo carries Level3/Level2/Level1 values, the function builds one tier
-// per level using GetLevelInfo to discover the parent→children membership at each
-// level. The fanout per level is:
-//
-//	desiredGroupSize = blockSizes[last] / currentCapacity
-//
-// This pads each group to the blockSize boundary rather than just to the observed
-// maximum, so a level group with fewer nodes than the next blockSize receives
-// empty placeholder slots to make up the difference.
-//
-// After packing, currentCapacity is updated to the actual padded nodeCount of one
-// group (desiredGroupSize × currentCapacity), which is then used as the basis for
-// the next tier's fanout. The loop stops early when:
-//   - blockSizes is already satisfied (remaining is empty), or
-//   - a level is absent from the DomainMap (!present).
-//
-// # Phase 3 – fallback "root" aggregation
-//
-// When no level fields are set in the DomainMap, Phase 2 exits on the first
-// iteration and the remaining domain nodes are packed under a single "root" key.
-// This is also the path taken when level processing leaves blockSizes unsatisfied
-// (e.g. fewer levels than blockSizes entries): the leftover tiers are collapsed
-// into one root group using the same desiredGroupSize formula.
 func buildBlockTree(domains topology.DomainMap, blockSizes []int) *aggregateBlockNode {
-	baseBlockSize := blockSizes[0]
-	// groupSize aligns each domain to a power-of-two multiple of base blocks so
-	// that all domains occupy the same number of slots within a group.
-	groupSize := groupSizeFromDomains(domains, baseBlockSize, blockSizes[len(blockSizes)-1])
-
-	// Phase 1: pack domains into per-domain aggregate nodes.
-	domainNodes := packDomainNodes(domains, baseBlockSize, groupSize)
-	if len(domainNodes) == 0 {
+	if len(blockSizes) == 0 || blockSizes[0] <= 0 {
 		return nil
 	}
-
-	// Each domain node's nodeCount is its slot capacity (padded), not its live
-	// host count. If that capacity already meets blockSizes[last], return flat.
-	domCapacity := getNodeCount(domainNodes[0])
-	remaining := getRemainingBlocks(blockSizes, domCapacity)
-	if len(remaining) == 0 {
-		total := 0
-		for _, n := range domainNodes {
-			total += getNodeCount(n)
-		}
-		return &aggregateBlockNode{children: domainNodes, nodeCount: total}
-	}
-
-	// completed tracks the node capacity at each completed tier and is passed to
-	// newEmptyAggregateBlock so that padding nodes have the correct internal shape.
-	completed := []int{baseBlockSize, domCapacity}
-
-	// Phase 2: build one aggregate tier per level (Level3 → Level2 → Level1).
-	currentCapacity := domCapacity
-	currentNodes := domainNodes
-	for _, level := range []int{3, 2, 1} {
-		// Recompute remaining at the start of each iteration so the fanout uses
-		// the capacity that reflects any padding added in the previous tier.
-		remaining = getRemainingBlocks(blockSizes, currentCapacity)
-		if len(remaining) == 0 {
-			break
-		}
-		present, members := domains.GetLevelInfo(level)
-		if !present {
-			//When a level is absent, we assume there are no more top levels and skip aggregation.
-			//Provider components should ensure the levels are contiguous and set the levels correctly
-			//so that aggregation can proceed correctly.
-			break
-		}
-		// Fanout is derived from blockSizes[last] so that each group is padded
-		// to the blockSize boundary, not merely to the observed maximum.
-		desiredGroupSize := remaining[len(remaining)-1] / currentCapacity
-		if desiredGroupSize <= 0 {
-			break
-		}
-
-		// Map each current node's level identifier to the node itself so that
-		// levelMap can look up child nodes by the names returned by GetLevelInfo.
-		nodesMap := make(map[string]blockTreeNode)
-		for _, node := range currentNodes {
-			nodesMap[node.levelIdentifier()] = node
-		}
-
-		// Build a per-level-name list of child nodes using the membership map
-		// from GetLevelInfo (e.g. "room-1" → ["rack-1-01", "rack-1-02", ...]).
-		levelMap := make(map[string][]blockTreeNode)
-		for levelName, children := range members {
-			childNodes := []blockTreeNode{}
-			for _, child := range children {
-				if childNode, exists := nodesMap[child]; exists {
-					childNodes = append(childNodes, childNode)
-				}
-			}
-			levelMap[levelName] = childNodes
-		}
-
-		//Pack the current level into aggregate nodes according to the desired group size.
-		packed, _ := packAggregateNodes(levelMap, completed, desiredGroupSize)
-
-		//Reset the variables for the next iteration
-		currentNodes = packed
-		currentCapacity = desiredGroupSize * currentCapacity // Slot capacity = desiredGroupSize × prevCapacity.
-		completed = append(completed, currentCapacity)
-	}
-
-	// Phase 3: check whether level processing satisfied blockSizes.
-	remaining = getRemainingBlocks(blockSizes, currentCapacity)
-	if len(remaining) == 0 {
-		// All blockSizes entries are covered; return current nodes as the root's
-		// direct children without an extra wrapping tier.
-		total := 0
-		for _, n := range currentNodes {
-			total += getNodeCount(n)
-		}
-		return &aggregateBlockNode{children: currentNodes, nodeCount: total}
-	}
-	// blockSizes not yet satisfied (no level fields, or fewer levels than blockSizes
-	// entries): pack the remaining nodes under "root" with the standard fanout.
-	desiredGroupSize := remaining[len(remaining)-1] / currentCapacity
-	nodesMap := map[string][]blockTreeNode{"root": currentNodes}
-	aggregateNodes, aggCount := packAggregateNodes(nodesMap, completed, desiredGroupSize)
-	return &aggregateBlockNode{children: aggregateNodes, nodeCount: aggCount}
+	src := domains.GetDomainTree(blockSizes)
+	return convert(src, blockSizes[0])
 }
 
-func packDomainNodes(domains topology.DomainMap, baseBlockSize, groupSize int) []blockTreeNode {
-	if baseBlockSize <= 0 {
-		return nil
-	}
-	domainIDs := slices.Sorted(maps.Keys(domains))
-	if len(domainIDs) == 0 {
+func convert(src *topology.DomainTreeNode, baseBlockSize int) *aggregateBlockNode {
+	if src == nil {
 		return nil
 	}
 
-	blockNodes := make([]blockTreeNode, 0, len(domainIDs))
+	target := &aggregateBlockNode{id: src.Name}
 
-	for _, domainID := range domainIDs {
-		hosts := hostsSorted(domains[domainID])
-		blocks := splitIntoBaseBlocks(domainID, hosts, baseBlockSize)
+	// Leaf node: split hosts into base blocks and pad to DesiredNodeCount slots.
+	if len(src.Hosts) > 0 {
+		groupSize := src.DesiredNodeCount / baseBlockSize
+		hosts := hostsSorted(src.Hosts)
+		blocks := splitIntoBaseBlocks(src.Name, hosts, baseBlockSize)
 		for i := len(blocks); i < groupSize; i++ {
 			blocks = append(blocks, newEmptyBaseBlock(baseBlockSize))
 		}
 
-		aggregateNode := &aggregateBlockNode{id: domainID}
 		for _, b := range blocks {
-			aggregateNode.nodeCount += baseBlockSize
-			aggregateNode.children = append(aggregateNode.children, b)
+			target.nodeCount += baseBlockSize
+			target.children = append(target.children, b)
 		}
 
-		blockNodes = append(blockNodes, aggregateNode)
+		return target
 	}
 
-	return blockNodes
+	// Interior node: recurse into children in alphabetical order for determinism.
+	childCapacity := 0
+	for _, name := range slices.Sorted(maps.Keys(src.Children)) {
+		converted := convert(src.Children[name], baseBlockSize)
+		target.children = append(target.children, converted)
+		target.nodeCount += converted.nodeCount
+		if childCapacity == 0 {
+			childCapacity = converted.nodeCount
+		}
+	}
+
+	// Pad with empty sibling aggregates until DesiredNodeCount is reached.
+	for target.nodeCount < src.DesiredNodeCount && childCapacity > 0 {
+		empty := newEmptyChildAggregate(childCapacity, baseBlockSize)
+		target.children = append(target.children, empty)
+		target.nodeCount += childCapacity
+	}
+
+	return target
 }
 
-func packAggregateNodes(nodesMap map[string][]blockTreeNode, completed []int, groupSize int) ([]blockTreeNode, int) {
-	if groupSize <= 0 || len(completed) == 0 {
-		return nil, 0
+// newEmptyChildAggregate returns an aggregate whose slot capacity matches a
+// real child (capacity/baseBlockSize empty base blocks, nodeCount = capacity).
+func newEmptyChildAggregate(capacity, baseBlockSize int) *aggregateBlockNode {
+	agg := &aggregateBlockNode{}
+	for i := 0; i < capacity/baseBlockSize; i++ {
+		agg.children = append(agg.children, newEmptyBaseBlock(baseBlockSize))
+		agg.nodeCount += baseBlockSize
 	}
-	nodeIDs := slices.Sorted(maps.Keys(nodesMap))
-	if len(nodeIDs) == 0 {
-		return nil, 0
-	}
-	aggregateNodes := make([]blockTreeNode, 0, len(nodeIDs))
-	total := 0
-	for _, nodeID := range nodeIDs {
-		children := nodesMap[nodeID]
-		blocks := make([]blockTreeNode, 0, (len(children)+groupSize-1)/groupSize)
-		for start := 0; start < len(children); start += groupSize {
-			end := start + groupSize
-			if end > len(children) {
-				end = len(children)
-			}
-			blocks = append(blocks, newAggregateBlock(children[start:end], groupSize, completed))
-		}
-		// compute this node's capacity only from its blocks
-		localCount := 0
-		for _, b := range blocks {
-			localCount += getNodeCount(b)
-		}
-		aggregateNodes = append(aggregateNodes, &aggregateBlockNode{id: nodeID, children: blocks, nodeCount: localCount})
-		total += localCount
-	}
-	return aggregateNodes, total
-}
-
-func newAggregateBlock(children []blockTreeNode, size int, blockSizes []int) blockTreeNode {
-	if size <= 0 {
-		return nil
-	}
-	result := make([]blockTreeNode, size)
-	count := 0
-	for i := 0; i < size; i++ {
-		var child blockTreeNode
-		if i < len(children) {
-			child = children[i]
-		} else {
-			child = newEmptyAggregateBlock(blockSizes)
-		}
-		result[i] = child
-		switch c := child.(type) {
-		case *aggregateBlockNode:
-			count += c.nodeCount
-		case *baseBlockNode:
-			count += c.nodeCount
-		}
-	}
-	return &aggregateBlockNode{children: result, nodeCount: count}
-}
-
-func newEmptyAggregateBlock(blockSizes []int) blockTreeNode {
-	levels := len(blockSizes)
-	if levels <= 0 {
-		return &aggregateBlockNode{}
-	}
-	if levels == 1 {
-		return newEmptyBaseBlock(blockSizes[0])
-	}
-	fanout := blockSizes[levels-1] / blockSizes[levels-2]
-	children := make([]blockTreeNode, fanout)
-	count := 0
-	for i := 0; i < fanout; i++ {
-		child := newEmptyAggregateBlock(blockSizes[:levels-1])
-		children[i] = child
-		count += getNodeCount(child)
-	}
-	return &aggregateBlockNode{children: children, nodeCount: count}
-}
-
-func getRemainingBlocks(blockSizes []int, aggregateSize int) []int {
-	for i, bs := range blockSizes {
-		if bs > aggregateSize {
-			return blockSizes[i:]
-		}
-	}
-	return nil
+	return agg
 }
 
 // sortHostsByName sorts hosts alphabetically by HostName for deterministic packing.
@@ -478,15 +291,4 @@ func sortHostsByName(hosts []*topology.HostInfo) {
 	sort.Slice(hosts, func(i, j int) bool {
 		return hosts[i].HostName < hosts[j].HostName
 	})
-}
-
-func getNodeCount(tree blockTreeNode) int {
-	switch n := tree.(type) {
-	case *baseBlockNode:
-		return n.nodeCount
-	case *aggregateBlockNode:
-		return n.nodeCount
-	default:
-		return 0
-	}
 }
