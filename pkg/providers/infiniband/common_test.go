@@ -18,10 +18,12 @@ import (
 )
 
 type testIBNetDiscover struct {
-	err bool
+	err   bool
+	nodes []string
 }
 
 func (h *testIBNetDiscover) Run(ctx context.Context, node string) (*bytes.Buffer, error) {
+	h.nodes = append(h.nodes, node)
 	if h.err {
 		return nil, errors.New("error")
 	}
@@ -30,6 +32,19 @@ func (h *testIBNetDiscover) Run(ctx context.Context, node string) (*bytes.Buffer
 		return nil, err
 	}
 	return bytes.NewBuffer(data), nil
+}
+
+func TestGetIbTreeUsesCanonicalNodeOrder(t *testing.T) {
+	discover := &testIBNetDiscover{err: true}
+	cis := []topology.ComputeInstances{
+		{Region: "region-b", Instances: map[string]string{"i2": "node-b"}},
+		{Region: "region-a", Instances: map[string]string{"i1": "node-a"}},
+	}
+
+	_, err := getIbTree(context.Background(), cis, discover)
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"node-a", "node-b"}, discover.nodes)
 }
 
 func TestGetIbTree(t *testing.T) {

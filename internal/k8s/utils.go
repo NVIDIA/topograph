@@ -130,5 +130,5 @@ func GetComputeInstances(nodes *corev1.NodeList) []topology.ComputeInstances {
 		cis = append(cis, topology.ComputeInstances{Region: region, Instances: regions[region]})
 	}
 
-	return cis
+	return topology.CanonicalComputeInstances(cis)
 }

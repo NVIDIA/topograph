@@ -17,9 +17,12 @@
 package topology
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -44,6 +47,33 @@ type Engine struct {
 type ComputeInstances struct {
 	Region    string            `json:"region"`
 	Instances map[string]string `json:"instances"` // <instance ID>:<node name> map
+}
+
+// CanonicalComputeInstances returns a copy of cis ordered by region, instance
+// ID, and node name. It does not mutate the caller-owned slice or maps.
+func CanonicalComputeInstances(cis []ComputeInstances) []ComputeInstances {
+	canonical := slices.Clone(cis)
+	slices.SortFunc(canonical, compareComputeInstances)
+	return canonical
+}
+
+func compareComputeInstances(a, b ComputeInstances) int {
+	if order := cmp.Compare(a.Region, b.Region); order != 0 {
+		return order
+	}
+
+	aIDs := slices.Sorted(maps.Keys(a.Instances))
+	bIDs := slices.Sorted(maps.Keys(b.Instances))
+	for i := 0; i < min(len(aIDs), len(bIDs)); i++ {
+		if order := cmp.Compare(aIDs[i], bIDs[i]); order != 0 {
+			return order
+		}
+		if order := cmp.Compare(a.Instances[aIDs[i]], b.Instances[bIDs[i]]); order != 0 {
+			return order
+		}
+	}
+
+	return cmp.Compare(len(aIDs), len(bIDs))
 }
 
 func NewRequest(prv Provider, eng Engine) *Request {
@@ -126,6 +156,7 @@ func GetNodeNameList(cis []ComputeInstances) []string {
 			nodes = append(nodes, node)
 		}
 	}
+	sort.Strings(nodes)
 	return nodes
 }
 

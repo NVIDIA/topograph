@@ -127,13 +127,21 @@ func checkCredentials(payloadCreds, cfgCreds map[string]any) map[string]any {
 }
 
 func getComputeInstances(ctx context.Context, eng engines.Engine, prv providers.Provider, requested []topology.ComputeInstances) ([]topology.ComputeInstances, *httperr.Error) {
+	var (
+		cis []topology.ComputeInstances
+		err *httperr.Error
+	)
+
 	if len(requested) != 0 {
-		return requested, nil
+		cis = requested
+	} else if p, ok := prv.(computeInstancesProvider); ok {
+		cis, err = p.GetComputeInstances(ctx)
+	} else {
+		cis, err = eng.GetComputeInstances(ctx, prv)
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	if p, ok := prv.(computeInstancesProvider); ok {
-		return p.GetComputeInstances(ctx)
-	}
-
-	return eng.GetComputeInstances(ctx, prv)
+	return topology.CanonicalComputeInstances(cis), nil
 }
