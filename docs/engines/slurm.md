@@ -2,6 +2,21 @@
 
 For the SLURM engine, topograph supports [tree](https://slurm.schedmd.com/topology.conf.html#SECTION_topology/tree) and [block](https://slurm.schedmd.com/topology.conf.html#SECTION_topology/block) topology configurations.
 
+## Prefixing block names from node names
+
+For `topology/block`, the optional `blockNamePrefixRegexp` engine parameter extracts a prefix from the start of each block's node names and uses it as the block name. This can make block names follow the same grouping convention as node names.
+
+```yaml
+engine:
+  name: slurm
+  params:
+    plugin: topology/block
+    blockSizes: [8, 16]
+    blockNamePrefixRegexp: "^srv[0-9]{2}"
+```
+
+For a block containing `srv1101`, this produces the name `srv11`. The expression uses Go regular-expression syntax and must match at the beginning of the node name. An invalid expression is rejected. If no node matches, including for an empty complemented block, Topograph keeps the default block name. The option can also be set on each `topologies` entry for per-partition output.
+
 ### Test Provider and Engine
 There is a special *provider* and *engine* named `test`, which supports both SLURM and Kubernetes. This configuration returns static results and is primarily used for testing purposes.
 

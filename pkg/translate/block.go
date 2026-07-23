@@ -55,7 +55,9 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *htt
 	// Refresh nodeInfo.blockID so GetNodeTopologySpec returns IDs that match the
 	// emitted topology file. complementBlocks may renumber blocks when it splits
 	// a domain across multiple base blocks, invalidating the IDs set by initBlocks.
+	blockNamePrefixRegexp := compileBlockNamePrefixRegexp(nt.config.BlockNamePrefixRegexp)
 	for _, b := range blocks {
+		b.id = blockNameWithNodePrefix(b.id, b.nodes, blockNamePrefixRegexp)
 		for _, node := range b.nodes {
 			if info, ok := nt.nodeInfo[node]; ok {
 				info.blockID = b.id

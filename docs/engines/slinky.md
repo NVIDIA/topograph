@@ -37,6 +37,7 @@ engine:
         app.kubernetes.io/component: compute
     plugin: topology/block                   # Name of the topology plugin
     blockSizes: [4]                          # (Optional) Block size for the block topology plugin
+    blockNamePrefixRegexp: "^srv[0-9]{2}"    # (Optional) Name blocks from matching node prefixes
   topologyConfigmapName: slurm-config        # Name of the ConfigMap containing the topology config
   topologyConfigPath: topology.conf          # Key in the ConfigMap for the topology config
 ```
@@ -49,6 +50,7 @@ When per-partition topologies are configured, each entry may declare how its nod
 |---|---|
 | `nodes` | Explicit SLURM node list. Takes precedence over `podSelector`. |
 | `podSelector` | Kubernetes `LabelSelector` matching the slurmd pods in the partition. The engine lists pods in the engine's `namespace`, filters to `Ready` pods, and reads each pod's SLURM name from the `slurm.node.name` label (falling back to `pod.spec.hostname`). |
+| `blockNamePrefixRegexp` | For `topology/block`, matches a prefix at the start of a node name and uses it as the block name. |
 | _neither_ | The engine falls back to running `scontrol show partition <name>` inside the controller pod, or a login pod when no controller pod is running (legacy behavior). The controller (`app.kubernetes.io/component: controller`) is always present; login pods are optional. |
 
 `nodes` and `podSelector` are mutually exclusive on the same entry; configuring both returns a validation error at engine load time.
@@ -65,6 +67,7 @@ engine:
       gpu-partition:
         plugin: topology/block
         blockSizes: [8, 16]
+        blockNamePrefixRegexp: "^srv[0-9]{2}"
         podSelector:                                 # partition membership by pod labels
           matchLabels:
             app.kubernetes.io/component: compute
@@ -76,6 +79,8 @@ engine:
         plugin: topology/flat
         clusterDefault: true                         # no podSelector, no nodes → scontrol fallback
 ```
+
+`blockNamePrefixRegexp` uses Go regular-expression syntax. For example, `^srv[0-9]{2}` matches `srv11` at the start of `srv1101`, so the block is named `srv11`. Invalid expressions are rejected; unmatched and empty complemented blocks keep their default names.
 
 ### Using `nvidia.com/gpu.clique` for block topology
 

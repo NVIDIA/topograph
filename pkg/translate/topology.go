@@ -8,6 +8,7 @@ package translate
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -19,17 +20,39 @@ import (
 )
 
 type Config struct {
-	Plugin     string // topology plugin (cluster-wide)
-	BlockSizes []int
-	Topologies map[string]*TopologySpec // per-partiton topology settings
+	Plugin                string // topology plugin (cluster-wide)
+	BlockSizes            []int
+	BlockNamePrefixRegexp string
+	Topologies            map[string]*TopologySpec // per-partiton topology settings
 }
 
 // TopologySpec define topology for a partition
 type TopologySpec struct {
-	Plugin         string
-	BlockSizes     []int
-	ClusterDefault bool
-	Nodes          []string
+	Plugin                string
+	BlockSizes            []int
+	BlockNamePrefixRegexp string
+	ClusterDefault        bool
+	Nodes                 []string
+}
+
+func compileBlockNamePrefixRegexp(pattern string) *regexp.Regexp {
+	if pattern == "" {
+		return nil
+	}
+	return regexp.MustCompile(pattern)
+}
+
+func blockNameWithNodePrefix(defaultName string, nodes []string, re *regexp.Regexp) string {
+	if re == nil {
+		return defaultName
+	}
+
+	for _, node := range nodes {
+		if loc := re.FindStringIndex(node); loc != nil && loc[0] == 0 {
+			return node[loc[0]:loc[1]]
+		}
+	}
+	return defaultName
 }
 
 type NetworkTopology struct {
@@ -56,11 +79,21 @@ type nodeInfo struct {
 }
 
 func (cfg *Config) Validate(graph *topology.Graph) error {
+	if cfg.BlockNamePrefixRegexp != "" {
+		if _, err := regexp.Compile(cfg.BlockNamePrefixRegexp); err != nil {
+			return fmt.Errorf("invalid blockNamePrefixRegexp %q: %v", cfg.BlockNamePrefixRegexp, err)
+		}
+	}
 	if len(cfg.Topologies) != 0 { // per-partition topology
 		if len(cfg.Plugin) != 0 {
 			return fmt.Errorf("plugin and topologies parameters are mutually exclusive")
 		}
 		for topo, spec := range cfg.Topologies {
+			if spec.BlockNamePrefixRegexp != "" {
+				if _, err := regexp.Compile(spec.BlockNamePrefixRegexp); err != nil {
+					return fmt.Errorf("topology %q: invalid blockNamePrefixRegexp %q: %v", topo, spec.BlockNamePrefixRegexp, err)
+				}
+			}
 			switch spec.Plugin {
 			case topology.TopologyTree:
 				if graph == nil || graph.Tiers == nil {

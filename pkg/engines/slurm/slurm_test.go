@@ -243,12 +243,14 @@ func TestGetTranslateConfig(t *testing.T) {
 		{
 			name: "Case 2: valid blocksize",
 			params: &BaseParams{
-				Plugin:     topology.TopologyBlock,
-				BlockSizes: []int{2, 8, 32},
+				Plugin:                topology.TopologyBlock,
+				BlockSizes:            []int{2, 8, 32},
+				BlockNamePrefixRegexp: `^[^-]+-`,
 			},
 			cfg: &translate.Config{
-				Plugin:     topology.TopologyBlock,
-				BlockSizes: []int{2, 8, 32},
+				Plugin:                topology.TopologyBlock,
+				BlockSizes:            []int{2, 8, 32},
+				BlockNamePrefixRegexp: `^[^-]+-`,
 			},
 		},
 		{
@@ -290,8 +292,9 @@ func TestGetTranslateConfig(t *testing.T) {
 					Default: true,
 				},
 				"topo": {
-					Plugin: topology.TopologyBlock,
-					Nodes:  []string{"node[001-100]"},
+					Plugin:                topology.TopologyBlock,
+					BlockNamePrefixRegexp: `^node`,
+					Nodes:                 []string{"node[001-100]"},
 				},
 			},
 			cfg: &translate.Config{
@@ -301,8 +304,9 @@ func TestGetTranslateConfig(t *testing.T) {
 						ClusterDefault: true,
 					},
 					"topo": {
-						Plugin: topology.TopologyBlock,
-						Nodes:  []string{"node[001-100]"},
+						Plugin:                topology.TopologyBlock,
+						BlockNamePrefixRegexp: `^node`,
+						Nodes:                 []string{"node[001-100]"},
 					},
 				},
 			},
@@ -342,6 +346,26 @@ func TestGetTranslateConfig(t *testing.T) {
 				},
 			},
 			err: `topology "topo": blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2`,
+		},
+		{
+			name: "Case 9: invalid cluster-wide block name prefix regexp",
+			params: &BaseParams{
+				Plugin:                topology.TopologyBlock,
+				BlockNamePrefixRegexp: `[`,
+			},
+			err: "invalid blockNamePrefixRegexp \"[\": error parsing regexp: missing closing ]: `[`",
+		},
+		{
+			name:   "Case 10: invalid partition block name prefix regexp",
+			params: &BaseParams{},
+			topologies: map[string]*Topology{
+				"topo": {
+					Plugin:                topology.TopologyBlock,
+					BlockNamePrefixRegexp: `[`,
+					Nodes:                 []string{"node001"},
+				},
+			},
+			err: "topology \"topo\": invalid blockNamePrefixRegexp \"[\": error parsing regexp: missing closing ]: `[`",
 		},
 	}
 

@@ -139,18 +139,20 @@ func TestGetParameters(t *testing.T) {
 		{
 			name: "Case 8: cluster-wide valid parameters",
 			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyNodeSelector:      nodeSelector,
-				topology.KeyPlugin:            topology.TopologyBlock,
-				topology.KeyBlockSizes:        []int{16},
-				topology.KeyTopoConfigPath:    "path",
-				topology.KeyTopoConfigmapName: "name",
+				topology.KeyNamespace:             "namespace",
+				topology.KeyPodSelector:           podSelector,
+				topology.KeyNodeSelector:          nodeSelector,
+				topology.KeyPlugin:                topology.TopologyBlock,
+				topology.KeyBlockSizes:            []int{16},
+				topology.KeyBlockNamePrefixRegexp: `^[^-]+-`,
+				topology.KeyTopoConfigPath:        "path",
+				topology.KeyTopoConfigmapName:     "name",
 			},
 			ret: &Params{
 				BaseParams: slurm.BaseParams{
-					Plugin:     topology.TopologyBlock,
-					BlockSizes: []int{16},
+					Plugin:                topology.TopologyBlock,
+					BlockSizes:            []int{16},
+					BlockNamePrefixRegexp: `^[^-]+-`,
 				},
 				Namespace:     "namespace",
 				PodSelector:   labelSelector,
@@ -171,9 +173,10 @@ func TestGetParameters(t *testing.T) {
 				topology.KeyTopoConfigmapName: "name",
 				topology.KeyTopologies: map[string]any{
 					"topo1": map[string]any{
-						"plugin":     topology.TopologyBlock,
-						"blockSizes": []int{16, 32},
-						"nodes":      []string{"node1", "node2"},
+						"plugin":                topology.TopologyBlock,
+						"blockSizes":            []int{16, 32},
+						"blockNamePrefixRegexp": `^node`,
+						"nodes":                 []string{"node1", "node2"},
 					},
 					"topo2": map[string]any{
 						topology.KeyPlugin: topology.TopologyTree,
@@ -190,9 +193,10 @@ func TestGetParameters(t *testing.T) {
 				Topologies: map[string]*Topology{
 					"topo1": {
 						Topology: slurm.Topology{
-							Plugin:     topology.TopologyBlock,
-							BlockSizes: []int{16, 32},
-							Nodes:      []string{"node1", "node2"},
+							Plugin:                topology.TopologyBlock,
+							BlockSizes:            []int{16, 32},
+							BlockNamePrefixRegexp: `^node`,
+							Nodes:                 []string{"node1", "node2"},
 						},
 					},
 					"topo2": {

@@ -265,6 +265,40 @@ func TestToBlockTopology(t *testing.T) {
 	require.Equal(t, testBlockConfig1_1, buf.String())
 }
 
+func TestToBlockTopologyWithNodePrefix(t *testing.T) {
+	v, _ := getBlockTestSet()
+	cfg := &Config{
+		Plugin:                topology.TopologyBlock,
+		BlockNamePrefixRegexp: `^Node[0-9]`,
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.NoError(t, err)
+
+	buf := &bytes.Buffer{}
+	require.Nil(t, nt.Generate(buf))
+	require.Equal(t, `# Node1=B1
+BlockName=Node1 Nodes=Node[104-106]
+# Node2=B2
+BlockName=Node2 Nodes=Node[201-202,205]
+BlockSizes=3,6
+`, buf.String())
+
+	buf.Reset()
+	require.Nil(t, nt.Generate(buf))
+	require.Contains(t, buf.String(), "BlockName=Node1 ")
+
+	spec, httpErr := nt.GetNodeTopologySpec("Node104", nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, "default:Node1", spec)
+}
+
+func TestBlockNameWithNodePrefixRequiresStartMatch(t *testing.T) {
+	re := compileBlockNamePrefixRegexp(`srv[0-9]{2}`)
+
+	require.Equal(t, "block001", blockNameWithNodePrefix("block001", []string{"xsrv12node"}, re))
+	require.Equal(t, "srv12", blockNameWithNodePrefix("block001", []string{"srv12node"}, re))
+}
+
 func TestToBlockMultiIBTopology(t *testing.T) {
 	v, _ := GetBlockWithMultiIBTestSet()
 	cfg := &Config{
@@ -666,6 +700,32 @@ func TestGetNodeTopologySpecInTopologyYaml(t *testing.T) {
 	spec, err = nt.GetNodeTopologySpec(node999Id, topologies)
 	require.Nil(t, err)
 	require.Equal(t, expectedNode999Spec, spec)
+}
+
+func TestBlockTopologyYamlWithNodePrefix(t *testing.T) {
+	v, _ := getBlockTestSet()
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo": {
+				Plugin:                topology.TopologyBlock,
+				BlockSizes:            []int{3},
+				BlockNamePrefixRegexp: `^Node[0-9]`,
+				Nodes:                 []string{"Node[104-106,201-202,205]"},
+			},
+		},
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.NoError(t, err)
+
+	topologies, httpErr := nt.GetTopologies()
+	require.Nil(t, httpErr)
+	require.Len(t, topologies, 1)
+	require.Equal(t, "Node1", topologies[0].Block.Blocks[0].Name)
+	require.Equal(t, "Node2", topologies[0].Block.Blocks[1].Name)
+
+	spec, httpErr := nt.GetNodeTopologySpec("Node205", topologies)
+	require.Nil(t, httpErr)
+	require.Equal(t, "topo:Node2", spec)
 }
 
 func TestGetNodeTopologySpecInTreeTopologyConf(t *testing.T) {

@@ -185,8 +185,13 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 		// populate block topology units ordered by block indices
 		blocks := make([]*Block, 0, len(bInfos))
 		parents := make(map[string]string)
+		blockNamePrefixRegexp := compileBlockNamePrefixRegexp(topoSpec.BlockNamePrefixRegexp)
 		for indx, bInfo := range bInfos {
-			blockName := fmt.Sprintf("block%d", indx+1)
+			blockName := blockNameWithNodePrefix(
+				fmt.Sprintf("block%d", indx+1),
+				bInfo.nodes,
+				blockNamePrefixRegexp,
+			)
 			block := &Block{Name: blockName}
 			if len(bInfo.nodes) != 0 {
 				block.Nodes = strings.Join(cluset.Compact(bInfo.nodes), ",")
