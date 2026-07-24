@@ -93,24 +93,40 @@ empty `SubDomain` in a grouped domain are skipped with a `klog.Warningf`, rather
 than being silently bucketed under an empty-string key that would sort before all
 real sub-domains and shift block numbering.
 
-### `DomainTreeNode`
+### `DomainTree` and `Vertex`
 
-`pkg/topology/domain.go` — intermediate tree node used during block topology
-generation:
+The tree is represented using the existing `topology.Vertex` type for node
+structure, paired with an unexported companion type `vertexMeta` that holds the
+domain-tree-specific metadata. This avoids modifying the general-purpose `Vertex`
+struct.
 
 ```go
-type DomainTreeNode struct {
-    Name             string
-    ActualNodeCount  int // live host count at this node
-    DesiredNodeCount int // slot capacity derived from BlockSizes
-    Children         map[string]*DomainTreeNode
-    Hosts            map[string]*HostInfo
+// vertexMeta holds domain-tree-specific metadata alongside a Vertex.
+type vertexMeta struct {
+    actualNodeCount  int
+    desiredNodeCount int
+    hosts            map[string]*HostInfo // non-nil only for leaf vertices
+}
+
+// DomainTree pairs a Vertex tree with per-vertex metadata.
+type DomainTree struct {
+    Root *Vertex                   // root of the Vertex tree
+    meta map[*Vertex]*vertexMeta   // unexported; accessed via Hosts() and DesiredNodeCount()
 }
 ```
 
-Leaf nodes (sub-domain) carry `Hosts`; interior nodes (accelerator domain) carry
-`Children`. When no `SubDomain` is set, the accelerator domain node itself is the
-leaf and carries `Hosts` directly.
+`DomainTree` exposes two accessor methods used by `convert` in
+`pkg/translate/block_tree.go`:
+
+```go
+func (dt *DomainTree) Hosts(v *Vertex) map[string]*HostInfo
+func (dt *DomainTree) DesiredNodeCount(v *Vertex) int
+```
+
+Leaf vertices (sub-domain or single-level domain) have a non-nil `hosts` map in
+their `vertexMeta`; interior vertices (accelerator domain in dual-level mode) have
+a nil `hosts` map and carry sub-domain children via `Vertex.Vertices`. When no
+`SubDomain` is set, the accelerator domain vertex itself is the leaf.
 
 ### Simulation model YAML
 
@@ -126,8 +142,8 @@ No structural changes to the YAML schema are required.
 
 ### Step 1 – `GetDomainTree`: build flat two-level tree
 
-`DomainMap.GetDomainTree(blockSizes []int)` (`pkg/topology/domain.go`) builds a
-`DomainTreeNode` tree with at most two levels below root:
+`DomainMap.GetDomainTree(blockSizes []int)` (`pkg/topology/domain.go`) returns a
+`*DomainTree` whose `Root` is a `Vertex` tree with at most two levels below root:
 
 **Single-level (no `SubDomain`):** The accelerator domain node is a leaf that
 holds its hosts directly. This preserves the original behavior.
@@ -144,24 +160,25 @@ that belong to it.
 
 ```
 root
-└── domain-01  (accelerator domain, Children = {sub-domain-01, sub-domain-02, ...})
-│   └── sub-domain-01  (leaf, Hosts = {node-01 .. node-09})
-│   └── sub-domain-02  (leaf, Hosts = {node-10 .. node-18})
+└── domain-01  (accelerator domain, Vertices = {sub-domain-01, sub-domain-02, ...})
+│   └── sub-domain-01  (leaf, meta.hosts = {node-01 .. node-09})
+│   └── sub-domain-02  (leaf, meta.hosts = {node-10 .. node-18})
 │   └── ...
-└── domain-02  (accelerator domain, Children = {sub-domain-01, sub-domain-02, ...})
-    └── sub-domain-01  (leaf, Hosts = {node-145 .. node-153})
+└── domain-02  (accelerator domain, Vertices = {sub-domain-01, sub-domain-02, ...})
+    └── sub-domain-01  (leaf, meta.hosts = {node-145 .. node-153})
     └── ...
 ```
 
 ### Step 2 – `setDesiredCountByLevel`: assign slot capacities
 
-A BFS pass assigns `DesiredNodeCount` to every node. All nodes at the same tree
-depth receive the same value: the smallest `blockSize` that is
-`>= maxActualNodeCount` across all nodes at that depth.
+`DomainTree.setDesiredCountByLevel` runs a BFS over `Root` and assigns
+`desiredNodeCount` in `vertexMeta` for every vertex. All vertices at the same
+tree depth receive the same value: the smallest `blockSize` that is
+`>= maxActualNodeCount` across all vertices at that depth.
 
-| Depth | Node type | `DesiredNodeCount` |
+| Depth | Vertex type | `DesiredNodeCount` |
 |---|---|---|
-| 0 | root (`ActualNodeCount == 0`) | `blockSizes[last]` |
+| 0 | root (`actualNodeCount == 0`) | `blockSizes[last]` |
 | 1 | accelerator domain | smallest blockSize ≥ max domain host count |
 | 2 | sub-domain | smallest blockSize ≥ max sub-domain host count |
 
@@ -170,23 +187,24 @@ width, which is the precondition for non-interleaved block output.
 
 ### Step 3 – `convert`: translate to internal aggregate tree
 
-`convert(src *DomainTreeNode, baseBlockSize int)` (`pkg/translate/block_tree.go`)
-recursively maps the `DomainTreeNode` tree to the internal
-`aggregateBlockNode`/`baseBlockNode` tree:
+`convert(src *topology.Vertex, dt *topology.DomainTree, baseBlockSize int)`
+(`pkg/translate/block_tree.go`) recursively maps the `DomainTree` into the
+internal `aggregateBlockNode`/`baseBlockNode` tree. Per-vertex metadata is
+accessed through `dt.Hosts(src)` and `dt.DesiredNodeCount(src)`.
 
-**Leaf node** (has `Hosts`):
+**Leaf vertex** (`dt.Hosts(src)` is non-empty):
 ```
-groupSize = DesiredNodeCount / baseBlockSize
-blocks    = splitIntoBaseBlocks(name, sortedHosts, baseBlockSize)
+groupSize = dt.DesiredNodeCount(src) / baseBlockSize
+blocks    = splitIntoBaseBlocks(src.ID, sortedHosts, baseBlockSize)
 pad with newEmptyBaseBlock until len(blocks) == groupSize
 ```
 
-**Interior node** (has `Children`):
+**Interior vertex** (has `src.Vertices`):
 ```
-for each child name in sorted(Children.keys()):
-    append convert(child)
+for each child ID in sorted(src.Vertices.keys()):
+    append convert(src.Vertices[id], dt, baseBlockSize)
     accumulate nodeCount
-while nodeCount < DesiredNodeCount:
+while nodeCount < dt.DesiredNodeCount(src):
     append newEmptyChildAggregate(childCapacity, baseBlockSize)
 ```
 
