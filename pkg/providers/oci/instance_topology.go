@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/oracle/oci-go-sdk/v65/core"
@@ -44,18 +45,54 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 			return err
 		}
 
-		for _, host := range resp.Items {
-			inst, err := convert(&host)
-			if err != nil {
-				klog.Warning(err.Error())
-				continue
-			}
+		instances := make([]*topology.InstanceTopology, len(resp.Items))
+		getErrors := make([]error, len(resp.Items))
+		var wg sync.WaitGroup
+		for i := range resp.Items {
+			wg.Go(func() {
+				hostSummary := &resp.Items[i]
+				if hostSummary.Id == nil {
+					klog.Warning("missing Id in ComputeHostSummary")
+					return
+				}
 
-			if _, ok := instMap[inst.InstanceID]; ok {
-				klog.V(4).Infof("Adding host %s", host.String())
+				if hostSummary.InstanceId == nil {
+					klog.Warning("missing InstanceId in ComputeHostSummary")
+					return
+				}
+
+				if _, ok := instMap[*hostSummary.InstanceId]; !ok {
+					klog.V(4).Infof("Skipping instance %s", *hostSummary.InstanceId)
+					return
+				}
+
+				getReq := core.GetComputeHostRequest{
+					ComputeHostId: hostSummary.Id,
+				}
+				klog.V(4).InfoS("GetComputeHost", "request", getReq.String())
+				getResp, err := client.GetComputeHost(ctx, getReq)
+				if err != nil {
+					getErrors[i] = err
+					return
+				}
+
+				inst, err := convertComputeHost(&getResp.ComputeHost)
+				if err != nil {
+					klog.Warning(err.Error())
+					return
+				}
+				klog.V(4).Infof("Adding host %s", getResp.ComputeHost.String())
+				instances[i] = inst
+			})
+		}
+		wg.Wait()
+
+		for i, inst := range instances {
+			if getErrors[i] != nil {
+				return getErrors[i]
+			}
+			if inst != nil {
 				topo.Append(inst)
-			} else {
-				klog.V(4).Infof("Skipping host %s", host.String())
 			}
 		}
 
@@ -67,34 +104,71 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 }
 
 func convert(host *core.ComputeHostSummary) (*topology.InstanceTopology, error) {
-	if host.InstanceId == nil {
+	return convertHost(
+		host.InstanceId,
+		host.LocalBlockId,
+		host.NetworkBlockId,
+		host.HpcIslandId,
+		host.GpuMemoryFabricId,
+		"",
+	)
+}
+
+func convertComputeHost(host *core.ComputeHost) (*topology.InstanceTopology, error) {
+	locationDetails, ok := host.AdditionalData["locationDetails"].(map[string]any)
+	var rack string
+	if ok {
+		if v, ok := locationDetails["rack"].(string); ok {
+			rack = v
+		}
+	}
+
+	return convertHost(
+		host.InstanceId,
+		host.LocalBlockId,
+		host.NetworkBlockId,
+		host.HpcIslandId,
+		host.GpuMemoryFabricId,
+		rack,
+	)
+}
+
+func convertHost(instanceID, localBlockID, networkBlockID, hpcIslandID, gpuMemoryFabricID *string, rack string) (*topology.InstanceTopology, error) {
+	if instanceID == nil {
 		return nil, fmt.Errorf("missing InstanceId in ComputeHostSummary")
 	}
 
-	if host.LocalBlockId == nil {
-		missingHostData.WithLabelValues("localBlock", *host.InstanceId).Add(float64(1))
-		return nil, fmt.Errorf("missing LocalBlockId for instance %q", *host.InstanceId)
+	if localBlockID == nil {
+		missingHostData.WithLabelValues("localBlock", *instanceID).Add(float64(1))
+		return nil, fmt.Errorf("missing LocalBlockId for instance %q", *instanceID)
 	}
 
-	if host.NetworkBlockId == nil {
-		missingHostData.WithLabelValues("networkBlock", *host.InstanceId).Add(float64(1))
-		return nil, fmt.Errorf("missing NetworkBlockId for instance %q", *host.InstanceId)
+	if networkBlockID == nil {
+		missingHostData.WithLabelValues("networkBlock", *instanceID).Add(float64(1))
+		return nil, fmt.Errorf("missing NetworkBlockId for instance %q", *instanceID)
 	}
 
-	if host.HpcIslandId == nil {
-		missingHostData.WithLabelValues("hpcIsland", *host.InstanceId).Add(float64(1))
-		return nil, fmt.Errorf("missing HpcIslandId for instance %q", *host.InstanceId)
+	if hpcIslandID == nil {
+		missingHostData.WithLabelValues("hpcIsland", *instanceID).Add(float64(1))
+		return nil, fmt.Errorf("missing HpcIslandId for instance %q", *instanceID)
 	}
 
 	topo := &topology.InstanceTopology{
-		InstanceID: *host.InstanceId,
+		InstanceID: *instanceID,
 		FabricTiers: topology.ClosestFirstFabricTiers(
-			*host.LocalBlockId, *host.NetworkBlockId, *host.HpcIslandId,
+			*localBlockID, *networkBlockID, *hpcIslandID,
 		),
 	}
 
-	if host.GpuMemoryFabricId != nil {
-		topo.AcceleratorID = *host.GpuMemoryFabricId
+	if gpuMemoryFabricID != nil {
+		domain := *gpuMemoryFabricID
+
+		if rack == "" {
+			topo.AcceleratorID = domain
+		} else {
+			topo.AcceleratorID = domain + "." + rack
+			topo.ParentAcceleratorID = domain
+		}
 	}
 
 	return topo, nil
