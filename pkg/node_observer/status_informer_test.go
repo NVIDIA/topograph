@@ -14,6 +14,7 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/httpreq"
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -256,4 +257,62 @@ func makeContainerStatus(name string, ready bool, restarts int32) corev1.Contain
 		status.State.Running = &corev1.ContainerStateRunning{}
 	}
 	return status
+}
+
+// TestNodeTopologyMetadataChanged verifies the filter that decides whether a
+// Kubernetes node Update event should trigger topology regeneration. It must:
+//   - Return true when relevant labels/annotations change (source of block ID).
+//   - Return false for irrelevant changes (status, unrelated labels).
+//   - Return true for a name change (regex source when no Ready pod exists).
+func TestNodeTopologyMetadataChanged(t *testing.T) {
+	base := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "nvl72d001-T01",
+			Labels: map[string]string{
+				topology.KeyNvidiaGPUClique: "clique-a",
+				"unrelated":                 "v1",
+			},
+			Annotations: map[string]string{
+				topology.KeyNodeInstance: "i-1",
+				topology.KeyNodeRegion:   "r-1",
+				topology.KeyGpuClusterID: "c-1",
+			},
+		},
+	}
+
+	unchanged := base.DeepCopy()
+	// Simulate a status/heartbeat update by changing an irrelevant label.
+	unchanged.Labels["unrelated"] = "v2"
+
+	nameChanged := base.DeepCopy()
+	nameChanged.Name = "nvl72d002-T01"
+
+	labelChanged := base.DeepCopy()
+	labelChanged.Labels[topology.KeyNvidiaGPUClique] = "clique-b"
+
+	annotationChanged := base.DeepCopy()
+	annotationChanged.Annotations[topology.KeyNodeInstance] = "i-2"
+
+	regionChanged := base.DeepCopy()
+	regionChanged.Annotations[topology.KeyNodeRegion] = "r-2"
+
+	testCases := []struct {
+		name string
+		old  *corev1.Node
+		new  *corev1.Node
+		want bool
+	}{
+		{"unrelated label change is ignored", base, unchanged, false},
+		{"node name change triggers", base, nameChanged, true},
+		{"gpu clique label change triggers", base, labelChanged, true},
+		{"instance annotation change triggers", base, annotationChanged, true},
+		{"region annotation change triggers", base, regionChanged, true},
+		{"nil old triggers", nil, base, true},
+		{"nil new triggers", base, nil, true},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, nodeTopologyMetadataChanged(tc.old, tc.new))
+		})
+	}
 }

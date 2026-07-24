@@ -64,3 +64,17 @@ func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
 		m[hostInfo.Domain] = map[string]*HostInfo{hostInfo.HostName: hostInfo}
 	}
 }
+
+// EnsureDomain declares domain as a known physical block even when it has no
+// live Slurm hosts. Subsequent AddHost calls attach hosts to the existing
+// entry. Used to keep a block declared in Slurm's topology after all its pods
+// have left the underlying nodes, so retained node annotations remain valid.
+// Empty domain names are ignored to match AddHostInfo.
+func (m DomainMap) EnsureDomain(domain string) {
+	if domain == "" {
+		return
+	}
+	if _, ok := m[domain]; !ok {
+		m[domain] = map[string]*HostInfo{}
+	}
+}

@@ -40,3 +40,25 @@ func TestDomainMapAddHost(t *testing.T) {
 		},
 	}, domainMap)
 }
+
+// TestDomainMapEnsureDomain verifies that EnsureDomain declares a domain with
+// no live hosts (so it survives iteration and can be emitted as an empty
+// block) and is idempotent when the domain already exists.
+func TestDomainMapEnsureDomain(t *testing.T) {
+	domainMap := NewDomainMap()
+	domainMap.EnsureDomain("empty")
+	require.Contains(t, domainMap, "empty")
+	require.Len(t, domainMap["empty"], 0)
+
+	// Adding a host under the same domain must not lose the initial declaration.
+	domainMap.AddHost("empty", "i1", "h1")
+	require.Len(t, domainMap["empty"], 1)
+
+	// EnsureDomain over an already-populated domain must not clear hosts.
+	domainMap.EnsureDomain("empty")
+	require.Len(t, domainMap["empty"], 1)
+
+	// Empty domain names are ignored (matching AddHostInfo).
+	domainMap.EnsureDomain("")
+	require.NotContains(t, domainMap, "")
+}

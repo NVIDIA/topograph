@@ -757,3 +757,343 @@ func TestGetNodeTopologySpecAfterComplementPerPartition(t *testing.T) {
 		require.Equal(t, tc.spec, spec, "node %s", tc.node)
 	}
 }
+
+// TestBlockHostnameRegexValidation covers the regex contract enforced at
+// NewNetworkTopology time: bad plugin combinations, malformed regexes,
+// cluster-vs-partition mismatches, and non-decimal DomainMap keys.
+func TestBlockHostnameRegexValidation(t *testing.T) {
+	blockGraph := &topology.Graph{
+		Domains: topology.DomainMap{
+			"001": map[string]*topology.HostInfo{
+				"h": {Domain: "001", HostName: "h", InstanceID: "i"},
+			},
+		},
+	}
+	treeGraph := &topology.Graph{Tiers: &topology.Vertex{}}
+	nonDigitGraph := &topology.Graph{
+		Domains: topology.DomainMap{
+			"clique-a": map[string]*topology.HostInfo{
+				"h": {Domain: "clique-a", HostName: "h", InstanceID: "i"},
+			},
+		},
+	}
+
+	testCases := []struct {
+		name string
+		root *topology.Graph
+		cfg  *Config
+		err  string
+	}{
+		{
+			name: "Case 1: regex with tree plugin rejected",
+			root: treeGraph,
+			cfg: &Config{
+				Plugin:             topology.TopologyTree,
+				BlockHostnameRegex: `d(\d+)`,
+			},
+			err: `blockHostnameRegex requires plugin "topology/block", got "topology/tree"`,
+		},
+		{
+			name: "Case 2: regex with multiple capture groups rejected",
+			root: blockGraph,
+			cfg: &Config{
+				Plugin:             topology.TopologyBlock,
+				BlockHostnameRegex: `d(\d+)(-T)\d+`,
+			},
+			err: `blockHostnameRegex "d(\\d+)(-T)\\d+" must contain exactly one capture group, found 2`,
+		},
+		{
+			name: "Case 3: per-partition regex on tree plugin rejected",
+			root: treeGraph,
+			cfg: &Config{
+				Topologies: map[string]*TopologySpec{
+					"bad": {
+						Plugin:             topology.TopologyTree,
+						Nodes:              []string{"n1"},
+						BlockHostnameRegex: `d(\d+)`,
+					},
+				},
+			},
+			err: `topology "bad": blockHostnameRegex requires plugin "topology/block", got "topology/tree"`,
+		},
+		{
+			name: "Case 4: cluster-wide vs partition regex mismatch rejected",
+			root: blockGraph,
+			cfg: &Config{
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+				Topologies: map[string]*TopologySpec{
+					"a": {
+						Plugin:             topology.TopologyBlock,
+						Nodes:              []string{"h"},
+						BlockHostnameRegex: `nvl(\d+)`,
+					},
+				},
+			},
+			err: `blockHostnameRegex mismatch: partition "a" has "nvl(\\d+)" but cluster-wide has "d(\\d+)-T\\d+"`,
+		},
+		{
+			name: "Case 5: non-decimal DomainMap key rejected",
+			root: nonDigitGraph,
+			cfg: &Config{
+				Plugin:             topology.TopologyBlock,
+				BlockSizes:         []int{1},
+				BlockHostnameRegex: `d(\d+)`,
+			},
+			err: `blockHostnameRegex requires DomainMap keys to be decimal digits, got "clique-a"`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewNetworkTopology(tc.root, tc.cfg)
+			if len(tc.err) != 0 {
+				require.EqualError(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+
+	// Two cases below have implementation-defined or map-iteration-order
+	// dependent error text, so match a stable substring instead.
+	t.Run("Case 6: regex compile error rejected", func(t *testing.T) {
+		_, err := NewNetworkTopology(blockGraph, &Config{
+			Plugin:             topology.TopologyBlock,
+			BlockHostnameRegex: `d(\d+`,
+		})
+		require.ErrorContains(t, err, "invalid blockHostnameRegex")
+	})
+
+	t.Run("Case 7: two partitions disagreeing rejected", func(t *testing.T) {
+		_, err := NewNetworkTopology(blockGraph, &Config{
+			Topologies: map[string]*TopologySpec{
+				"a": {
+					Plugin:             topology.TopologyBlock,
+					Nodes:              []string{"h"},
+					BlockHostnameRegex: `d(\d+)-T\d+`,
+				},
+				"b": {
+					Plugin:             topology.TopologyBlock,
+					Nodes:              []string{"h"},
+					BlockHostnameRegex: `nvl(\d+)`,
+				},
+			},
+		})
+		require.ErrorContains(t, err, "blockHostnameRegex mismatch")
+	})
+}
+
+// TestBlockHostnameRegexRejectsSplit verifies the "one captured index
+// identifies one emitted physical base block" rule: if blockSizes[0] is less
+// than a physical block's host count, complementBlocks fails at Generate time.
+func TestBlockHostnameRegexRejectsSplit(t *testing.T) {
+	domains := topology.NewDomainMap()
+	domains.AddHostInfo(&topology.HostInfo{Domain: "001", HostName: "nvl72d001-T01", InstanceID: "i-1"})
+	domains.AddHostInfo(&topology.HostInfo{Domain: "001", HostName: "nvl72d001-T02", InstanceID: "i-2"})
+
+	cfg := &Config{
+		Plugin:             topology.TopologyBlock,
+		BlockSizes:         []int{1, 2},
+		BlockHostnameRegex: `d(\d+)-T\d+`,
+	}
+	nt, err := NewNetworkTopology(&topology.Graph{Domains: domains}, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	httpErr := nt.Generate(&buf)
+	require.NotNil(t, httpErr)
+	require.Contains(t, httpErr.Error(), "would be split")
+}
+
+// TestBlockHostnameRegexOutput covers the rendered topology for the main
+// blockHostnameRegex code paths: cluster-wide vs per-partition, cluster-wide
+// vs partition-only regex, empty BlockSizes, empty cluster fallback, and
+// multi-partition over-inclusion of empty physical blocks.
+func TestBlockHostnameRegexOutput(t *testing.T) {
+	domainsWithGap := func() topology.DomainMap {
+		m := topology.NewDomainMap()
+		m.AddHostInfo(&topology.HostInfo{Domain: "001", HostName: "nvl72d001-T01", InstanceID: "i-1"})
+		m.EnsureDomain("002")
+		m.AddHostInfo(&topology.HostInfo{Domain: "003", HostName: "nvl72d003-T01", InstanceID: "i-3"})
+		return m
+	}
+	twoLiveDomains := func() topology.DomainMap {
+		m := topology.NewDomainMap()
+		m.AddHostInfo(&topology.HostInfo{Domain: "001", HostName: "nvl72d001-T01", InstanceID: "i-1"})
+		m.AddHostInfo(&topology.HostInfo{Domain: "003", HostName: "nvl72d003-T01", InstanceID: "i-3"})
+		return m
+	}
+	twoAdjacentDomains := func() topology.DomainMap {
+		m := topology.NewDomainMap()
+		m.AddHostInfo(&topology.HostInfo{Domain: "001", HostName: "nvl72d001-T01", InstanceID: "i-1"})
+		m.AddHostInfo(&topology.HostInfo{Domain: "002", HostName: "nvl72d002-T01", InstanceID: "i-2"})
+		return m
+	}
+
+	testCases := []struct {
+		name     string
+		graph    *topology.Graph
+		cfg      *Config
+		expected string
+	}{
+		{
+			name:  "Case 1: cluster-wide stable IDs, empty domain declared",
+			graph: &topology.Graph{Domains: domainsWithGap()},
+			cfg: &Config{
+				Plugin:             topology.TopologyBlock,
+				BlockSizes:         []int{1},
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+			},
+			expected: `BlockName=block001 Nodes=nvl72d001-T01
+BlockName=block002
+BlockName=block003 Nodes=nvl72d003-T01
+BlockSizes=1
+`,
+		},
+		{
+			name:  "Case 2: per-partition stable IDs, empty domain declared",
+			graph: &topology.Graph{Domains: domainsWithGap()},
+			cfg: &Config{
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+				Topologies: map[string]*TopologySpec{
+					"gpu-block": {
+						Plugin:             topology.TopologyBlock,
+						Nodes:              []string{"nvl72d001-T01", "nvl72d003-T01"},
+						BlockSizes:         []int{1},
+						BlockHostnameRegex: `d(\d+)-T\d+`,
+					},
+				},
+			},
+			expected: `- topology: gpu-block
+  cluster_default: false
+  block:
+    block_sizes:
+        - 1
+    blocks:
+        - block: block001
+          nodes: nvl72d001-T01
+        - block: block002
+        - block: block003
+          nodes: nvl72d003-T01
+`,
+		},
+		{
+			name:  "Case 3: partition-only regex still yields stable IDs",
+			graph: &topology.Graph{Domains: twoLiveDomains()},
+			cfg: &Config{
+				Topologies: map[string]*TopologySpec{
+					"gpu-block": {
+						Plugin:             topology.TopologyBlock,
+						Nodes:              []string{"nvl72d001-T01", "nvl72d003-T01"},
+						BlockSizes:         []int{1},
+						BlockHostnameRegex: `d(\d+)-T\d+`,
+					},
+				},
+			},
+			expected: `- topology: gpu-block
+  cluster_default: false
+  block:
+    block_sizes:
+        - 1
+    blocks:
+        - block: block001
+          nodes: nvl72d001-T01
+        - block: block003
+          nodes: nvl72d003-T01
+`,
+		},
+		{
+			name:  "Case 4: empty BlockSizes preserves stable IDs and non-zero base",
+			graph: &topology.Graph{Domains: domainsWithGap()},
+			cfg: &Config{
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+				Topologies: map[string]*TopologySpec{
+					"gpu-block": {
+						Plugin: topology.TopologyBlock,
+						Nodes:  []string{"nvl72d001-T01", "nvl72d003-T01"},
+					},
+				},
+			},
+			expected: `- topology: gpu-block
+  cluster_default: false
+  block:
+    block_sizes:
+        - 1
+        - 2
+    blocks:
+        - block: block001
+          nodes: nvl72d001-T01
+        - block: block002
+        - block: block003
+          nodes: nvl72d003-T01
+`,
+		},
+		{
+			name:  "Case 5: empty cluster falls back to flat",
+			graph: &topology.Graph{Domains: topology.NewDomainMap()},
+			cfg: &Config{
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+				Topologies: map[string]*TopologySpec{
+					"gpu-block": {
+						Plugin:             topology.TopologyBlock,
+						Nodes:              []string{"nvl72d001-T01"},
+						BlockSizes:         []int{1},
+						BlockHostnameRegex: `d(\d+)-T\d+`,
+					},
+				},
+			},
+			expected: `- topology: gpu-block
+  cluster_default: false
+  flat: true
+`,
+		},
+		{
+			name:  "Case 6: multi-partition over-includes each other's blocks as empty",
+			graph: &topology.Graph{Domains: twoAdjacentDomains()},
+			cfg: &Config{
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+				Topologies: map[string]*TopologySpec{
+					"partA": {
+						Plugin:     topology.TopologyBlock,
+						Nodes:      []string{"nvl72d001-T01"},
+						BlockSizes: []int{1},
+					},
+					"partB": {
+						Plugin:     topology.TopologyBlock,
+						Nodes:      []string{"nvl72d002-T01"},
+						BlockSizes: []int{1},
+					},
+				},
+			},
+			expected: `- topology: partA
+  cluster_default: false
+  block:
+    block_sizes:
+        - 1
+    blocks:
+        - block: block001
+          nodes: nvl72d001-T01
+        - block: block002
+- topology: partB
+  cluster_default: false
+  block:
+    block_sizes:
+        - 1
+    blocks:
+        - block: block001
+        - block: block002
+          nodes: nvl72d002-T01
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			nt, err := NewNetworkTopology(tc.graph, tc.cfg)
+			require.NoError(t, err)
+			buf := &bytes.Buffer{}
+			require.Nil(t, nt.Generate(buf))
+			require.Equal(t, tc.expected, buf.String())
+		})
+	}
+}

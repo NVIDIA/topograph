@@ -95,7 +95,10 @@ func (nt *NetworkTopology) GetTopologies() ([]*TopologyUnit, *httperr.Error) {
 			tu := nt.getTreeTopologyUnit(topoName, topoSpec)
 			topologies = append(topologies, tu)
 		case topology.TopologyBlock:
-			tu := nt.getBlockTopologyUnit(topoName, topoSpec)
+			tu, err := nt.getBlockTopologyUnit(topoName, topoSpec)
+			if err != nil {
+				return topologies, err
+			}
 			topologies = append(topologies, tu)
 		case topology.TopologyFlat:
 			topologies = append(topologies, &TopologyUnit{
@@ -132,7 +135,17 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer, topologies []*TopologyUn
 	return nil
 }
 
-func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {
+func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, *httperr.Error) {
+	// Per-partition regex overrides the cluster-wide value; fall back when unset.
+	partitionRe, err := compileBlockHostnameRegex(topoSpec.BlockHostnameRegex)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topoName, err))
+	}
+	if partitionRe == nil {
+		partitionRe = nt.blockRe
+	}
+	partitionStableIDs := partitionRe != nil
+
 	// populate map [block indx : blockInfo]
 	nodeNames := cluset.Expand(topoSpec.Nodes)
 	blockMap := make(map[int]*blockInfo)
@@ -149,14 +162,22 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 		indx := *info.blockIndx
 		bInfo, ok := blockMap[indx]
 		if !ok {
+			// Carry stable id/name/domain from nt.blocks so blockNameForPartition
+			// still works when complementBlocks is a no-op (empty BlockSizes).
+			id := ""
 			name := ""
+			domain := ""
 			if indx < len(nt.blocks) {
+				id = nt.blocks[indx].id
 				name = nt.blocks[indx].name
+				domain = nt.blocks[indx].domain
 			}
 			blockMap[indx] = &blockInfo{
-				indx:  indx,
-				name:  name,
-				nodes: []string{nodeName},
+				indx:   indx,
+				id:     id,
+				name:   name,
+				domain: domain,
+				nodes:  []string{nodeName},
 			}
 		} else {
 			bInfo.nodes = append(bInfo.nodes, nodeName)
@@ -168,43 +189,78 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 		Default: topoSpec.ClusterDefault,
 	}
 
-	if nBlocks := len(blockMap); nBlocks == 0 {
+	// Fall back to flat when there is no live membership and no physical
+	// inventory to preserve.
+	if len(blockMap) == 0 && (!partitionStableIDs || len(nt.blocks) == 0) {
 		tu.Flat = true
-	} else {
-		// sort blockInfo by block index
-		bInfos := make([]*blockInfo, 0, len(blockMap))
-		for _, bInfo := range blockMap {
-			bInfos = append(bInfos, bInfo)
-		}
-		sort.Slice(bInfos, func(i, j int) bool {
-			return bInfos[i].indx < bInfos[j].indx
-		})
+		return tu, nil
+	}
 
-		bInfos = nt.complementBlocks(bInfos, topoSpec.BlockSizes)
-
-		// populate block topology units ordered by block indices
-		blocks := make([]*Block, 0, len(bInfos))
-		parents := make(map[string]string)
-		for indx, bInfo := range bInfos {
-			blockName := fmt.Sprintf("block%d", indx+1)
-			block := &Block{Name: blockName}
-			if len(bInfo.nodes) != 0 {
-				block.Nodes = strings.Join(cluset.Compact(bInfo.nodes), ",")
+	// In stable-ID mode, declare every known physical block, even those with
+	// no live pods, so retained annotations keep referencing valid IDs.
+	if partitionStableIDs {
+		for _, physical := range nt.blocks {
+			if physical == nil {
+				continue
 			}
-			blocks = append(blocks, block)
-
-			for _, nodeName := range bInfo.nodes {
-				parents[nodeName] = blockName
+			if _, ok := blockMap[physical.indx]; ok {
+				continue
 			}
-		}
-
-		tu.Block = &BlockTopo{
-			BlockSizes: getBlockSizes(bInfos, topoSpec.BlockSizes),
-			Blocks:     blocks,
-			parents:    parents,
+			blockMap[physical.indx] = &blockInfo{
+				indx:   physical.indx,
+				id:     physical.id,
+				name:   physical.name,
+				domain: physical.domain,
+			}
 		}
 	}
-	return tu
+
+	// sort blockInfo by block index
+	bInfos := make([]*blockInfo, 0, len(blockMap))
+	for _, bInfo := range blockMap {
+		bInfos = append(bInfos, bInfo)
+	}
+	sort.Slice(bInfos, func(i, j int) bool {
+		return bInfos[i].indx < bInfos[j].indx
+	})
+
+	completed, complErr := nt.complementBlocks(bInfos, topoSpec.BlockSizes)
+	if complErr != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topoName, complErr))
+	}
+	bInfos = completed
+
+	// populate block topology units ordered by block indices
+	blocks := make([]*Block, 0, len(bInfos))
+	parents := make(map[string]string)
+	for indx, bInfo := range bInfos {
+		blockName := blockNameForPartition(bInfo, indx, partitionStableIDs)
+		block := &Block{Name: blockName}
+		if len(bInfo.nodes) != 0 {
+			block.Nodes = strings.Join(cluset.Compact(bInfo.nodes), ",")
+		}
+		blocks = append(blocks, block)
+
+		for _, nodeName := range bInfo.nodes {
+			parents[nodeName] = blockName
+		}
+	}
+
+	tu.Block = &BlockTopo{
+		BlockSizes: getBlockSizes(bInfos, topoSpec.BlockSizes),
+		Blocks:     blocks,
+		parents:    parents,
+	}
+	return tu, nil
+}
+
+// blockNameForPartition returns the per-partition block name: bInfo.id in
+// stable-ID mode, otherwise the legacy positional "block<N>" numbering.
+func blockNameForPartition(bInfo *blockInfo, indx int, stableIDs bool) string {
+	if stableIDs && bInfo != nil && bInfo.id != "" {
+		return bInfo.id
+	}
+	return fmt.Sprintf("block%d", indx+1)
 }
 
 func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {

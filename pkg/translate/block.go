@@ -16,13 +16,23 @@ import (
 	"github.com/NVIDIA/topograph/internal/httperr"
 )
 
+// findMinDomainSize returns the smallest non-empty block size, used as the
+// base BlockSizes entry when the user did not supply one. Empty blocks are
+// skipped so stable-ID declarations do not force BlockSizes=[0]. Returns 1
+// when no non-empty block exists.
 func findMinDomainSize(blocks []*blockInfo) int {
 	minDomainSize := -1
 	for _, block := range blocks {
 		blocklen := len(block.nodes)
+		if blocklen == 0 {
+			continue
+		}
 		if minDomainSize == -1 || minDomainSize > blocklen {
 			minDomainSize = blocklen
 		}
+	}
+	if minDomainSize == -1 {
+		return 1
 	}
 	return minDomainSize
 }
@@ -51,7 +61,10 @@ func getBlockSizes(blocks []*blockInfo, requestedBlockSizes []int) []int {
 }
 
 func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *httperr.Error {
-	blocks := nt.complementBlocks(nt.blocks, nt.config.BlockSizes)
+	blocks, err := nt.complementBlocks(nt.blocks, nt.config.BlockSizes)
+	if err != nil {
+		return httperr.NewError(http.StatusBadRequest, err.Error())
+	}
 	// Refresh nodeInfo.blockID so GetNodeTopologySpec returns IDs that match the
 	// emitted topology file. complementBlocks may renumber blocks when it splits
 	// a domain across multiple base blocks, invalidating the IDs set by initBlocks.

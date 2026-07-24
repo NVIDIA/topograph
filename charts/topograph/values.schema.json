@@ -53,7 +53,7 @@
             },
             "params": {
               "type": "object",
-              "description": "Engine-specific parameters. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
+              "description": "Engine-specific parameters. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source. For slinky topology/block, blockHostnameRegex extracts a decimal capture from each node's hostname (e.g., 'd(\\d+)-T\\d+' captures '002' from 'nvl72d002-T01') and emits it as the block name; this stabilizes block IDs across pod-scale events for NVRx compatibility."
             }
           },
           "required": ["name"]

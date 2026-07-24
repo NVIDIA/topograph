@@ -21,6 +21,12 @@ global:
       plugin: topology/block
       blockSizes: [4]
       # useGpuCliqueLabel: true
+      # blockHostnameRegex extracts a decimal capture from each node's
+      # hostname and uses it as the emitted block name (e.g., "block002").
+      # Required for NVRx-compatible naming: block IDs stay stable across
+      # pod-scale events instead of shifting positionally. See
+      # docs/engines/slinky.md for the full contract.
+      # blockHostnameRegex: 'd(\d+)-T\d+'
       topologyConfigPath: topology.conf
       topologyConfigmapName: slurm-config
       useDynamicNodes: false

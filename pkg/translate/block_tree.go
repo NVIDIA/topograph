@@ -48,9 +48,17 @@ type aggregateBlockNode struct {
 
 func (*aggregateBlockNode) blockTreeNode() {}
 
-// splitIntoBaseBlocks splits a sorted host list into one or more base blocks of at
-// most baseBlockSize leaves each. Overflow blocks get a "#N" suffix on the ID.
-func splitIntoBaseBlocks(id string, hosts []*topology.HostInfo, baseBlockSize int) []*baseBlockNode {
+// splitIntoBaseBlocks splits a sorted host list into base blocks of at most
+// baseBlockSize leaves each; overflow blocks get a "#N" suffix on the ID.
+// When emitEmpty is true and hosts is empty, a single empty base block is
+// emitted so stable-ID mode can preserve the declaration.
+func splitIntoBaseBlocks(id string, hosts []*topology.HostInfo, baseBlockSize int, emitEmpty bool) []*baseBlockNode {
+	if len(hosts) == 0 {
+		if emitEmpty {
+			return []*baseBlockNode{newBaseBlock(id, nil, baseBlockSize)}
+		}
+		return nil
+	}
 	blocks := make([]*baseBlockNode, 0, (len(hosts)+baseBlockSize-1)/baseBlockSize)
 	for start := 0; start < len(hosts); start += baseBlockSize {
 		end := start + baseBlockSize
@@ -102,33 +110,69 @@ func isEmptyBlock(b *blockInfo) bool {
 	return b == nil || (len(b.name) == 0 && len(b.nodes) == 0)
 }
 
-// baseBlockToBlockInfo resolves a base block to a blockInfo using a priority fallback
-// chain, because not all blocks have live hosts attached to their leaves:
-//  1. Host names directly in leaves (live hosts — normal case)
-//  2. Domain IDs from leaves → byName lookup (placeholder hosts: Domain set, HostName empty)
-//  3. Domain ID as display name with no nodes (domain known, host list missing entirely)
-//  4. Empty blockInfo (tree slot was never filled)
-func baseBlockToBlockInfo(bb *baseBlockNode, byName map[string]*blockInfo, seq int) *blockInfo {
-	id := fmt.Sprintf("block%03d", seq)
+// baseBlockToBlockInfo resolves a base block to a blockInfo using a priority
+// fallback chain, since not all base blocks carry live hosts on their leaves:
+//  1. Host names directly in leaves (live hosts, the normal case).
+//  2. Domain IDs from leaves via byName lookup (placeholder hosts).
+//  3. Domain ID as display name with no nodes.
+//  4. Empty blockInfo (unfilled tree slot).
+//
+// See blockIDFor for how id is chosen. In stable-ID mode the display name is
+// dropped because the domain identifier equals the emitted block ID.
+func baseBlockToBlockInfo(bb *baseBlockNode, byName map[string]*blockInfo, seq int, stableIDs bool, padCtr *paddingIDCounter) *blockInfo {
 	domainID := bb.domainIdentifier()
 	nodes := hostNamesFromLeaves(bb.leaves)
+	id := blockIDFor(bb, seq, stableIDs, padCtr)
+	displayName := blockDisplayName(bb.id, domainID)
+	if stableIDs {
+		displayName = ""
+	}
 	if len(nodes) > 0 {
-		return &blockInfo{id: id, name: blockDisplayName(bb.id, domainID), nodes: nodes}
+		return &blockInfo{id: id, name: displayName, domain: domainID, nodes: nodes}
 	}
 	for _, domain := range domainIDsFromLeaves(bb.leaves) {
 		if b := byName[domain]; b != nil {
+			domainCopy := domain
 			return &blockInfo{
-				id:    id,
-				name:  blockDisplayName(bb.id, domain),
-				nodes: append([]string(nil), b.nodes...),
+				id:     id,
+				name:   displayName,
+				domain: domainCopy,
+				nodes:  append([]string(nil), b.nodes...),
 			}
 		}
 	}
 	if domainID != "" {
-		return &blockInfo{id: id, name: blockDisplayName(bb.id, domainID)}
+		return &blockInfo{id: id, name: displayName, domain: domainID}
 	}
+	// Padding slot (no domain, no leaves) — leave both name and domain empty.
 	return &blockInfo{id: id}
 }
+
+// paddingIDCounter tracks IDs already consumed by physical blocks so padding
+// slots pick a fresh unused number. Padding uses "block-pad-<n>" to avoid
+// colliding with regex-derived "block<digits>" IDs.
+type paddingIDCounter struct {
+	next int
+}
+
+// blockIDFor returns the ID string for a base block: "block<digits>" for a
+// physical stable-ID block, "block-pad-<n>" for a stable-ID padding slot, and
+// positional "block%03d" in legacy mode.
+func blockIDFor(bb *baseBlockNode, seq int, stableIDs bool, padCtr *paddingIDCounter) string {
+	if !stableIDs {
+		return fmt.Sprintf("block%03d", seq)
+	}
+	if bb.domain != "" {
+		return "block" + bb.domain
+	}
+	if padCtr == nil {
+		return fmt.Sprintf("%s%d", blockPadIDPrefix, seq)
+	}
+	padCtr.next++
+	return fmt.Sprintf("%s%d", blockPadIDPrefix, padCtr.next)
+}
+
+const blockPadIDPrefix = "block-pad-"
 
 func blockDisplayName(blockID, primarydomain string) string {
 	if primarydomain != "" {
@@ -219,13 +263,16 @@ func newEmptyBaseBlock(baseBlockSize int) *baseBlockNode {
 // padding) and returns both the fully padded domain nodes and the live bb count.
 // buildBlockTree uses the capacity recorded on each domain node to decide whether
 // higher-tier aggregation is needed, then delegates to packAggregateNodes.
-func buildBlockTree(domains topology.DomainMap, blockSizes []int) *aggregateBlockNode {
+//
+// emitEmpty is forwarded to splitIntoBaseBlocks so stable-ID callers keep
+// zero-host physical domains declared in the resulting tree.
+func buildBlockTree(domains topology.DomainMap, blockSizes []int, emitEmpty bool) *aggregateBlockNode {
 	baseBlockSize := blockSizes[0]
 	groupSize := groupSizeFromDomains(domains, baseBlockSize, blockSizes[len(blockSizes)-1])
 
 	//Pad each domain to a multiple of groupSize base blocks,
 	//then pack those blocks into aggregate nodes of size groupSize until we reach the top tier or satisfy blockSizes[last].
-	domainNodes := packDomainNodes(domains, baseBlockSize, groupSize)
+	domainNodes := packDomainNodes(domains, baseBlockSize, groupSize, emitEmpty)
 	if len(domainNodes) == 0 {
 		return nil
 	}
@@ -255,7 +302,7 @@ func buildBlockTree(domains topology.DomainMap, blockSizes []int) *aggregateBloc
 	return &aggregateBlockNode{children: aggregateNodes, nodeCount: aggCount}
 }
 
-func packDomainNodes(domains topology.DomainMap, baseBlockSize, groupSize int) []blockTreeNode {
+func packDomainNodes(domains topology.DomainMap, baseBlockSize, groupSize int, emitEmpty bool) []blockTreeNode {
 	if baseBlockSize <= 0 {
 		return nil
 	}
@@ -268,7 +315,7 @@ func packDomainNodes(domains topology.DomainMap, baseBlockSize, groupSize int) [
 
 	for _, domainID := range domainIDs {
 		hosts := hostsSorted(domains[domainID])
-		blocks := splitIntoBaseBlocks(domainID, hosts, baseBlockSize)
+		blocks := splitIntoBaseBlocks(domainID, hosts, baseBlockSize, emitEmpty)
 		for i := len(blocks); i < groupSize; i++ {
 			blocks = append(blocks, newEmptyBaseBlock(baseBlockSize))
 		}

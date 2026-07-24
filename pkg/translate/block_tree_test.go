@@ -51,7 +51,7 @@ func TestSplitIntoBaseBlocksChunksExcessHosts(t *testing.T) {
 		}
 	}
 	sortHostsByName(hosts)
-	blocks := splitIntoBaseBlocks("B1", hosts, 4)
+	blocks := splitIntoBaseBlocks("B1", hosts, 4, false)
 	require.Len(t, blocks, 3)
 	require.Len(t, blocks[0].leaves, 4)
 	require.Len(t, hostNamesFromLeaves(blocks[0].leaves), 4)

@@ -343,6 +343,60 @@ func TestGetTranslateConfig(t *testing.T) {
 			},
 			err: `topology "topo": blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2`,
 		},
+		{
+			// Cluster-wide BlockHostnameRegex flows through to translate.Config
+			// so translate can derive stable NVRx-compatible block IDs.
+			name: "Case 9: cluster-wide blockHostnameRegex propagates",
+			params: &BaseParams{
+				Plugin:             topology.TopologyBlock,
+				BlockSizes:         []int{1},
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+			},
+			cfg: &translate.Config{
+				Plugin:             topology.TopologyBlock,
+				BlockSizes:         []int{1},
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+			},
+		},
+		{
+			// Per-partition BlockHostnameRegex propagates to each partition
+			// TopologySpec. When only the cluster-wide value is set, all
+			// partitions inherit it so consumers see one authoritative regex.
+			name: "Case 10: per-partition blockHostnameRegex inherits and overrides",
+			params: &BaseParams{
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+			},
+			topologies: map[string]*Topology{
+				"inherit": {
+					Plugin:     topology.TopologyBlock,
+					BlockSizes: []int{1},
+					Nodes:      []string{"n1"},
+				},
+				"override": {
+					Plugin:             topology.TopologyBlock,
+					BlockSizes:         []int{1},
+					Nodes:              []string{"n2"},
+					BlockHostnameRegex: `nvl(\d+)`,
+				},
+			},
+			cfg: &translate.Config{
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+				Topologies: map[string]*translate.TopologySpec{
+					"inherit": {
+						Plugin:             topology.TopologyBlock,
+						BlockSizes:         []int{1},
+						Nodes:              []string{"n1"},
+						BlockHostnameRegex: `d(\d+)-T\d+`,
+					},
+					"override": {
+						Plugin:             topology.TopologyBlock,
+						BlockSizes:         []int{1},
+						Nodes:              []string{"n2"},
+						BlockHostnameRegex: `nvl(\d+)`,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

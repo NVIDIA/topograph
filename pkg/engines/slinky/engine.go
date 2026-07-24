@@ -172,6 +172,36 @@ func getParameters(params engines.Config) (*Params, error) {
 		}
 	}
 
+	// blockHostnameRegex requires Topograph to own topology.conf.
+	if p.ConfigUpdateMode == ConfigUpdateModeNone {
+		if p.BlockHostnameRegex != "" {
+			return nil, fmt.Errorf("blockHostnameRegex is incompatible with configUpdateMode %q", ConfigUpdateModeNone)
+		}
+		for name, t := range p.Topologies {
+			if t != nil && t.BlockHostnameRegex != "" {
+				return nil, fmt.Errorf("topology %q: blockHostnameRegex is incompatible with configUpdateMode %q",
+					name, ConfigUpdateModeNone)
+			}
+		}
+	}
+
+	// A single regex regroups the full physical inventory, so all non-empty
+	// values must agree.
+	effective := p.BlockHostnameRegex
+	for name, t := range p.Topologies {
+		if t == nil || t.BlockHostnameRegex == "" {
+			continue
+		}
+		if effective == "" {
+			effective = t.BlockHostnameRegex
+			continue
+		}
+		if t.BlockHostnameRegex != effective {
+			return nil, fmt.Errorf("topology %q: blockHostnameRegex %q conflicts with cluster-wide or another partition value %q",
+				name, t.BlockHostnameRegex, effective)
+		}
+	}
+
 	return p, nil
 }
 
@@ -310,6 +340,95 @@ func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*t
 	return graph, nil
 }
 
+// hostnameForBlockRegex returns the string that the block hostname regex
+// matches: the SLURM node name for Ready nodes, otherwise the K8s node name so
+// pod-less nodes can still be assigned a physical block.
+func hostnameForBlockRegex(nodeName string, nodeMap map[string]string) string {
+	if slurmName, ok := nodeMap[nodeName]; ok && slurmName != "" {
+		return slurmName
+	}
+	return nodeName
+}
+
+// withHostnameRegexDomains rebuilds graph.Domains by grouping physical nodes
+// via a hostname regex; captured digits form the DomainMap key so translate
+// emits stable `block<digits>` names. Nodes without a Ready slurmd pod are
+// recorded via EnsureDomain so their block remains declared.
+func withHostnameRegexDomains(graph *topology.Graph, clusterNodes *clusterNodes, rawRegex string) (*topology.Graph, *httperr.Error) {
+	matcher, err := translate.CompileBlockHostnameRegex(rawRegex)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+	if matcher == nil {
+		return nil, httperr.NewError(http.StatusInternalServerError,
+			"withHostnameRegexDomains called with empty blockHostnameRegex")
+	}
+
+	domains := topology.NewDomainMap()
+
+	// Skip non-matching hostnames; only fail when no node matched at all.
+	for _, node := range clusterNodes.nodes.Items {
+		hostname := hostnameForBlockRegex(node.Name, clusterNodes.nodeMap)
+		digits, ok, err := matcher.MatchDigits(hostname)
+		if err != nil {
+			klog.Warningf("blockHostnameRegex=%q: %v; skipping node %s",
+				rawRegex, err, node.Name)
+			continue
+		}
+		if !ok {
+			klog.V(4).Infof("blockHostnameRegex=%q did not match hostname %q for node %s, skipping",
+				rawRegex, hostname, node.Name)
+			continue
+		}
+
+		slurmName, live := clusterNodes.nodeMap[node.Name]
+		if !live || slurmName == "" {
+			domains.EnsureDomain(digits)
+			klog.V(4).Infof("Physical inventory node %s in block %s (no Ready pod)", node.Name, digits)
+			continue
+		}
+
+		instance := node.Annotations[topology.KeyNodeInstance]
+		if instance == "" {
+			instance = node.Name
+		}
+		domains.AddHost(digits, instance, slurmName)
+	}
+
+	if len(domains) == 0 {
+		return nil, httperr.NewError(http.StatusBadGateway,
+			fmt.Sprintf("blockHostnameRegex=%q matched no nodes; check the selector and regex", rawRegex))
+	}
+
+	if graph == nil {
+		graph = &topology.Graph{}
+	} else {
+		cloned := *graph
+		graph = &cloned
+	}
+	graph.Domains = domains
+
+	return graph, nil
+}
+
+// resolveHostnameRegex returns the effective blockHostnameRegex, preferring
+// the engine-level value and falling back to any per-partition value.
+// Conflicts are rejected in getParameters.
+func (p *Params) resolveHostnameRegex() string {
+	if p == nil {
+		return ""
+	}
+	if p.BlockHostnameRegex != "" {
+		return p.BlockHostnameRegex
+	}
+	for _, t := range p.Topologies {
+		if t != nil && t.BlockHostnameRegex != "" {
+			return t.BlockHostnameRegex
+		}
+	}
+	return ""
+}
+
 func usesBlockTopology(cfg *translate.Config) bool {
 	if cfg == nil {
 		return false
@@ -375,12 +494,23 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 		return clusterNodeData, httpErr
 	}
 
+	// gpu.clique and blockHostnameRegex are mutually exclusive re-groupings of
+	// the provider graph's Domains map; gpu.clique wins when both are set.
 	if p.UseGPUCliqueLabel && usesBlockTopology(cfg) {
 		clusterNodeData, httpErr := loadClusterNodes()
 		if httpErr != nil {
 			return nil, httpErr
 		}
 		graph, httpErr = withGPUCliqueDomains(graph, clusterNodeData)
+		if httpErr != nil {
+			return nil, httpErr
+		}
+	} else if regex := p.resolveHostnameRegex(); regex != "" && usesBlockTopology(cfg) {
+		clusterNodeData, httpErr := loadClusterNodes()
+		if httpErr != nil {
+			return nil, httpErr
+		}
+		graph, httpErr = withHostnameRegexDomains(graph, clusterNodeData, regex)
 		if httpErr != nil {
 			return nil, httpErr
 		}

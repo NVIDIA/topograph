@@ -100,6 +100,74 @@ global:
 
 If `useGpuCliqueLabel` is enabled for a block topology and no matching nodes have the `nvidia.com/gpu.clique` label plus the Topograph instance annotation, topology generation fails with a `502` error instead of falling back to provider accelerator domains.
 
+### Stable block names with `blockHostnameRegex` (NVRx compatibility)
+
+For NVRx and any other consumer that expects `block<number>` names to remain the same across pod-scale events, set `blockHostnameRegex` on the block topology. The regex extracts a decimal capture from each node's hostname and uses those digits as the emitted block name (`block<digits>`), preserving leading zeros.
+
+```yaml
+global:
+  engine:
+    name: slinky
+    params:
+      namespace: ns-slinky
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: compute
+      plugin: topology/block
+      blockSizes: [1]
+      topologyConfigmapName: slurm-config
+      topologyConfigPath: topology.conf
+      blockHostnameRegex: 'd(\d+)-T\d+'   # captures "002" from "nvl72d002-T01"
+```
+
+The same field can be set per partition (with an identical value across partitions and, if provided, the cluster-wide value):
+
+```yaml
+global:
+  engineParams:
+    topologies:
+      gpu-block:
+        plugin: topology/block
+        blockSizes: [4]
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/component: compute
+        blockHostnameRegex: 'd(\d+)-T\d+'
+```
+
+Contract enforced by the engine:
+
+- Applies only to `topology/block`; setting `blockHostnameRegex` on `topology/tree` or `topology/flat` is rejected at load time.
+- The regex must compile and contain exactly one non-optional capture group.
+- The captured value on every selected hostname must be a non-empty decimal string. Non-numeric or empty captures are rejected.
+- All hosts in a physical block must produce the same captured index (validated per domain).
+- Different physical blocks must not produce the same captured index (duplicate emitted block ID is rejected).
+- `configUpdateMode: none` is rejected because Topograph cannot guarantee that the externally managed topology config declares the same block names the annotations reference.
+- If a physical block would need to be split across multiple base blocks (`blockSizes[0]` smaller than the block's host count), generation fails with an actionable error rather than emitting suffixed IDs.
+
+Which hostname the regex is applied to:
+
+- For a Kubernetes node with a `Ready` slurmd pod, the regex runs against the pod's SLURM node name (from the `slurm.node.name` label, falling back to `pod.spec.hostname`). This is the same name that later appears in the emitted `topology.conf`.
+- For a Kubernetes node without a `Ready` slurmd pod (physical inventory only), the regex runs against the Kubernetes node name so the block can still be declared before any pod runs.
+- If your Kubernetes node names and SLURM node names use different formats, keep the capture group derived from the shared physical suffix (e.g. `d(\d+)-T\d+`) so both hostname sources produce the same captured index. Otherwise nodes with no live pod would land in a different block than nodes with a live pod.
+
+Regex authoring tips:
+
+- Anchor the pattern when the digit suffix is fixed-width or the hostname format is known: `^nvl72d(\d+)-T\d+$` is safer than `d(\d+)-T\d+` because it rejects incidental matches on unrelated hostnames instead of silently grouping them into a block. The engine does not anchor for you.
+- Non-matching hostnames are skipped with a `V(4)` log line, not treated as errors. If every node fails to match, generation returns a `502` with the regex value; verify the regex against the actual SLURM/Kubernetes node names.
+
+Guarantees the regex provides:
+
+- Physical blocks (identified by regex capture) keep their emitted `block<digits>` name across pod scale events. Removing every pod in a block leaves the block declared with zero hosts; when the pods return the block name is unchanged.
+- Every physical block selected by the engine's node/pod selectors is declared in the topology, whether or not it currently has a Ready slurmd pod. Blocks with no live members are emitted as empty `BlockName=block<digits>` lines so retained `topology.slinky.slurm.net/spec` annotations keep resolving to a valid block.
+- Adding or removing a physical block does not renumber any other block: only the affected block's declaration changes.
+- Padding slots introduced by `blockSizes` alignment use the distinct `block-pad-<n>` prefix so they never collide with physical block IDs.
+
+Non-goals of this fix:
+
+- Long-lived stability across arbitrary physical hardware changes. If the underlying hostname pattern itself changes (rename, redeployment with a different regex source), block names may change. The regex is the identity source; keep it consistent for the lifetime of the cluster.
+- Persistent block-ID allocation. Topograph does not remember previous captures. Two nodes with the same captured index remain in the same block; if a physical block is decommissioned its digits are no longer emitted.
+
 ## ConfigMap Annotations
 
 Slinky automatically adds metadata annotations to managed ConfigMaps for improved observability:

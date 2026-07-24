@@ -142,7 +142,8 @@ func TestComplementKeepsSeparateAccelerators(t *testing.T) {
 		},
 	}
 
-	out := nt.complementBlocks(nt.blocks, []int{8, 16})
+	out, err := nt.complementBlocks(nt.blocks, []int{8, 16})
+	require.NoError(t, err)
 	require.Len(t, out, 2)
 	require.Equal(t, "B1", out[0].name)
 	require.Len(t, out[0].nodes, 3)
@@ -177,7 +178,8 @@ func TestComplementExcessHostsPerAccelerator(t *testing.T) {
 		}},
 	}
 
-	out := nt.complementBlocks(nt.blocks, []int{4, 8, 16})
+	out, err := nt.complementBlocks(nt.blocks, []int{4, 8, 16})
+	require.NoError(t, err)
 	// 3 base blocks (ceil(12/4)) padded to 4 (groupSize=4, ceil(3/4)*4=4).
 	require.Len(t, out, 4)
 	require.True(t, isEmptyBlock(out[3]), "out[3] should be the group-alignment padding block")
@@ -213,7 +215,8 @@ func TestComplementPartitionLocalDomainsOnly(t *testing.T) {
 		partitionBlocks = append(partitionBlocks, b)
 	}
 
-	out := nt.complementBlocks(partitionBlocks, []int{4, 8, 16})
+	out, err := nt.complementBlocks(partitionBlocks, []int{4, 8, 16})
+	require.NoError(t, err)
 	// 3 real domains padded to 4 to reach the 16-node lastBS boundary.
 	require.Len(t, out, 4)
 	require.Equal(t, "B1", out[0].name)
@@ -242,7 +245,8 @@ func TestDomainsForBlocksFilteredToPartitionNodes(t *testing.T) {
 		{name: "B1", nodes: []string{"n1", "n2", "n3"}},
 	}
 
-	out := nt.complementBlocks(partitionBlocks, []int{2, 4})
+	out, err := nt.complementBlocks(partitionBlocks, []int{2, 4})
+	require.NoError(t, err)
 	// groupSize=2 (maxAccelSize=3, 2^1×2=4≥3); B1 splits into 2 base blocks.
 	// len(packed)=2 ≠ len(input)=1 → complement applied.
 	require.Len(t, out, 2)
@@ -276,7 +280,8 @@ func TestComplementWithMissingDomain(t *testing.T) {
 		{id: "block001", name: "B1", nodes: []string{"n1", "n2"}},
 		{id: "block002", name: "B2", nodes: []string{"n3", "n4"}}, // no domain entry
 	}
-	out := nt.complementBlocks(input, []int{2, 4})
+	out, err := nt.complementBlocks(input, []int{2, 4})
+	require.NoError(t, err)
 	require.Len(t, out, 2)
 	require.Equal(t, "B1", out[0].name)
 	require.Equal(t, []string{"n1", "n2"}, out[0].nodes)

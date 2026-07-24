@@ -20,7 +20,24 @@ import (
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/httpreq"
 	"github.com/NVIDIA/topograph/internal/k8s"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+// nodeTopologyLabels lists labels that participate in physical block
+// identification (grouping and mapping). Any change to these values should
+// trigger topology regeneration; unrelated label churn should be ignored to
+// keep the trailing-delay queue quiet.
+var nodeTopologyLabels = []string{
+	topology.KeyNvidiaGPUClique,
+}
+
+// nodeTopologyAnnotations lists annotations that participate in physical
+// block identification. See nodeTopologyLabels for the rationale.
+var nodeTopologyAnnotations = []string{
+	topology.KeyNodeInstance,
+	topology.KeyNodeRegion,
+	topology.KeyGpuClusterID,
+}
 
 type StatusInformer struct {
 	ctx           context.Context
@@ -161,7 +178,25 @@ func (s *StatusInformer) startNodeInformer() error {
 					s.sendRequest()
 				}
 			},
-			//UpdateFunc: func(_, obj any) {} // TODO: clarify the change in node that would require topology update
+			UpdateFunc: func(oldObj, newObj any) {
+				oldNode, ok := oldObj.(*corev1.Node)
+				if !ok {
+					return
+				}
+				newNode, ok := newObj.(*corev1.Node)
+				if !ok {
+					return
+				}
+				// Only re-request when metadata that influences physical
+				// block identity changed. Node status transitions (heartbeat,
+				// conditions) fire updates constantly; ignoring them prevents
+				// unnecessary regeneration and keeps stable block names stable.
+				if !nodeTopologyMetadataChanged(oldNode, newNode) {
+					return
+				}
+				klog.V(4).Infof("Informer updated node %s (topology metadata changed)", newNode.Name)
+				s.sendRequest()
+			},
 			DeleteFunc: func(obj any) {
 				switch v := obj.(type) {
 				case *corev1.Node:
@@ -182,6 +217,34 @@ func (s *StatusInformer) startNodeInformer() error {
 		s.nodeFactory.WaitForCacheSync(s.ctx.Done())
 	}
 	return nil
+}
+
+// nodeTopologyMetadataChanged reports whether the node fields that drive
+// physical block identification changed between old and new. It compares:
+//   - Node name (blockHostnameRegex source when no Ready pod is present)
+//   - Selected annotations that identify the physical block (see nodeTopologyAnnotations)
+//   - Selected labels used by domain grouping (see nodeTopologyLabels)
+//
+// Any other update (status transitions, addresses, capacity) is ignored so
+// the topology request queue is not flooded during normal cluster operation.
+func nodeTopologyMetadataChanged(oldNode, newNode *corev1.Node) bool {
+	if oldNode == nil || newNode == nil {
+		return true
+	}
+	if oldNode.Name != newNode.Name {
+		return true
+	}
+	for _, key := range nodeTopologyAnnotations {
+		if oldNode.Annotations[key] != newNode.Annotations[key] {
+			return true
+		}
+	}
+	for _, key := range nodeTopologyLabels {
+		if oldNode.Labels[key] != newNode.Labels[key] {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *StatusInformer) startAPIServerInformer() error {

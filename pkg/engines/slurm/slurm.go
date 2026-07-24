@@ -49,16 +49,18 @@ const NAME = "slurm"
 type SlurmEngine struct{}
 
 type BaseParams struct {
-	Plugin     string `mapstructure:"plugin"`
-	BlockSizes []int  `mapstructure:"blockSizes"`
+	Plugin             string `mapstructure:"plugin"`
+	BlockSizes         []int  `mapstructure:"blockSizes"`
+	BlockHostnameRegex string `mapstructure:"blockHostnameRegex"` // stable block IDs from a decimal hostname capture; topology/block only
 }
 
 type Topology struct {
-	Partition  string   `mapstructure:"partition"`
-	Plugin     string   `mapstructure:"plugin"`
-	BlockSizes []int    `mapstructure:"blockSizes"`
-	Nodes      []string `mapstructure:"nodes"`
-	Default    bool     `mapstructure:"clusterDefault"`
+	Partition          string   `mapstructure:"partition"`
+	Plugin             string   `mapstructure:"plugin"`
+	BlockSizes         []int    `mapstructure:"blockSizes"`
+	Nodes              []string `mapstructure:"nodes"`
+	Default            bool     `mapstructure:"clusterDefault"`
+	BlockHostnameRegex string   `mapstructure:"blockHostnameRegex"` // per-partition override for BaseParams.BlockHostnameRegex
 }
 
 type Params struct {
@@ -282,8 +284,9 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 	}
 
 	cfg := &translate.Config{
-		Plugin:     params.Plugin,
-		BlockSizes: params.BlockSizes,
+		Plugin:             params.Plugin,
+		BlockSizes:         params.BlockSizes,
+		BlockHostnameRegex: params.BlockHostnameRegex,
 	}
 
 	// set per-partition topologies
@@ -293,10 +296,16 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 			if err := validateBlockSizes(sect.BlockSizes); err != nil {
 				return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topo, err))
 			}
+			// Inherit the cluster-wide regex when the partition does not override it.
+			partitionRegex := sect.BlockHostnameRegex
+			if partitionRegex == "" {
+				partitionRegex = params.BlockHostnameRegex
+			}
 			spec := &translate.TopologySpec{
-				Plugin:         sect.Plugin,
-				BlockSizes:     sect.BlockSizes,
-				ClusterDefault: sect.Default,
+				Plugin:             sect.Plugin,
+				BlockSizes:         sect.BlockSizes,
+				ClusterDefault:     sect.Default,
+				BlockHostnameRegex: partitionRegex,
 			}
 			klog.InfoS("Adding partition topology", "name", topo, "plugin", sect.Plugin, "default", sect.Default, "partition", sect.Partition)
 			if sect.Nodes != nil {

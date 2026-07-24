@@ -10,10 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - OCI labels missing from `docker/metadata-action` on the Topograph container image: `org.opencontainers.image.documentation`, `authors`, and `vendor` ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 - Helm chart metadata: `home`, `icon`, `maintainers`, `keywords`, and Artifact Hub annotations ([#377](https://github.com/NVIDIA/topograph/pull/377)).
+- **Slinky engine**: `blockHostnameRegex` engine parameter and per-partition topology field. When set, physical block IDs are derived from a decimal capture in each node's hostname (`block<digits>`), keeping NVRx-compatible block names stable across pod-scale events. Every selected physical Kubernetes node contributes to the block inventory whether or not it has a Ready slurmd pod, and blocks with no live members are emitted as empty declarations so retained node annotations remain valid. See [`docs/engines/slinky.md`](docs/engines/slinky.md) for the full contract, including validation rules and non-goals.
+- **Node observer**: Kubernetes Node updates now trigger topology regeneration when block-relevant metadata changes (`topograph.nvidia.com/instance`, `topograph.nvidia.com/region`, `topograph.nvidia.com/cluster-id`, `nvidia.com/gpu.clique`, or the node name). Status-only updates are ignored to keep the trailing-delay queue quiet.
 
 ### Fixed
 
 - Helm node-observer now targets the rendered Topograph Service fullname in `generateTopologyUrl`.
+- **Slinky engine**: block topology names no longer shift positionally when slurmd pods scale. Previously, removing every pod in a block could cause other blocks to be renumbered as their positional index shifted (`block2 -> block1`), breaking NVRx and any consumer that depended on stable `block<number>` names. With `blockHostnameRegex` configured, block names are derived from a stable regex capture over hostnames and no longer depend on the Ready-pod ordering.
+- **Slinky engine**: `blockHostnameRegex` set only on a per-partition topology no longer falls back to positional block IDs. `translate.NewNetworkTopology` now derives an effective cluster-wide regex from either the top-level `blockHostnameRegex` or a consistent per-partition value, and rejects configs where multiple non-empty values disagree.
+- **Slinky engine**: per-partition block topology no longer emits `block_sizes: [0]` when `blockHostnameRegex` is configured and `blockSizes` is left unset. Empty stable-ID declarations are skipped when the base block size is auto-derived from live domains.
+- **Slinky engine**: per-partition block topology now falls back to flat when regex is configured but there is no physical inventory to declare, rather than emitting an empty `blocks: []` block topology unit.
 
 ## [0.5.0] - 2026-06-30
 

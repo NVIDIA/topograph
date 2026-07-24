@@ -516,6 +516,65 @@ func makeReadySlurmdPod(name, nodeName, slurmName string) *corev1.Pod {
 	}
 }
 
+// createPhysicalNodes creates K8s nodes with a KeyNodeInstance annotation so
+// they appear as physical inventory to the Slinky engine.
+func createPhysicalNodes(t *testing.T, ctx context.Context, client *fake.Clientset, names []string) {
+	t.Helper()
+	for i, name := range names {
+		node := &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Annotations: map[string]string{topology.KeyNodeInstance: fmt.Sprintf("i-%d", i)},
+			},
+		}
+		_, err := client.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+}
+
+// reconcileReadySlurmdPods deletes any slurmd pods whose node is not in
+// k8sNodes and creates Ready slurmd pods for those that are, so subsequent
+// engine calls observe exactly the requested Ready set.
+func reconcileReadySlurmdPods(t *testing.T, ctx context.Context, client *fake.Clientset, namespace string, k8sNodes []string) {
+	t.Helper()
+	want := make(map[string]bool, len(k8sNodes))
+	for _, name := range k8sNodes {
+		want[name] = true
+	}
+
+	existing, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+
+	have := make(map[string]bool, len(existing.Items))
+	for _, pod := range existing.Items {
+		nodeName := pod.Spec.NodeName
+		if want[nodeName] {
+			have[nodeName] = true
+			continue
+		}
+		require.NoError(t, client.CoreV1().Pods(namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}))
+	}
+
+	for _, k8sName := range k8sNodes {
+		if have[k8sName] {
+			continue
+		}
+		pod := makeReadySlurmdPod("pod-"+k8sName, k8sName, k8sName)
+		_, err := client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+}
+
+// readConfigMapKey returns the raw string stored at key inside the given
+// ConfigMap. Used by tests that assert on the topology config emitted by
+// GenerateOutput.
+func readConfigMapKey(t *testing.T, ctx context.Context, client *fake.Clientset, namespace, name, key string) string {
+	t.Helper()
+	cm, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	require.NoError(t, err)
+	return cm.Data[key]
+}
+
 func TestResolveSlurmNodeName(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -1185,4 +1244,474 @@ func TestGetParametersTopologyValidation(t *testing.T) {
 			require.ErrorContains(t, err, `cannot set both nodes and podSelector`)
 		})
 	}
+}
+
+// TestGetParametersBlockHostnameRegexValidation verifies parameter-time
+// validation for blockHostnameRegex: it must be compatible with the config
+// update mode and must not disagree between engine-level and per-partition
+// settings.
+func TestGetParametersBlockHostnameRegexValidation(t *testing.T) {
+	baseParams := func(extras map[string]any) map[string]any {
+		p := map[string]any{
+			topology.KeyNamespace:         "test-ns",
+			topology.KeyPodSelector:       map[string]any{"matchLabels": map[string]string{"app": "slurm"}},
+			topology.KeyTopoConfigPath:    "topology.conf",
+			topology.KeyTopoConfigmapName: "slurm-config",
+		}
+		for k, v := range extras {
+			p[k] = v
+		}
+		return p
+	}
+
+	t.Run("regex with configUpdateMode none is rejected", func(t *testing.T) {
+		params := baseParams(map[string]any{
+			"blockHostnameRegex": `d(\d+)-T\d+`,
+			"configUpdateMode":   "none",
+		})
+		_, err := getParameters(params)
+		require.ErrorContains(t, err, `blockHostnameRegex is incompatible with configUpdateMode "none"`)
+	})
+
+	t.Run("per-partition regex with configUpdateMode none is rejected", func(t *testing.T) {
+		params := baseParams(map[string]any{
+			"configUpdateMode": "none",
+			"topologies": map[string]any{
+				"gpu-block": map[string]any{
+					"plugin":             topology.TopologyBlock,
+					"nodes":              []string{"n1"},
+					"blockHostnameRegex": `d(\d+)-T\d+`,
+				},
+			},
+		})
+		_, err := getParameters(params)
+		require.ErrorContains(t, err, `blockHostnameRegex is incompatible with configUpdateMode "none"`)
+	})
+
+	t.Run("conflicting per-partition regex is rejected", func(t *testing.T) {
+		params := baseParams(map[string]any{
+			"topologies": map[string]any{
+				"a": map[string]any{
+					"plugin":             topology.TopologyBlock,
+					"nodes":              []string{"n1"},
+					"blockHostnameRegex": `d(\d+)-T\d+`,
+				},
+				"b": map[string]any{
+					"plugin":             topology.TopologyBlock,
+					"nodes":              []string{"n2"},
+					"blockHostnameRegex": `nvl(\d+)`,
+				},
+			},
+		})
+		_, err := getParameters(params)
+		require.ErrorContains(t, err, `conflicts with cluster-wide or another partition value`)
+	})
+
+	t.Run("matching engine and partition regex is accepted", func(t *testing.T) {
+		params := baseParams(map[string]any{
+			"blockHostnameRegex": `d(\d+)-T\d+`,
+			"topologies": map[string]any{
+				"gpu-block": map[string]any{
+					"plugin":             topology.TopologyBlock,
+					"nodes":              []string{"n1"},
+					"blockHostnameRegex": `d(\d+)-T\d+`,
+				},
+			},
+		})
+		p, err := getParameters(params)
+		require.NoError(t, err)
+		require.Equal(t, `d(\d+)-T\d+`, p.BlockHostnameRegex)
+	})
+}
+
+// TestWithHostnameRegexDomainsPhysicalInventory verifies that
+// withHostnameRegexDomains includes every selected physical Kubernetes node,
+// whether or not it has a Ready slurmd pod. Live nodes contribute host entries
+// keyed by their SLURM name; nodes without a Ready pod ensure the block
+// remains declared with zero live hosts so its ID stays reserved.
+func TestWithHostnameRegexDomainsPhysicalInventory(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	nodes := []*corev1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "nvl72d001-T01",
+				Annotations: map[string]string{topology.KeyNodeInstance: "instance-0"},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "nvl72d002-T01",
+				Annotations: map[string]string{topology.KeyNodeInstance: "instance-1"},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				// No Ready pod for this physical node: still contributes an
+				// empty block declaration so retained topology annotations
+				// stay valid.
+				Name:        "nvl72d003-T01",
+				Annotations: map[string]string{topology.KeyNodeInstance: "instance-2"},
+			},
+		},
+	}
+	for _, node := range nodes {
+		_, err := client.CoreV1().Nodes().Create(ctx, node, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+	for _, pod := range []*corev1.Pod{
+		makeReadySlurmdPod("pod-0", "nvl72d001-T01", "nvl72d001-T01"),
+		makeReadySlurmdPod("pod-1", "nvl72d002-T01", "nvl72d002-T01"),
+	} {
+		_, err := client.CoreV1().Pods("test-ns").Create(ctx, pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:   "test-ns",
+			podListOpt:  &metav1.ListOptions{LabelSelector: "app=slinky"},
+			nodeListOpt: &metav1.ListOptions{},
+		},
+	}
+	clusterNodes, httpErr := eng.getClusterNodes(ctx)
+	require.Nil(t, httpErr)
+
+	got, httpErr := withHostnameRegexDomains(&topology.Graph{}, clusterNodes, `d(\d+)-T\d+`)
+	require.Nil(t, httpErr)
+	require.NotNil(t, got)
+
+	// Every physical block is declared. Blocks 001 and 002 hold their Ready
+	// pod's SLURM name; block 003 exists with zero hosts.
+	require.Contains(t, got.Domains, "001")
+	require.Contains(t, got.Domains, "002")
+	require.Contains(t, got.Domains, "003")
+
+	require.Len(t, got.Domains["001"], 1)
+	require.Contains(t, got.Domains["001"], "nvl72d001-T01")
+	require.Len(t, got.Domains["002"], 1)
+	require.Contains(t, got.Domains["002"], "nvl72d002-T01")
+	require.Len(t, got.Domains["003"], 0, "block 003 has no Ready pod and must be empty")
+}
+
+// TestWithHostnameRegexDomainsRejectsInvalidRegex verifies validation.
+// Regex-level errors (syntax, capture count) fail up front; per-hostname
+// data errors are logged and skipped, only failing hard when no node matches.
+func TestWithHostnameRegexDomainsRejectsInvalidRegex(t *testing.T) {
+	baseNodes := &corev1.NodeList{
+		Items: []corev1.Node{
+			{ObjectMeta: metav1.ObjectMeta{Name: "nvl72d001-T01"}},
+		},
+	}
+	cn := &clusterNodes{nodes: baseNodes, nodeMap: map[string]string{}}
+
+	t.Run("invalid regex", func(t *testing.T) {
+		_, err := withHostnameRegexDomains(&topology.Graph{}, cn, `d(\d+`)
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "invalid blockHostnameRegex")
+	})
+	t.Run("multiple capture groups", func(t *testing.T) {
+		_, err := withHostnameRegexDomains(&topology.Graph{}, cn, `d(\d+)-T(\d+)`)
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "exactly one capture group")
+	})
+	t.Run("non-matching hostname is skipped", func(t *testing.T) {
+		_, err := withHostnameRegexDomains(&topology.Graph{}, cn, `sn(\d+)`)
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "matched no nodes")
+	})
+	t.Run("non-decimal capture is skipped", func(t *testing.T) {
+		_, err := withHostnameRegexDomains(&topology.Graph{}, cn, `nvl72d(\d+-T)\d+`)
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "matched no nodes")
+	})
+	t.Run("partial match succeeds", func(t *testing.T) {
+		mixed := &corev1.NodeList{
+			Items: []corev1.Node{
+				{ObjectMeta: metav1.ObjectMeta{Name: "nvl72d001-T01"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "unrelated-node"}},
+			},
+		}
+		graph, err := withHostnameRegexDomains(&topology.Graph{}, &clusterNodes{
+			nodes: mixed, nodeMap: map[string]string{"nvl72d001-T01": "nvl72d001-T01"},
+		}, `d(\d+)-T\d+`)
+		require.Nil(t, err)
+		require.NotNil(t, graph)
+		require.Contains(t, graph.Domains, "001")
+	})
+}
+
+// TestGenerateOutputPodScaleStability verifies the pod-scale fix end-to-end
+// against a single shared client and engine across pod add/remove
+// transitions, so each phase asserts against the ConfigMap left by the
+// previous generation.
+func TestGenerateOutputPodScaleStability(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	physical := []string{"nvl72d001-T01", "nvl72d002-T01", "nvl72d003-T01"}
+	createPhysicalNodes(t, ctx, client, physical)
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			BaseParams: slurm.BaseParams{
+				Plugin:             topology.TopologyBlock,
+				BlockSizes:         []int{1},
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+			},
+			Namespace:       "test-ns",
+			ConfigMapName:   "slurm-config",
+			ConfigPath:      "topology.conf",
+			UseDynamicNodes: true,
+			podListOpt:      &metav1.ListOptions{LabelSelector: "app=slinky"},
+			nodeListOpt:     &metav1.ListOptions{},
+		},
+	}
+	readTopology := func() string {
+		return readConfigMapKey(t, ctx, client, "test-ns", "slurm-config", "topology.conf")
+	}
+
+	// Initial state: all three pods Ready.
+	reconcileReadySlurmdPods(t, ctx, client, "test-ns", physical)
+	result, httpErr := eng.GenerateOutput(ctx, &topology.Graph{Domains: topology.NewDomainMap()}, nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, []byte("OK\n"), result)
+
+	initial := readTopology()
+	require.Contains(t, initial, "BlockName=block001 Nodes=nvl72d001-T01")
+	require.Contains(t, initial, "BlockName=block002 Nodes=nvl72d002-T01")
+	require.Contains(t, initial, "BlockName=block003 Nodes=nvl72d003-T01")
+
+	// Pod scale: remove the pod backing block 002. Block 002 stays declared,
+	// blocks 001/003 keep their IDs, no renumbering occurs.
+	reconcileReadySlurmdPods(t, ctx, client, "test-ns", []string{"nvl72d001-T01", "nvl72d003-T01"})
+	_, httpErr = eng.GenerateOutput(ctx, &topology.Graph{Domains: topology.NewDomainMap()}, nil)
+	require.Nil(t, httpErr)
+
+	afterScale := readTopology()
+	require.Contains(t, afterScale, "BlockName=block001 Nodes=nvl72d001-T01")
+	require.Contains(t, afterScale, "BlockName=block002\n", "block002 should stay declared but empty when its pod leaves")
+	require.NotContains(t, afterScale, "BlockName=block002 Nodes=", "block002 must not point to a different physical block after pod removal")
+	require.Contains(t, afterScale, "BlockName=block003 Nodes=nvl72d003-T01",
+		"block003 must not be renamed to block002 when block002's pod leaves")
+
+	// Pod returns: ConfigMap must match the initial byte string exactly.
+	reconcileReadySlurmdPods(t, ctx, client, "test-ns", physical)
+	_, httpErr = eng.GenerateOutput(ctx, &topology.Graph{Domains: topology.NewDomainMap()}, nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, initial, readTopology(),
+		"topology.conf must return to the exact initial state when the missing pod returns")
+}
+
+// TestGenerateOutputSkeletonOnlyWithRegex verifies skeleton-only mode
+// preserves stable block IDs and declares every physical block with no
+// Nodes= line.
+func TestGenerateOutputSkeletonOnlyWithRegex(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	physical := []string{"nvl72d001-T01", "nvl72d002-T01", "nvl72d003-T01"}
+	createPhysicalNodes(t, ctx, client, physical)
+	reconcileReadySlurmdPods(t, ctx, client, "test-ns", physical)
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			BaseParams: slurm.BaseParams{
+				Plugin:             topology.TopologyBlock,
+				BlockSizes:         []int{1},
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+			},
+			Namespace:        "test-ns",
+			ConfigMapName:    "slurm-config",
+			ConfigPath:       "topology.conf",
+			ConfigUpdateMode: ConfigUpdateModeSkeletonOnly,
+			UseDynamicNodes:  true,
+			podListOpt:       &metav1.ListOptions{LabelSelector: "app=slinky"},
+			nodeListOpt:      &metav1.ListOptions{},
+		},
+	}
+
+	_, httpErr := eng.GenerateOutput(ctx, &topology.Graph{Domains: topology.NewDomainMap()}, nil)
+	require.Nil(t, httpErr)
+
+	cm, err := client.CoreV1().ConfigMaps("test-ns").Get(ctx, "slurm-config", metav1.GetOptions{})
+	require.NoError(t, err)
+	got := cm.Data["topology.conf"]
+
+	for _, id := range []string{"block001", "block002", "block003"} {
+		require.Contains(t, got, "BlockName="+id+"\n",
+			"skeleton-only + regex must declare %s without a Nodes= line", id)
+	}
+	require.NotContains(t, got, " Nodes=",
+		"skeleton-only output must not contain Nodes= entries: %s", got)
+}
+
+// TestGenerateOutputRejectsSplitInStableIDMode verifies the plan's
+// "one captured index identifies one emitted physical base block" contract:
+// if blockSizes[0] is smaller than a physical block's host count, generation
+// fails with an actionable error rather than emitting suffixed IDs.
+func TestGenerateOutputRejectsSplitInStableIDMode(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	// Two physical nodes share the same captured index (both are in block 001).
+	// blockSizes[0]=1 would require splitting them into two base blocks.
+	physical := []string{"nvl72d001-T01", "nvl72d001-T02"}
+	createPhysicalNodes(t, ctx, client, physical)
+	reconcileReadySlurmdPods(t, ctx, client, "test-ns", physical)
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			BaseParams: slurm.BaseParams{
+				Plugin:             topology.TopologyBlock,
+				BlockSizes:         []int{1, 2},
+				BlockHostnameRegex: `d(\d+)-T\d+`,
+			},
+			Namespace:       "test-ns",
+			ConfigMapName:   "slurm-config",
+			ConfigPath:      "topology.conf",
+			UseDynamicNodes: true,
+			podListOpt:      &metav1.ListOptions{LabelSelector: "app=slinky"},
+			nodeListOpt:     &metav1.ListOptions{},
+		},
+	}
+	_, httpErr := eng.GenerateOutput(ctx, &topology.Graph{Domains: topology.NewDomainMap()}, nil)
+	require.NotNil(t, httpErr)
+	require.Contains(t, httpErr.Error(), "would be split")
+}
+
+// TestWithHostnameRegexDomainsPrefersSlurmNameForLiveNodes pins the
+// documented hostname-source contract: live nodes are grouped by the digit
+// captured from the SLURM name (the string that appears in topology.conf);
+// nodes without a Ready pod fall back to the Kubernetes node name.
+func TestWithHostnameRegexDomainsPrefersSlurmNameForLiveNodes(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	// K8s node "worker-42" hosts a Ready slurmd pod whose SLURM name is
+	// "nvl72d001-T01". The regex captures "001" from the SLURM name and
+	// "42" from the K8s name. Ready node must group into block 001.
+	live := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "worker-42",
+			Annotations: map[string]string{topology.KeyNodeInstance: "i-live"},
+		},
+	}
+	_, err := client.CoreV1().Nodes().Create(ctx, live, metav1.CreateOptions{})
+	require.NoError(t, err)
+	// Non-Ready node without a slurmd pod. Its K8s name yields digits "99".
+	nonReady := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "worker-99",
+		},
+	}
+	_, err = client.CoreV1().Nodes().Create(ctx, nonReady, metav1.CreateOptions{})
+	require.NoError(t, err)
+	_, err = client.CoreV1().Pods("test-ns").Create(ctx,
+		makeReadySlurmdPod("pod-live", "worker-42", "nvl72d001-T01"), metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:   "test-ns",
+			podListOpt:  &metav1.ListOptions{LabelSelector: "app=slinky"},
+			nodeListOpt: &metav1.ListOptions{},
+		},
+	}
+	cn, httpErr := eng.getClusterNodes(ctx)
+	require.Nil(t, httpErr)
+
+	// Regex matches decimal digits after either "d" or "worker-".
+	got, httpErr := withHostnameRegexDomains(&topology.Graph{}, cn, `(?:d|worker-)(\d+)`)
+	require.Nil(t, httpErr)
+	require.NotNil(t, got)
+
+	// Live node routed by SLURM-name capture "001".
+	require.Contains(t, got.Domains, "001")
+	require.Contains(t, got.Domains["001"], "nvl72d001-T01",
+		"live node must group by SLURM-name capture, not K8s-name capture")
+
+	// Non-Ready node routed by K8s-name capture "99".
+	require.Contains(t, got.Domains, "99")
+	require.Empty(t, got.Domains["99"], "non-Ready node must contribute an empty declaration")
+
+	// The live node's K8s-name capture "42" must not create a spurious block.
+	require.NotContains(t, got.Domains, "42",
+		"live node's K8s-name capture must not create a separate block")
+}
+
+// TestGenerateOutputPodScaleStabilityPerPartition mirrors
+// TestGenerateOutputPodScaleStability but exercises the per-partition code
+// path (getBlockTopologyUnit / blockNameForPartition) instead of the
+// cluster-wide toBlockTopology path. Both C1 (blockInfo.id propagation with
+// empty BlockSizes) and M1 (empty block declaration for zero-live-pod
+// blocks) live in the per-partition path.
+func TestGenerateOutputPodScaleStabilityPerPartition(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+
+	physical := []string{"nvl72d001-T01", "nvl72d002-T01", "nvl72d003-T01"}
+	createPhysicalNodes(t, ctx, client, physical)
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:     "test-ns",
+			ConfigMapName: "slurm-config",
+			ConfigPath:    "topology.conf",
+			Topologies: map[string]*Topology{
+				"gpu-block": {
+					Topology: slurm.Topology{
+						Plugin:             topology.TopologyBlock,
+						BlockSizes:         []int{1},
+						BlockHostnameRegex: `d(\d+)-T\d+`,
+						Nodes:              physical,
+					},
+				},
+			},
+			UseDynamicNodes: true,
+			podListOpt:      &metav1.ListOptions{LabelSelector: "app=slinky"},
+			nodeListOpt:     &metav1.ListOptions{},
+		},
+	}
+	readTopology := func() string {
+		return readConfigMapKey(t, ctx, client, "test-ns", "slurm-config", "topology.conf")
+	}
+
+	reconcileReadySlurmdPods(t, ctx, client, "test-ns", physical)
+	_, httpErr := eng.GenerateOutput(ctx, &topology.Graph{Domains: topology.NewDomainMap()}, nil)
+	require.Nil(t, httpErr)
+	initial := readTopology()
+	require.Contains(t, initial, "block: block001")
+	require.Contains(t, initial, "block: block002")
+	require.Contains(t, initial, "block: block003")
+	require.Contains(t, initial, "nodes: nvl72d001-T01")
+	require.Contains(t, initial, "nodes: nvl72d003-T01")
+
+	// Remove block002's pod: the empty declaration must remain and no
+	// block gets renumbered.
+	reconcileReadySlurmdPods(t, ctx, client, "test-ns", []string{"nvl72d001-T01", "nvl72d003-T01"})
+	_, httpErr = eng.GenerateOutput(ctx, &topology.Graph{Domains: topology.NewDomainMap()}, nil)
+	require.Nil(t, httpErr)
+	afterScale := readTopology()
+	require.Contains(t, afterScale, "block: block001")
+	require.Contains(t, afterScale, "block: block002",
+		"block002 must remain declared even after its pod leaves")
+	require.Contains(t, afterScale, "block: block003",
+		"block003 must not be renamed to block002 when block002's pod leaves")
+	require.Contains(t, afterScale, "nodes: nvl72d001-T01")
+	require.Contains(t, afterScale, "nodes: nvl72d003-T01")
+
+	// Pod returns: config must return to the exact initial state.
+	reconcileReadySlurmdPods(t, ctx, client, "test-ns", physical)
+	_, httpErr = eng.GenerateOutput(ctx, &topology.Graph{Domains: topology.NewDomainMap()}, nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, initial, readTopology(),
+		"per-partition topology must return to the exact initial state when the missing pod returns")
 }
