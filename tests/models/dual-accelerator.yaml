@@ -1,0 +1,141 @@
+#      _________________ core __________________
+#      |       |       |       |       |       |
+#   spine-1 spine-2 spine-3 spine-4 spine-5 spine-6
+#      |       |       |       |       |       |
+#      |      ...     ...     ...     ...     ...
+#      |
+#      ____________
+#      |          |
+#   leaf-1-1   leaf-1-2
+#      |          |
+#   -------    -------
+#   srv1101    srv1201
+#     ...        ...
+#   srv1108    srv1208
+#   -------    -------
+#
+# Racks 01-06 belong to parent accelerator domain nvl-1.
+# Racks 07-12 belong to parent accelerator domain nvl-2.
+#
+# Supported block sizes: 8, 16, 32
+#
+switches:
+  core:
+    labels:
+      topology.kubernetes.io/region: us-east
+    switches:
+    - spine-1
+    - spine-2
+    - spine-3
+    - spine-4
+    - spine-5
+    - spine-6
+  spine-1:
+    labels:
+      topology.kubernetes.io/zone: zone1
+    switches:
+    - leaf-1-1
+    - leaf-1-2
+  spine-2:
+    labels:
+      topology.kubernetes.io/zone: zone1
+    switches:
+    - leaf-2-1
+    - leaf-2-2
+  spine-3:
+    labels:
+      topology.kubernetes.io/zone: zone2
+    switches:
+    - leaf-3-1
+    - leaf-3-2
+  spine-4:
+    labels:
+      topology.kubernetes.io/zone: zone2
+    switches:
+    - leaf-4-1
+    - leaf-4-2
+  spine-5:
+    labels:
+      topology.kubernetes.io/zone: zone3
+    switches:
+    - leaf-5-1
+    - leaf-5-2
+  spine-6:
+    labels:
+      topology.kubernetes.io/zone: zone3
+    switches:
+    - leaf-6-1
+    - leaf-6-2
+blocks:
+- switch: leaf-1-1
+  nodes:
+  - "srv11[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1
+    test.topology/rack: "rack01"
+- switch: leaf-1-2
+  nodes:
+  - "srv12[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1
+    test.topology/rack: "rack02"
+- switch: leaf-2-1
+  nodes:
+  - "srv21[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1
+    test.topology/rack: "rack03"
+- switch: leaf-2-2
+  nodes:
+  - "srv22[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1
+    test.topology/rack: "rack04"
+- switch: leaf-3-1
+  nodes:
+  - "srv31[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1
+    test.topology/rack: "rack05"
+- switch: leaf-3-2
+  nodes:
+  - "srv32[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-1
+    test.topology/rack: "rack06"
+- switch: leaf-4-1
+  nodes:
+  - "srv41[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2
+    test.topology/rack: "rack07"
+- switch: leaf-4-2
+  nodes:
+  - "srv42[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2
+    test.topology/rack: "rack08"
+- switch: leaf-5-1
+  nodes:
+  - "srv51[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2
+    test.topology/rack: "rack09"
+- switch: leaf-5-2
+  nodes:
+  - "srv52[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2
+    test.topology/rack: "rack10"
+- switch: leaf-6-1
+  nodes:
+  - "srv61[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2
+    test.topology/rack: "rack11"
+- switch: leaf-6-2
+  nodes:
+  - "srv62[01-08]"
+  labels:
+    network.topology.nvidia.com/accelerator: nvl-2
+    test.topology/rack: "rack12"

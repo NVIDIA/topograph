@@ -66,6 +66,7 @@ type Client interface {
 	Limit() *int
 	ListAvailabilityDomains(context.Context, identity.ListAvailabilityDomainsRequest) (identity.ListAvailabilityDomainsResponse, error)
 	ListComputeHosts(context.Context, core.ListComputeHostsRequest) (core.ListComputeHostsResponse, error)
+	GetComputeHost(context.Context, core.GetComputeHostRequest) (core.GetComputeHostResponse, error)
 }
 
 type ociClient struct {
