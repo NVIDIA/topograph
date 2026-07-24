@@ -52,6 +52,8 @@ If no nodes with matching labels are found, Topograph returns a `502` error with
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `nodeSelector` | `map[string]string` | No | Label selector to filter which nodes participate in topology discovery |
+| `kubeQPS` | `number` | No | Kubernetes client request rate. Values greater than zero override the client-go default of 5 QPS. |
+| `kubeBurst` | `integer` | No | Kubernetes client burst capacity. Values greater than zero override the client-go default of 10. |
 
 ## Configuration
 
@@ -60,6 +62,12 @@ engine through the chart's `provider` and `engine` values. Set the optional
 `nodeSelector` under `provider.params`. The chart manages the Topograph
 configuration and topology request payload; they do not need to be supplied
 separately.
+
+The DRA provider performs one filtered Node list per topology generation, so
+raising `kubeQPS` or `kubeBurst` is rarely necessary. These provider settings
+are independent from the Slinky engine settings of the same names. Tune the
+Slinky settings first when dynamic-node reconciliation is the source of
+client-side throttling.
 
 No credentials are required. The provider uses the in-cluster service account
 automatically. See the [Slinky engine documentation](../engines/slinky.md#configuration)

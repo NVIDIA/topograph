@@ -21,6 +21,8 @@ engine:
     topologyConfigPath: topology.conf
     topologyConfigmapName: slurm-config-extra
     useDynamicNodes: true
+    kubeQPS: 50
+    kubeBurst: 100
 
 config:
   requestAggregationDelay: 2s

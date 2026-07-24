@@ -43,6 +43,27 @@ func TestGetParameters(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Case 4: kubeQPS and kubeBurst",
+			params: map[string]any{
+				"kubeQPS":   float32(50),
+				"kubeBurst": 100,
+			},
+			ret: &Params{
+				KubeQPS:   50,
+				KubeBurst: 100,
+			},
+		},
+		{
+			name:   "Case 5: negative kubeQPS",
+			params: map[string]any{"kubeQPS": -1},
+			err:    "kubeQPS must be greater than or equal to zero",
+		},
+		{
+			name:   "Case 6: negative kubeBurst",
+			params: map[string]any{"kubeBurst": -1},
+			err:    "kubeBurst must be greater than or equal to zero",
+		},
 	}
 
 	for _, tc := range testCases {

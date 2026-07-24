@@ -63,7 +63,13 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [get, list, update]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
       - contains:
           path: rules
           content:
@@ -136,6 +142,56 @@ tests:
             apiGroups: [""]
             resources: [configmaps]
             verbs: [create, get, list, update]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+
+  - it: does not grant node patch access to non-slinky engines
+    set:
+      engine:
+        name: k8s
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
+
+  - it: does not grant node update access to the slinky engine
+    set:
+      engine:
+        name: slinky
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
 
   - it: does not render NFD namespace RBAC for an explicit non-NFD engine
     set:

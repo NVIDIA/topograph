@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- DRA provider and Slinky engine `kubeQPS` and `kubeBurst` parameters for tuning their independent Kubernetes client rate limits on large clusters.
 - Slurm and Slinky block topology configurations can set `blockName.nodeNameRegexp` and `blockName.format` to derive unique block names from site-specific node naming conventions.
 - Simulation model files may omit empty leaf-switch definitions; the model loader now creates leaf switches referenced by the parent switch hierarchy.
 - `govulncheck` job in the Go CI workflow for symbol-level vulnerability scanning on pull requests.
@@ -32,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Slinky dynamic-node reconciliation now reuses listed Node annotations, skips unchanged nodes without a per-node GET, and patches only changed topology annotations, substantially reducing Kubernetes client-side throttling on large clusters.
 - Corrected DRA provider guidance to document its Slinky-only block-topology scope, dependency on pre-existing `nvidia.com/gpu.clique` labels, and inability to guide placement across NVLink partitions without backend-fabric topology.
 - The NFD engine now rejects an empty generated object set when cleanup is enabled, preserving the last published topology instead of deleting every Topograph-managed NFD object after an empty provider result or over-narrow node selection.
 - The NFD engine now groups nodes with `nvidia.com/gpu.clique` by that authoritative accelerator value instead of omitting their accelerator attribute.
@@ -54,7 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Scoped the NFD engine's `NodeFeature` and `NodeFeatureGroup` permissions to the deployment-level `nfdNamespace` instead of granting them cluster-wide. Helm configures the same namespace at runtime through `NFD_NAMESPACE`; the namespace is no longer a request-level engine parameter, and the engine rejects a missing or blank environment variable.
 
-- Removed unused RBAC verbs from the Topograph API server and node-data-broker ClusterRoles (least-privilege): API server `pods` rule dropped `get` (list-only), `daemonsets` rule dropped `list` (get-only), and the Slinky `configmaps` rule dropped `list`; node-data-broker `nodes` rule dropped `list` (get/update), and the InfiniBand `daemonsets`/`pods` rules dropped `list`/`get` respectively (get-only, list-only).
+- Removed unused RBAC verbs from the Topograph API server and node-data-broker ClusterRoles (least-privilege): API server `pods` rule dropped `get` (list-only), `daemonsets` rule dropped `list` (get-only), Slinky receives Node `patch` without Node `update`, and the Slinky `configmaps` rule dropped `list`; node-data-broker `nodes` rule dropped `list` (get/update), and the InfiniBand `daemonsets`/`pods` rules dropped `list`/`get` respectively (get-only, list-only).
 
 - node-observer ClusterRole no longer grants unused `get`; `nodes` list/watch now gated on `trigger.nodeSelector`.
 ### Migration (Helm — hardened security context)

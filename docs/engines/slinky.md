@@ -40,8 +40,8 @@ engine:
     blockName:                               # (Optional) Derive block names from node names
       nodeNameRegexp: 'd([0-9]{2})-r([0-9]{2})'
       format: 'domain${1}_rack${2}'
-  topologyConfigmapName: slurm-config        # Name of the ConfigMap containing the topology config
-  topologyConfigPath: topology.conf          # Key in the ConfigMap for the topology config
+    topologyConfigmapName: slurm-config      # Name of the ConfigMap containing the topology config
+    topologyConfigPath: topology.conf        # Key in the ConfigMap for the topology config
 ```
 
 ### Per-partition topologies
@@ -108,6 +108,33 @@ engine:
 ```
 
 If `useGpuCliqueLabel` is enabled for a block topology and no matching nodes have the `nvidia.com/gpu.clique` label plus the Topograph instance annotation, topology generation fails with a `502` error instead of falling back to provider accelerator domains.
+
+### Kubernetes API rate limiting
+
+The Slinky engine uses client-go's default Kubernetes client limits of 5 QPS
+and a burst of 10 unless `kubeQPS` or `kubeBurst` is set. Dynamic-node
+reconciliation compares each desired topology annotation with the Node objects
+returned by the cluster-wide list, skips nodes that are already current, and
+patches only changed annotations. This avoids a separate Node GET for every
+node during steady-state reconciliation.
+
+Large reconciliations that legitimately change many nodes can still exceed the
+default client-side limit. Increase the limits conservatively and monitor API
+server latency and throttling:
+
+```yaml
+engine:
+  name: slinky
+  params:
+    kubeQPS: 50
+    kubeBurst: 100
+```
+
+These settings apply only to the Slinky engine client. Kubernetes-backed
+providers use separate clients and, where supported, separate provider
+parameters. Increasing the limits reduces client-side waiting but does not
+reduce API-server load; narrow `nodeSelector` and `podSelector` values remain
+the preferred first mitigation.
 
 ## ConfigMap Annotations
 
