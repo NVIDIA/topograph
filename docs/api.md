@@ -73,6 +73,8 @@ Topograph exposes three endpoints for interacting with the service. Below are th
     - **creds**: (optional) A key-value map with provider-specific parameters for authentication.
     - **params**: (optional) A key-value map with provider-specific parameters. The `test` provider uses these parameters for response simulation; for complete behavior and examples, see [Test Mode and Test Provider](./providers/test.md).
       - **useGpuCliqueLabel**: (optional) Used in: [`infiniband-k8s`]. If `true`, reads the GPU Operator's `nvidia.com/gpu.clique` node label as the accelerator-domain source instead of using the `topograph.nvidia.com/cluster-id` node annotation.
+      - **kubeQPS**: (optional) Used in: [`dra`]. A positive number overriding the provider Kubernetes client's default request rate of 5 QPS.
+      - **kubeBurst**: (optional) Used in: [`dra`]. A positive integer overriding the provider Kubernetes client's default burst capacity of 10.
   - **engine**: (optional) Selects the topology output and provides any engine-specific parameters.
     - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, `nfd`, `slinky`, or `graph`. This parameter will override the engine set in the topograph config.
     - **params**: (optional) A key-value map with engine-specific parameters.
@@ -99,6 +101,8 @@ Topograph exposes three endpoints for interacting with the service. Below are th
       - **topologyConfigmapName**: Used in: [`slinky`]. The required name of the ConfigMap containing the topology config.
       - **useDynamicNodes**: (optional) Used in: [`slinky`]. If `true`, Kubernetes nodes matched by the Node Selector will be annotated with the topology spec.
       - **useGpuCliqueLabel**: (optional) Used in: [`slinky`]. If `true`, `topology/block` domains are built from the GPU Operator's `nvidia.com/gpu.clique` node label instead of provider accelerator-domain data.
+      - **kubeQPS**: (optional) Used in: [`slinky`]. A positive number overriding the engine Kubernetes client's default request rate of 5 QPS.
+      - **kubeBurst**: (optional) Used in: [`slinky`]. A positive integer overriding the engine Kubernetes client's default burst capacity of 10.
       - **configUpdateMode**: (optional) Used in: [`slinky`]. By default, the full topology YAML is written in the Slurm ConfigMap. `skeleton-only` overrides to include switches or blocks only (no node lines); `none` skips updating the topology key in the ConfigMap.
   - **nodes**: (optional) Supplies the cluster nodes used for topology generation as an array of regions mapping instance IDs to node names.
 

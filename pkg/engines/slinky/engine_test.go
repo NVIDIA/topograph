@@ -240,6 +240,48 @@ func TestGetParameters(t *testing.T) {
 				podListOpt:        &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
+		{
+			name: "Case 11: kubeQPS and kubeBurst",
+			params: map[string]any{
+				topology.KeyNamespace:         "namespace",
+				topology.KeyPodSelector:       podSelector,
+				topology.KeyTopoConfigPath:    "path",
+				topology.KeyTopoConfigmapName: "name",
+				"kubeQPS":                     float32(50),
+				"kubeBurst":                   100,
+			},
+			ret: &Params{
+				Namespace:     "namespace",
+				PodSelector:   labelSelector,
+				ConfigPath:    "path",
+				ConfigMapName: "name",
+				KubeQPS:       50,
+				KubeBurst:     100,
+				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
+			},
+		},
+		{
+			name: "Case 12: negative kubeQPS",
+			params: map[string]any{
+				topology.KeyNamespace:         "namespace",
+				topology.KeyPodSelector:       podSelector,
+				topology.KeyTopoConfigPath:    "path",
+				topology.KeyTopoConfigmapName: "name",
+				"kubeQPS":                     -1,
+			},
+			err: "kubeQPS must be greater than or equal to zero",
+		},
+		{
+			name: "Case 13: negative kubeBurst",
+			params: map[string]any{
+				topology.KeyNamespace:         "namespace",
+				topology.KeyPodSelector:       podSelector,
+				topology.KeyTopoConfigPath:    "path",
+				topology.KeyTopoConfigmapName: "name",
+				"kubeBurst":                   -1,
+			},
+			err: "kubeBurst must be greater than or equal to zero",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1262,6 +1304,22 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 			expectError:    true,
 			errorMsg:       "failed to get config map",
 		},
+		{
+			name: "error patching node",
+			k8sClient: func(slurmNames []string, createConfigMap bool) *fake.Clientset {
+				client := fakeSuccessClient(slurmNames, createConfigMap)
+				client.PrependReactor("patch", "nodes", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.NewInternalError(fmt.Errorf("failed to patch node"))
+				})
+				return client
+			},
+			createConfigMap: true,
+			topologyFile:    "medium.yaml",
+			topologyConfig:  []string{topology.TopologyTree},
+			slurmName:       []string{"1101", "1402"},
+			expectError:     true,
+			errorMsg:        "failed to patch node annotation",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1307,6 +1365,9 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 			}
 			require.Nil(t, httpErr)
 
+			require.Equal(t, 0, countClientActions(client.Actions(), "get", "nodes"))
+			require.Equal(t, len(tc.expectTopologySpec), countClientActions(client.Actions(), "patch", "nodes"))
+
 			cm, err := client.CoreV1().ConfigMaps(params.Namespace).Get(context.Background(), params.ConfigMapName, metav1.GetOptions{})
 			require.NoError(t, err)
 			require.Equal(t, tc.expectTopologyYaml, cm.Data[params.ConfigPath])
@@ -1318,8 +1379,26 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 				require.Equal(t, []byte("OK\n"), result)
 			}
 
+			// A second reconciliation over unchanged nodes must use the existing
+			// List result and issue no per-node Get or Patch requests.
+			client.ClearActions()
+			result, httpErr = engine.GenerateOutput(context.Background(), topo, nil)
+			require.Nil(t, httpErr)
+			require.Equal(t, []byte("OK\n"), result)
+			require.Equal(t, 0, countClientActions(client.Actions(), "get", "nodes"))
+			require.Equal(t, 0, countClientActions(client.Actions(), "patch", "nodes"))
 		})
 	}
+}
+
+func countClientActions(actions []k8stesting.Action, verb, resource string) int {
+	count := 0
+	for _, action := range actions {
+		if action.GetVerb() == verb && action.GetResource().Resource == resource {
+			count++
+		}
+	}
+	return count
 }
 
 func TestResolveTopologies(t *testing.T) {

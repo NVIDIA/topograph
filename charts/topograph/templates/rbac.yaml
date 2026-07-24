@@ -40,7 +40,17 @@ rules:
 {{- end }}
 - apiGroups: [""]
   resources: [nodes]
-  verbs: [get,list,update]
+  verbs: [get,list]
+{{- if eq .Values.engine.name "k8s" }}
+- apiGroups: [""]
+  resources: [nodes]
+  verbs: [update]
+{{- end }}
+{{- if eq .Values.engine.name "slinky" }}
+- apiGroups: [""]
+  resources: [nodes]
+  verbs: [patch]
+{{- end }}
 - apiGroups: [apps]
   resources: [daemonsets]
   verbs: [get]
