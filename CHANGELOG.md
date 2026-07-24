@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Slurm and Slinky block topology configurations can set `blockName.nodeNameRegexp` and `blockName.format` to derive unique block names from site-specific node naming conventions.
 - Simulation model files may omit empty leaf-switch definitions; the model loader now creates leaf switches referenced by the parent switch hierarchy.
 - `govulncheck` job in the Go CI workflow for symbol-level vulnerability scanning on pull requests.
 - **NFD engine** (`engine: nfd`) that publishes Topograph topology as NFD `NodeFeature` and `NodeFeatureGroup` custom resources.

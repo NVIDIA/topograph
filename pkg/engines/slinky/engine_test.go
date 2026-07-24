@@ -139,11 +139,15 @@ func TestGetParameters(t *testing.T) {
 		{
 			name: "Case 8: cluster-wide valid parameters",
 			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyNodeSelector:      nodeSelector,
-				topology.KeyPlugin:            topology.TopologyBlock,
-				topology.KeyBlockSizes:        []int{16},
+				topology.KeyNamespace:    "namespace",
+				topology.KeyPodSelector:  podSelector,
+				topology.KeyNodeSelector: nodeSelector,
+				topology.KeyPlugin:       topology.TopologyBlock,
+				topology.KeyBlockSizes:   []int{16},
+				topology.KeyBlockName: map[string]any{
+					topology.KeyNodeNameRegexp: `^([^-]+)-`,
+					topology.KeyFormat:         `${1}`,
+				},
 				topology.KeyTopoConfigPath:    "path",
 				topology.KeyTopoConfigmapName: "name",
 			},
@@ -151,6 +155,10 @@ func TestGetParameters(t *testing.T) {
 				BaseParams: slurm.BaseParams{
 					Plugin:     topology.TopologyBlock,
 					BlockSizes: []int{16},
+					BlockName: &translate.BlockNameConfig{
+						NodeNameRegexp: `^([^-]+)-`,
+						Format:         `${1}`,
+					},
 				},
 				Namespace:     "namespace",
 				PodSelector:   labelSelector,
@@ -173,7 +181,11 @@ func TestGetParameters(t *testing.T) {
 					"topo1": map[string]any{
 						"plugin":     topology.TopologyBlock,
 						"blockSizes": []int{16, 32},
-						"nodes":      []string{"node1", "node2"},
+						"blockName": map[string]any{
+							"nodeNameRegexp": `^(node)[0-9]+`,
+							"format":         `${1}`,
+						},
+						"nodes": []string{"node1", "node2"},
 					},
 					"topo2": map[string]any{
 						topology.KeyPlugin: topology.TopologyTree,
@@ -192,7 +204,11 @@ func TestGetParameters(t *testing.T) {
 						Topology: slurm.Topology{
 							Plugin:     topology.TopologyBlock,
 							BlockSizes: []int{16, 32},
-							Nodes:      []string{"node1", "node2"},
+							BlockName: &translate.BlockNameConfig{
+								NodeNameRegexp: `^(node)[0-9]+`,
+								Format:         `${1}`,
+							},
+							Nodes: []string{"node1", "node2"},
 						},
 					},
 					"topo2": {

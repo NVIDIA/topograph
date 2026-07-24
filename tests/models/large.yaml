@@ -9,9 +9,9 @@
 #   leaf-1-1   leaf-1-2
 #      |          |
 #   -------    -------
-#    1101       1201
+#   srv1101    srv1201
 #     ...        ...
-#    1108       1208
+#   srv1108    srv1208
 #   -------    ------- 
 #   nvl-1-1    nvl-1-2
 #
@@ -67,61 +67,61 @@ switches:
 blocks:
 - switch: leaf-1-1
   nodes:
-  - "[1101-1108]"
+  - "srv11[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-1-1
 - switch: leaf-1-2
   nodes:
-  - "[1201-1208]"
+  - "srv12[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-1-2
 - switch: leaf-2-1
   nodes:
-  - "[2101-2108]"
+  - "srv21[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-2-1
 - switch: leaf-2-2
   nodes:
-  - "[2201-2208]"
+  - "srv22[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-2-2
 - switch: leaf-3-1
   nodes:
-  - "[3101-3108]"
+  - "srv31[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-3-1
 - switch: leaf-3-2
   nodes:
-  - "[3201-3208]"
+  - "srv32[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-3-2
 - switch: leaf-4-1
   nodes:
-  - "[4101-4108]"
+  - "srv41[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-4-1
 - switch: leaf-4-2
   nodes:
-  - "[4201-4208]"
+  - "srv42[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-4-2
 - switch: leaf-5-1
   nodes:
-  - "[5101-5108]"
+  - "srv51[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-5-1
 - switch: leaf-5-2
   nodes:
-  - "[5201-5208]"
+  - "srv52[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-5-2
 - switch: leaf-6-1
   nodes:
-  - "[6101-6108]"
+  - "srv61[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-6-1
 - switch: leaf-6-2
   nodes:
-  - "[6201-6208]"
+  - "srv62[01-08]"
   labels:
     network.topology.nvidia.com/accelerator: nvl-6-2

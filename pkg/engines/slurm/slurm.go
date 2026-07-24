@@ -49,16 +49,18 @@ const NAME = "slurm"
 type SlurmEngine struct{}
 
 type BaseParams struct {
-	Plugin     string `mapstructure:"plugin"`
-	BlockSizes []int  `mapstructure:"blockSizes"`
+	Plugin     string                     `mapstructure:"plugin"`
+	BlockSizes []int                      `mapstructure:"blockSizes"`
+	BlockName  *translate.BlockNameConfig `mapstructure:"blockName"`
 }
 
 type Topology struct {
-	Partition  string   `mapstructure:"partition"`
-	Plugin     string   `mapstructure:"plugin"`
-	BlockSizes []int    `mapstructure:"blockSizes"`
-	Nodes      []string `mapstructure:"nodes"`
-	Default    bool     `mapstructure:"clusterDefault"`
+	Partition  string                     `mapstructure:"partition"`
+	Plugin     string                     `mapstructure:"plugin"`
+	BlockSizes []int                      `mapstructure:"blockSizes"`
+	BlockName  *translate.BlockNameConfig `mapstructure:"blockName"`
+	Nodes      []string                   `mapstructure:"nodes"`
+	Default    bool                       `mapstructure:"clusterDefault"`
 }
 
 type Params struct {
@@ -280,10 +282,14 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 	if err := validateBlockSizes(params.BlockSizes); err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
+	if err := translate.ValidateBlockNameConfig(params.BlockName); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
 
 	cfg := &translate.Config{
 		Plugin:     params.Plugin,
 		BlockSizes: params.BlockSizes,
+		BlockName:  params.BlockName,
 	}
 
 	// set per-partition topologies
@@ -293,9 +299,13 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 			if err := validateBlockSizes(sect.BlockSizes); err != nil {
 				return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topo, err))
 			}
+			if err := translate.ValidateBlockNameConfig(sect.BlockName); err != nil {
+				return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topo, err))
+			}
 			spec := &translate.TopologySpec{
 				Plugin:         sect.Plugin,
 				BlockSizes:     sect.BlockSizes,
+				BlockName:      sect.BlockName,
 				ClusterDefault: sect.Default,
 			}
 			klog.InfoS("Adding partition topology", "name", topo, "plugin", sect.Plugin, "default", sect.Default, "partition", sect.Partition)
