@@ -226,38 +226,38 @@ func buildBlockTree(domains topology.DomainMap, blockSizes []int) *aggregateBloc
 	if len(blockSizes) == 0 || blockSizes[0] <= 0 {
 		return nil
 	}
-	src := domains.GetDomainTree(blockSizes)
-	return convert(src, blockSizes[0])
+	dt := domains.GetDomainTree(blockSizes)
+	return convert(dt.Root, dt, blockSizes[0])
 }
 
-func convert(src *topology.DomainTreeNode, baseBlockSize int) *aggregateBlockNode {
+func convert(src *topology.Vertex, dt *topology.DomainTree, baseBlockSize int) *aggregateBlockNode {
 	if src == nil {
 		return nil
 	}
 
-	target := &aggregateBlockNode{id: src.Name}
+	target := &aggregateBlockNode{id: src.ID}
+	hosts := dt.Hosts(src)
+	desiredNodeCount := dt.DesiredNodeCount(src)
 
 	// Leaf node: split hosts into base blocks and pad to DesiredNodeCount slots.
-	if len(src.Hosts) > 0 {
-		groupSize := src.DesiredNodeCount / baseBlockSize
-		hosts := hostsSorted(src.Hosts)
-		blocks := splitIntoBaseBlocks(src.Name, hosts, baseBlockSize)
+	if len(hosts) > 0 {
+		groupSize := desiredNodeCount / baseBlockSize
+		sorted := hostsSorted(hosts)
+		blocks := splitIntoBaseBlocks(src.ID, sorted, baseBlockSize)
 		for i := len(blocks); i < groupSize; i++ {
 			blocks = append(blocks, newEmptyBaseBlock(baseBlockSize))
 		}
-
 		for _, b := range blocks {
 			target.nodeCount += baseBlockSize
 			target.children = append(target.children, b)
 		}
-
 		return target
 	}
 
 	// Interior node: recurse into children in alphabetical order for determinism.
 	childCapacity := 0
-	for _, name := range slices.Sorted(maps.Keys(src.Children)) {
-		converted := convert(src.Children[name], baseBlockSize)
+	for _, name := range slices.Sorted(maps.Keys(src.Vertices)) {
+		converted := convert(src.Vertices[name], dt, baseBlockSize)
 		if converted == nil {
 			continue
 		}
@@ -269,7 +269,7 @@ func convert(src *topology.DomainTreeNode, baseBlockSize int) *aggregateBlockNod
 	}
 
 	// Pad with empty sibling aggregates until DesiredNodeCount is reached.
-	for target.nodeCount < src.DesiredNodeCount && childCapacity > 0 {
+	for target.nodeCount < desiredNodeCount && childCapacity > 0 {
 		empty := newEmptyChildAggregate(childCapacity, baseBlockSize)
 		target.children = append(target.children, empty)
 		target.nodeCount += childCapacity

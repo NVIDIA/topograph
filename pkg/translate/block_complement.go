@@ -16,8 +16,9 @@ import (
 // Only domains for accelerators present in blocks are used so per-partition YAML
 // complementing is not masked by domains owned by other partitions in nt.domains.
 //
-// buildBlockTree calls GetDomainTree to produce a flat one- or two-level DomainTreeNode
-// tree (one level when no host carries a SubDomain, two levels otherwise), assigns
+// buildBlockTree calls GetDomainTree to produce a flat one- or two-level Vertex
+// tree wrapped in a DomainTree (one level when no host carries a SubDomain, two
+// levels otherwise), assigns
 // DesiredNodeCount to every node via a BFS pass, and recursively converts the result
 // into an aggregateBlockNode tree with empty placeholder slots for absent groups or
 // domains. The flat base-block slot list is then numbered sequentially.

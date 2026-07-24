@@ -412,7 +412,7 @@ func TestGetBlockTopologyUnitSingleBlockSize(t *testing.T) {
 //   - Group level (depth 2): max ActualNodeCount = 9 → DesiredNodeCount = 9 per group.
 //     Each group leaf emits exactly 1 base block (groupSize = 9/9 = 1).
 //
-//   - Domain level (depth 1): max ActualNodeCount = 130 (domain-02) → DesiredNodeCount = 144.
+//   - Domain level (depth 1): max ActualNodeCount = 131 (domain-02) → DesiredNodeCount = 144.
 //     domain-01 has 14 active groups → 14 real + 2 empty = 16 slots (blocks 001–016).
 //     domain-02 has 15 active groups → 15 real + 1 empty = 16 slots (blocks 017–032).
 //
