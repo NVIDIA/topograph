@@ -20,39 +20,96 @@ import (
 )
 
 type Config struct {
-	Plugin                string // topology plugin (cluster-wide)
-	BlockSizes            []int
-	BlockNamePrefixRegexp string
-	Topologies            map[string]*TopologySpec // per-partiton topology settings
+	Plugin     string // topology plugin (cluster-wide)
+	BlockSizes []int
+	BlockName  *BlockNameConfig
+	Topologies map[string]*TopologySpec // per-partiton topology settings
 }
 
 // TopologySpec define topology for a partition
 type TopologySpec struct {
-	Plugin                string
-	BlockSizes            []int
-	BlockNamePrefixRegexp string
-	ClusterDefault        bool
-	Nodes                 []string
+	Plugin         string
+	BlockSizes     []int
+	BlockName      *BlockNameConfig
+	ClusterDefault bool
+	Nodes          []string
 }
 
-func compileBlockNamePrefixRegexp(pattern string) *regexp.Regexp {
-	if pattern == "" {
+type BlockNameConfig struct {
+	NodeNameRegexp string `mapstructure:"nodeNameRegexp"`
+	Format         string `mapstructure:"format"`
+	compiledRegexp *regexp.Regexp
+}
+
+type blockNameFormatter struct {
+	re     *regexp.Regexp
+	format string
+}
+
+func compileBlockNameFormatter(config *BlockNameConfig) *blockNameFormatter {
+	if config == nil {
 		return nil
 	}
-	return regexp.MustCompile(pattern)
+	return &blockNameFormatter{
+		re:     config.compiledRegexp,
+		format: config.Format,
+	}
 }
 
-func blockNameWithNodePrefix(defaultName string, nodes []string, re *regexp.Regexp) string {
-	if re == nil {
-		return defaultName
+func blockDescription(id, domain string) string {
+	description := fmt.Sprintf("block %q", id)
+	if domain != "" {
+		description += fmt.Sprintf(" (domain %q)", domain)
+	}
+	return description
+}
+
+func (f *blockNameFormatter) formatBlockName(defaultName, domainName string, nodes []string) (string, error) {
+	if f == nil || len(nodes) == 0 {
+		return defaultName, nil
 	}
 
+	description := blockDescription(defaultName, domainName)
+	var blockName string
 	for _, node := range nodes {
-		if loc := re.FindStringIndex(node); loc != nil && loc[0] == 0 {
-			return node[loc[0]:loc[1]]
+		match := f.re.FindStringSubmatchIndex(node)
+		if match == nil {
+			return "", fmt.Errorf("node %q in %s does not match nodeNameRegexp %q", node, description, f.re.String())
+		}
+
+		nodeBlockName := string(f.re.ExpandString(nil, f.format, node, match))
+		if nodeBlockName == "" {
+			return "", fmt.Errorf("blockName format %q produces an empty name for node %q in %s", f.format, node, description)
+		}
+		if blockName == "" {
+			blockName = nodeBlockName
+		} else if nodeBlockName != blockName {
+			return "", fmt.Errorf(
+				"nodes in %s produce different block names %q and %q",
+				description,
+				blockName,
+				nodeBlockName,
+			)
 		}
 	}
-	return defaultName
+	return blockName, nil
+}
+
+func formatBlockNames(blocks []*blockInfo, formatter *blockNameFormatter) ([]string, error) {
+	names := make([]string, len(blocks))
+	seen := make(map[string]string, len(blocks))
+	for i, block := range blocks {
+		name, err := formatter.formatBlockName(block.id, block.name, block.nodes)
+		if err != nil {
+			return nil, err
+		}
+		if previousBlock, ok := seen[name]; ok {
+			return nil, fmt.Errorf("blocks %q and %q produce duplicate block name %q", previousBlock, block.id, name)
+		}
+		seen[name] = block.id
+		names[i] = name
+	}
+	return names, nil
 }
 
 type NetworkTopology struct {
@@ -79,20 +136,22 @@ type nodeInfo struct {
 }
 
 func (cfg *Config) Validate(graph *topology.Graph) error {
-	if cfg.BlockNamePrefixRegexp != "" {
-		if _, err := regexp.Compile(cfg.BlockNamePrefixRegexp); err != nil {
-			return fmt.Errorf("invalid blockNamePrefixRegexp %q: %v", cfg.BlockNamePrefixRegexp, err)
-		}
+	if cfg.BlockName != nil && cfg.Plugin != topology.TopologyBlock {
+		return fmt.Errorf("blockName is only supported with plugin %q", topology.TopologyBlock)
+	}
+	if err := ValidateBlockNameConfig(cfg.BlockName); err != nil {
+		return err
 	}
 	if len(cfg.Topologies) != 0 { // per-partition topology
 		if len(cfg.Plugin) != 0 {
 			return fmt.Errorf("plugin and topologies parameters are mutually exclusive")
 		}
 		for topo, spec := range cfg.Topologies {
-			if spec.BlockNamePrefixRegexp != "" {
-				if _, err := regexp.Compile(spec.BlockNamePrefixRegexp); err != nil {
-					return fmt.Errorf("topology %q: invalid blockNamePrefixRegexp %q: %v", topo, spec.BlockNamePrefixRegexp, err)
-				}
+			if spec.BlockName != nil && spec.Plugin != topology.TopologyBlock {
+				return fmt.Errorf("topology %q: blockName is only supported with plugin %q", topo, topology.TopologyBlock)
+			}
+			if err := ValidateBlockNameConfig(spec.BlockName); err != nil {
+				return fmt.Errorf("topology %q: %v", topo, err)
 			}
 			switch spec.Plugin {
 			case topology.TopologyTree:
@@ -126,6 +185,28 @@ func (cfg *Config) Validate(graph *topology.Graph) error {
 			return fmt.Errorf("unsupported topology plugin %q", cfg.Plugin)
 		}
 	}
+	return nil
+}
+
+func ValidateBlockNameConfig(config *BlockNameConfig) error {
+	if config == nil {
+		return nil
+	}
+	if config.NodeNameRegexp == "" {
+		return fmt.Errorf("blockName.nodeNameRegexp must not be empty")
+	}
+	if config.Format == "" {
+		return fmt.Errorf("blockName.format must not be empty")
+	}
+	if config.compiledRegexp != nil && config.compiledRegexp.String() == config.NodeNameRegexp {
+		return nil
+	}
+	compiled, err := regexp.Compile(config.NodeNameRegexp)
+	if err != nil {
+		config.compiledRegexp = nil
+		return fmt.Errorf("invalid blockName.nodeNameRegexp %q: %v", config.NodeNameRegexp, err)
+	}
+	config.compiledRegexp = compiled
 	return nil
 }
 

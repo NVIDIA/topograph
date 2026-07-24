@@ -243,14 +243,20 @@ func TestGetTranslateConfig(t *testing.T) {
 		{
 			name: "Case 2: valid blocksize",
 			params: &BaseParams{
-				Plugin:                topology.TopologyBlock,
-				BlockSizes:            []int{2, 8, 32},
-				BlockNamePrefixRegexp: `^[^-]+-`,
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{2, 8, 32},
+				BlockName: &translate.BlockNameConfig{
+					NodeNameRegexp: `^([^-]+)-`,
+					Format:         `${1}`,
+				},
 			},
 			cfg: &translate.Config{
-				Plugin:                topology.TopologyBlock,
-				BlockSizes:            []int{2, 8, 32},
-				BlockNamePrefixRegexp: `^[^-]+-`,
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{2, 8, 32},
+				BlockName: &translate.BlockNameConfig{
+					NodeNameRegexp: `^([^-]+)-`,
+					Format:         `${1}`,
+				},
 			},
 		},
 		{
@@ -292,9 +298,12 @@ func TestGetTranslateConfig(t *testing.T) {
 					Default: true,
 				},
 				"topo": {
-					Plugin:                topology.TopologyBlock,
-					BlockNamePrefixRegexp: `^node`,
-					Nodes:                 []string{"node[001-100]"},
+					Plugin: topology.TopologyBlock,
+					BlockName: &translate.BlockNameConfig{
+						NodeNameRegexp: `^(node)[0-9]+`,
+						Format:         `${1}`,
+					},
+					Nodes: []string{"node[001-100]"},
 				},
 			},
 			cfg: &translate.Config{
@@ -304,9 +313,12 @@ func TestGetTranslateConfig(t *testing.T) {
 						ClusterDefault: true,
 					},
 					"topo": {
-						Plugin:                topology.TopologyBlock,
-						BlockNamePrefixRegexp: `^node`,
-						Nodes:                 []string{"node[001-100]"},
+						Plugin: topology.TopologyBlock,
+						BlockName: &translate.BlockNameConfig{
+							NodeNameRegexp: `^(node)[0-9]+`,
+							Format:         `${1}`,
+						},
+						Nodes: []string{"node[001-100]"},
 					},
 				},
 			},
@@ -348,24 +360,50 @@ func TestGetTranslateConfig(t *testing.T) {
 			err: `topology "topo": blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2`,
 		},
 		{
-			name: "Case 9: invalid cluster-wide block name prefix regexp",
+			name: "Case 9: invalid cluster-wide node name regexp",
 			params: &BaseParams{
-				Plugin:                topology.TopologyBlock,
-				BlockNamePrefixRegexp: `[`,
+				Plugin: topology.TopologyBlock,
+				BlockName: &translate.BlockNameConfig{
+					NodeNameRegexp: `[`,
+					Format:         `${1}`,
+				},
 			},
-			err: "invalid blockNamePrefixRegexp \"[\": error parsing regexp: missing closing ]: `[`",
+			err: "invalid blockName.nodeNameRegexp \"[\": error parsing regexp: missing closing ]: `[`",
 		},
 		{
-			name:   "Case 10: invalid partition block name prefix regexp",
+			name:   "Case 10: invalid partition node name regexp",
 			params: &BaseParams{},
 			topologies: map[string]*Topology{
 				"topo": {
-					Plugin:                topology.TopologyBlock,
-					BlockNamePrefixRegexp: `[`,
-					Nodes:                 []string{"node001"},
+					Plugin: topology.TopologyBlock,
+					BlockName: &translate.BlockNameConfig{
+						NodeNameRegexp: `[`,
+						Format:         `${1}`,
+					},
+					Nodes: []string{"node001"},
 				},
 			},
-			err: "topology \"topo\": invalid blockNamePrefixRegexp \"[\": error parsing regexp: missing closing ]: `[`",
+			err: "topology \"topo\": invalid blockName.nodeNameRegexp \"[\": error parsing regexp: missing closing ]: `[`",
+		},
+		{
+			name: "Case 11: missing node name regexp",
+			params: &BaseParams{
+				Plugin: topology.TopologyBlock,
+				BlockName: &translate.BlockNameConfig{
+					Format: `${1}`,
+				},
+			},
+			err: "blockName.nodeNameRegexp must not be empty",
+		},
+		{
+			name: "Case 12: missing block name format",
+			params: &BaseParams{
+				Plugin: topology.TopologyBlock,
+				BlockName: &translate.BlockNameConfig{
+					NodeNameRegexp: `^node([0-9]+)`,
+				},
+			},
+			err: "blockName.format must not be empty",
 		},
 	}
 
@@ -376,6 +414,10 @@ func TestGetTranslateConfig(t *testing.T) {
 				require.EqualError(t, err, tc.err)
 			} else {
 				require.Nil(t, err)
+				require.NoError(t, translate.ValidateBlockNameConfig(tc.cfg.BlockName))
+				for _, spec := range tc.cfg.Topologies {
+					require.NoError(t, translate.ValidateBlockNameConfig(spec.BlockName))
+				}
 				require.Equal(t, tc.cfg, cfg)
 			}
 		})

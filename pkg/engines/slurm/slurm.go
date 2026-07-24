@@ -49,18 +49,18 @@ const NAME = "slurm"
 type SlurmEngine struct{}
 
 type BaseParams struct {
-	Plugin                string `mapstructure:"plugin"`
-	BlockSizes            []int  `mapstructure:"blockSizes"`
-	BlockNamePrefixRegexp string `mapstructure:"blockNamePrefixRegexp"`
+	Plugin     string                     `mapstructure:"plugin"`
+	BlockSizes []int                      `mapstructure:"blockSizes"`
+	BlockName  *translate.BlockNameConfig `mapstructure:"blockName"`
 }
 
 type Topology struct {
-	Partition             string   `mapstructure:"partition"`
-	Plugin                string   `mapstructure:"plugin"`
-	BlockSizes            []int    `mapstructure:"blockSizes"`
-	BlockNamePrefixRegexp string   `mapstructure:"blockNamePrefixRegexp"`
-	Nodes                 []string `mapstructure:"nodes"`
-	Default               bool     `mapstructure:"clusterDefault"`
+	Partition  string                     `mapstructure:"partition"`
+	Plugin     string                     `mapstructure:"plugin"`
+	BlockSizes []int                      `mapstructure:"blockSizes"`
+	BlockName  *translate.BlockNameConfig `mapstructure:"blockName"`
+	Nodes      []string                   `mapstructure:"nodes"`
+	Default    bool                       `mapstructure:"clusterDefault"`
 }
 
 type Params struct {
@@ -282,14 +282,14 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 	if err := validateBlockSizes(params.BlockSizes); err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
-	if err := validateBlockNamePrefixRegexp(params.BlockNamePrefixRegexp); err != nil {
+	if err := translate.ValidateBlockNameConfig(params.BlockName); err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	cfg := &translate.Config{
-		Plugin:                params.Plugin,
-		BlockSizes:            params.BlockSizes,
-		BlockNamePrefixRegexp: params.BlockNamePrefixRegexp,
+		Plugin:     params.Plugin,
+		BlockSizes: params.BlockSizes,
+		BlockName:  params.BlockName,
 	}
 
 	// set per-partition topologies
@@ -299,14 +299,14 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 			if err := validateBlockSizes(sect.BlockSizes); err != nil {
 				return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topo, err))
 			}
-			if err := validateBlockNamePrefixRegexp(sect.BlockNamePrefixRegexp); err != nil {
+			if err := translate.ValidateBlockNameConfig(sect.BlockName); err != nil {
 				return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topo, err))
 			}
 			spec := &translate.TopologySpec{
-				Plugin:                sect.Plugin,
-				BlockSizes:            sect.BlockSizes,
-				BlockNamePrefixRegexp: sect.BlockNamePrefixRegexp,
-				ClusterDefault:        sect.Default,
+				Plugin:         sect.Plugin,
+				BlockSizes:     sect.BlockSizes,
+				BlockName:      sect.BlockName,
+				ClusterDefault: sect.Default,
 			}
 			klog.InfoS("Adding partition topology", "name", topo, "plugin", sect.Plugin, "default", sect.Default, "partition", sect.Partition)
 			if sect.Nodes != nil {
@@ -327,16 +327,6 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 	}
 
 	return cfg, nil
-}
-
-func validateBlockNamePrefixRegexp(pattern string) error {
-	if pattern == "" {
-		return nil
-	}
-	if _, err := regexp.Compile(pattern); err != nil {
-		return fmt.Errorf("invalid blockNamePrefixRegexp %q: %v", pattern, err)
-	}
-	return nil
 }
 
 func validateBlockSizes(blockSizes []int) error {

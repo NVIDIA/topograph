@@ -95,7 +95,10 @@ func (nt *NetworkTopology) GetTopologies() ([]*TopologyUnit, *httperr.Error) {
 			tu := nt.getTreeTopologyUnit(topoName, topoSpec)
 			topologies = append(topologies, tu)
 		case topology.TopologyBlock:
-			tu := nt.getBlockTopologyUnit(topoName, topoSpec)
+			tu, err := nt.getBlockTopologyUnit(topoName, topoSpec)
+			if err != nil {
+				return topologies, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topoName, err))
+			}
 			topologies = append(topologies, tu)
 		case topology.TopologyFlat:
 			topologies = append(topologies, &TopologyUnit{
@@ -132,7 +135,7 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer, topologies []*TopologyUn
 	return nil
 }
 
-func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {
+func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, error) {
 	// populate map [block indx : blockInfo]
 	nodeNames := cluset.Expand(topoSpec.Nodes)
 	blockMap := make(map[int]*blockInfo)
@@ -181,17 +184,19 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 		})
 
 		bInfos = nt.complementBlocks(bInfos, topoSpec.BlockSizes)
+		for indx, bInfo := range bInfos {
+			bInfo.id = fmt.Sprintf("block%d", indx+1)
+		}
 
 		// populate block topology units ordered by block indices
 		blocks := make([]*Block, 0, len(bInfos))
 		parents := make(map[string]string)
-		blockNamePrefixRegexp := compileBlockNamePrefixRegexp(topoSpec.BlockNamePrefixRegexp)
+		blockNames, err := formatBlockNames(bInfos, compileBlockNameFormatter(topoSpec.BlockName))
+		if err != nil {
+			return nil, err
+		}
 		for indx, bInfo := range bInfos {
-			blockName := blockNameWithNodePrefix(
-				fmt.Sprintf("block%d", indx+1),
-				bInfo.nodes,
-				blockNamePrefixRegexp,
-			)
+			blockName := blockNames[indx]
 			block := &Block{Name: blockName}
 			if len(bInfo.nodes) != 0 {
 				block.Nodes = strings.Join(cluset.Compact(bInfo.nodes), ",")
@@ -209,7 +214,7 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 			parents:    parents,
 		}
 	}
-	return tu
+	return tu, nil
 }
 
 func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {
