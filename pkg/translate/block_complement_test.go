@@ -404,7 +404,7 @@ func TestGetBlockTopologyUnitSingleBlockSize(t *testing.T) {
 
 // TestComplementDualLevel validates dual-level block tree construction using the
 // dual-level simulation model. Two accelerator domains (domain-01, domain-02) each
-// contain rack groups identified by SubDomain (rack-1-01 … rack-1-16 and
+// contain sub-domains identified by SubDomain (rack-1-01 … rack-1-16 and
 // rack-2-01 … rack-2-16). rack-1-03 and rack-1-13 have no nodes; rack-2-11 is absent.
 //
 // With BlockSizes=[9,144]:

@@ -258,9 +258,12 @@ func convert(src *topology.DomainTreeNode, baseBlockSize int) *aggregateBlockNod
 	childCapacity := 0
 	for _, name := range slices.Sorted(maps.Keys(src.Children)) {
 		converted := convert(src.Children[name], baseBlockSize)
+		if converted == nil {
+			continue
+		}
 		target.children = append(target.children, converted)
 		target.nodeCount += converted.nodeCount
-		if childCapacity == 0 {
+		if childCapacity == 0 && converted.nodeCount > 0 {
 			childCapacity = converted.nodeCount
 		}
 	}
