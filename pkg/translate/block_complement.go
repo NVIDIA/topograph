@@ -51,6 +51,11 @@ func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []in
 // hosts that belong to the given partition-local blocks. For each block it intersects
 // the global domain with the block's own node list, so that nodes owned by another
 // partition in the same accelerator domain are never included.
+//
+// Contract: b.name must match a DomainMap key (the accelerator domain name, e.g.
+// "domain-01"). In the dual-level case the outer DomainMap is keyed by accelerator
+// domain so this holds; a provider that uses SubDomain names as block names will
+// silently receive an empty domain map here and hosts will be dropped.
 func domainsForBlocks(all topology.DomainMap, blocks []*blockInfo) topology.DomainMap {
 	if all == nil {
 		return nil
