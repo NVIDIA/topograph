@@ -319,6 +319,11 @@ nodeDataBroker:
   rbac:
     create: true
 
+  # Opt-in ValidatingAdmissionPolicy to scope node writes. Requires
+  # Kubernetes >= 1.30 (admissionregistration.k8s.io/v1) and ServiceAccountTokenPodNodeInfo enabled.
+  validatingAdmissionPolicy:
+    enabled: false
+
   env: {}
   initContainers: []
   lifecycle: {}
