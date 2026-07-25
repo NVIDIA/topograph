@@ -36,11 +36,6 @@ switches:
     switches:
     - sw13
     - sw14
-  sw11: {}
-  sw12: {}
-  sw13: {}
-  sw14: {}
-
 blocks:
 - switch: sw11
   nodes:

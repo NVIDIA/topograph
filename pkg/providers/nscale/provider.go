@@ -203,7 +203,7 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, p.params.TrimTiers, false), nil
+	return topo.ToGraph(NAME, instances, p.params.TrimTiers, false), nil
 }
 
 // Instances2NodeMap implements slurm.instanceMapper

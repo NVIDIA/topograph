@@ -12,7 +12,7 @@ Topograph is a component that discovers the physical network topology of a clust
 
 Pick the install path that matches your scheduler:
 
-- **Kubernetes** — the same Helm chart covers native Kubernetes scheduling (`k8s` engine) and [Slinky](https://github.com/SlinkyProject) (Slurm-on-Kubernetes, `slinky` engine). See [Install on Kubernetes](docs/get-started/quickstart-k8s.md).
+- **Kubernetes** — the same Helm chart covers native Kubernetes scheduling (`k8s` engine), Node Feature Discovery CR output (`nfd` engine), and [Slinky](https://github.com/SlinkyProject) (Slurm-on-Kubernetes, `slinky` engine). See [Install on Kubernetes](docs/get-started/quickstart-k8s.md).
 - **Slurm (bare metal)** — install a `.deb` or `.rpm` package on the Slurm head node and run Topograph as a systemd service. See [Install on Slurm](docs/get-started/quickstart-slurm.md).
 
 ## Learn more

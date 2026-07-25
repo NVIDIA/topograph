@@ -1,0 +1,31 @@
+provider:
+  name: test
+  params:
+    modelFileName: medium.yaml
+    generateResponseCode: 202
+    topologyResponseCode: 200
+engine:
+  name: nfd
+  params:
+    nodeSelector:
+      kwok.x-k8s.io/node: "fake"
+    cleanup: true
+
+nfdNamespace: node-feature-discovery
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  topograph:
+    trigger:
+      nodeSelector:
+        kwok.x-k8s.io/node: "fake"
+
+nodeDataBroker:
+  enabled: false

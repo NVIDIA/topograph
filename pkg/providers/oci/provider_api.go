@@ -66,6 +66,7 @@ type Client interface {
 	Limit() *int
 	ListAvailabilityDomains(context.Context, identity.ListAvailabilityDomainsRequest) (identity.ListAvailabilityDomainsResponse, error)
 	ListComputeHosts(context.Context, core.ListComputeHostsRequest) (core.ListComputeHostsResponse, error)
+	GetComputeHost(context.Context, core.GetComputeHostRequest) (core.GetComputeHostResponse, error)
 }
 
 type ociClient struct {
@@ -186,7 +187,7 @@ func (p *apiProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int,
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, p.trimTiers, true), nil
+	return topo.ToGraph(NAME, instances, p.trimTiers, true), nil
 }
 
 func (p *apiProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {

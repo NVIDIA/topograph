@@ -56,9 +56,9 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 			ID:          node.ID,
 			NetworkPath: path,
 		}
-		acceleratorID := node.AcceleratorID()
-		if acceleratorID != "" {
-			instance.BlockID = &acceleratorID
+		domainID := node.Labels[topology.KeyTopologyAccelerator]
+		if domainID != "" {
+			instance.BlockID = &domainID
 		}
 
 		resp = append(resp, instance)
@@ -116,5 +116,5 @@ func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int,
 	if err != nil {
 		return nil, err
 	}
-	return p.ToThreeTierGraph(NAME_SIM, topo, instances, false), nil
+	return p.ToGraph(NAME_SIM, topo, instances, false), nil
 }

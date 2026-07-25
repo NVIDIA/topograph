@@ -20,11 +20,11 @@ import (
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/engines/graph"
 	"github.com/NVIDIA/topograph/pkg/engines/k8s"
+	"github.com/NVIDIA/topograph/pkg/engines/nfd"
 	"github.com/NVIDIA/topograph/pkg/engines/slinky"
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
-	"github.com/NVIDIA/topograph/pkg/providers/cw"
 	"github.com/NVIDIA/topograph/pkg/providers/dra"
 	"github.com/NVIDIA/topograph/pkg/providers/dsx"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
@@ -42,7 +42,6 @@ var Providers = providers.NewRegistry(
 	aws.NamedLoaderSim,
 	infiniband.NamedLoaderBM,
 	infiniband.NamedLoaderK8S,
-	cw.NamedLoader,
 	dra.NamedLoader,
 	gcp.NamedLoader,
 	gcp.NamedLoaderSim,
@@ -62,6 +61,7 @@ var Providers = providers.NewRegistry(
 
 var Engines = engines.NewRegistry(
 	k8s.NamedLoader,
+	nfd.NamedLoader,
 	graph.NamedLoader,
 	slurm.NamedLoader,
 	slinky.NamedLoader,

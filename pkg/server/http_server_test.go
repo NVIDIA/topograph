@@ -147,29 +147,29 @@ SwitchName=no-topology Nodes=n-CPU
 }
 `
 	slurmBlockConfig = `# block001=nvl-1-1
-BlockName=block001 Nodes=[1101-1108]
+BlockName=block001 Nodes=srv[1101-1108]
 # block002=nvl-1-2
-BlockName=block002 Nodes=[1201-1208]
+BlockName=block002 Nodes=srv[1201-1208]
 # block003=nvl-2-1
-BlockName=block003 Nodes=[2101-2108]
+BlockName=block003 Nodes=srv[2101-2108]
 # block004=nvl-2-2
-BlockName=block004 Nodes=[2201-2208]
+BlockName=block004 Nodes=srv[2201-2208]
 # block005=nvl-3-1
-BlockName=block005 Nodes=[3101-3108]
+BlockName=block005 Nodes=srv[3101-3108]
 # block006=nvl-3-2
-BlockName=block006 Nodes=[3201-3208]
+BlockName=block006 Nodes=srv[3201-3208]
 # block007=nvl-4-1
-BlockName=block007 Nodes=[4101-4108]
+BlockName=block007 Nodes=srv[4101-4108]
 # block008=nvl-4-2
-BlockName=block008 Nodes=[4201-4208]
+BlockName=block008 Nodes=srv[4201-4208]
 # block009=nvl-5-1
-BlockName=block009 Nodes=[5101-5108]
+BlockName=block009 Nodes=srv[5101-5108]
 # block010=nvl-5-2
-BlockName=block010 Nodes=[5201-5208]
+BlockName=block010 Nodes=srv[5201-5208]
 # block011=nvl-6-1
-BlockName=block011 Nodes=[6101-6108]
+BlockName=block011 Nodes=srv[6101-6108]
 # block012=nvl-6-2
-BlockName=block012 Nodes=[6201-6208]
+BlockName=block012 Nodes=srv[6201-6208]
 BlockSizes=8,16,32
 `
 	testPayload = `

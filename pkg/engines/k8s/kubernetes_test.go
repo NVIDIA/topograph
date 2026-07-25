@@ -8,10 +8,12 @@ package k8s
 import (
 	"testing"
 
-	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	internalk8s "github.com/NVIDIA/topograph/internal/k8s"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestGetComputeInstances(t *testing.T) {
@@ -64,15 +66,13 @@ func TestGetComputeInstances(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cis := getComputeInstances(tc.nodes)
+			cis := internalk8s.GetComputeInstances(tc.nodes)
 			require.Equal(t, tc.cis, cis)
 		})
 	}
 }
 
 func TestMergeNodeLabels(t *testing.T) {
-	InitLabels(DefaultLabelAccelerator, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
-
 	testCases := []struct {
 		name             string
 		acceleratorLabel string
@@ -107,23 +107,26 @@ func TestMergeNodeLabels(t *testing.T) {
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						topology.KeyNvidiaGPUClique: "cluster-a.0",
-						DefaultLabelAccelerator:     "old-domain",
-						DefaultLabelLeaf:            "old-leaf",
-						"workload.example/label":    "keep",
+						topology.KeyNvidiaGPUClique:        "cluster-a.0",
+						topology.KeyTopologyAccelerator:    "old-domain",
+						topology.FabricTierKey(0):          "old-leaf",
+						topology.FabricTierKey(3):          "stale-fabric",
+						"network.topology.nvidia.com/core": "legacy-core",
+						"workload.example/label":           "keep",
 					},
 				},
 			},
 			in: map[string]string{
-				DefaultLabelAccelerator: "api-domain",
-				DefaultLabelLeaf:        "new-leaf",
-				DefaultLabelSpine:       "new-spine",
+				topology.KeyTopologyAccelerator: "api-domain",
+				topology.FabricTierKey(0):       "new-leaf",
+				topology.FabricTierKey(1):       "new-spine",
 			},
 			out: map[string]string{
-				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				DefaultLabelLeaf:            "new-leaf",
-				DefaultLabelSpine:           "new-spine",
-				"workload.example/label":    "keep",
+				topology.KeyNvidiaGPUClique:        "cluster-a.0",
+				topology.FabricTierKey(0):          "new-leaf",
+				topology.FabricTierKey(1):          "new-spine",
+				"network.topology.nvidia.com/core": "legacy-core",
+				"workload.example/label":           "keep",
 			},
 		},
 		{
@@ -138,24 +141,53 @@ func TestMergeNodeLabels(t *testing.T) {
 			},
 			in: map[string]string{
 				topology.KeyNvidiaGPUClique: "api-domain",
-				DefaultLabelLeaf:            "new-leaf",
-				DefaultLabelSpine:           "new-spine",
+				topology.FabricTierKey(0):   "new-leaf",
 			},
 			out: map[string]string{
 				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				DefaultLabelLeaf:            "new-leaf",
-				DefaultLabelSpine:           "new-spine",
+				topology.FabricTierKey(0):   "new-leaf",
+			},
+		},
+		{
+			name:             "Case 6: custom accelerator label still protects GPU clique",
+			acceleratorLabel: "custom.example/accelerator",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						topology.KeyNvidiaGPUClique: "cluster-a.0",
+					},
+				},
+			},
+			in: map[string]string{
+				"custom.example/accelerator": "api-domain",
+				topology.FabricTierKey(0):    "new-leaf",
+				topology.FabricTierKey(1):    "new-spine",
+			},
+			out: map[string]string{
+				topology.KeyNvidiaGPUClique: "cluster-a.0",
+				topology.FabricTierKey(0):   "new-leaf",
+				topology.FabricTierKey(1):   "new-spine",
+			},
+		},
+		{
+			name: "Case 7: apply accelerator label when GPU clique is absent",
+			node: &corev1.Node{},
+			in: map[string]string{
+				topology.KeyTopologyAccelerator: "api-domain",
+			},
+			out: map[string]string{
+				topology.KeyTopologyAccelerator: "api-domain",
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			keys := NewTopologyLabelKeys(nil, "")
 			if tc.acceleratorLabel != "" {
-				InitLabels(tc.acceleratorLabel, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
-				defer InitLabels(DefaultLabelAccelerator, DefaultLabelLeaf, DefaultLabelSpine, DefaultLabelCore)
+				keys = NewTopologyLabelKeys(nil, tc.acceleratorLabel)
 			}
-			MergeNodeLabels(tc.node, tc.in)
+			MergeNodeLabels(tc.node, tc.in, keys)
 			require.Equal(t, tc.out, tc.node.Labels)
 		})
 	}

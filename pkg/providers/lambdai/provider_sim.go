@@ -65,7 +65,7 @@ func (c *simClient) InstanceList(ctx context.Context, req *InstanceListRequest) 
 			NetworkPath: netPath,
 			//TODO: check whether the below mapping is correct
 			NVLink: &NVLinkInfo{
-				DomainID: node.AcceleratorID(),
+				DomainID: node.Labels[topology.KeyTopologyAccelerator],
 				CliqueID: "simulation",
 			},
 		}
@@ -151,5 +151,5 @@ func (p *simProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int,
 	if err != nil {
 		return nil, err
 	}
-	return p.ToThreeTierGraph(NAME_SIM, topo, instances, false), nil
+	return p.ToGraph(NAME_SIM, topo, instances, false), nil
 }

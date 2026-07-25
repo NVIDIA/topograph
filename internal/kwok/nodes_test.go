@@ -33,8 +33,8 @@ func TestNodesFromModel(t *testing.T) {
 	node := nodes[0]
 	require.Equal(t, "i21", node.Name)
 	require.Equal(t, map[string]string{
-		NodeSelectorKey:         NodeSelectorValue,
-		models.LabelAccelerator: "nvl2",
+		NodeSelectorKey:                 NodeSelectorValue,
+		topology.KeyTopologyAccelerator: "nvl2",
 	}, node.Labels)
 	require.Equal(t, map[string]string{
 		NodeSelectorKey:          NodeSelectorValue,
@@ -69,7 +69,7 @@ func TestNodesFromModelUsesDerivedRegionAndLabels(t *testing.T) {
 	require.Equal(t, "us-west", node.Annotations[topology.KeyNodeRegion])
 	require.Equal(t, "us-west", node.Labels[models.LabelTopologyRegion])
 	require.Equal(t, "zone2", node.Labels[models.LabelTopologyZone])
-	require.Equal(t, "nvl3", node.Labels[models.LabelAccelerator])
+	require.Equal(t, "nvl3", node.Labels[topology.KeyTopologyAccelerator])
 }
 
 func TestMarshalNodeManifest(t *testing.T) {

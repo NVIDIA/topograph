@@ -17,6 +17,8 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const nebiusFabricTierCount = 3
+
 func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {
 	client, err := p.clientFactory(pageSize)
 	if err != nil {
@@ -70,15 +72,11 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			}
 
 			path := ibTopology.GetPath()
-			switch len(path) {
-			case 3:
-				inst.CoreID = path[0]
-				inst.SpineID = path[1]
-				inst.LeafID = path[2]
-			default:
-				klog.Warningf("unsupported size %d of topology path for node %q", len(path), hostname)
+			if len(path) != nebiusFabricTierCount {
+				klog.Warningf("invalid topology path for node %q: expected %d tiers, got %d", hostname, nebiusFabricTierCount, len(path))
 				continue
 			}
+			inst.FabricTiers = topology.RootFirstFabricTiers(path...)
 
 			klog.Infof("Adding topology: %s", inst.String())
 			topo.Append(inst)

@@ -49,6 +49,8 @@ navigation:
         path: engines/slurm.md
       - page: Kubernetes
         path: engines/k8s.md
+      - page: Node Feature Discovery
+        path: engines/nfd.md
       - page: Slinky
         path: engines/slinky.md
       - page: Graph

@@ -22,9 +22,11 @@ import (
 	"testing"
 
 	"github.com/agrea/ptr"
+	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
+	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -110,7 +112,19 @@ func TestProviderSim(t *testing.T) {
 			err:    `failed to get hosts info: API error`,
 		},
 		{
-			name:  "Case 4.3: ClientFactory API error",
+			name:  "Case 4.3: GetComputeHost API error",
+			model: clusterModel,
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region",
+					Instances: map[string]string{"n11": "node11"},
+				},
+			},
+			apiErr: errGetComputeHost,
+			err:    `failed to get hosts info: API error`,
+		},
+		{
+			name:  "Case 4.4: ClientFactory API error",
 			model: clusterModel,
 			instances: []topology.ComputeInstances{
 				{
@@ -200,6 +214,48 @@ BlockSizes=2,4
 				require.Nil(t, httpErr)
 				require.Equal(t, tc.topology, string(data))
 			}
+		})
+	}
+}
+
+func TestSimClientGetComputeHostRackAdditionalData(t *testing.T) {
+	model, err := models.NewModelFromFile("dual-accelerator.yaml")
+	require.NoError(t, err)
+
+	client := &simClient{model: model}
+	testCases := []struct {
+		instanceID   string
+		parentDomain string
+		rack         string
+	}{
+		{
+			instanceID:   "srv1101",
+			parentDomain: "nvl-1",
+			rack:         "rack01",
+		},
+		{
+			instanceID:   "srv6201",
+			parentDomain: "nvl-2",
+			rack:         "rack12",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.rack, func(t *testing.T) {
+			resp, err := client.GetComputeHost(context.Background(), core.GetComputeHostRequest{
+				ComputeHostId: ptr.String(tc.instanceID),
+			})
+			require.NoError(t, err)
+			require.Equal(t, map[string]any{
+				"locationDetails": map[string]any{
+					"rack": tc.rack,
+				},
+			}, resp.AdditionalData)
+
+			instanceTopology, err := convertComputeHost(&resp.ComputeHost)
+			require.NoError(t, err)
+			require.Equal(t, tc.parentDomain, instanceTopology.ParentAcceleratorID)
+			require.Equal(t, tc.parentDomain+"."+tc.rack, instanceTopology.AcceleratorID)
 		})
 	}
 }

@@ -201,7 +201,7 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 		return nil, err
 	}
 
-	return topo.ToThreeTierGraph(NAME, instances, p.trimTiers, false), nil
+	return topo.ToGraph(NAME, instances, p.trimTiers, false), nil
 }
 
 type Provider struct {

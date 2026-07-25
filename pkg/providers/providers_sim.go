@@ -81,10 +81,10 @@ func (p *BaseSimProvider) AttachInstances(topo *topology.ClusterTopology) {
 	topo.AttachInstances(p.instances)
 }
 
-// ToThreeTierGraph converts provider topology with the shared simulation settings.
-func (p *BaseSimProvider) ToThreeTierGraph(provider string, topo *topology.ClusterTopology, instances []topology.ComputeInstances, normalize bool) *topology.Graph {
+// ToGraph converts provider topology with the shared simulation settings.
+func (p *BaseSimProvider) ToGraph(provider string, topo *topology.ClusterTopology, instances []topology.ComputeInstances, normalize bool) *topology.Graph {
 	p.AttachInstances(topo)
-	return topo.ToThreeTierGraph(provider, instances, p.trimTiers, normalize)
+	return topo.ToGraph(provider, instances, p.trimTiers, normalize)
 }
 
 // GetComputeInstances returns model-derived compute instances for engines that need them.

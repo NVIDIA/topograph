@@ -37,8 +37,11 @@ engine:
         app.kubernetes.io/component: compute
     plugin: topology/block                   # Name of the topology plugin
     blockSizes: [4]                          # (Optional) Block size for the block topology plugin
-  topologyConfigmapName: slurm-config        # Name of the ConfigMap containing the topology config
-  topologyConfigPath: topology.conf          # Key in the ConfigMap for the topology config
+    blockName:                               # (Optional) Derive block names from node names
+      nodeNameRegexp: 'd([0-9]{2})-r([0-9]{2})'
+      format: 'domain${1}_rack${2}'
+    topologyConfigmapName: slurm-config      # Name of the ConfigMap containing the topology config
+    topologyConfigPath: topology.conf        # Key in the ConfigMap for the topology config
 ```
 
 ### Per-partition topologies
@@ -49,6 +52,7 @@ When per-partition topologies are configured, each entry may declare how its nod
 |---|---|
 | `nodes` | Explicit SLURM node list. Takes precedence over `podSelector`. |
 | `podSelector` | Kubernetes `LabelSelector` matching the slurmd pods in the partition. The engine lists pods in the engine's `namespace`, filters to `Ready` pods, and reads each pod's SLURM name from the `slurm.node.name` label (falling back to `pod.spec.hostname`). |
+| `blockName` | For `topology/block`, derives block names using the required `nodeNameRegexp` and `format` fields. |
 | _neither_ | The engine falls back to running `scontrol show partition <name>` inside the controller pod, or a login pod when no controller pod is running (legacy behavior). The controller (`app.kubernetes.io/component: controller`) is always present; login pods are optional. |
 
 `nodes` and `podSelector` are mutually exclusive on the same entry; configuring both returns a validation error at engine load time.
@@ -65,6 +69,9 @@ engine:
       gpu-partition:
         plugin: topology/block
         blockSizes: [8, 16]
+        blockName:
+          nodeNameRegexp: 'd([0-9]{2})-r([0-9]{2})'
+          format: 'domain${1}_rack${2}'
         podSelector:                                 # partition membership by pod labels
           matchLabels:
             app.kubernetes.io/component: compute
@@ -77,9 +84,11 @@ engine:
         clusterDefault: true                         # no podSelector, no nodes → scontrol fallback
 ```
 
+`blockName.nodeNameRegexp` uses Go regular-expression syntax and may match anywhere in the node name; use anchors when needed. `blockName.format` uses Go regexp expansion syntax, including numeric captures such as `${1}` and named captures such as `${domain}`. Every node in a non-empty block must match and produce the same non-empty name, and names must be unique across blocks. Invalid expressions, unmatched nodes, inconsistent names within a block, and duplicate names are rejected. Empty complemented blocks retain their generated names.
+
 ### Using `nvidia.com/gpu.clique` for block topology
 
-On MNNVL Kubernetes clusters, the NVIDIA GPU Operator can label nodes with `nvidia.com/gpu.clique`. When `useGpuCliqueLabel` is enabled, the Slinky engine uses that label as the source for `topology/block` domains instead of the accelerator domains returned by the provider. This is useful with cloud API providers whose `InstanceTopology.AcceleratorID` describes a broader provider domain than the GPU Operator clique label.
+On MNNVL Kubernetes clusters, the NVIDIA GPU Operator can label nodes with `nvidia.com/gpu.clique`. When `useGpuCliqueLabel` is enabled, the Slinky engine uses that label as the source for `topology/block` domains instead of the accelerator domains returned by the provider. This is useful with cloud API providers whose accelerator ID describes a broader provider domain than the GPU Operator clique label.
 
 The option only affects block topology. Tree topology still comes from the selected provider, and the engine still maps Kubernetes nodes to Slurm nodes through the configured slurmd pod selector.
 
@@ -99,6 +108,33 @@ engine:
 ```
 
 If `useGpuCliqueLabel` is enabled for a block topology and no matching nodes have the `nvidia.com/gpu.clique` label plus the Topograph instance annotation, topology generation fails with a `502` error instead of falling back to provider accelerator domains.
+
+### Kubernetes API rate limiting
+
+The Slinky engine uses client-go's default Kubernetes client limits of 5 QPS
+and a burst of 10 unless `kubeQPS` or `kubeBurst` is set. Dynamic-node
+reconciliation compares each desired topology annotation with the Node objects
+returned by the cluster-wide list, skips nodes that are already current, and
+patches only changed annotations. This avoids a separate Node GET for every
+node during steady-state reconciliation.
+
+Large reconciliations that legitimately change many nodes can still exceed the
+default client-side limit. Increase the limits conservatively and monitor API
+server latency and throttling:
+
+```yaml
+engine:
+  name: slinky
+  params:
+    kubeQPS: 50
+    kubeBurst: 100
+```
+
+These settings apply only to the Slinky engine client. Kubernetes-backed
+providers use separate clients and, where supported, separate provider
+parameters. Increasing the limits reduces client-side waiting but does not
+reduce API-server load; narrow `nodeSelector` and `podSelector` values remain
+the preferred first mitigation.
 
 ## ConfigMap Annotations
 
