@@ -19,10 +19,12 @@ step "delete_cluster"
 
 step "./scripts/create-test-cluster.sh -m ./tests/models/medium.yaml"
 
-step "kubectl --context \"$KUBE_CONTEXT\" label node \"\$(kubectl --context \"$KUBE_CONTEXT\" get nodes -l node-role.kubernetes.io/control-plane -o jsonpath='{.items[0].metadata.name}')\" nfd-enabled=true"
+step "kubectl --context \"$KUBE_CONTEXT\" get node"
 
 step "demos/test-nfd/deploy-nfd.sh"
 
 step "deploy_topograph demos/test-nfd/values.nfd.kwok.yaml"
 
 step "kubectl --context \"$KUBE_CONTEXT\" -n node-feature-discovery get nodefeaturegroups"
+
+step "kubectl --context \"$KUBE_CONTEXT\" -n node-feature-discovery get nodefeaturegroups -l topograph.nvidia.com/group-type=fabric-tier-1 -o yaml"

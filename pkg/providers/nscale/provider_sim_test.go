@@ -30,12 +30,12 @@ switches:
 blocks:
 - switch: tor1
   nodes: [n11,n12]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 - switch: tor2
   nodes: [n21,n22]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl2
+  annotations:
+    accelerator.topology.test/domain: nvl2
 `
 )
 

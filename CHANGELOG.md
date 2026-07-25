@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING:** Simulation models now define accelerator topology through inherited `switches[].annotations` and `blocks[].annotations` using `accelerator.topology.test/domain` and optional `accelerator.topology.test/sub-domain`, instead of the `network.topology.nvidia.com/accelerator` model label.
 - The Slurm topology-update trigger script now accepts AWS, GCP, OCI, Nebius, NetQ, Nscale, Lambda, and bare-metal InfiniBand providers.
 - **BREAKING:** Fabric topology now uses variable, closest-first tiers labeled `network.topology.nvidia.com/tier-N`; `InstanceTopology.FabricTiers` and graph conversion support arbitrary fabric depth. Accelerator topology remains a single `AcceleratorID`/`Graph.Domains` dimension labeled `network.topology.nvidia.com/accelerator`. The fixed `leaf`, `spine`, and `core` keys and process-wide Helm/CLI label overrides are replaced by optional `fabricLabels` and `acceleratorLabel` parameters on the `k8s` engine.
 - Simulation model node names are now treated as hostnames; the model-backed test provider generates their instance IDs with an `i-` prefix.
@@ -33,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `kwok-nodes` now prevents model-provided metadata from overriding its required KWOK selector and model-derived `topograph.nvidia.com/instance` and `topograph.nvidia.com/region` annotations.
 - Slinky dynamic-node reconciliation now reuses listed Node annotations, skips unchanged nodes without a per-node GET, and patches only changed topology annotations, substantially reducing Kubernetes client-side throttling on large clusters.
 - Corrected DRA provider guidance to document its Slinky-only block-topology scope, dependency on pre-existing `nvidia.com/gpu.clique` labels, and inability to guide placement across NVLink partitions without backend-fabric topology.
 - The NFD engine now rejects an empty generated object set when cleanup is enabled, preserving the last published topology instead of deleting every Topograph-managed NFD object after an empty provider result or over-narrow node selection.

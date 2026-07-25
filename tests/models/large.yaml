@@ -68,60 +68,60 @@ blocks:
 - switch: leaf-1-1
   nodes:
   - "srv11[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1-1
+  annotations:
+    accelerator.topology.test/domain: nvl-1-1
 - switch: leaf-1-2
   nodes:
   - "srv12[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1-2
+  annotations:
+    accelerator.topology.test/domain: nvl-1-2
 - switch: leaf-2-1
   nodes:
   - "srv21[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2-1
+  annotations:
+    accelerator.topology.test/domain: nvl-2-1
 - switch: leaf-2-2
   nodes:
   - "srv22[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2-2
+  annotations:
+    accelerator.topology.test/domain: nvl-2-2
 - switch: leaf-3-1
   nodes:
   - "srv31[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-3-1
+  annotations:
+    accelerator.topology.test/domain: nvl-3-1
 - switch: leaf-3-2
   nodes:
   - "srv32[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-3-2
+  annotations:
+    accelerator.topology.test/domain: nvl-3-2
 - switch: leaf-4-1
   nodes:
   - "srv41[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-4-1
+  annotations:
+    accelerator.topology.test/domain: nvl-4-1
 - switch: leaf-4-2
   nodes:
   - "srv42[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-4-2
+  annotations:
+    accelerator.topology.test/domain: nvl-4-2
 - switch: leaf-5-1
   nodes:
   - "srv51[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-5-1
+  annotations:
+    accelerator.topology.test/domain: nvl-5-1
 - switch: leaf-5-2
   nodes:
   - "srv52[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-5-2
+  annotations:
+    accelerator.topology.test/domain: nvl-5-2
 - switch: leaf-6-1
   nodes:
   - "srv61[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-6-1
+  annotations:
+    accelerator.topology.test/domain: nvl-6-1
 - switch: leaf-6-2
   nodes:
   - "srv62[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-6-2
+  annotations:
+    accelerator.topology.test/domain: nvl-6-2

@@ -20,9 +20,9 @@ switches:
 blocks:
 - switch: S2
   nodes: ["I[21-22]", "I25"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl2
+  annotations:
+    accelerator.topology.test/domain: nvl2
 - switch: S3
   nodes: ["I[34-36]"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl3
+  annotations:
+    accelerator.topology.test/domain: nvl3

@@ -40,20 +40,20 @@ blocks:
 - switch: leaf-1-1
   nodes:
   - node[1101-1118]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1-1
+  annotations:
+    accelerator.topology.test/domain: nvl-1-1
 - switch: leaf-1-2
   nodes:
   - node[1201-1218]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1-2
+  annotations:
+    accelerator.topology.test/domain: nvl-1-2
 - switch: leaf-2-1
   nodes:
   - node[2101-2118]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2-1
+  annotations:
+    accelerator.topology.test/domain: nvl-2-1
 - switch: leaf-2-2
   nodes:
   - node[2201-2218]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2-2
+  annotations:
+    accelerator.topology.test/domain: nvl-2-2

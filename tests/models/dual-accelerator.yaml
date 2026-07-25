@@ -70,72 +70,72 @@ blocks:
 - switch: leaf-1-1
   nodes:
   - "srv11[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1
-    test.topology/rack: "rack01"
+  annotations:
+    accelerator.topology.test/domain: nvl-1
+    accelerator.topology.test/sub-domain: "rack01"
 - switch: leaf-1-2
   nodes:
   - "srv12[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1
-    test.topology/rack: "rack02"
+  annotations:
+    accelerator.topology.test/domain: nvl-1
+    accelerator.topology.test/sub-domain: "rack02"
 - switch: leaf-2-1
   nodes:
   - "srv21[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1
-    test.topology/rack: "rack03"
+  annotations:
+    accelerator.topology.test/domain: nvl-1
+    accelerator.topology.test/sub-domain: "rack03"
 - switch: leaf-2-2
   nodes:
   - "srv22[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1
-    test.topology/rack: "rack04"
+  annotations:
+    accelerator.topology.test/domain: nvl-1
+    accelerator.topology.test/sub-domain: "rack04"
 - switch: leaf-3-1
   nodes:
   - "srv31[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1
-    test.topology/rack: "rack05"
+  annotations:
+    accelerator.topology.test/domain: nvl-1
+    accelerator.topology.test/sub-domain: "rack05"
 - switch: leaf-3-2
   nodes:
   - "srv32[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-1
-    test.topology/rack: "rack06"
+  annotations:
+    accelerator.topology.test/domain: nvl-1
+    accelerator.topology.test/sub-domain: "rack06"
 - switch: leaf-4-1
   nodes:
   - "srv41[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2
-    test.topology/rack: "rack07"
+  annotations:
+    accelerator.topology.test/domain: nvl-2
+    accelerator.topology.test/sub-domain: "rack07"
 - switch: leaf-4-2
   nodes:
   - "srv42[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2
-    test.topology/rack: "rack08"
+  annotations:
+    accelerator.topology.test/domain: nvl-2
+    accelerator.topology.test/sub-domain: "rack08"
 - switch: leaf-5-1
   nodes:
   - "srv51[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2
-    test.topology/rack: "rack09"
+  annotations:
+    accelerator.topology.test/domain: nvl-2
+    accelerator.topology.test/sub-domain: "rack09"
 - switch: leaf-5-2
   nodes:
   - "srv52[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2
-    test.topology/rack: "rack10"
+  annotations:
+    accelerator.topology.test/domain: nvl-2
+    accelerator.topology.test/sub-domain: "rack10"
 - switch: leaf-6-1
   nodes:
   - "srv61[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2
-    test.topology/rack: "rack11"
+  annotations:
+    accelerator.topology.test/domain: nvl-2
+    accelerator.topology.test/sub-domain: "rack11"
 - switch: leaf-6-2
   nodes:
   - "srv62[01-08]"
-  labels:
-    network.topology.nvidia.com/accelerator: nvl-2
-    test.topology/rack: "rack12"
+  annotations:
+    accelerator.topology.test/domain: nvl-2
+    accelerator.topology.test/sub-domain: "rack12"
