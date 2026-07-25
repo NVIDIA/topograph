@@ -13,7 +13,7 @@ step() {
     local reply
 
     echo
-    echo "\$ $command"
+    printf '\033[33m$ %s\033[0m\n' "$command"
     if read -rp "Run? [y/N] " reply; then
         case "$reply" in
             [yY]|[yY][eE][sS])
@@ -28,6 +28,8 @@ delete_cluster() {
 }
 
 deploy_topograph() {
+    helm uninstall topograph --kube-context "$KUBE_CONTEXT" --namespace topograph 2>/dev/null || true
+
     helm upgrade --install topograph charts/topograph \
         --kube-context "$KUBE_CONTEXT" \
         --namespace topograph --create-namespace --values "$1" --wait

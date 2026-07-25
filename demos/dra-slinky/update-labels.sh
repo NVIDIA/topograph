@@ -11,11 +11,9 @@ kubectl --context "$KUBE_CONTEXT" get nodes -l kwok.x-k8s.io/node=fake \
     -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' |
 while read -r node; do
     value=$(kubectl --context "$KUBE_CONTEXT" get node "$node" \
-        -o jsonpath='{.metadata.labels.network\.topology\.nvidia\.com/accelerator}')
+        -o jsonpath='{.metadata.annotations.accelerator\.topology\.test/domain}')
     if [ -n "$value" ]; then
         kubectl --context "$KUBE_CONTEXT" label node "$node" \
             "nvidia.com/gpu.clique=$value" "kubernetes.io/os=linux" --overwrite
-        kubectl --context "$KUBE_CONTEXT" label node "$node" \
-            network.topology.nvidia.com/accelerator-
     fi
 done

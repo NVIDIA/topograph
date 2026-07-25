@@ -191,7 +191,7 @@ BlockSizes=8,16,32
 }
 `
 
-	// graph engine returns compact JSON from instance labels embedded in the topology graph
+	// graph engine returns compact JSON from instances embedded in the topology graph
 	graphPayload = `
 {
   "provider": {
@@ -218,23 +218,23 @@ BlockSizes=8,16,32
   "instances": [
     {
       "id": "i-I21",
+      "labels": {
+        "topology.kubernetes.io/region": "none"
+      },
       "network_layers": [
         "S2",
         "S1"
-      ],
-      "labels": {
-        "network.topology.nvidia.com/accelerator": "nvl2"
-      }
+      ]
     },
     {
       "id": "i-I22",
+      "labels": {
+        "topology.kubernetes.io/region": "none"
+      },
       "network_layers": [
         "S2",
         "S1"
-      ],
-      "labels": {
-        "network.topology.nvidia.com/accelerator": "nvl2"
-      }
+      ]
     }
   ]
 }`

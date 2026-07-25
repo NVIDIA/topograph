@@ -35,8 +35,6 @@ import (
 const (
 	NAME_SIM = "oci-sim"
 
-	labelTopologyRack = "test.topology/rack"
-
 	errNone = iota
 	errClientFactory
 	errListAvailabilityDomains
@@ -105,7 +103,7 @@ func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHo
 				host.HpcIslandId = ptr.String(node.NetLayers[i])
 			}
 		}
-		domainID := node.Labels[topology.KeyTopologyAccelerator]
+		domainID := node.AcceleratorDomain()
 		if domainID != "" {
 			host.GpuMemoryFabricId = &domainID
 		}
@@ -147,11 +145,11 @@ func (c *simClient) GetComputeHost(ctx context.Context, req core.GetComputeHostR
 			host.HpcIslandId = ptr.String(node.NetLayers[i])
 		}
 	}
-	domainID := node.Labels[topology.KeyTopologyAccelerator]
+	domainID := node.AcceleratorDomain()
 	if domainID != "" {
 		host.GpuMemoryFabricId = &domainID
 	}
-	if rack, ok := node.Labels[labelTopologyRack]; ok {
+	if rack := node.AcceleratorSubDomain(); rack != "" {
 		host.AdditionalData = map[string]any{
 			"locationDetails": map[string]any{
 				"rack": rack,

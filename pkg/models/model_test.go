@@ -25,11 +25,11 @@ import (
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
-func acceleratorDomainLabels(domain string) map[string]string {
+func acceleratorDomainAnnotations(domain string) map[string]string {
 	if domain == "" {
 		return nil
 	}
-	return map[string]string{topology.KeyTopologyAccelerator: domain}
+	return map[string]string{annotationAcceleratorDomain: domain}
 }
 
 func TestNewModelFromFileMedium(t *testing.T) {
@@ -43,35 +43,37 @@ func TestNewModelFromFileMedium(t *testing.T) {
 	require.Equal(t, []string{"1101", "1102"}, cfg.Switches["sw11"].Nodes)
 	require.Equal(t, []CapacityBlock{
 		{
-			Switch: "sw11",
-			Nodes:  []string{"1101", "1102"},
-			Labels: acceleratorDomainLabels("nvl1"),
+			Switch:      "sw11",
+			Nodes:       []string{"1101", "1102"},
+			Annotations: acceleratorDomainAnnotations("nvl1"),
 		},
 		{
-			Switch: "sw12",
-			Nodes:  []string{"1201", "1202"},
-			Labels: acceleratorDomainLabels("nvl2"),
+			Switch:      "sw12",
+			Nodes:       []string{"1201", "1202"},
+			Annotations: acceleratorDomainAnnotations("nvl2"),
 		},
 		{
-			Switch: "sw13",
-			Nodes:  []string{"1301", "1302"},
-			Labels: acceleratorDomainLabels("nvl3"),
+			Switch:      "sw13",
+			Nodes:       []string{"1301", "1302"},
+			Annotations: acceleratorDomainAnnotations("nvl3"),
 		},
 		{
-			Switch: "sw14",
-			Nodes:  []string{"1401", "1402"},
-			Labels: acceleratorDomainLabels("nvl4"),
+			Switch:      "sw14",
+			Nodes:       []string{"1401", "1402"},
+			Annotations: acceleratorDomainAnnotations("nvl4"),
 		},
 	}, cfg.CapacityBlocks)
 
-	require.Equal(t, &topology.Instance{
-		ID: "1101",
-		Labels: map[string]string{
-			LabelTopologyRegion:             "us-west",
-			LabelTopologyZone:               "zone1",
-			topology.KeyTopologyAccelerator: "nvl1",
+	require.Equal(t, &Node{
+		Instance: topology.Instance{
+			ID: "1101",
+			Labels: map[string]string{
+				LabelTopologyRegion: "us-west",
+				LabelTopologyZone:   "zone1",
+			},
+			NetLayers: []string{"sw11", "sw21", "sw3"},
 		},
-		NetLayers: []string{"sw11", "sw21", "sw3"},
+		Annotations: acceleratorDomainAnnotations("nvl1"),
 	}, cfg.Nodes["1101"])
 
 	require.Equal(t, []topology.ComputeInstances{
@@ -99,14 +101,16 @@ func TestNewModelFromFileNVL72(t *testing.T) {
 	require.Len(t, cfg.CapacityBlocks, 4)
 	require.Len(t, cfg.Nodes, 72)
 
-	require.Equal(t, &topology.Instance{
-		ID: "node2215",
-		Labels: map[string]string{
-			LabelTopologyRegion:             "us-east",
-			LabelTopologyZone:               "zone1",
-			topology.KeyTopologyAccelerator: "nvl-2-2",
+	require.Equal(t, &Node{
+		Instance: topology.Instance{
+			ID: "node2215",
+			Labels: map[string]string{
+				LabelTopologyRegion: "us-east",
+				LabelTopologyZone:   "zone1",
+			},
+			NetLayers: []string{"leaf-2-2", "spine-2", "core"},
 		},
-		NetLayers: []string{"leaf-2-2", "spine-2", "core"},
+		Annotations: acceleratorDomainAnnotations("nvl-2-2"),
 	}, cfg.Nodes["node2215"])
 }
 
@@ -126,12 +130,12 @@ switches:
 blocks:
 - switch: leaf
   nodes: ["n[1-2]"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 - switch: leaf
   nodes: [n3]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl2
+  annotations:
+    accelerator.topology.test/domain: nvl2
 `,
 			model: &Model{
 				Switches: map[string]*Switch{
@@ -141,33 +145,42 @@ blocks:
 					},
 					"leaf": {Name: "leaf", Nodes: []string{"n1", "n2", "n3"}},
 				},
-				Nodes: map[string]*topology.Instance{
+				Nodes: map[string]*Node{
 					"n1": {
-						ID:        "n1",
-						NetLayers: []string{"leaf", "core"},
-						Labels:    acceleratorDomainLabels("nvl1"),
+						Instance: topology.Instance{
+							ID:        "n1",
+							Labels:    map[string]string{LabelTopologyRegion: "none"},
+							NetLayers: []string{"leaf", "core"},
+						},
+						Annotations: acceleratorDomainAnnotations("nvl1"),
 					},
 					"n2": {
-						ID:        "n2",
-						NetLayers: []string{"leaf", "core"},
-						Labels:    acceleratorDomainLabels("nvl1"),
+						Instance: topology.Instance{
+							ID:        "n2",
+							Labels:    map[string]string{LabelTopologyRegion: "none"},
+							NetLayers: []string{"leaf", "core"},
+						},
+						Annotations: acceleratorDomainAnnotations("nvl1"),
 					},
 					"n3": {
-						ID:        "n3",
-						NetLayers: []string{"leaf", "core"},
-						Labels:    acceleratorDomainLabels("nvl2"),
+						Instance: topology.Instance{
+							ID:        "n3",
+							Labels:    map[string]string{LabelTopologyRegion: "none"},
+							NetLayers: []string{"leaf", "core"},
+						},
+						Annotations: acceleratorDomainAnnotations("nvl2"),
 					},
 				},
 				CapacityBlocks: []CapacityBlock{
 					{
-						Switch: "leaf",
-						Nodes:  []string{"n1", "n2"},
-						Labels: acceleratorDomainLabels("nvl1"),
+						Switch:      "leaf",
+						Nodes:       []string{"n1", "n2"},
+						Annotations: acceleratorDomainAnnotations("nvl1"),
 					},
 					{
-						Switch: "leaf",
-						Nodes:  []string{"n3"},
-						Labels: acceleratorDomainLabels("nvl2"),
+						Switch:      "leaf",
+						Nodes:       []string{"n3"},
+						Annotations: acceleratorDomainAnnotations("nvl2"),
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -183,24 +196,30 @@ blocks:
 			cfg: `
 blocks:
 - nodes: ["n[1-2]"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 `,
 			model: &Model{
-				Nodes: map[string]*topology.Instance{
+				Nodes: map[string]*Node{
 					"n1": {
-						ID:     "n1",
-						Labels: acceleratorDomainLabels("nvl1"),
+						Instance: topology.Instance{
+							ID:     "n1",
+							Labels: map[string]string{LabelTopologyRegion: "none"},
+						},
+						Annotations: acceleratorDomainAnnotations("nvl1"),
 					},
 					"n2": {
-						ID:     "n2",
-						Labels: acceleratorDomainLabels("nvl1"),
+						Instance: topology.Instance{
+							ID:     "n2",
+							Labels: map[string]string{LabelTopologyRegion: "none"},
+						},
+						Annotations: acceleratorDomainAnnotations("nvl1"),
 					},
 				},
 				CapacityBlocks: []CapacityBlock{
 					{
-						Nodes:  []string{"n1", "n2"},
-						Labels: acceleratorDomainLabels("nvl1"),
+						Nodes:       []string{"n1", "n2"},
+						Annotations: acceleratorDomainAnnotations("nvl1"),
 					},
 				},
 				Instances: []topology.ComputeInstances{
@@ -216,8 +235,8 @@ blocks:
 			cfg: `
 blocks:
 - nodes: [n1]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 - labels: {}
 `,
 			err: `capacity block at index 1 must declare at least one node`,
@@ -264,23 +283,32 @@ blocks:
 	}
 }
 
-func TestSwitchAndBlockLabelsMerge(t *testing.T) {
+func TestSwitchAndBlockMetadataMerge(t *testing.T) {
 	cfg := `
 switches:
   core:
     labels:
       topology.kubernetes.io/region: region1
       inherited: core
+    annotations:
+      core-annotation: core-value
+      inherited: core
     switches: [leaf]
   leaf:
     labels:
       topology.kubernetes.io/zone: zone1
+      inherited: leaf
+    annotations:
+      leaf-annotation: leaf-value
       inherited: leaf
 blocks:
 - switch: leaf
   nodes: [n1]
   labels:
     block-label: block-value
+    inherited: block
+  annotations:
+    block-annotation: block-value
     inherited: block
 `
 
@@ -293,6 +321,12 @@ blocks:
 		"inherited":         "block",
 		"block-label":       "block-value",
 	}, model.Nodes["n1"].Labels)
+	require.Equal(t, map[string]string{
+		"core-annotation":  "core-value",
+		"leaf-annotation":  "leaf-value",
+		"block-annotation": "block-value",
+		"inherited":        "block",
+	}, model.Nodes["n1"].Annotations)
 	require.Equal(t, []topology.ComputeInstances{
 		{
 			Region:    "region1",
@@ -308,8 +342,8 @@ switches:
 blocks:
 - switch: leaf
   nodes: [instance-1]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 `), "inline")
 	require.NoError(t, err)
 
@@ -325,6 +359,9 @@ blocks:
 		InstanceID: "i-instance-1",
 		HostName:   "instance-1",
 	}, graph.Domains["nvl1"]["instance-1"])
+	require.Equal(t, map[string]string{
+		LabelTopologyRegion: "none",
+	}, graph.Instances["i-instance-1"].Labels)
 }
 
 func TestToGraphKeepsModelHostNames(t *testing.T) {

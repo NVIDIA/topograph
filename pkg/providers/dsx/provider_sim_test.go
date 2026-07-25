@@ -34,12 +34,12 @@ switches:
 blocks:
 - switch: leaf1
   nodes: [n11,n12]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 - switch: leaf2
   nodes: [n21,n22]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl2
+  annotations:
+    accelerator.topology.test/domain: nvl2
 `
 
 	largeClusterModel = `
@@ -55,12 +55,12 @@ switches:
 blocks:
 - switch: leaf1
   nodes: ["n[100-164]"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 - switch: leaf2
   nodes: ["n[200-264]"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl2
+  annotations:
+    accelerator.topology.test/domain: nvl2
 `
 
 	singleNodeModel = `
@@ -71,8 +71,8 @@ switches:
 blocks:
 - switch: leaf
   nodes: [n1]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 `
 )
 
