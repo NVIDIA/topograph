@@ -62,15 +62,9 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: grants core node and pod read access by default
+  - it: grants core node read/write access by default
     documentIndex: 0
     asserts:
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [pods]
-            verbs: [list]
       - contains:
           path: rules
           content:
@@ -83,12 +77,6 @@ tests:
             apiGroups: [""]
             resources: [nodes]
             verbs: [patch]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [apps]
-            resources: [daemonsets]
-            verbs: [get]
 
   - it: does not grant provider- or engine-specific access by default
     documentIndex: 0
@@ -120,11 +108,56 @@ tests:
       - notContains:
           path: rules
           content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
             apiGroups: [apps]
             resources: [daemonsets]
             verbs: [get, list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
 
-  - it: grants pods/exec for the infiniband-k8s provider
+  - it: grants node read without node write for the dra provider
+    set:
+      provider:
+        name: dra
+      engine:
+        name: slurm
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+
+  - it: grants pods, daemonsets, and pods/exec for the infiniband-k8s provider
     set:
       provider:
         name: infiniband-k8s
@@ -136,8 +169,20 @@ tests:
             apiGroups: [""]
             resources: [pods/exec]
             verbs: [create]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
 
-  - it: grants configmaps for the slinky engine
+  - it: grants configmaps and pods for the slinky engine
     set:
       engine:
         name: slinky
@@ -161,6 +206,18 @@ tests:
             apiGroups: [""]
             resources: [nodes]
             verbs: [patch]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
 
   - it: grants node patch access to the k8s engine
     set:
@@ -181,18 +238,32 @@ tests:
             resources: [nodes]
             verbs: [update]
 
-  - it: does not grant node patch access to the slurm engine
+  - it: omits the ClusterRole and ClusterRoleBinding for a non-Kubernetes combo
     set:
+      provider:
+        name: test
       engine:
         name: slurm
-    documentIndex: 0
     asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: still renders the ClusterRole for the slurm engine with a Kubernetes provider
+    set:
+      provider:
+        name: infiniband-k8s
+      engine:
+        name: slurm
+    asserts:
+      - hasDocuments:
+          count: 2
       - notContains:
           path: rules
           content:
             apiGroups: [""]
             resources: [nodes]
             verbs: [patch]
+        documentIndex: 0
 
   - it: does not grant node update access to the slinky engine
     set:
@@ -253,6 +324,20 @@ tests:
             apiGroups: [""]
             resources: [nodes]
             verbs: [patch]
+        documentIndex: 0
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+        documentIndex: 0
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list]
         documentIndex: 0
       - isKind:
           of: Role
