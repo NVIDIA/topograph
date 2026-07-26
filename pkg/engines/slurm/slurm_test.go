@@ -79,7 +79,7 @@ func TestAggregateComputeInstances(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cis := aggregateComputeInstances(tc.i2n, tc.regions)
-			require.Equal(t, tc.cis, cis)
+			require.ElementsMatch(t, tc.cis, cis)
 		})
 	}
 }

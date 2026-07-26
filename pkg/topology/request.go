@@ -21,9 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"maps"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -49,8 +47,8 @@ type ComputeInstances struct {
 	Instances map[string]string `json:"instances"` // <instance ID>:<node name> map
 }
 
-// CanonicalComputeInstances returns a copy of cis ordered by region, instance
-// ID, and node name. It does not mutate the caller-owned slice or maps.
+// CanonicalComputeInstances returns a copy of cis ordered by region. It does
+// not mutate the caller-owned slice or maps.
 func CanonicalComputeInstances(cis []ComputeInstances) []ComputeInstances {
 	canonical := slices.Clone(cis)
 	slices.SortFunc(canonical, compareComputeInstances)
@@ -58,22 +56,9 @@ func CanonicalComputeInstances(cis []ComputeInstances) []ComputeInstances {
 }
 
 func compareComputeInstances(a, b ComputeInstances) int {
-	if order := cmp.Compare(a.Region, b.Region); order != 0 {
-		return order
-	}
-
-	aIDs := slices.Sorted(maps.Keys(a.Instances))
-	bIDs := slices.Sorted(maps.Keys(b.Instances))
-	for i := 0; i < min(len(aIDs), len(bIDs)); i++ {
-		if order := cmp.Compare(aIDs[i], bIDs[i]); order != 0 {
-			return order
-		}
-		if order := cmp.Compare(a.Instances[aIDs[i]], b.Instances[bIDs[i]]); order != 0 {
-			return order
-		}
-	}
-
-	return cmp.Compare(len(aIDs), len(bIDs))
+	// In-tree producers (slurm, k8s, slinky) each build one ComputeInstances
+	// entry per region, so ordering beyond the region name is not needed here.
+	return cmp.Compare(a.Region, b.Region)
 }
 
 func NewRequest(prv Provider, eng Engine) *Request {
@@ -131,7 +116,7 @@ func map2string[T string | any](m map[string]T, prefix string, hide bool, suffix
 		for key := range m {
 			keys = append(keys, key)
 		}
-		sort.Strings(keys)
+		slices.Sort(keys)
 		terms := make([]string, 0, n)
 		for _, key := range keys {
 			if hide {
@@ -156,7 +141,7 @@ func GetNodeNameList(cis []ComputeInstances) []string {
 			nodes = append(nodes, node)
 		}
 	}
-	sort.Strings(nodes)
+	slices.Sort(nodes)
 	return nodes
 }
 

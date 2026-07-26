@@ -37,8 +37,8 @@ func (h *testIBNetDiscover) Run(ctx context.Context, node string) (*bytes.Buffer
 func TestGetIbTreeUsesCanonicalNodeOrder(t *testing.T) {
 	discover := &testIBNetDiscover{err: true}
 	cis := []topology.ComputeInstances{
-		{Region: "region-b", Instances: map[string]string{"i2": "node-b"}},
-		{Region: "region-a", Instances: map[string]string{"i1": "node-a"}},
+		{Region: "region-b", Instances: map[string]string{"i2": "node-a"}},
+		{Region: "region-a", Instances: map[string]string{"i1": "node-b"}},
 	}
 
 	_, err := getIbTree(context.Background(), cis, discover)

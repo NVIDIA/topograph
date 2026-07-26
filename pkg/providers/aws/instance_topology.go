@@ -37,6 +37,9 @@ var defaultPageSize int32 = 100
 func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *int, cis []topology.ComputeInstances) (*topology.ClusterTopology, *httperr.Error) {
 	topo := topology.NewClusterTopology()
 
+	// Canonicalize here as well so direct callers of this function (tests,
+	// provider internals) see the same deterministic region order as callers
+	// that go through the server path, which already canonicalizes.
 	for _, ci := range topology.CanonicalComputeInstances(cis) {
 		if err := p.generateRegionInstanceTopology(ctx, pageSize, &ci, topo); err != nil {
 			return nil, err

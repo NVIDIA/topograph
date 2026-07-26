@@ -186,22 +186,20 @@ func TestGetNodeNames(t *testing.T) {
 	require.Equal(t, nodeMap, GetNodeNameMap(cis))
 }
 
-func TestCanonicalComputeInstancesUsesTotalOrderWithoutMutation(t *testing.T) {
+func TestCanonicalComputeInstancesUsesRegionOrderWithoutMutation(t *testing.T) {
 	input := []ComputeInstances{
-		{Region: "region-b", Instances: map[string]string{"i3": "node3"}},
-		{Region: "region-a", Instances: map[string]string{"i2": "node2"}},
-		{Region: "region-a", Instances: map[string]string{"i1": "node-b"}},
-		{Region: "region-a", Instances: map[string]string{"i1": "node-a"}},
+		{Region: "region-c", Instances: map[string]string{"i3": "node3"}},
+		{Region: "region-a", Instances: map[string]string{"i1": "node-a", "i2": "node-b"}},
+		{Region: "region-b", Instances: map[string]string{"i4": "node4"}},
 	}
 	original := append([]ComputeInstances(nil), input...)
 
 	actual := CanonicalComputeInstances(input)
 
 	require.Equal(t, []ComputeInstances{
-		{Region: "region-a", Instances: map[string]string{"i1": "node-a"}},
-		{Region: "region-a", Instances: map[string]string{"i1": "node-b"}},
-		{Region: "region-a", Instances: map[string]string{"i2": "node2"}},
-		{Region: "region-b", Instances: map[string]string{"i3": "node3"}},
+		{Region: "region-a", Instances: map[string]string{"i1": "node-a", "i2": "node-b"}},
+		{Region: "region-b", Instances: map[string]string{"i4": "node4"}},
+		{Region: "region-c", Instances: map[string]string{"i3": "node3"}},
 	}, actual)
 	require.Equal(t, original, input)
 }

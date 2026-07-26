@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"maps"
 	"slices"
 	"strings"
 
@@ -102,8 +103,8 @@ func (l *topologyLabeler) ApplyNodeLabels(ctx context.Context, graph *topology.G
 		return err
 	}
 
-	for nodeName, labels := range nodeMap {
-		if err := labeler.AddNodeLabels(ctx, nodeName, labels); err != nil {
+	for _, nodeName := range slices.Sorted(maps.Keys(nodeMap)) {
+		if err := labeler.AddNodeLabels(ctx, nodeName, nodeMap[nodeName]); err != nil {
 			return err
 		}
 	}

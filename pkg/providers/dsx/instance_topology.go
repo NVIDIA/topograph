@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"k8s.io/klog/v2"
 
@@ -28,6 +29,7 @@ func (p *baseProvider) generateInstanceTopology(ctx context.Context, pageSize *i
 			nodeIDs = append(nodeIDs, instanceID)
 		}
 	}
+	slices.Sort(nodeIDs)
 
 	pageSizeVal := 0
 	if pageSize != nil {
