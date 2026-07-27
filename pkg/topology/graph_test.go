@@ -333,3 +333,105 @@ func TestTrimTiersTreatsNegativeAsZero(t *testing.T) {
 	inst := &InstanceTopology{FabricTiers: ClosestFirstFabricTiers("fabric-0", "fabric-1")}
 	require.Equal(t, inst.FabricTiers, trimmedTiers(inst, -1))
 }
+
+// TestToGraphParentAcceleratorIDCreatesDualLevelDomain verifies that instances
+// with ParentAcceleratorID set land in a DomainMap entry keyed by
+// ParentAcceleratorID (the accelerator domain), with SubDomain populated from
+// AcceleratorID. The AcceleratorID values must NOT appear as top-level domain keys.
+func TestToGraphParentAcceleratorIDCreatesDualLevelDomain(t *testing.T) {
+	topo := NewClusterTopology()
+	topo.Append(&InstanceTopology{
+		InstanceID:          "i-001",
+		FabricTiers:         ClosestFirstFabricTiers("leaf-1", "spine-1"),
+		ParentAcceleratorID: "nvl-domain-01",
+		AcceleratorID:       "rack-01",
+	})
+	topo.Append(&InstanceTopology{
+		InstanceID:          "i-002",
+		FabricTiers:         ClosestFirstFabricTiers("leaf-2", "spine-1"),
+		ParentAcceleratorID: "nvl-domain-01",
+		AcceleratorID:       "rack-02",
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{"i-001": "node1", "i-002": "node2"},
+	}}, 0, false)
+
+	domain := graph.Domains["nvl-domain-01"]
+	require.NotNil(t, domain, "accelerator domain nvl-domain-01 must be present")
+	require.Len(t, domain, 2)
+
+	hi1 := domain["node1"]
+	require.NotNil(t, hi1)
+	require.Equal(t, "nvl-domain-01", hi1.Domain)
+	require.Equal(t, "rack-01", hi1.SubDomain)
+	require.Equal(t, "i-001", hi1.InstanceID)
+
+	hi2 := domain["node2"]
+	require.NotNil(t, hi2)
+	require.Equal(t, "nvl-domain-01", hi2.Domain)
+	require.Equal(t, "rack-02", hi2.SubDomain)
+	require.Equal(t, "i-002", hi2.InstanceID)
+
+	// Sub-domain names must not appear as independent top-level domain keys.
+	require.Nil(t, graph.Domains["rack-01"])
+	require.Nil(t, graph.Domains["rack-02"])
+}
+
+// TestToGraphMixedAcceleratorIDTypes verifies that a ClusterTopology containing
+// both single-level (AcceleratorID only) and dual-level (ParentAcceleratorID +
+// AcceleratorID) instances produces the correct DomainMap entries for each type.
+func TestToGraphMixedAcceleratorIDTypes(t *testing.T) {
+	topo := NewClusterTopology()
+	// Dual-level: goes into nvl-domain-01 with SubDomain = rack-01.
+	topo.Append(&InstanceTopology{
+		InstanceID:          "i-001",
+		FabricTiers:         ClosestFirstFabricTiers("leaf-1"),
+		ParentAcceleratorID: "nvl-domain-01",
+		AcceleratorID:       "rack-01",
+	})
+	// Single-level: goes into acc-standalone with no SubDomain.
+	topo.Append(&InstanceTopology{
+		InstanceID:    "i-002",
+		FabricTiers:   ClosestFirstFabricTiers("leaf-2"),
+		AcceleratorID: "acc-standalone",
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{"i-001": "node1", "i-002": "node2"},
+	}}, 0, false)
+
+	// Dual-level host: SubDomain populated.
+	hi1 := graph.Domains["nvl-domain-01"]["node1"]
+	require.NotNil(t, hi1)
+	require.Equal(t, "rack-01", hi1.SubDomain)
+
+	// Single-level host: SubDomain empty.
+	hi2 := graph.Domains["acc-standalone"]["node2"]
+	require.NotNil(t, hi2)
+	require.Equal(t, "", hi2.SubDomain)
+}
+
+// TestToGraphParentAcceleratorIDWithoutAcceleratorID verifies that when
+// ParentAcceleratorID is set but AcceleratorID is empty, the host is still
+// placed in the domain keyed by ParentAcceleratorID and SubDomain is empty.
+func TestToGraphParentAcceleratorIDWithoutAcceleratorID(t *testing.T) {
+	topo := NewClusterTopology()
+	topo.Append(&InstanceTopology{
+		InstanceID:          "i-001",
+		FabricTiers:         ClosestFirstFabricTiers("leaf-1"),
+		ParentAcceleratorID: "nvl-domain-01",
+		AcceleratorID:       "", // sub-domain not yet assigned
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{"i-001": "node1"},
+	}}, 0, false)
+
+	domain := graph.Domains["nvl-domain-01"]
+	require.NotNil(t, domain, "accelerator domain must be present even without AcceleratorID")
+	hi := domain["node1"]
+	require.NotNil(t, hi)
+	require.Equal(t, "nvl-domain-01", hi.Domain)
+	require.Equal(t, "", hi.SubDomain)
+}

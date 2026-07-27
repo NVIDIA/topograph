@@ -379,7 +379,7 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 				Domain:     domain,
 				InstanceID: instanceID,
 				HostName:   instance2node[instanceID],
-				SubDomain:  instance.Annotations[annotationAcceleratorSubDomain],
+				SubDomain:  instance.AcceleratorSubDomain(),
 			})
 		}
 	}

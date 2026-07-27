@@ -117,7 +117,15 @@ func (c *ClusterTopology) ToGraph(provider string, cis []ComputeInstances, trimT
 			ID:   inst.InstanceID,
 		}
 
-		if inst.AcceleratorID != "" {
+		if inst.ParentAcceleratorID != "" {
+			domainMap.AddHostInfo(&HostInfo{
+				Domain:     inst.ParentAcceleratorID,
+				SubDomain:  inst.AcceleratorID,
+				InstanceID: inst.InstanceID,
+				HostName:   nodeName,
+			})
+
+		} else if inst.AcceleratorID != "" {
 			domainMap.AddHost(inst.AcceleratorID, inst.InstanceID, nodeName)
 		}
 		if inst.Instance != nil {

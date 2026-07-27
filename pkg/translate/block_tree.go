@@ -12,6 +12,7 @@ import (
 	"sort"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
+	"k8s.io/klog/v2"
 )
 
 // blockTreeNode is implemented by host, base, and aggregate block nodes.
@@ -224,23 +225,35 @@ func newEmptyBaseBlock(baseBlockSize int) *baseBlockNode {
 
 func buildBlockTree(domains topology.DomainMap, blockSizes []int) *aggregateBlockNode {
 	if len(blockSizes) == 0 || blockSizes[0] <= 0 {
+		klog.V(4).Infof("buildBlockTree: skipping — invalid blockSizes %v", blockSizes)
 		return nil
 	}
-	dt := domains.GetDomainTree(blockSizes)
-	return convert(dt.Root, dt, blockSizes[0])
+	klog.V(4).Infof("buildBlockTree: building tree for %d domain(s) with blockSizes=%v", len(domains), blockSizes)
+	root := domains.GetDomainTree(blockSizes)
+	result := convert(root, blockSizes[0])
+	if result == nil {
+		klog.V(4).Infof("buildBlockTree: result is empty (no domains or no hosts)")
+	} else {
+		klog.V(4).Infof("buildBlockTree: done, root nodeCount=%d", result.nodeCount)
+	}
+	return result
 }
 
-func convert(src *topology.Vertex, dt *topology.DomainTree, baseBlockSize int) *aggregateBlockNode {
+func convert(src *topology.BlockVertex, baseBlockSize int) *aggregateBlockNode {
 	if src == nil {
 		return nil
 	}
 
 	target := &aggregateBlockNode{id: src.ID}
-	hosts := dt.Hosts(src)
-	desiredNodeCount := dt.DesiredNodeCount(src)
+	hosts := src.Hosts()
+	desiredNodeCount := src.DesiredNodeCount()
 
-	// Leaf node: split hosts into base blocks and pad to DesiredNodeCount slots.
-	if len(hosts) > 0 {
+	// Leaf node: a non-nil hosts map signals "leaf" regardless of population.
+	// GetDomainTree initialises the map only for leaf vertices; interior vertices
+	// always have a nil map. Using != nil (rather than len > 0) means a fully-
+	// skipped domain still emits the correct number of empty placeholder slots
+	// instead of producing a silent 0-nodeCount aggregate via the interior path.
+	if hosts != nil {
 		groupSize := desiredNodeCount / baseBlockSize
 		sorted := hostsSorted(hosts)
 		blocks := splitIntoBaseBlocks(src.ID, sorted, baseBlockSize)
@@ -251,13 +264,14 @@ func convert(src *topology.Vertex, dt *topology.DomainTree, baseBlockSize int) *
 			target.nodeCount += baseBlockSize
 			target.children = append(target.children, b)
 		}
+		klog.V(4).Infof("convert: leaf %q → %d base block(s) (desiredNodeCount=%d)", src.ID, len(blocks), desiredNodeCount)
 		return target
 	}
 
 	// Interior node: recurse into children in alphabetical order for determinism.
 	childCapacity := 0
 	for _, name := range slices.Sorted(maps.Keys(src.Vertices)) {
-		converted := convert(src.Vertices[name], dt, baseBlockSize)
+		converted := convert(src.ChildAt(name), baseBlockSize)
 		if converted == nil {
 			continue
 		}
@@ -269,10 +283,23 @@ func convert(src *topology.Vertex, dt *topology.DomainTree, baseBlockSize int) *
 	}
 
 	// Pad with empty sibling aggregates until DesiredNodeCount is reached.
+	padded := 0
 	for target.nodeCount < desiredNodeCount && childCapacity > 0 {
 		empty := newEmptyChildAggregate(childCapacity, baseBlockSize)
 		target.children = append(target.children, empty)
 		target.nodeCount += childCapacity
+		padded++
+	}
+	if padded > 0 {
+		klog.V(4).Infof("convert: vertex %q padded with %d empty slot(s) to reach desiredNodeCount=%d",
+			src.ID, padded, desiredNodeCount)
+	}
+
+	// An interior vertex with neither real children nor successful padding produces
+	// a 0-nodeCount aggregate. This is by design (e.g. a registered domain with no
+	// live hosts) but is logged so it is visible when tracing block-tree construction.
+	if target.nodeCount == 0 {
+		klog.V(4).Infof("convert: vertex %q contributes 0 base blocks (empty domain aggregate)", src.ID)
 	}
 
 	return target
