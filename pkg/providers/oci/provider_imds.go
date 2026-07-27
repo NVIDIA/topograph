@@ -19,7 +19,9 @@ package oci
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
@@ -72,13 +74,16 @@ func (p *imdsProvider) getComputeHostInfo(ctx context.Context, ci topology.Compu
 	for _, node := range ci.Instances {
 		nodes = append(nodes, node)
 	}
+	slices.Sort(nodes)
 
 	topoMap, err := getHostTopology(ctx, nodes)
 	if err != nil {
 		return fmt.Errorf("failed to get node topology: %v", err)
 	}
 
-	for instanceID, node := range ci.Instances {
+	instanceIDs := slices.Sorted(maps.Keys(ci.Instances))
+	for _, instanceID := range instanceIDs {
+		node := ci.Instances[instanceID]
 		if nodeTopology, ok := topoMap[node]; ok {
 			topo.Instances = append(topo.Instances, &topology.InstanceTopology{
 				InstanceID:    instanceID,

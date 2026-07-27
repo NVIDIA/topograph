@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `kwok-nodes` now prevents model-provided metadata from overriding its required KWOK selector and model-derived `topograph.nvidia.com/instance` and `topograph.nvidia.com/region` annotations.
 - Slinky dynamic-node reconciliation now reuses listed Node annotations, skips unchanged nodes without a per-node GET, and patches only changed topology annotations, substantially reducing Kubernetes client-side throttling on large clusters.
 - Corrected DRA provider guidance to document its Slinky-only block-topology scope, dependency on pre-existing `nvidia.com/gpu.clique` labels, and inability to guide placement across NVLink partitions without backend-fabric topology.
+- Compute-instance discovery and provider fan-out now use deterministic region ordering, including AWS API requests and InfiniBand probes.
 - The NFD engine now rejects an empty generated object set when cleanup is enabled, preserving the last published topology instead of deleting every Topograph-managed NFD object after an empty provider result or over-narrow node selection.
 - The NFD engine now groups nodes with `nvidia.com/gpu.clique` by that authoritative accelerator value instead of omitting their accelerator attribute.
 - The NFD engine now publishes the `system.name/nodename` attribute required by NFD to populate `NodeFeatureGroup.status.nodes`, including for simulated KWOK nodes where no NFD worker executes.
