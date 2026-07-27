@@ -23,8 +23,7 @@ step "kubectl --context \"$KUBE_CONTEXT\" get node"
 
 step "kubectl --context \"$KUBE_CONTEXT\" get node 1202 -o yaml | yq '.metadata.labels'"
 
-step "deploy_topograph demos/test-k8s/values.k8s.kwok.yaml"
+step "KUBE_CONTEXT=\"$KUBE_CONTEXT\" ./scripts/install-topograph.sh demos/test-k8s/values.k8s.kwok.yaml"
 
 sleep 5
 step "kubectl --context \"$KUBE_CONTEXT\" get node 1202 -o yaml | yq '.metadata.labels'"
-

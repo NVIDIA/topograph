@@ -26,11 +26,3 @@ step() {
 delete_cluster() {
     kind delete cluster -n "${KUBE_CONTEXT#kind-}"
 }
-
-deploy_topograph() {
-    helm uninstall topograph --kube-context "$KUBE_CONTEXT" --namespace topograph 2>/dev/null || true
-
-    helm upgrade --install topograph charts/topograph \
-        --kube-context "$KUBE_CONTEXT" \
-        --namespace topograph --create-namespace --values "$1" --wait
-}

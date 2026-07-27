@@ -23,7 +23,7 @@ step "kubectl --context \"$KUBE_CONTEXT\" get node"
 
 step "demos/test-nfd/deploy-nfd.sh"
 
-step "deploy_topograph demos/test-nfd/values.nfd.kwok.yaml"
+step "KUBE_CONTEXT=\"$KUBE_CONTEXT\" ./scripts/install-topograph.sh demos/test-nfd/values.nfd.kwok.yaml"
 
 step "kubectl --context \"$KUBE_CONTEXT\" -n node-feature-discovery get nodefeaturegroups"
 

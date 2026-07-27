@@ -29,7 +29,12 @@ step "./demos/dra-slinky/deploy-slinky.sh"
 
 step "kubectl --context \"$KUBE_CONTEXT\" -n slurm get cm slurm-config-extra -o yaml"
 
-step "deploy_topograph demos/dra-slinky/values.dra-slinky.kwok.yaml"
+resource_version="$(kubectl --context "$KUBE_CONTEXT" -n slurm \
+    get cm slurm-config-extra -o jsonpath='{.metadata.resourceVersion}')"
+
+step "KUBE_CONTEXT=\"$KUBE_CONTEXT\" ./scripts/install-topograph.sh demos/dra-slinky/values.dra-slinky.kwok.yaml"
+
+step "KUBE_CONTEXT=\"$KUBE_CONTEXT\" ./scripts/wait-configmap-update.sh slurm slurm-config-extra \"$resource_version\""
 
 # step "kubectl --context \"$KUBE_CONTEXT\" -n topograph logs -l app.kubernetes.io/name=topograph"
 
