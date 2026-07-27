@@ -17,7 +17,7 @@ step "make build TARGETS=kwok-nodes"
 
 step "delete_cluster"
 
-step "./scripts/create-test-cluster.sh -m ./tests/models/medium.yaml"
+step "./scripts/create-kind-kwok-cluster.sh -m ./tests/models/medium.yaml"
 
 step "kubectl --context \"$KUBE_CONTEXT\" get node"
 

@@ -47,7 +47,7 @@ jobs:
           kind load docker-image "$TOPOGRAPH_IMAGE" --name topograph
 
       - name: Deploy Slinky
-        run: tests/ci/deploy-slinky.sh
+        run: scripts/deploy-slinky.sh --compute-mode none
 
       - name: Deploy and verify Topograph
         run: tests/ci/run-slinky-test.sh

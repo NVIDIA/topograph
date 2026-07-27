@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+set -euo pipefail
+
+kube_context="${KUBE_CONTEXT:-kind-topograph}"
+slinky_version="${SLINKY_VERSION:-1.2.0}"
+compute_mode=""
+
+control_plane_selector='{"node-role.kubernetes.io/control-plane":""}'
+control_plane_tolerations='[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]'
+kwok_selector='{"kwok.x-k8s.io/node":"fake"}'
+
+usage() {
+    cat <<EOF
+Usage: $0 --compute-mode <none|kwok>
+
+Deploy Slinky to a kind cluster with exactly one control-plane node.
+
+Options:
+  --compute-mode <none|kwok>  Deploy without compute nodes or with a KWOK
+                              worker NodeSet.
+  -h, --help                  Show this help.
+
+Environment:
+  KUBE_CONTEXT    Kubernetes context. Default: ${kube_context}
+  SLINKY_VERSION  Slinky chart version. Default: ${slinky_version}
+EOF
+}
+
+while (( $# > 0 )); do
+    case "$1" in
+        --compute-mode)
+            if (( $# < 2 )); then
+                echo "missing value for --compute-mode" >&2
+                usage >&2
+                exit 2
+            fi
+            compute_mode="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "unknown argument: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+case "$compute_mode" in
+    none|kwok)
+        ;;
+    "")
+        echo "missing required --compute-mode" >&2
+        usage >&2
+        exit 2
+        ;;
+    *)
+        echo "invalid compute mode: $compute_mode" >&2
+        usage >&2
+        exit 2
+        ;;
+esac
+
+control_plane_count="$(kubectl --context "$kube_context" get nodes \
+    -l node-role.kubernetes.io/control-plane -o name | wc -l | tr -d '[:space:]')"
+if [[ "$control_plane_count" != "1" ]]; then
+    echo "expected exactly one control-plane node, found $control_plane_count" >&2
+    exit 1
+fi
+
+kwok_node_count=0
+if [[ "$compute_mode" == "kwok" ]]; then
+    kwok_node_count="$(kubectl --context "$kube_context" get nodes \
+        -l kwok.x-k8s.io/node=fake -o name | wc -l | tr -d '[:space:]')"
+    if [[ "$kwok_node_count" == "0" ]]; then
+        echo "expected at least one KWOK node with kwok.x-k8s.io/node=fake" >&2
+        exit 1
+    fi
+fi
+
+helm upgrade --install slurm-operator \
+    oci://ghcr.io/slinkyproject/charts/slurm-operator \
+    --version "$slinky_version" \
+    --kube-context "$kube_context" \
+    --namespace slinky --create-namespace \
+    --set crds.enabled=true \
+    --set certManager.enabled=false \
+    --set-json "operator.nodeSelector=$control_plane_selector" \
+    --set-json "operator.tolerations=$control_plane_tolerations" \
+    --set-json "webhook.nodeSelector=$control_plane_selector" \
+    --set-json "webhook.tolerations=$control_plane_tolerations" \
+    --wait --timeout 5m
+
+slurm_args=(
+    upgrade --install slurm
+    oci://ghcr.io/slinkyproject/charts/slurm
+    --version "$slinky_version"
+    --kube-context "$kube_context"
+    --namespace slurm --create-namespace
+    --set controller.persistence.enabled=false
+    --set-json "controller.podSpec.nodeSelector=$control_plane_selector"
+    --set-json "controller.podSpec.tolerations=$control_plane_tolerations"
+    --set-json "restapi.podSpec.nodeSelector=$control_plane_selector"
+    --set-json "restapi.podSpec.tolerations=$control_plane_tolerations"
+    --set-string 'configFiles.topology\.conf='
+    --wait --timeout 10m
+)
+
+if [[ "$compute_mode" == "kwok" ]]; then
+    slurm_args+=(
+        --set nodesets.kwok.scalingMode=DaemonSet
+        --set-json "nodesets.kwok.podSpec.nodeSelector=$kwok_selector"
+        --set partitions.all.enabled=true
+    )
+fi
+
+helm "${slurm_args[@]}"
+
+if [[ "$compute_mode" == "kwok" ]]; then
+    # KWOK marks pods Ready without running their containers. Keep the
+    # simulated slurmd pods from being deleted for failing to register.
+    kubectl --context "$kube_context" patch nodeset slurm-worker-kwok \
+        --namespace slurm \
+        --type merge \
+        --patch '{"spec":{"minReadySeconds":2147483647}}'
+
+    min_ready_seconds="$(kubectl --context "$kube_context" get nodeset slurm-worker-kwok \
+        --namespace slurm \
+        -o jsonpath='{.spec.minReadySeconds}')"
+    if [[ "$min_ready_seconds" != "2147483647" ]]; then
+        echo "failed to configure simulated slurmd pod stability" >&2
+        exit 1
+    fi
+
+    echo "Slinky $slinky_version deployed to $kube_context with $kwok_node_count KWOK compute nodes"
+else
+    echo "Slinky $slinky_version deployed to $kube_context without compute nodes"
+fi

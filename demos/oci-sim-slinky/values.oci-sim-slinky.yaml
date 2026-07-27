@@ -1,0 +1,27 @@
+provider:
+  name: oci-sim
+  params:
+    modelFileName: large.yaml
+engine:
+  name: slinky
+  params:
+    namespace: slurm
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: worker
+    plugin: topology/tree
+    topologyConfigPath: topology.conf
+    topologyConfigmapName: slurm-config-extra
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+
+nodeDataBroker:
+  enabled: false
