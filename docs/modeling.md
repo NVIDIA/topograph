@@ -16,7 +16,7 @@ Models are consumed in several simulation and local-development flows.
 
 ### KWOK Clusters
 
-`kwok-nodes` renders virtual Kubernetes `Node` objects from a model file as a plain YAML manifest. The helper script `scripts/create-test-cluster.sh` then creates or reuses a local kind cluster, installs KWOK into it, and applies that manifest. This is useful when you want to run Topograph against a Kubernetes API without provisioning real nodes.
+`kwok-nodes` renders virtual Kubernetes `Node` objects from a model file as a plain YAML manifest. The helper script `scripts/create-kind-kwok-cluster.sh` then creates or reuses a local kind cluster, installs KWOK into it, and applies that manifest. This is useful when you want to run Topograph against a Kubernetes API without provisioning real nodes.
 
 Prerequisites:
 
@@ -40,13 +40,13 @@ bin/kwok-nodes -model medium.yaml -output /tmp/kwok-nodes.yaml
 Create or reuse a kind cluster named `topograph`, install KWOK, and apply the generated nodes:
 
 ```bash
-scripts/create-test-cluster.sh -m medium.yaml
+scripts/create-kind-kwok-cluster.sh -m medium.yaml
 ```
 
 Create or reuse a named kind cluster from an explicit model path, and keep the generated manifest:
 
 ```bash
-scripts/create-test-cluster.sh \
+scripts/create-kind-kwok-cluster.sh \
   --cluster topo-demo \
   --model tests/models/nvl72.yaml \
   --output /tmp/nvl72-kwok-nodes.yaml \

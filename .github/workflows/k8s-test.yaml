@@ -67,7 +67,7 @@ jobs:
 
       - name: Create KWOK nodes
         run: |
-          ./scripts/create-test-cluster.sh \
+          ./scripts/create-kind-kwok-cluster.sh \
             --model ./tests/models/medium.yaml \
             --cluster topograph \
             --kwok-release "$KWOK_RELEASE"
