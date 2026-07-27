@@ -1,0 +1,83 @@
+# Kubernetes integration tests: deploy Topograph to kind with KWOK nodes and
+# verify the k8s engine against model-backed providers.
+
+name: Kubernetes Test
+
+on:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  KWOK_RELEASE: v0.8.0
+  TOPOGRAPH_IMAGE: topograph:ci
+
+jobs:
+  integration:
+    name: k8s / ${{ matrix.provider }}
+    runs-on: linux-amd64-cpu16
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: test
+            values: tests/ci/values.k8s-test.yaml
+            expected_accelerator: nvl2
+          - provider: aws-sim
+            values: tests/ci/values.k8s-aws-sim.yaml
+            expected_accelerator: nvl2
+          - provider: gcp-sim
+            values: tests/ci/values.k8s-gcp-sim.yaml
+            expected_accelerator: sw12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.1.1
+
+      - name: Create kind cluster
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          cluster_name: topograph
+          wait: 120s
+
+      - name: Build test binaries and image
+        run: |
+          make build TARGETS=kwok-nodes
+          docker build \
+            --build-arg TARGETOS=linux \
+            --build-arg TARGETARCH=amd64 \
+            --tag "$TOPOGRAPH_IMAGE" \
+            .
+          kind load docker-image "$TOPOGRAPH_IMAGE" --name topograph
+
+      - name: Create KWOK nodes
+        run: |
+          ./scripts/create-test-cluster.sh \
+            --model ./tests/models/medium.yaml \
+            --cluster topograph \
+            --kwok-release "$KWOK_RELEASE"
+
+      - name: Deploy and verify Topograph
+        env:
+          VALUES_FILE: ${{ matrix.values }}
+          EXPECTED_ACCELERATOR: ${{ matrix.expected_accelerator }}
+        run: tests/ci/run-k8s-test.sh "$VALUES_FILE" "$EXPECTED_ACCELERATOR"
+
+      - name: Collect diagnostics
+        if: failure()
+        run: tests/ci/collect-k8s-diagnostics.sh

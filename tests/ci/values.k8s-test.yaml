@@ -1,0 +1,33 @@
+# Kubernetes integration test using the model-backed test provider.
+
+provider:
+  name: test
+  params:
+    modelFileName: medium.yaml
+    generateResponseCode: 202
+    topologyResponseCode: 200
+
+engine:
+  name: k8s
+
+image:
+  repository: topograph
+  tag: ci
+  pullPolicy: Never
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  topograph:
+    trigger:
+      nodeSelector:
+        kwok.x-k8s.io/node: "fake"
+
+nodeDataBroker:
+  enabled: false

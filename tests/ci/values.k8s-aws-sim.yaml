@@ -1,0 +1,31 @@
+# Kubernetes integration test using the AWS simulation provider.
+
+provider:
+  name: aws-sim
+  params:
+    modelFileName: medium.yaml
+
+engine:
+  name: k8s
+
+image:
+  repository: topograph
+  tag: ci
+  pullPolicy: Never
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  topograph:
+    trigger:
+      nodeSelector:
+        kwok.x-k8s.io/node: "fake"
+
+nodeDataBroker:
+  enabled: false
