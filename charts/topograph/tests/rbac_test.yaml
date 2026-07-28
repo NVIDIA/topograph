@@ -5,7 +5,7 @@ release:
   name: chart-ci
   namespace: topograph
 tests:
-  - it: renders a ClusterRole and ClusterRoleBinding by default
+  - it: renders a ClusterRole and ClusterRoleBinding for the Kubernetes engine by default
     asserts:
       - hasDocuments:
           count: 2
@@ -16,7 +16,15 @@ tests:
           of: ClusterRoleBinding
         documentIndex: 1
 
-  - it: still renders for an existing service account
+  - it: is omitted entirely when rbac.create is false
+    set:
+      rbac:
+        create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: still renders for an existing service account with Kubernetes engine
     set:
       serviceAccount:
         create: false
@@ -41,17 +49,104 @@ tests:
           value: existing-topograph-sa
         documentIndex: 1
 
-  - it: is omitted entirely when rbac.create is false
+  - it: grants node read/write for the k8s engine
     set:
-      rbac:
-        create: false
-    asserts:
-      - hasDocuments:
-          count: 0
-
-  - it: grants core node and pod read access by default
+      provider:
+        name: test
+      engine:
+        name: k8s
     documentIndex: 0
     asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [configmaps]
+            verbs: [create, get, update]
+
+  - it: grants node read for the dra provider
+    set:
+      provider:
+        name: dra
+      engine:
+        name: slurm
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+
+  - it: grants node, pod, and daemonset access for the infiniband-k8s provider
+    set:
+      provider:
+        name: infiniband-k8s
+      engine:
+        name: slurm
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list]
       - contains:
           path: rules
           content:
@@ -62,14 +157,8 @@ tests:
           path: rules
           content:
             apiGroups: [""]
-            resources: [nodes]
-            verbs: [get, list]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [update]
+            resources: [pods/exec]
+            verbs: [create]
       - contains:
           path: rules
           content:
@@ -77,16 +166,31 @@ tests:
             resources: [daemonsets]
             verbs: [get]
 
-  - it: does not grant provider- or engine-specific access by default
+  - it: grants node read, pod read, node patch, and configmap access for the slinky engine
+    set:
+      engine:
+        name: slinky
     documentIndex: 0
     asserts:
-      - notContains:
+      - contains:
           path: rules
           content:
             apiGroups: [""]
-            resources: [pods/exec]
-            verbs: [create]
-      - notContains:
+            resources: [nodes]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - contains:
           path: rules
           content:
             apiGroups: [""]
@@ -95,125 +199,69 @@ tests:
       - notContains:
           path: rules
           content:
-            apiGroups: [nfd.k8s-sigs.io]
-            resources: [nodefeatures, nodefeaturegroups]
-            verbs: [create, list, patch, delete]
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
       - notContains:
           path: rules
           content:
             apiGroups: [""]
-            resources: [pods]
-            verbs: [get, list]
+            resources: [pods/exec]
+            verbs: [create]
       - notContains:
           path: rules
           content:
             apiGroups: [apps]
             resources: [daemonsets]
-            verbs: [get, list]
+            verbs: [get]
 
-  - it: grants pods/exec for the infiniband-k8s provider
+  - it: grants node read, node patch, pod read, and configmap access for slinky with dynamic nodes
     set:
-      provider:
-        name: infiniband-k8s
+      engine:
+        name: slinky
+        params:
+          useDynamicNodes: true
     documentIndex: 0
     asserts:
       - contains:
           path: rules
           content:
             apiGroups: [""]
-            resources: [pods/exec]
-            verbs: [create]
-
-  - it: grants configmaps for the slinky engine
-    set:
-      engine:
-        name: slinky
-    documentIndex: 0
-    asserts:
+            resources: [nodes]
+            verbs: [get, list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
       - contains:
           path: rules
           content:
             apiGroups: [""]
             resources: [configmaps]
             verbs: [create, get, update]
-      - notContains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [configmaps]
-            verbs: [create, get, list, update]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [patch]
 
-  - it: does not grant node patch access to non-slinky engines
-    set:
-      engine:
-        name: k8s
-    documentIndex: 0
-    asserts:
-      - notContains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [patch]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [update]
-
-  - it: does not grant node update access to the slinky engine
-    set:
-      engine:
-        name: slinky
-    documentIndex: 0
-    asserts:
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [get, list]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [patch]
-      - notContains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [update]
-
-  - it: does not render NFD namespace RBAC for an explicit non-NFD engine
-    set:
-      engine:
-        name: slinky
-    asserts:
-      - hasDocuments:
-          count: 2
-      - isKind:
-          of: ClusterRole
-        documentIndex: 0
-      - isKind:
-          of: ClusterRoleBinding
-        documentIndex: 1
-
-  - it: grants NFD CR access for the nfd engine
+  - it: grants node read for the nfd engine
     set:
       engine:
         name: nfd
     asserts:
       - hasDocuments:
           count: 4
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list]
+        documentIndex: 0
       - notContains:
           path: rules
           content:
@@ -317,6 +365,9 @@ tests:
             verbs: [create]
 
   - it: binds the ClusterRole to the service account in the release namespace
+    set:
+      engine:
+        name: k8s
     documentIndex: 1
     asserts:
       - equal:
@@ -328,3 +379,37 @@ tests:
       - equal:
           path: subjects[0].namespace
           value: topograph
+
+  - it: does not grant provider- or engine-specific access for non-Kubernetes combos
+    set:
+      provider:
+        name: test
+      engine:
+        name: slurm
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: does not render NFD namespace RBAC for an explicit non-NFD engine
+    set:
+      engine:
+        name: slinky
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ClusterRole
+        documentIndex: 0
+      - isKind:
+          of: ClusterRoleBinding
+        documentIndex: 1
+
+  - it: omits the main ClusterRole and ClusterRoleBinding for non-Kubernetes combos
+    set:
+      provider:
+        name: test
+      engine:
+        name: slurm
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -63,6 +63,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Removed unused RBAC verbs from the Topograph API server and node-data-broker ClusterRoles (least-privilege): API server `pods` rule dropped `get` (list-only), `daemonsets` rule dropped `list` (get-only), Slinky receives Node `patch` without Node `update`, and the Slinky `configmaps` rule dropped `list`; node-data-broker `nodes` rule dropped `list` (get/update), and the InfiniBand `daemonsets`/`pods` rules dropped `list`/`get` respectively (get-only, list-only).
 
 - node-observer ClusterRole no longer grants unused `get`; `nodes` list/watch now gated on `trigger.nodeSelector`.
+- Gated the main Topograph API server ClusterRole rules by engine and provider: `nodes`, `pods`, and `daemonsets` permissions are now rendered only when the selected engine or provider requires them, and the ClusterRole and ClusterRoleBinding are omitted entirely for non-Kubernetes combos (e.g. `test` provider + `slurm` engine). `pods/exec` and `configmaps` gates remain unchanged.
 ### Migration (Helm — hardened security context)
 
 The chart's hardened defaults are a breaking change for two deployment shapes; override only the affected keys/component:
