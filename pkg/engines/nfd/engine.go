@@ -45,9 +45,9 @@ type Params struct {
 	NodeSelector map[string]string `mapstructure:"nodeSelector"`
 	// Cleanup deletes stale Topograph-managed NFD objects. Defaults to true.
 	Cleanup bool `mapstructure:"cleanup"`
-	// KubeQPS overrides the shared client-go request rate used by the typed and dynamic clients (default: 5).
+	// KubeQPS configures the shared client-go request rate used by the typed and dynamic clients.
 	KubeQPS float32 `mapstructure:"kubeQPS"`
-	// KubeBurst overrides the shared client-go burst used by the typed and dynamic clients (default: 10).
+	// KubeBurst configures the shared client-go burst used by the typed and dynamic clients.
 	KubeBurst int `mapstructure:"kubeBurst"`
 
 	// derived fields

@@ -21,9 +21,12 @@ func ConfigureClientRateLimits(config *rest.Config, qps float32, burst int) {
 	config.Burst = burst
 }
 
-// ConfigureSharedClientRateLimiter always installs one token bucket, using
-// client-go defaults for zero values, so clients created from config share it.
+// ConfigureSharedClientRateLimiter installs one token bucket when either rate
+// limit is configured, so clients created from config share it.
 func ConfigureSharedClientRateLimiter(config *rest.Config, qps float32, burst int) {
+	if qps == 0 && burst == 0 {
+		return
+	}
 	qps, burst = normalizedClientRateLimits(qps, burst)
 	config.QPS = qps
 	config.Burst = burst

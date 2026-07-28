@@ -166,6 +166,52 @@ func TestAddNodeLabelsListsOnceWhenNodesWereNotPreviouslyLoaded(t *testing.T) {
 	require.Equal(t, 1, countKubernetesActions(client.Actions(), "patch", "nodes"))
 }
 
+func TestAddNodeLabelsSkipsNodesOutsideSelector(t *testing.T) {
+	selectedNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name:   "selected",
+		Labels: map[string]string{"topology.example/enabled": "true"},
+	}}
+	excludedNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "excluded"}}
+	client := fake.NewSimpleClientset(selectedNode, excludedNode)
+	eng := &K8sEngine{
+		client: client,
+		params: &Params{
+			NodeSelector: map[string]string{"topology.example/enabled": "true"},
+			labelKeys:    NewTopologyLabelKeys(nil, ""),
+		},
+	}
+	eng.cacheNodes(&corev1.NodeList{Items: []corev1.Node{*selectedNode}})
+
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "excluded", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	}))
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "selected", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	}))
+
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "get", "nodes"))
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "patch", "nodes"))
+}
+
+func TestAddNodeLabelsErrorsForUnknownNodeWithoutSelector(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	eng := &K8sEngine{
+		client: client,
+		params: &Params{
+			labelKeys: NewTopologyLabelKeys(nil, ""),
+		},
+	}
+	eng.cacheNodes(&corev1.NodeList{})
+
+	err := eng.AddNodeLabels(context.Background(), "unknown", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	})
+
+	require.EqualError(t, err, `node "unknown" was not found in the selected Kubernetes nodes`)
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "get", "nodes"))
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "patch", "nodes"))
+}
+
 func countKubernetesActions(actions []k8stesting.Action, verb, resource string) int {
 	count := 0
 	for _, action := range actions {

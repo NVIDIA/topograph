@@ -40,6 +40,10 @@ func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels
 
 	node, ok := eng.cachedNodeMap[nodeName]
 	if !ok {
+		if len(eng.params.NodeSelector) != 0 {
+			klog.Warningf("Skipping topology labels for node %q because it does not match the engine nodeSelector", nodeName)
+			return nil
+		}
 		return fmt.Errorf("node %q was not found in the selected Kubernetes nodes", nodeName)
 	}
 

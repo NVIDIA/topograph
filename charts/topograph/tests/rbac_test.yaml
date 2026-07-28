@@ -168,6 +168,19 @@ tests:
             resources: [nodes]
             verbs: [update]
 
+  - it: does not grant node patch access to the slurm engine
+    set:
+      engine:
+        name: slurm
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+
   - it: does not grant node update access to the slinky engine
     set:
       engine:
@@ -220,6 +233,13 @@ tests:
             apiGroups: [nfd.k8s-sigs.io]
             resources: [nodefeatures, nodefeaturegroups]
             verbs: [create, list, patch, delete]
+        documentIndex: 0
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
         documentIndex: 0
       - isKind:
           of: Role

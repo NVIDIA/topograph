@@ -56,9 +56,19 @@ func TestConfigureClientRateLimits(t *testing.T) {
 }
 
 func TestConfigureSharedClientRateLimiter(t *testing.T) {
-	config := &rest.Config{}
-	ConfigureSharedClientRateLimiter(config, 0, 0)
-	require.Equal(t, rest.DefaultQPS, config.QPS)
-	require.Equal(t, rest.DefaultBurst, config.Burst)
-	require.NotNil(t, config.RateLimiter)
+	defaultConfig := &rest.Config{}
+	ConfigureSharedClientRateLimiter(defaultConfig, 0, 0)
+	require.Zero(t, defaultConfig.QPS)
+	require.Zero(t, defaultConfig.Burst)
+	require.Nil(t, defaultConfig.RateLimiter)
+
+	configuredConfig := &rest.Config{}
+	ConfigureSharedClientRateLimiter(configuredConfig, 0.001, 3)
+	require.Equal(t, float32(0.001), configuredConfig.QPS)
+	require.Equal(t, 3, configuredConfig.Burst)
+	require.Equal(t, float32(0.001), configuredConfig.RateLimiter.QPS())
+	require.True(t, configuredConfig.RateLimiter.TryAccept())
+	require.True(t, configuredConfig.RateLimiter.TryAccept())
+	require.True(t, configuredConfig.RateLimiter.TryAccept())
+	require.False(t, configuredConfig.RateLimiter.TryAccept())
 }

@@ -77,7 +77,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["topograph-config.yaml"]
-          pattern: "(?s)providerParams:.*kubeQPS: 50.*kubeBurst: 10.*engineParams:.*kubeQPS: 50.*kubeBurst: 10"
+          pattern: "(?ms)providerParams:.*kubeQPS: 50.*kubeBurst: 10$.*engineParams:.*kubeQPS: 50.*kubeBurst: 10$"
 
   - it: publishes shared defaults independently of the chart-selected components
     set:

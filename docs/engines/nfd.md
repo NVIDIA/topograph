@@ -91,9 +91,11 @@ authoritative.
 ### Kubernetes API rate limiting
 
 The NFD engine uses a typed Kubernetes client to list Nodes and a dynamic client
-to reconcile `NodeFeature` and `NodeFeatureGroup` objects. Both clients share
-one token-bucket limiter, so `kubeClient.qps` is the aggregate request rate
-rather than a separate allowance for each client.
+to reconcile `NodeFeature` and `NodeFeatureGroup` objects. When either
+`kubeClient.qps` or `kubeClient.burst` is configured, both clients share one
+token-bucket limiter, so `kubeClient.qps` is the aggregate request rate rather
+than a separate allowance for each client. Without these overrides, each client
+retains its client-go default limiter.
 
 The chart-wide `kubeClient` values also apply to the DRA provider and the
 Kubernetes and Slinky engines. If only QPS or burst is configured, the other
