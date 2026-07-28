@@ -51,7 +51,7 @@ As a result:
 - Apply deterministic, position-stable naming across all Slurm topology outputs.
 
 **Kubernetes integration:**
-- Expose both hierarchy levels as configurable topology labels so that pods and
+- Expose both hierarchy levels as topology labels so that pods and
   node-feature rules can target either the sub-domain or the accelerator domain.
 
 **Compatibility:**
@@ -60,14 +60,35 @@ As a result:
 
 ## Non-Goals
 
-- Changes to any provider (`aws`, `gcp`, `oci`, `netq`, etc.) are out of scope;
-  those providers must opt in separately by populating `SubDomain`.
+- Provider-specific discovery of accelerator sub-domains beyond OCI is out of
+  scope; those providers must opt in separately by populating
+  `InstanceTopology.XclrSubDomainID`.
 - Custom block-naming schemes are a provider responsibility and out of scope for
   the translate layer.
 - Hierarchies deeper than two levels (accelerator domain → sub-domain → nodes)
   are not addressed by this change.
 
 ## Data Model Changes
+
+### `topology.InstanceTopology`
+
+`pkg/topology/graph.go` represents accelerator locality explicitly:
+
+```go
+type InstanceTopology struct {
+    InstanceID      string
+    FabricTiers     []FabricTier
+    XclrDomainID    string // accelerator domain ID
+    XclrSubDomainID string // optional accelerator sub-domain ID
+    Instance        *Instance
+}
+```
+
+`XclrDomainID` identifies the top-level accelerator domain. When
+`XclrSubDomainID` is non-empty, graph conversion places the host in that
+sub-domain beneath `XclrDomainID`; otherwise the host remains directly in the
+domain for backward-compatible single-level output. These fields replace the
+ambiguous `AcceleratorID` and `ParentAcceleratorID` pair.
 
 ### `topology.HostInfo`
 
@@ -316,3 +337,6 @@ The output is identical to the pre-change single-level behavior.
   path.
 - `pkg/topology` and `pkg/models` unit tests cover `GetDomainTree`,
   `setDesiredCountByLevel`, and `SubDomain` propagation from YAML labels.
+- `TestBuildNodeLabelsWithXclrSubDomain` in
+  `pkg/engines/k8s/labeler_test.go` verifies that Kubernetes nodes receive both
+  accelerator hierarchy labels when `XclrSubDomainID` is present.

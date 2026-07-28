@@ -57,7 +57,7 @@ These structures propagate across every provider and engine. Changing them in a 
 |---|---|
 | `pkg/topology/` — `Graph`, the `Vertex` tree, and topology constants | Every provider returns it; every engine consumes it. A shape change ripples to all of them. |
 | Helm `provider.name` / `engine.name` | External contract for operators deploying Topograph. |
-| The variable fabric labels `network.topology.nvidia.com/tier-N` and single accelerator label `network.topology.nvidia.com/accelerator` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue); fabric tier 0 is closest to the node. |
+| The variable fabric labels `network.topology.nvidia.com/tier-N` and accelerator labels `xclr.topology.nvidia.com/domain` and `xclr.topology.nvidia.com/sub-domain` | Consumed by downstream projects (KAI Scheduler, NVSentinel, Kueue); fabric tier 0 is closest to the node. |
 
 ## 2. Setup and Installation
 
@@ -139,7 +139,7 @@ type Provider interface {
 }
 ```
 
-A provider returns a `*topology.Graph` of the discovered topology. Providers using `ClusterTopology` populate `InstanceTopology.FabricTiers` closest-first and the optional single `InstanceTopology.AcceleratorID`, then call `ToGraph`; the fabric path has no fixed depth. `Graph.Tiers` is the fabric hierarchy, and `Graph.Domains` is the `topology/block` source. Leaf vertices are compute nodes; interior tier vertices are switches. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
+A provider returns a `*topology.Graph` of the discovered topology. Providers using `ClusterTopology` populate `InstanceTopology.FabricTiers` closest-first, `InstanceTopology.XclrDomainID` for the optional accelerator domain, and `InstanceTopology.XclrSubDomainID` for an optional sub-domain nested within it, then call `ToGraph`; the fabric path has no fixed depth. `Graph.Tiers` is the fabric hierarchy, and `Graph.Domains` is the `topology/block` source. Leaf vertices are compute nodes; interior tier vertices are switches. Return `*httperr.Error` so the API server can propagate the correct HTTP status code — plain `error` is not acceptable at this boundary.
 
 ### Adding a new provider
 
@@ -170,7 +170,7 @@ Engines are much rarer (four exist: slurm, k8s, nfd, slinky). Follow the same re
 
 ### Label and annotation reference
 
-Label keys written by the Kubernetes engine are documented in `docs/reference/node-labels.md`. Do not invent new keys in provider code — values flow through the canonical graph. Optional custom keys are configured through the k8s engine's closest-first `fabricLabels` array and singular `acceleratorLabel`; when `fabricLabels` is provided, only explicitly listed fabric tiers are labeled.
+Label keys written by the Kubernetes engine are documented in `docs/reference/node-labels.md`. Do not invent new keys in provider code — values flow through the canonical graph. Optional custom keys are configured through the k8s engine's closest-first `fabricLabels` array and singular `acceleratorLabel`; the accelerator sub-domain key is fixed at `xclr.topology.nvidia.com/sub-domain`. When `fabricLabels` is provided, only explicitly listed fabric tiers are labeled.
 
 ## 5. Pull Request Guidelines
 

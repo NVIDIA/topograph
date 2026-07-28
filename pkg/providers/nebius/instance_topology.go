@@ -67,8 +67,8 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, clien
 			}
 
 			inst := &topology.InstanceTopology{
-				InstanceID:    instanceID,
-				AcceleratorID: instance.GetSpec().GetNvlInstanceGroupId(),
+				InstanceID:   instanceID,
+				XclrDomainID: instance.GetSpec().GetNvlInstanceGroupId(),
 			}
 
 			path := ibTopology.GetPath()

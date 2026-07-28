@@ -161,13 +161,10 @@ func convertHost(instanceID, localBlockID, networkBlockID, hpcIslandID, gpuMemor
 	}
 
 	if gpuMemoryFabricID != nil {
-		domain := *gpuMemoryFabricID
+		topo.XclrDomainID = *gpuMemoryFabricID
 
-		if rack == "" {
-			topo.AcceleratorID = domain
-		} else {
-			topo.AcceleratorID = domain + "." + rack
-			topo.ParentAcceleratorID = domain
+		if rack != "" {
+			topo.XclrSubDomainID = topo.XclrDomainID + "." + rack
 		}
 	}
 

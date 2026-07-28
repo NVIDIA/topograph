@@ -224,19 +224,19 @@ func TestSimClientGetComputeHostRackAdditionalData(t *testing.T) {
 
 	client := &simClient{model: model}
 	testCases := []struct {
-		instanceID   string
-		parentDomain string
-		rack         string
+		instanceID string
+		domain     string
+		rack       string
 	}{
 		{
-			instanceID:   "srv1101",
-			parentDomain: "nvl-1",
-			rack:         "rack01",
+			instanceID: "srv1101",
+			domain:     "nvl-1",
+			rack:       "rack01",
 		},
 		{
-			instanceID:   "srv6201",
-			parentDomain: "nvl-2",
-			rack:         "rack12",
+			instanceID: "srv6201",
+			domain:     "nvl-2",
+			rack:       "rack12",
 		},
 	}
 
@@ -254,8 +254,8 @@ func TestSimClientGetComputeHostRackAdditionalData(t *testing.T) {
 
 			instanceTopology, err := convertComputeHost(&resp.ComputeHost)
 			require.NoError(t, err)
-			require.Equal(t, tc.parentDomain, instanceTopology.ParentAcceleratorID)
-			require.Equal(t, tc.parentDomain+"."+tc.rack, instanceTopology.AcceleratorID)
+			require.Equal(t, tc.domain, instanceTopology.XclrDomainID)
+			require.Equal(t, tc.domain+"."+tc.rack, instanceTopology.XclrSubDomainID)
 		})
 	}
 }

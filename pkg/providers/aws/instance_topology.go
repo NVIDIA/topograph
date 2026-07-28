@@ -112,7 +112,7 @@ func convert(inst *types.InstanceTopology) *topology.InstanceTopology {
 		FabricTiers: topology.RootFirstFabricTiers(inst.NetworkNodes...),
 	}
 	if inst.CapacityBlockId != nil {
-		topo.AcceleratorID = *inst.CapacityBlockId
+		topo.XclrDomainID = *inst.CapacityBlockId
 	}
 	klog.V(4).Infof("Adding instance topology %s", topo.String())
 	return topo

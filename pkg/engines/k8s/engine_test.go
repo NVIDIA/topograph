@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 func TestGetParameters(t *testing.T) {
@@ -79,6 +81,13 @@ func TestGetParameters(t *testing.T) {
 				"fabricLabels": []string{""},
 			},
 			err: `fabricLabels[0] "" is not a valid Kubernetes label key`,
+		},
+		{
+			name: "Case 8: reject accelerator sub-domain label collision",
+			params: map[string]any{
+				"acceleratorLabel": topology.KeyTopologyXclrSubDomain,
+			},
+			err: `topology label key "xclr.topology.nvidia.com/sub-domain" is configured for both acceleratorLabel and XclrSubDomain`,
 		},
 	}
 

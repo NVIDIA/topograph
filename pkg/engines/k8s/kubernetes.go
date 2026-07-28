@@ -65,7 +65,7 @@ func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels
 		return nil
 	}
 
-	desiredLabels := mergeNodeLabels(node.Labels, labels, eng.params.labelKeys)
+	desiredLabels := mergeNodeLabels(node, labels, eng.params.labelKeys)
 	if maps.Equal(node.Labels, desiredLabels) {
 		return nil
 	}
@@ -162,7 +162,7 @@ func mergeNodeLabels(current, labels map[string]string, keys *TopologyLabelKeys)
 		desired = make(map[string]string)
 	}
 
-	labels = skipAcceleratorLabelWhenGPUCliqueExists(desired, labels, keys)
+	labels = skipXclrLabelsWhenGPUCliqueExists(desired, labels, keys)
 	removeManagedTopologyLabels(desired, keys)
 	maps.Copy(desired, labels)
 	return desired
@@ -180,10 +180,11 @@ func removeManagedTopologyLabels(labels map[string]string, keys *TopologyLabelKe
 }
 
 func isManagedLevelLabel(key string, keys *TopologyLabelKeys) bool {
-	if key == topology.KeyTopologyAccelerator {
+	if key == topology.KeyTopologyXclrDomain || key == topology.KeyTopologyXclrSubDomain {
 		return true
 	}
-	for _, configured := range append(append([]string(nil), keys.Fabric...), keys.Accelerator) {
+	configuredKeys := append(append([]string(nil), keys.Fabric...), keys.XclrDomain, keys.XclrSubDomain)
+	for _, configured := range configuredKeys {
 		if configured != "" && key == configured {
 			return true
 		}
@@ -199,17 +200,19 @@ func isManagedLevelLabel(key string, keys *TopologyLabelKeys) bool {
 	return false
 }
 
-func skipAcceleratorLabelWhenGPUCliqueExists(nodeLabels, labels map[string]string, keys *TopologyLabelKeys) map[string]string {
-	acceleratorLabel := keys.AcceleratorKey()
+func skipXclrLabelsWhenGPUCliqueExists(nodeLabels, labels map[string]string, keys *TopologyLabelKeys) map[string]string {
+	xclrDomainLabel := keys.XclrDomainKey()
+	xclrSubDomainLabel := keys.XclrSubDomainKey()
 	if strings.TrimSpace(nodeLabels[topology.KeyNvidiaGPUClique]) == "" {
 		return labels
 	}
 
 	filtered := maps.Clone(labels)
-	delete(filtered, acceleratorLabel)
+	delete(filtered, xclrDomainLabel)
+	delete(filtered, xclrSubDomainLabel)
 
-	if acceleratorLabel != topology.KeyNvidiaGPUClique {
-		delete(nodeLabels, acceleratorLabel)
+	if xclrDomainLabel != topology.KeyNvidiaGPUClique {
+		delete(nodeLabels, xclrDomainLabel)
 	}
 
 	return filtered

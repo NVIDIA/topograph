@@ -49,7 +49,7 @@
         },
         "params": {
           "type": "object",
-          "description": "Engine-specific parameters. The k8s engine accepts a closest-first fabricLabels array and a singular acceleratorLabel. Omitted values use the default label keys; when fabricLabels is provided, additional fabric tiers are omitted. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
+          "description": "Engine-specific parameters. The k8s engine accepts a closest-first fabricLabels array and a singular acceleratorLabel for the accelerator domain; accelerator sub-domains use the fixed xclr.topology.nvidia.com/sub-domain key. Omitted values use the default label keys; when fabricLabels is provided, additional fabric tiers are omitted. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
         }
       },
       "required": ["name"]

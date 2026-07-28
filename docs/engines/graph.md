@@ -11,7 +11,8 @@ By default, the generated JSON is returned in the `/v1/topology` response.
 Each instance entry contains:
 - `id` — the provider instance ID
 - `network_layers` — switch names or IDs in closest-first order (tier 0 is the switch directly connected to the node, increasing outward); the depth is variable and provider-dependent
-- `labels` — per-instance topology labels inherited from the model or provider (e.g., accelerator domain)
+- `labels` — per-instance topology labels inherited from the model or provider
+  (for example, XCLR domain and optional sub-domain)
 
 ```json
 {
@@ -21,7 +22,8 @@ Each instance entry contains:
       "network_layers": ["leaf-a", "spine-a"],
       "labels": {
         "nvidia.com/gpu.product": "H100",
-        "network.topology.nvidia.com/accelerator": "nvl-1"
+        "xclr.topology.nvidia.com/domain": "nvl-1",
+        "xclr.topology.nvidia.com/sub-domain": "nvl-1.rack-1"
       }
     }
   ]

@@ -28,7 +28,7 @@ func (inst Instance) AcceleratorID() string {
 }
 
 func AcceleratorID(labels map[string]string) string {
-	if accelerator := labels[KeyTopologyAccelerator]; accelerator != "" {
+	if accelerator := labels[KeyTopologyXclrDomain]; accelerator != "" {
 		return accelerator
 	}
 	return labels[KeyNvidiaGPUClique]

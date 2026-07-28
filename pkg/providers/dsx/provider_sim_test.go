@@ -378,7 +378,7 @@ func TestResponseToClusterTopologyOmitsEmptyAccelerator(t *testing.T) {
 	topo := responseToClusterTopology(response, instances)
 
 	require.Len(t, topo.Instances, 1)
-	require.Empty(t, topo.Instances[0].AcceleratorID)
+	require.Empty(t, topo.Instances[0].XclrDomainID)
 }
 
 func TestLoaderSimMissingModelFile(t *testing.T) {

@@ -12,6 +12,14 @@ This is the default OCI topology provider. It uses the [ComputeClient.ListComput
 
 This API returns information about compute hosts, including identifiers for HPC network domains, which correspond to the underlying network tiers used for placement and interconnects.
 
+Topograph maps `GpuMemoryFabricId` to the accelerator domain. It also queries
+each selected host with `GetComputeHost`; when
+`additionalData.locationDetails.rack` is present, Topograph emits a nested
+accelerator sub-domain named `<GpuMemoryFabricId>.<rack>`. Hosts without rack
+metadata retain the existing single-level accelerator-domain topology. The
+IMDS-based variant also emits single-level accelerator domains because its
+topology response does not include this rack metadata.
+
 Access to this API requires authorization. Specifically, the caller must have a policy that permits either `inspect` or `use` actions on dedicated VM hosts within the relevant tenancy.
 The minimum IAM verb required is `inspect dedicated-vm-hosts`. This allows listing and retrieving metadata but does not allow creating or deleting hosts.
 

@@ -5,7 +5,7 @@ Topograph models are YAML files used to simulate discovered topology without que
 A model describes the same canonical topology that real providers eventually produce:
 
 - A variable-depth switch tree, used for Slurm `topology/tree` output and Kubernetes `network.topology.nvidia.com/tier-N` labels
-- Node membership in one accelerator domain, used for block topology and the optional `network.topology.nvidia.com/accelerator` label
+- Node membership in an accelerator domain and optional sub-domain, used for block topology and the `xclr.topology.nvidia.com/domain` and `xclr.topology.nvidia.com/sub-domain` labels
 - Optional per-node labels and provider-specific annotations used by provider simulations
 
 Model loading lives in `pkg/models`. Model fixtures live under `tests/models/`.

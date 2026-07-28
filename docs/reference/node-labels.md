@@ -14,17 +14,19 @@ Slurm topology configuration to a ConfigMap and can consume the existing
 
 ### Default label keys
 
-Topograph publishes a variable-depth fabric label family and one accelerator
-label. Fabric tier `0` is closest to the compute node, and tier numbers increase
-outwards. Only entries present in the discovered topology are written.
+Topograph publishes a variable-depth fabric label family and a two-level
+accelerator label hierarchy. Fabric tier `0` is closest to the compute node, and
+tier numbers increase outwards. Only entries present in the discovered topology
+are written.
 
 | Label key | Topology type | Semantics |
 |---|---|---|
-| `network.topology.nvidia.com/accelerator` | Accelerator | Accelerator-interconnect locality. If `nvidia.com/gpu.clique` exists, the k8s engine leaves this label unset for that node. |
+| `xclr.topology.nvidia.com/domain` | Accelerator | Accelerator-interconnect locality. If `nvidia.com/gpu.clique` exists, the k8s engine leaves this label unset for that node. |
+| `xclr.topology.nvidia.com/sub-domain` | Accelerator | Optional locality nested within the accelerator domain. Written only when `xclr.topology.nvidia.com/domain` is also present. |
 | `network.topology.nvidia.com/tier-N` | Fabric | Switch-fabric locality at tier `N`. Tier 0 is the switch closest to the node; each higher tier is the next switch tier outward. There is no fixed maximum depth. |
 
 Labels are **additive**: a node can carry every discovered fabric tier and its
-accelerator domain simultaneously.
+accelerator domain and sub-domain simultaneously.
 
 Not all providers supported with the Kubernetes engine produce both topology
 types:
@@ -41,11 +43,15 @@ types:
 | `infiniband-bm` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
 | `infiniband-k8s` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
 
+The OCI API provider can publish both accelerator hierarchy levels when
+`additionalData.locationDetails.rack` is available. Other providers currently
+publish only the accelerator domain.
+
 The DRA provider is intentionally omitted: its supported use is with the Slinky
 engine, where it converts existing `nvidia.com/gpu.clique` labels into Slurm
 `topology/block` domains rather than writing Kubernetes topology labels.
 
-**Relationship to `nvidia.com/gpu.clique`**: Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs; it is not guaranteed to be present on every MNNVL cluster. The k8s engine treats that label as authoritative when present and does not write Topograph's configured accelerator label for that node, regardless of whether the selected provider also returned an accelerator domain from API data. For Slinky block topology, setting `engine.params.useGpuCliqueLabel: true` makes the Slinky engine build `topology/block` domains from `nvidia.com/gpu.clique` instead of provider accelerator-domain data. For `infiniband-k8s`, setting `provider.params.useGpuCliqueLabel: true` also makes the provider read that existing node label instead of collecting the same value through `nvidia-smi`. The `netq` provider uses a `DomainUUID` from the NMX management API — a different identifier that refers to the same physical domain but cannot be compared as a string.
+**Relationship to `nvidia.com/gpu.clique`**: Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs; it is not guaranteed to be present on every MNNVL cluster. The k8s engine treats that label as authoritative when present and does not write Topograph's configured accelerator domain or sub-domain labels for that node, regardless of whether the selected provider also returned accelerator topology from API data. For Slinky block topology, setting `engine.params.useGpuCliqueLabel: true` makes the Slinky engine build `topology/block` domains from `nvidia.com/gpu.clique` instead of provider accelerator-domain data. For `infiniband-k8s`, setting `provider.params.useGpuCliqueLabel: true` also makes the provider read that existing node label instead of collecting the same value through `nvidia-smi`. The `netq` provider uses a `DomainUUID` from the NMX management API — a different identifier that refers to the same physical domain but cannot be compared as a string.
 
 [NVIDIA Fabric Manager](https://docs.nvidia.com/datacenter/tesla/fabric-manager-user-guide/) runs at node init on MNNVL-capable hardware, discovers the NVLink fabric across GPUs, and registers each GPU with [NVML](https://docs.nvidia.com/deploy/nvml-api/) (NVIDIA Management Library — a C API that exposes per-GPU state). The GPU Operator's IMEX labeler writes `nvidia.com/gpu.clique` only once NVML reports the node's fabric state as `GPU_FABRIC_STATE_COMPLETED` — meaning Fabric Manager finished initialization successfully and the node is part of an NVLink domain.
 
@@ -53,10 +59,10 @@ On non-MNNVL systems (e.g., DGX B200, B300), the GPU fabric never reaches `GPU_F
 
 ### Choosing between the accelerator label and `nvidia.com/gpu.clique` for scheduling
 
-Workload schedulers consuming topology labels may need to choose between Topograph's `network.topology.nvidia.com/accelerator` and the NVIDIA GPU Operator's `nvidia.com/gpu.clique`. The k8s engine automatically avoids writing the accelerator label on nodes where `nvidia.com/gpu.clique` is already present, so schedulers can use `gpu.clique` for those nodes and fall back to the accelerator label where it is absent:
+Workload schedulers consuming topology labels may need to choose between Topograph's `xclr.topology.nvidia.com/domain` and the NVIDIA GPU Operator's `nvidia.com/gpu.clique`. The k8s engine automatically avoids writing the XCLR domain and sub-domain labels on nodes where `nvidia.com/gpu.clique` is already present, so schedulers can use `gpu.clique` for those nodes and fall back to the XCLR labels where it is absent:
 
 - **MNNVL hardware + Fabric Manager completed + NVL Partition granularity desired:** use `nvidia.com/gpu.clique`. On the AWS provider this is finer granularity than the accelerator label (which carries the CapacityBlockId, i.e., the NVL Domain). On InfiniBand and Lambda AI providers the two labels carry the same value.
-- **MNNVL but Fabric Manager not yet completed, or non-MNNVL hardware:** `nvidia.com/gpu.clique` is absent. Use `network.topology.nvidia.com/accelerator`.
+- **MNNVL but Fabric Manager not yet completed, or non-MNNVL hardware:** `nvidia.com/gpu.clique` is absent. Use `xclr.topology.nvidia.com/domain`.
 - **Slurm clusters (no Kubernetes node labels):** neither label applies. Consumers read Slurm's `topology.conf` directly.
 
 **Caveats when preferring `nvidia.com/gpu.clique`:**
@@ -81,12 +87,14 @@ optional singular `acceleratorLabel`. When `fabricLabels` is omitted, Topograph
 uses `network.topology.nvidia.com/tier-N` for every discovered fabric tier. When
 provided, only explicitly listed tiers are labeled; additional tiers are
 omitted. `acceleratorLabel` defaults to
-`network.topology.nvidia.com/accelerator`. Every configured key must be a valid
-Kubernetes label key. Label values always come from provider discovery.
+`xclr.topology.nvidia.com/domain`. Every configured key must be a valid
+Kubernetes label key. The accelerator sub-domain key is fixed at
+`xclr.topology.nvidia.com/sub-domain`. Label values always come from provider
+discovery.
 
 ### Relationship to upstream standardization (KEP-4962)
 
-An active Kubernetes Enhancement Proposal (KEP), [KEP-4962: Standardizing the Representation of Cluster Network Topology](https://github.com/kubernetes/enhancements/issues/4962) ([draft in PR #4965](https://github.com/kubernetes/enhancements/pull/4965)), advocates reserved label keys under the `topology.kubernetes.io/` namespace for a standardized representation of cluster network topology. The KEP is pre-GA and still under upstream review. Topograph's current `network.topology.nvidia.com/*` keys predate any potential upstream standard and are presently vendor-scoped — the KEP's framing allows vendor prefixes and standard labels to coexist rather than replace one another. If KEP-4962 reaches GA with stable keys, Topograph will evaluate aligning or providing both; for now, the `network.topology.nvidia.com/*` keys remain authoritative for Topograph-deployed clusters.
+An active Kubernetes Enhancement Proposal (KEP), [KEP-4962: Standardizing the Representation of Cluster Network Topology](https://github.com/kubernetes/enhancements/issues/4962) ([draft in PR #4965](https://github.com/kubernetes/enhancements/pull/4965)), advocates reserved label keys under the `topology.kubernetes.io/` namespace for a standardized representation of cluster network topology. The KEP is pre-GA and still under upstream review. Topograph's current `network.topology.nvidia.com/*` and `xclr.topology.nvidia.com/*` keys predate any potential upstream standard and are presently vendor-scoped — the KEP's framing allows vendor prefixes and standard labels to coexist rather than replace one another. If KEP-4962 reaches GA with stable keys, Topograph will evaluate aligning or providing both; for now, Topograph's vendor-scoped keys remain authoritative for Topograph-deployed clusters.
 
 ## Without Topograph
 
@@ -97,7 +105,7 @@ When Topograph is not deployed, the labels commonly available for topology-aware
 | `topology.kubernetes.io/zone` | Cloud provider / kubelet | Availability zone or data center zone |
 | `topology.kubernetes.io/region` | Cloud provider / kubelet | Geographic region |
 | `node.kubernetes.io/instance-type` | Cloud provider | VM / instance SKU |
-| `topology.k8s.aws/capacity-block-id` | AWS Node Feature Discovery | AWS Capacity Block reservation ID. Per the [EC2 API reference for `InstanceTopology`](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceTopology.html), on UltraServer instances this "identifies instances within the UltraServer domain" — a reservation-scoped grouping, not an NVL Partition identifier. On P6e-GB200 it is co-extensive with one UltraServer (AWS requires reserving the UltraServer as a unit per the [EKS UltraServer guide](https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-nvidia-ultraserver.html)), so it aligns with the NVL Domain. AWS surfaces an explicit NVL Domain label, [`topology.k8s.aws/ultraserver-id`](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-eks-operate-console-ui-governance-tasks-scheduling.html), on SageMaker HyperPod-managed EKS clusters; on plain EKS or self-managed Kubernetes on P6e-GB200, AWS does not apply that label, and the NVL Domain must be derived from `nvidia.com/gpu.clique` (its `<ClusterUUID>.<CliqueID>` value encodes the NVL Domain as the ClusterUUID prefix). Topograph's AWS provider derives `network.topology.nvidia.com/accelerator` from the same `CapacityBlockId` attribute, so on AWS the two labels carry identical string values — Domain-scoped, not Partition-scoped. |
+| `topology.k8s.aws/capacity-block-id` | AWS Node Feature Discovery | AWS Capacity Block reservation ID. Per the [EC2 API reference for `InstanceTopology`](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceTopology.html), on UltraServer instances this "identifies instances within the UltraServer domain" — a reservation-scoped grouping, not an NVL Partition identifier. On P6e-GB200 it is co-extensive with one UltraServer (AWS requires reserving the UltraServer as a unit per the [EKS UltraServer guide](https://docs.aws.amazon.com/eks/latest/userguide/ml-eks-nvidia-ultraserver.html)), so it aligns with the NVL Domain. AWS surfaces an explicit NVL Domain label, [`topology.k8s.aws/ultraserver-id`](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-eks-operate-console-ui-governance-tasks-scheduling.html), on SageMaker HyperPod-managed EKS clusters; on plain EKS or self-managed Kubernetes on P6e-GB200, AWS does not apply that label, and the NVL Domain must be derived from `nvidia.com/gpu.clique` (its `<ClusterUUID>.<CliqueID>` value encodes the NVL Domain as the ClusterUUID prefix). Topograph's AWS provider derives `xclr.topology.nvidia.com/domain` from the same `CapacityBlockId` attribute, so on AWS the two labels carry identical string values — Domain-scoped, not Partition-scoped. |
 | `topology.k8s.aws/network-node-layer-1` | AWS Node Feature Discovery | AWS network spine |
 | `topology.k8s.aws/network-node-layer-2` | AWS Node Feature Discovery | AWS network aggregation |
 | `topology.k8s.aws/network-node-layer-3` | AWS Node Feature Discovery | AWS network leaf |
@@ -147,7 +155,8 @@ transformers:
     allowedLabels:
       # ... existing labels ...
       # Topograph topology labels (requires Topograph deployed in the cluster)
-      - "network.topology.nvidia.com/accelerator"
+      - "xclr.topology.nvidia.com/domain"
+      - "xclr.topology.nvidia.com/sub-domain"
       - "network.topology.nvidia.com/tier-0"
       - "network.topology.nvidia.com/tier-1"
       - "network.topology.nvidia.com/tier-2"

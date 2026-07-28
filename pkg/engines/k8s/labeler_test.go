@@ -50,76 +50,76 @@ func TestApplyNodeLabelsWithBlock(t *testing.T) {
 	labeler := &testLabeler{data: make(map[string]map[string]string)}
 	data := map[string]map[string]string{
 		"Node104": {
-			"network.topology.nvidia.com/accelerator": "B1",
-			"network.topology.nvidia.com/tier-0":      "S2",
-			"network.topology.nvidia.com/tier-1":      "S1",
-			"network.topology.nvidia.com/tier-2":      "IB2",
+			"xclr.topology.nvidia.com/domain":    "B1",
+			"network.topology.nvidia.com/tier-0": "S2",
+			"network.topology.nvidia.com/tier-1": "S1",
+			"network.topology.nvidia.com/tier-2": "IB2",
 		},
 		"Node105": {
-			"network.topology.nvidia.com/accelerator": "B1",
-			"network.topology.nvidia.com/tier-0":      "S2",
-			"network.topology.nvidia.com/tier-1":      "S1",
-			"network.topology.nvidia.com/tier-2":      "IB2",
+			"xclr.topology.nvidia.com/domain":    "B1",
+			"network.topology.nvidia.com/tier-0": "S2",
+			"network.topology.nvidia.com/tier-1": "S1",
+			"network.topology.nvidia.com/tier-2": "IB2",
 		},
 		"Node106": {
-			"network.topology.nvidia.com/accelerator": "B1",
-			"network.topology.nvidia.com/tier-0":      "S2",
-			"network.topology.nvidia.com/tier-1":      "S1",
-			"network.topology.nvidia.com/tier-2":      "IB2",
+			"xclr.topology.nvidia.com/domain":    "B1",
+			"network.topology.nvidia.com/tier-0": "S2",
+			"network.topology.nvidia.com/tier-1": "S1",
+			"network.topology.nvidia.com/tier-2": "IB2",
 		},
 		"Node201": {
-			"network.topology.nvidia.com/accelerator": "B2",
-			"network.topology.nvidia.com/tier-0":      "S3",
-			"network.topology.nvidia.com/tier-1":      "S1",
-			"network.topology.nvidia.com/tier-2":      "IB2",
+			"xclr.topology.nvidia.com/domain":    "B2",
+			"network.topology.nvidia.com/tier-0": "S3",
+			"network.topology.nvidia.com/tier-1": "S1",
+			"network.topology.nvidia.com/tier-2": "IB2",
 		},
 		"Node202": {
-			"network.topology.nvidia.com/accelerator": "B2",
-			"network.topology.nvidia.com/tier-0":      "S3",
-			"network.topology.nvidia.com/tier-1":      "S1",
-			"network.topology.nvidia.com/tier-2":      "IB2",
+			"xclr.topology.nvidia.com/domain":    "B2",
+			"network.topology.nvidia.com/tier-0": "S3",
+			"network.topology.nvidia.com/tier-1": "S1",
+			"network.topology.nvidia.com/tier-2": "IB2",
 		},
 		"Node205": {
-			"network.topology.nvidia.com/accelerator": "B2",
-			"network.topology.nvidia.com/tier-0":      "S3",
-			"network.topology.nvidia.com/tier-1":      "S1",
-			"network.topology.nvidia.com/tier-2":      "IB2",
+			"xclr.topology.nvidia.com/domain":    "B2",
+			"network.topology.nvidia.com/tier-0": "S3",
+			"network.topology.nvidia.com/tier-1": "S1",
+			"network.topology.nvidia.com/tier-2": "IB2",
 		},
 		"Node301": {
-			"network.topology.nvidia.com/accelerator": "B3",
-			"network.topology.nvidia.com/tier-0":      "S5",
-			"network.topology.nvidia.com/tier-1":      "S4",
-			"network.topology.nvidia.com/tier-2":      "IB1",
+			"xclr.topology.nvidia.com/domain":    "B3",
+			"network.topology.nvidia.com/tier-0": "S5",
+			"network.topology.nvidia.com/tier-1": "S4",
+			"network.topology.nvidia.com/tier-2": "IB1",
 		},
 		"Node302": {
-			"network.topology.nvidia.com/accelerator": "B3",
-			"network.topology.nvidia.com/tier-0":      "S5",
-			"network.topology.nvidia.com/tier-1":      "S4",
-			"network.topology.nvidia.com/tier-2":      "IB1",
+			"xclr.topology.nvidia.com/domain":    "B3",
+			"network.topology.nvidia.com/tier-0": "S5",
+			"network.topology.nvidia.com/tier-1": "S4",
+			"network.topology.nvidia.com/tier-2": "IB1",
 		},
 		"Node303": {
-			"network.topology.nvidia.com/accelerator": "B3",
-			"network.topology.nvidia.com/tier-0":      "S5",
-			"network.topology.nvidia.com/tier-1":      "S4",
-			"network.topology.nvidia.com/tier-2":      "IB1",
+			"xclr.topology.nvidia.com/domain":    "B3",
+			"network.topology.nvidia.com/tier-0": "S5",
+			"network.topology.nvidia.com/tier-1": "S4",
+			"network.topology.nvidia.com/tier-2": "IB1",
 		},
 		"Node401": {
-			"network.topology.nvidia.com/accelerator": "B4",
-			"network.topology.nvidia.com/tier-0":      "S6",
-			"network.topology.nvidia.com/tier-1":      "S4",
-			"network.topology.nvidia.com/tier-2":      "IB1",
+			"xclr.topology.nvidia.com/domain":    "B4",
+			"network.topology.nvidia.com/tier-0": "S6",
+			"network.topology.nvidia.com/tier-1": "S4",
+			"network.topology.nvidia.com/tier-2": "IB1",
 		},
 		"Node402": {
-			"network.topology.nvidia.com/accelerator": "B4",
-			"network.topology.nvidia.com/tier-0":      "S6",
-			"network.topology.nvidia.com/tier-1":      "S4",
-			"network.topology.nvidia.com/tier-2":      "IB1",
+			"xclr.topology.nvidia.com/domain":    "B4",
+			"network.topology.nvidia.com/tier-0": "S6",
+			"network.topology.nvidia.com/tier-1": "S4",
+			"network.topology.nvidia.com/tier-2": "IB1",
 		},
 		"Node403": {
-			"network.topology.nvidia.com/accelerator": "B4",
-			"network.topology.nvidia.com/tier-0":      "S6",
-			"network.topology.nvidia.com/tier-1":      "S4",
-			"network.topology.nvidia.com/tier-2":      "IB1",
+			"xclr.topology.nvidia.com/domain":    "B4",
+			"network.topology.nvidia.com/tier-0": "S6",
+			"network.topology.nvidia.com/tier-1": "S4",
+			"network.topology.nvidia.com/tier-2": "IB1",
 		},
 	}
 
@@ -131,7 +131,8 @@ func TestApplyNodeLabelsWithBlock(t *testing.T) {
 func TestTopologyLabelKeysUseDefaultsWhenCustomLabelsAreOmitted(t *testing.T) {
 	keys := NewTopologyLabelKeys(nil, "")
 	require.Equal(t, topology.FabricTierKey(2), keys.FabricKey(2))
-	require.Equal(t, topology.KeyTopologyAccelerator, keys.AcceleratorKey())
+	require.Equal(t, topology.KeyTopologyXclrDomain, keys.XclrDomainKey())
+	require.Equal(t, topology.KeyTopologyXclrSubDomain, keys.XclrSubDomainKey())
 }
 
 func TestTopologyLabelKeysUseOnlyConfiguredLabels(t *testing.T) {
@@ -142,11 +143,13 @@ func TestTopologyLabelKeysUseOnlyConfiguredLabels(t *testing.T) {
 	require.Equal(t, "example.com/rack", keys.FabricKey(0))
 	require.Equal(t, "example.com/pod", keys.FabricKey(1))
 	require.Empty(t, keys.FabricKey(2))
-	require.Equal(t, "example.com/nvl", keys.AcceleratorKey())
+	require.Equal(t, "example.com/nvl", keys.XclrDomainKey())
+	require.Equal(t, topology.KeyTopologyXclrSubDomain, keys.XclrSubDomainKey())
 
 	fabricOnly := NewTopologyLabelKeys([]string{"example.com/rack"}, "")
 	require.Equal(t, "example.com/rack", fabricOnly.FabricKey(0))
-	require.Equal(t, topology.KeyTopologyAccelerator, fabricOnly.AcceleratorKey())
+	require.Equal(t, topology.KeyTopologyXclrDomain, fabricOnly.XclrDomainKey())
+	require.Equal(t, topology.KeyTopologyXclrSubDomain, fabricOnly.XclrSubDomainKey())
 }
 
 func TestBuildNodeLabelsWithVariableLevels(t *testing.T) {
@@ -171,6 +174,35 @@ func TestBuildNodeLabelsWithVariableLevels(t *testing.T) {
 		"example.com/fabric-1":    "fabric-1",
 		"example.com/accelerator": "accelerator",
 	}, labels["node-1"])
+}
+
+func TestBuildNodeLabelsWithXclrSubDomain(t *testing.T) {
+	cluster := topology.NewClusterTopology()
+	cluster.Append(&topology.InstanceTopology{
+		InstanceID:      "instance-1",
+		XclrDomainID:    "domain-1",
+		XclrSubDomainID: "domain-1.rack-1",
+	})
+	cluster.Append(&topology.InstanceTopology{
+		InstanceID:   "instance-2",
+		XclrDomainID: "domain-1",
+	})
+	graph := cluster.ToGraph("test", []topology.ComputeInstances{{
+		Instances: map[string]string{
+			"instance-1": "node-1",
+			"instance-2": "node-2",
+		},
+	}}, 0, false)
+
+	labels, err := NewTopologyLabeler(NewTopologyLabelKeys(nil, "")).BuildNodeLabels(graph)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		topology.KeyTopologyXclrDomain:    "domain-1",
+		topology.KeyTopologyXclrSubDomain: "domain-1.rack-1",
+	}, labels["node-1"])
+	require.Equal(t, map[string]string{
+		topology.KeyTopologyXclrDomain: "domain-1",
+	}, labels["node-2"])
 }
 
 func TestBuildNodeLabelsWithMixedDepthSharedRoot(t *testing.T) {
@@ -230,8 +262,8 @@ func TestApplyNodeLabelsSkipsUnnamedComputeNodes(t *testing.T) {
 	require.NotContains(t, labeler.data, "")
 	require.Equal(t, map[string]map[string]string{
 		"node-valid": {
-			topology.KeyTopologyAccelerator: "accelerator",
-			topology.FabricTierKey(0):       "leaf",
+			topology.KeyTopologyXclrDomain: "accelerator",
+			topology.FabricTierKey(0):      "leaf",
 		},
 	}, labeler.data)
 }

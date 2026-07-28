@@ -39,10 +39,11 @@ const (
 	nfdSystemName = "system.name"
 	nfdNodeName   = "nodename"
 
-	nfdNodeFeatureKind      = "NodeFeature"
-	nfdNodeFeatureGroupKind = "NodeFeatureGroup"
-	topologyTypeFabric      = "fabric-tier-"
-	topologyTypeAccelerator = "accelerator"
+	nfdNodeFeatureKind        = "NodeFeature"
+	nfdNodeFeatureGroupKind   = "NodeFeatureGroup"
+	topologyTypeFabric        = "fabric-tier-"
+	topologyTypeXclrDomain    = "xclr-domain"
+	topologyTypeXclrSubDomain = "xclr-sub-domain"
 
 	labelNFDNodeName = "nfd.node.kubernetes.io/node-name"
 	labelManagedBy   = "app.kubernetes.io/managed-by"
@@ -91,7 +92,7 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 			if !ok {
 				continue
 			}
-			if kind == topologyTypeAccelerator && gpuCliqueValue != "" {
+			if kind == topologyTypeXclrDomain && gpuCliqueValue != "" {
 				continue
 			}
 			value := strings.TrimSpace(labels[labelKey])
@@ -106,7 +107,7 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 			groupValues[kind][value] = labelKey
 		}
 		if gpuCliqueValue != "" {
-			kind := topologyTypeAccelerator
+			kind := topologyTypeXclrDomain
 			elements[kind] = gpuCliqueValue
 			if _, ok := groupValues[kind]; !ok {
 				groupValues[kind] = make(map[string]string)
@@ -140,11 +141,13 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 }
 
 func topologyKind(labelKey string) (string, bool) {
-	if labelKey == topology.KeyTopologyAccelerator {
-		return topologyTypeAccelerator, true
+	if labelKey == topology.KeyTopologyXclrDomain {
+		return topologyTypeXclrDomain, true
 	}
-	if strings.HasPrefix(labelKey, topology.KeyFabricTierPrefix) {
-		level := strings.TrimPrefix(labelKey, topology.KeyFabricTierPrefix)
+	if labelKey == topology.KeyTopologyXclrSubDomain {
+		return topologyTypeXclrSubDomain, true
+	}
+	if level, ok := strings.CutPrefix(labelKey, topology.KeyFabricTierPrefix); ok {
 		if _, err := strconv.Atoi(level); err == nil {
 			return topologyTypeFabric + level, true
 		}
