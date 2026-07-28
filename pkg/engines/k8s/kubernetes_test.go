@@ -6,11 +6,14 @@
 package k8s
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	internalk8s "github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -70,6 +73,107 @@ func TestGetComputeInstances(t *testing.T) {
 			require.Equal(t, tc.cis, cis)
 		})
 	}
+}
+
+func TestAddNodeLabelsReusesListedNodesAndPatchesOnlyChanges(t *testing.T) {
+	changedNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name: "changed",
+		Annotations: map[string]string{
+			topology.KeyNodeInstance: "i-changed",
+			topology.KeyNodeRegion:   "region",
+		},
+		Labels: map[string]string{
+			topology.FabricTierKey(0): "old-leaf",
+			topology.FabricTierKey(3): "stale-tier",
+			"workload.example/label":  "keep",
+		},
+	}}
+	unchangedNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name: "unchanged",
+		Annotations: map[string]string{
+			topology.KeyNodeInstance: "i-unchanged",
+			topology.KeyNodeRegion:   "region",
+		},
+		Labels: map[string]string{
+			topology.FabricTierKey(0): "leaf",
+		},
+	}}
+	client := fake.NewSimpleClientset(changedNode, unchangedNode)
+	eng := &K8sEngine{
+		client: client,
+		params: &Params{
+			labelKeys: NewTopologyLabelKeys(nil, ""),
+		},
+	}
+
+	_, httpErr := eng.GetComputeInstances(context.Background(), nil)
+	require.Nil(t, httpErr)
+	require.NotNil(t, eng.cachedNodes)
+
+	client.ClearActions()
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "changed", map[string]string{
+		topology.FabricTierKey(0): "new-leaf",
+		topology.FabricTierKey(1): "new-spine",
+	}))
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "unchanged", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	}))
+
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "list", "nodes"))
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "get", "nodes"))
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "update", "nodes"))
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "patch", "nodes"))
+
+	actual, err := client.CoreV1().Nodes().Get(context.Background(), "changed", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		topology.FabricTierKey(0): "new-leaf",
+		topology.FabricTierKey(1): "new-spine",
+		"workload.example/label":  "keep",
+	}, actual.Labels)
+
+	client.ClearActions()
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "changed", map[string]string{
+		topology.FabricTierKey(0): "new-leaf",
+		topology.FabricTierKey(1): "new-spine",
+	}))
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "patch", "nodes"))
+}
+
+func TestAddNodeLabelsListsOnceWhenNodesWereNotPreviouslyLoaded(t *testing.T) {
+	client := fake.NewSimpleClientset(&corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name: "node",
+		Labels: map[string]string{
+			topology.FabricTierKey(0): "old-leaf",
+		},
+	}})
+	eng := &K8sEngine{
+		client: client,
+		params: &Params{
+			labelKeys: NewTopologyLabelKeys(nil, ""),
+		},
+	}
+
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "node", map[string]string{
+		topology.FabricTierKey(0): "new-leaf",
+	}))
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "node", map[string]string{
+		topology.FabricTierKey(0): "new-leaf",
+	}))
+
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "list", "nodes"))
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "get", "nodes"))
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "patch", "nodes"))
+}
+
+func countKubernetesActions(actions []k8stesting.Action, verb, resource string) int {
+	count := 0
+	for _, action := range actions {
+		if action.GetVerb() == verb && action.GetResource().Resource == resource {
+			count++
+		}
+	}
+	return count
 }
 
 func TestMergeNodeLabels(t *testing.T) {
@@ -187,7 +291,7 @@ func TestMergeNodeLabels(t *testing.T) {
 			if tc.acceleratorLabel != "" {
 				keys = NewTopologyLabelKeys(nil, tc.acceleratorLabel)
 			}
-			MergeNodeLabels(tc.node, tc.in, keys)
+			tc.node.Labels = mergeNodeLabels(tc.node.Labels, tc.in, keys)
 			require.Equal(t, tc.out, tc.node.Labels)
 		})
 	}

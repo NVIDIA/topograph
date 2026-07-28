@@ -37,11 +37,15 @@ func TestGetParameters(t *testing.T) {
 				"nodeSelector":     map[string]string{"key": "val"},
 				"fabricLabels":     []string{"example.com/rack", "example.com/pod"},
 				"acceleratorLabel": "example.com/nvl",
+				"kubeQPS":          50,
+				"kubeBurst":        100,
 			},
 			ret: &Params{
 				NodeSelector:     map[string]string{"key": "val"},
 				FabricLabels:     []string{"example.com/rack", "example.com/pod"},
 				AcceleratorLabel: "example.com/nvl",
+				KubeQPS:          50,
+				KubeBurst:        100,
 				nodeListOpt: &metav1.ListOptions{
 					LabelSelector: "key=val",
 				},
@@ -79,6 +83,16 @@ func TestGetParameters(t *testing.T) {
 				"fabricLabels": []string{""},
 			},
 			err: `fabricLabels[0] "" is not a valid Kubernetes label key`,
+		},
+		{
+			name:   "Case 8: reject negative kubeQPS",
+			params: map[string]any{"kubeQPS": -1},
+			err:    "kubeQPS must be greater than or equal to zero",
+		},
+		{
+			name:   "Case 9: reject negative kubeBurst",
+			params: map[string]any{"kubeBurst": -1},
+			err:    "kubeBurst must be greater than or equal to zero",
 		},
 	}
 

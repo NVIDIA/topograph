@@ -133,12 +133,7 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	if p.KubeQPS > 0 {
-		config.QPS = p.KubeQPS
-	}
-	if p.KubeBurst > 0 {
-		config.Burst = p.KubeBurst
-	}
+	k8s.ConfigureClientRateLimits(config, p.KubeQPS, p.KubeBurst)
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {

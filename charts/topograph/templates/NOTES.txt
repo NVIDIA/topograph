@@ -47,6 +47,13 @@
   NOTE: The NFD engine writes NodeFeature and NodeFeatureGroup resources in
         {{ .Values.nfdNamespace }}. This must be the namespace where NFD master runs.
 {{- end }}
+{{- $kubeClient := default dict .Values.kubeClient }}
+{{- if or (hasKey $kubeClient "qps") (hasKey $kubeClient "burst") }}
+
+  NOTE: Kubernetes client limits are qps={{ default 5 (get $kubeClient "qps") }}
+        and burst={{ default 10 (get $kubeClient "burst") }}.
+        Configure these limits only through kubeClient.
+{{- end }}
 
 {{- if not .Values.serviceAccount.create }}
 

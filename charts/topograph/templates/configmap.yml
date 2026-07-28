@@ -7,10 +7,23 @@ metadata:
     {{- include "topograph.labels" . | nindent 4 }}
 data:
   topograph-config.yaml: |-
+    {{- $kubeClient := default dict .Values.kubeClient }}
+    {{- $hasKubeQPS := hasKey $kubeClient "qps" }}
+    {{- $hasKubeBurst := hasKey $kubeClient "burst" }}
+    {{- $kubeQPS := default 5 (get $kubeClient "qps") }}
+    {{- $kubeBurst := default 10 (get $kubeClient "burst") }}
     http:
       port: {{ .Values.service.port }}
       ssl: false
     requestAggregationDelay: {{ .Values.config.requestAggregationDelay }}
+    {{- if or $hasKubeQPS $hasKubeBurst }}
+    providerParams:
+      kubeQPS: {{ $kubeQPS }}
+      kubeBurst: {{ $kubeBurst }}
+    engineParams:
+      kubeQPS: {{ $kubeQPS }}
+      kubeBurst: {{ $kubeBurst }}
+    {{- end }}
     {{- if .Values.config.credentialsSecret }}
     credentialsPath: /etc/topograph/credentials/credentials.yaml
     {{- end }}

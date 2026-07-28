@@ -84,6 +84,42 @@ func TestGetParametersDefaults(t *testing.T) {
 	require.True(t, params.Cleanup)
 }
 
+func TestGetParametersKubeClientLimits(t *testing.T) {
+	params, err := getParameters(map[string]any{
+		"kubeQPS":   50,
+		"kubeBurst": 100,
+	})
+	require.NoError(t, err)
+	require.Equal(t, float32(50), params.KubeQPS)
+	require.Equal(t, 100, params.KubeBurst)
+}
+
+func TestGetParametersRejectsNegativeKubeClientLimits(t *testing.T) {
+	testCases := []struct {
+		name   string
+		params map[string]any
+		err    string
+	}{
+		{
+			name:   "negative QPS",
+			params: map[string]any{"kubeQPS": -1},
+			err:    "kubeQPS must be greater than or equal to zero",
+		},
+		{
+			name:   "negative burst",
+			params: map[string]any{"kubeBurst": -1},
+			err:    "kubeBurst must be greater than or equal to zero",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := getParameters(tc.params)
+			require.EqualError(t, err, tc.err)
+		})
+	}
+}
+
 func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 	client := k8sfake.NewSimpleClientset(
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}},

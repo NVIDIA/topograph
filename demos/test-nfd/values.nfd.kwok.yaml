@@ -11,6 +11,10 @@ engine:
       kwok.x-k8s.io/node: "fake"
     cleanup: true
 
+kubeClient:
+  qps: 50
+  burst: 100
+
 nfdNamespace: node-feature-discovery
 
 config:

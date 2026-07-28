@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestNewStatusInformer(t *testing.T) {
@@ -165,6 +166,12 @@ func TestAPIServerPodReadinessRequiresTargetContainer(t *testing.T) {
 	))
 }
 
+func TestAPIServerPodDeleteQueuesRequest(t *testing.T) {
+	s := &StatusInformer{queue: make(chan struct{}, 1)}
+	s.requestOnAPIServerDelete(makeWorkloadPod(true, makeContainerStatus("topograph", true, 0)))
+	require.Len(t, s.queue, 1)
+}
+
 func reqExecFunc(f httpreq.RequestFunc, _ bool) ([]byte, *httperr.Error) {
 	if _, err := f(); err != nil {
 		return nil, err
@@ -234,6 +241,39 @@ func TestDeduplicatesRequests(t *testing.T) {
 
 	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
 
+}
+
+func TestStartBlocksUntilStopped(t *testing.T) {
+	s, err := NewStatusInformer(
+		context.Background(),
+		fake.NewSimpleClientset(),
+		&Trigger{NodeSelector: map[string]string{"test": "none"}},
+		nil,
+		"",
+		"",
+		0,
+		nil,
+	)
+	require.NoError(t, err)
+	done := make(chan error, 1)
+
+	go func() {
+		done <- s.Start()
+	}()
+
+	select {
+	case err := <-done:
+		require.Failf(t, "Start returned before Stop", "error: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	s.Stop(nil)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		require.Fail(t, "Start did not return after Stop")
+	}
 }
 
 func TestRetryCancelledByNewRequest(t *testing.T) {

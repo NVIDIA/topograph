@@ -7,8 +7,10 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
+	internalk8s "github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -23,9 +26,11 @@ import (
 const NAME = "k8s"
 
 type K8sEngine struct {
-	config *rest.Config
-	client *kubernetes.Clientset
-	params *Params
+	config        *rest.Config
+	client        kubernetes.Interface
+	params        *Params
+	cachedNodes   *corev1.NodeList
+	cachedNodeMap map[string]*corev1.Node
 }
 
 type Params struct {
@@ -35,6 +40,10 @@ type Params struct {
 	FabricLabels []string `mapstructure:"fabricLabels"`
 	// AcceleratorLabel optionally sets the accelerator label key.
 	AcceleratorLabel string `mapstructure:"acceleratorLabel"`
+	// KubeQPS overrides the client-go default QPS for Kubernetes API calls (default: 5).
+	KubeQPS float32 `mapstructure:"kubeQPS"`
+	// KubeBurst overrides the client-go default burst for Kubernetes API calls (default: 10).
+	KubeBurst int `mapstructure:"kubeBurst"`
 
 	// derived fields
 	nodeListOpt *metav1.ListOptions
@@ -56,6 +65,8 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
+	internalk8s.ConfigureClientRateLimits(config, p.KubeQPS, p.KubeBurst)
+
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
@@ -72,6 +83,12 @@ func getParameters(params engines.Config) (*Params, error) {
 	p := &Params{}
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
+	}
+	if p.KubeQPS < 0 {
+		return nil, fmt.Errorf("kubeQPS must be greater than or equal to zero")
+	}
+	if p.KubeBurst < 0 {
+		return nil, fmt.Errorf("kubeBurst must be greater than or equal to zero")
 	}
 	p.labelKeys = NewTopologyLabelKeys(p.FabricLabels, p.AcceleratorLabel)
 	if err := p.labelKeys.Validate(); err != nil {

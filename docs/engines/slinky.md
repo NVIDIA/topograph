@@ -112,7 +112,8 @@ If `useGpuCliqueLabel` is enabled for a block topology and no matching nodes hav
 ### Kubernetes API rate limiting
 
 The Slinky engine uses client-go's default Kubernetes client limits of 5 QPS
-and a burst of 10 unless `kubeQPS` or `kubeBurst` is set. Dynamic-node
+and a burst of 10 unless `kubeClient.qps` or `kubeClient.burst` is set.
+Dynamic-node
 reconciliation compares each desired topology annotation with the Node objects
 returned by the cluster-wide list, skips nodes that are already current, and
 patches only changed annotations. This avoids a separate Node GET for every
@@ -123,18 +124,16 @@ default client-side limit. Increase the limits conservatively and monitor API
 server latency and throttling:
 
 ```yaml
-engine:
-  name: slinky
-  params:
-    kubeQPS: 50
-    kubeBurst: 100
+kubeClient:
+  qps: 50
+  burst: 100
 ```
 
-These settings apply only to the Slinky engine client. Kubernetes-backed
-providers use separate clients and, where supported, separate provider
-parameters. Increasing the limits reduces client-side waiting but does not
-reduce API-server load; narrow `nodeSelector` and `podSelector` values remain
-the preferred first mitigation.
+The chart applies these limits to the DRA provider and the Kubernetes, NFD, and
+Slinky engines. Configure these limits through `kubeClient`.
+Increasing the limits reduces client-side waiting but does not reduce API-server
+load; narrow `nodeSelector` and `podSelector` values remain the preferred first
+mitigation.
 
 ## ConfigMap Annotations
 

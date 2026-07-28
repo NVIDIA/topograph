@@ -7,6 +7,10 @@ provider:
 engine:
   name: k8s
 
+kubeClient:
+  qps: 50
+  burst: 100
+
 config:
   requestAggregationDelay: 2s
 

@@ -54,6 +54,22 @@
       },
       "required": ["name"]
     },
+    "kubeClient": {
+      "type": "object",
+      "description": "Kubernetes client rate limits for the DRA provider and the k8s, NFD, and Slinky engines.",
+      "properties": {
+        "qps": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Kubernetes API requests per second. Omit or set to zero to use the client-go default of 5."
+        },
+        "burst": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Kubernetes API burst capacity. Omit or set to zero to use the client-go default of 10."
+        }
+      }
+    },
     "nfdNamespace": {
       "type": "string",
       "minLength": 1,

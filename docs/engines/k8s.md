@@ -141,7 +141,35 @@ engine:
       - example.com/rack
       - example.com/pod
     acceleratorLabel: example.com/nvl-domain
+
+# Shared by supported Kubernetes-backed providers and engines.
+kubeClient:
+  qps: 50
+  burst: 100
 ```
+
+### Kubernetes API reconciliation and rate limiting
+
+The Kubernetes engine lists the selected Nodes once, reuses that result while
+generating output, and compares each Node's existing topology labels with the
+desired labels. It skips Nodes that are already current and patches only changed
+labels, including removing stale Topograph-managed tier labels. This avoids a
+separate Node GET followed by a full Node update for every reconciliation.
+
+The engine uses client-go's default limits of 5 QPS and burst 10 unless the
+chart-wide `kubeClient.qps` or `kubeClient.burst` value is set. The chart applies
+these limits to the DRA provider and the Kubernetes, NFD, and Slinky engines.
+Configure these limits through `kubeClient`.
+
+A large first reconciliation may still patch many Nodes, so increase the shared
+values only when client-side throttling is slowing the update. Higher values
+increase Kubernetes API-server load; monitor request latency and HTTP `429`
+responses and narrow `nodeSelector` where appropriate.
+
+When the chart manages RBAC, the Topograph API server receives `get`, `list`,
+and `patch` access to Nodes for the Kubernetes engine; it no longer requires
+Node `update`. Deployments using `rbac.create: false` must grant the same
+permissions to the configured ServiceAccount.
 
 ## Exposing the Topograph API
 
@@ -263,7 +291,7 @@ This creates a `monitoring.coreos.com/v1` `ServiceMonitor` selecting the Topogra
 
 ### Pod security context
 
-The chart applies a hardened security context to all three components (API server, node-observer, node-data-broker) by default, satisfying the Kubernetes [`restricted` Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/): non-root execution (`runAsNonRoot`, UID/GID `65532`), `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, a read-only root filesystem, and all Linux capabilities dropped. The Kubernetes and Slinky engines write node labels / a ConfigMap through the API server and never write to the container filesystem, so these defaults require no additional configuration.
+The chart applies a hardened security context to all three components (API server, node-observer, node-data-broker) by default, satisfying the Kubernetes [`restricted` Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/): non-root execution (`runAsNonRoot`, UID/GID `65532`), `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, a read-only root filesystem, and all Linux capabilities dropped. The Kubernetes, NFD, and Slinky engines write Kubernetes resources through the API server and never write to the container filesystem, so these defaults require no additional configuration.
 
 Override individual keys to relax the defaults where a workload needs it; a per-key override wins over the shipped default. Two cases need it:
 

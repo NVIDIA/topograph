@@ -47,6 +47,17 @@ engine:
   name: k8s        # or nfd, slurm, slinky, graph
 ```
 
+The DRA provider and the Kubernetes, NFD, and Slinky engines can share
+Kubernetes client rate limits:
+
+```yaml
+kubeClient:
+  qps: 50
+  burst: 100
+```
+
+Configure these limits through `kubeClient`.
+
 For the full list of values and their defaults, see [`values.yaml`](./values.yaml). Example values files for specific deployment patterns:
 
 - [`values.k8s.ib-example.yaml`](./values.k8s.ib-example.yaml) — InfiniBand provider on Kubernetes
@@ -69,7 +80,7 @@ Set `rbac.create=false` only when ClusterRoles and ClusterRoleBindings are manag
 
 ### Values validation
 
-The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `provider.name` and `engine.name` enums, type and range constraints on `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `serviceAccount`, `rbac`, `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
+The chart ships a [`values.schema.json`](./values.schema.json) that validates the most error-prone fields at install time — the `provider.name` and `engine.name` enums, type and range constraints on `kubeClient`, `replicaCount`, `image.pullPolicy`, `service.type`, `service.port`, and `verbosity`, and the expected shapes of `serviceAccount`, `rbac`, `ingress`, `serviceMonitor`, and related nested objects. Invalid values are rejected by `helm install` and `helm template` with a clear schema-validation error.
 
 The schema is deliberately narrow: per-provider credential requirements (which fields a given provider needs in its credentials map) are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because the credential field sets evolve with upstream provider changes and are hard to keep accurate in a schema.
 

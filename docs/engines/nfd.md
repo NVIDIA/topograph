@@ -62,6 +62,9 @@ engine:
     nodeSelector:
       nvidia.com/gpu.present: "true"
     cleanup: true
+kubeClient:
+  qps: 50
+  burst: 100
 nfdNamespace: node-feature-discovery
 ```
 
@@ -84,6 +87,17 @@ process. The NFD engine returns an error if the variable is unset or blank.
 
 Topology requests cannot select an NFD namespace; the deployment environment is
 authoritative.
+
+### Kubernetes API rate limiting
+
+The NFD engine uses a typed Kubernetes client to list Nodes and a dynamic client
+to reconcile `NodeFeature` and `NodeFeatureGroup` objects. Both clients share
+one token-bucket limiter, so `kubeClient.qps` is the aggregate request rate
+rather than a separate allowance for each client.
+
+The chart-wide `kubeClient` values also apply to the DRA provider and the
+Kubernetes and Slinky engines. If only QPS or burst is configured, the other
+value uses the client-go default.
 
 ## Generated Objects
 

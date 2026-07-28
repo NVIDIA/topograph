@@ -45,6 +45,10 @@ type Params struct {
 	NodeSelector map[string]string `mapstructure:"nodeSelector"`
 	// Cleanup deletes stale Topograph-managed NFD objects. Defaults to true.
 	Cleanup bool `mapstructure:"cleanup"`
+	// KubeQPS overrides the shared client-go request rate used by the typed and dynamic clients (default: 5).
+	KubeQPS float32 `mapstructure:"kubeQPS"`
+	// KubeBurst overrides the shared client-go burst used by the typed and dynamic clients (default: 10).
+	KubeBurst int `mapstructure:"kubeBurst"`
 
 	// derived fields
 	nodeListOpt *metav1.ListOptions
@@ -70,6 +74,8 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
+	internalk8s.ConfigureSharedClientRateLimiter(config, p.KubeQPS, p.KubeBurst)
+
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
@@ -92,6 +98,12 @@ func getParameters(params engines.Config) (*Params, error) {
 	p := &Params{Cleanup: true}
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
+	}
+	if p.KubeQPS < 0 {
+		return nil, fmt.Errorf("kubeQPS must be greater than or equal to zero")
+	}
+	if p.KubeBurst < 0 {
+		return nil, fmt.Errorf("kubeBurst must be greater than or equal to zero")
 	}
 
 	if len(p.NodeSelector) != 0 {
