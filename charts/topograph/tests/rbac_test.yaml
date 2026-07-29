@@ -56,21 +56,15 @@ tests:
           path: rules
           content:
             apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
             resources: [pods]
             verbs: [list]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [get, list]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [update]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [apps]
@@ -147,7 +141,7 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [patch]
+            verbs: [list, patch]
 
   - it: does not grant node patch access to non-slinky engines
     set:
@@ -166,7 +160,7 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [update]
+            verbs: [get, list, update]
 
   - it: does not grant node update access to the slinky engine
     set:
@@ -179,13 +173,7 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [get, list]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [patch]
+            verbs: [list, patch]
       - notContains:
           path: rules
           content:
@@ -328,3 +316,190 @@ tests:
       - equal:
           path: subjects[0].namespace
           value: topograph
+
+  - it: grants node read and update access for test provider and k8s engine (test/k8s)
+    set:
+      provider:
+        name: test
+      engine:
+        name: k8s
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ClusterRole
+        documentIndex: 0
+      - isKind:
+          of: ClusterRoleBinding
+        documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, update]
+        documentIndex: 0
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+        documentIndex: 0
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+        documentIndex: 0
+
+  - it: omits ClusterRole and ClusterRoleBinding when no Kubernetes permissions are required (test/slurm)
+    set:
+      provider:
+        name: test
+      engine:
+        name: slurm
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: grants node read access for dra provider with slurm engine (dra/slurm)
+    set:
+      provider:
+        name: dra
+      engine:
+        name: slurm
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+
+  - it: grants node, pod, exec, and daemonset access for infiniband-k8s provider
+    set:
+      provider:
+        name: infiniband-k8s
+      engine:
+        name: slurm
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [configmaps]
+
+  - it: grants node, pod, exec, and configmap access for slinky engine
+    set:
+      provider:
+        name: test
+      engine:
+        name: slinky
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list, patch]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [configmaps]
+            verbs: [create, get, update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+
+  - it: omits pods/exec for slinky engine when useDynamicNodes is enabled
+    set:
+      provider:
+        name: test
+      engine:
+        name: slinky
+        params:
+          useDynamicNodes: true
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list, patch]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [configmaps]
+            verbs: [create, get, update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+
+
