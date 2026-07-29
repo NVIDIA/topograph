@@ -106,7 +106,7 @@ func TestAddNodeLabelsReusesListedNodesAndPatchesOnlyChanges(t *testing.T) {
 		},
 	}
 
-	_, httpErr := eng.GetComputeInstances(context.Background(), nil)
+	_, httpErr := eng.ResolveComputeInstances(context.Background(), nil, nil)
 	require.Nil(t, httpErr)
 	require.NotNil(t, eng.cachedNodes)
 
@@ -180,7 +180,7 @@ func TestAddNodeLabelsSkipsNodesOutsideSelector(t *testing.T) {
 			labelKeys:    NewTopologyLabelKeys(nil, ""),
 		},
 	}
-	eng.cacheNodes(&corev1.NodeList{Items: []corev1.Node{*selectedNode}})
+	eng.cacheNodes(&corev1.NodeList{Items: []corev1.Node{*selectedNode, *excludedNode}})
 
 	require.NoError(t, eng.AddNodeLabels(context.Background(), "excluded", map[string]string{
 		topology.FabricTierKey(0): "leaf",
@@ -193,12 +193,13 @@ func TestAddNodeLabelsSkipsNodesOutsideSelector(t *testing.T) {
 	require.Equal(t, 1, countKubernetesActions(client.Actions(), "patch", "nodes"))
 }
 
-func TestAddNodeLabelsErrorsForUnknownNodeWithoutSelector(t *testing.T) {
+func TestAddNodeLabelsErrorsForUnknownNodeWithSelector(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	eng := &K8sEngine{
 		client: client,
 		params: &Params{
-			labelKeys: NewTopologyLabelKeys(nil, ""),
+			NodeSelector: map[string]string{"topology.example/enabled": "true"},
+			labelKeys:    NewTopologyLabelKeys(nil, ""),
 		},
 	}
 	eng.cacheNodes(&corev1.NodeList{})
@@ -207,9 +208,43 @@ func TestAddNodeLabelsErrorsForUnknownNodeWithoutSelector(t *testing.T) {
 		topology.FabricTierKey(0): "leaf",
 	})
 
-	require.EqualError(t, err, `node "unknown" was not found in the selected Kubernetes nodes`)
+	require.EqualError(t, err, `node "unknown" was not found in Kubernetes`)
 	require.Equal(t, 0, countKubernetesActions(client.Actions(), "get", "nodes"))
 	require.Equal(t, 0, countKubernetesActions(client.Actions(), "patch", "nodes"))
+}
+
+func TestResolveComputeInstancesCachesAllNodesWhenInstancesAreSupplied(t *testing.T) {
+	selectedNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name:   "selected",
+		Labels: map[string]string{"topology.example/enabled": "true"},
+	}}
+	excludedNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "excluded"}}
+	client := fake.NewSimpleClientset(selectedNode, excludedNode)
+	eng := &K8sEngine{
+		client: client,
+		params: &Params{
+			NodeSelector: map[string]string{"topology.example/enabled": "true"},
+			nodeListOpt: &metav1.ListOptions{
+				LabelSelector: "topology.example/enabled=true",
+			},
+			labelKeys: NewTopologyLabelKeys(nil, ""),
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region: "region",
+		Instances: map[string]string{
+			"i-selected": "selected",
+			"i-excluded": "excluded",
+		},
+	}}
+
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.Contains(t, eng.cachedNodeMap, "selected")
+	require.Contains(t, eng.cachedNodeMap, "excluded")
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "list", "nodes"))
 }
 
 func countKubernetesActions(actions []k8stesting.Action, verb, resource string) int {

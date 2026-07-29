@@ -120,6 +120,29 @@ func TestGetParametersRejectsNegativeKubeClientLimits(t *testing.T) {
 	}
 }
 
+func TestResolveComputeInstancesCachesNodesWhenInstancesAreSupplied(t *testing.T) {
+	client := k8sfake.NewSimpleClientset(
+		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}},
+	)
+	eng := &NfdEngine{
+		client: client,
+		params: &Params{
+			nodeListOpt: &metav1.ListOptions{},
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance-a": "node-a"},
+	}}
+
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.NotNil(t, eng.cachedNodes)
+	require.Len(t, eng.cachedNodes.Items, 1)
+}
+
 func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 	client := k8sfake.NewSimpleClientset(
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}},

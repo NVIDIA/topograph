@@ -73,6 +73,8 @@ Topograph exposes three endpoints for interacting with the service. Below are th
     - **creds**: (optional) A key-value map with provider-specific parameters for authentication.
     - **params**: (optional) A key-value map with provider-specific parameters. The `test` provider uses these parameters for response simulation; for complete behavior and examples, see [Test Mode and Test Provider](./providers/test.md).
       - **useGpuCliqueLabel**: (optional) Used in: [`infiniband-k8s`]. If `true`, reads the GPU Operator's `nvidia.com/gpu.clique` node label as the accelerator-domain source instead of using the `topograph.nvidia.com/cluster-id` node annotation.
+      - **kubeQPS**: (optional) Used in: [`dra`]. A non-negative number overriding the provider Kubernetes client's request rate. Zero or omission uses the client-go default of 5 QPS; negative values are rejected with HTTP `400`.
+      - **kubeBurst**: (optional) Used in: [`dra`]. A non-negative integer overriding the provider Kubernetes client's burst capacity. Zero or omission uses the client-go default of 10; negative values are rejected with HTTP `400`.
   - **engine**: (optional) Selects the topology output and provides any engine-specific parameters.
     - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, `nfd`, `slinky`, or `graph`. This parameter will override the engine set in the topograph config.
     - **params**: (optional) A key-value map with engine-specific parameters.
@@ -99,12 +101,17 @@ Topograph exposes three endpoints for interacting with the service. Below are th
       - **topologyConfigmapName**: Used in: [`slinky`]. The required name of the ConfigMap containing the topology config.
       - **useDynamicNodes**: (optional) Used in: [`slinky`]. If `true`, Kubernetes nodes matched by the Node Selector will be annotated with the topology spec.
       - **useGpuCliqueLabel**: (optional) Used in: [`slinky`]. If `true`, `topology/block` domains are built from the GPU Operator's `nvidia.com/gpu.clique` node label instead of provider accelerator-domain data.
+      - **kubeQPS**: (optional) Used in: [`k8s`, `nfd`, `slinky`]. A non-negative number overriding the engine Kubernetes client's request rate. Zero or omission uses the client-go default of 5 QPS; negative values are rejected with HTTP `400`.
+      - **kubeBurst**: (optional) Used in: [`k8s`, `nfd`, `slinky`]. A non-negative integer overriding the engine Kubernetes client's burst capacity. Zero or omission uses the client-go default of 10; negative values are rejected with HTTP `400`.
       - **configUpdateMode**: (optional) Used in: [`slinky`]. By default, the full topology YAML is written in the Slurm ConfigMap. `skeleton-only` overrides to include switches or blocks only (no node lines); `none` skips updating the topology key in the ConfigMap.
   - **nodes**: (optional) Supplies the cluster nodes used for topology generation as an array of regions mapping instance IDs to node names.
 
-For Helm deployments, configure Kubernetes client rate limits only through
-`kubeClient.qps` and `kubeClient.burst`. The chart applies them to every
-supported Kubernetes-backed provider and engine.
+For Helm deployments, the recommended configuration surface is
+`kubeClient.qps` and `kubeClient.burst`. The chart applies them as default
+`kubeQPS` and `kubeBurst` provider and engine parameters for every supported
+Kubernetes-backed component. An explicit value in a topology request's
+`provider.params` or `engine.params` takes precedence over the corresponding
+chart-generated default.
 
   Example:
 

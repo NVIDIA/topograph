@@ -70,7 +70,10 @@ func (eng *GraphEngine) GenerateOutput(_ context.Context, graph *topology.Graph,
 	return []byte("OK\n"), nil
 }
 
-func (eng *GraphEngine) GetComputeInstances(_ context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+func (eng *GraphEngine) ResolveComputeInstances(_ context.Context, instances []topology.ComputeInstances, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+	if len(instances) != 0 {
+		return instances, nil
+	}
 	return nil, httperr.NewError(http.StatusBadRequest,
 		"graph engine requires nodes in the request or a provider that can supply compute instances")
 }

@@ -16,6 +16,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
@@ -24,12 +25,22 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func (eng *K8sEngine) GetComputeInstances(ctx context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
-	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
+func (eng *K8sEngine) ResolveComputeInstances(ctx context.Context, instances []topology.ComputeInstances, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+	listOptions := eng.params.nodeListOpt
+	if len(instances) != 0 {
+		// Cache every Node so output generation can distinguish a nonexistent
+		// requested node from one intentionally excluded by nodeSelector.
+		listOptions = nil
+	}
+
+	nodes, err := k8s.GetNodes(ctx, eng.client, listOptions)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 	eng.cacheNodes(nodes)
+	if len(instances) != 0 {
+		return instances, nil
+	}
 	return k8s.GetComputeInstances(nodes), nil
 }
 
@@ -40,11 +51,11 @@ func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels
 
 	node, ok := eng.cachedNodeMap[nodeName]
 	if !ok {
-		if len(eng.params.NodeSelector) != 0 {
-			klog.Warningf("Skipping topology labels for node %q because it does not match the engine nodeSelector", nodeName)
-			return nil
-		}
-		return fmt.Errorf("node %q was not found in the selected Kubernetes nodes", nodeName)
+		return fmt.Errorf("node %q was not found in Kubernetes", nodeName)
+	}
+	if !eng.matchesNodeSelector(node) {
+		klog.Warningf("Skipping topology labels for node %q because it does not match the engine nodeSelector", nodeName)
+		return nil
 	}
 
 	desiredLabels := mergeNodeLabels(node.Labels, labels, eng.params.labelKeys)
@@ -78,12 +89,23 @@ func (eng *K8sEngine) loadNodes(ctx context.Context) error {
 		return nil
 	}
 
-	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
+	// Without a preceding ResolveComputeInstances call, load every Node so a
+	// cache miss still means the Node does not exist rather than merely being
+	// excluded by nodeSelector.
+	nodes, err := k8s.GetNodes(ctx, eng.client, nil)
 	if err != nil {
 		return err
 	}
 	eng.cacheNodes(nodes)
 	return nil
+}
+
+func (eng *K8sEngine) matchesNodeSelector(node *corev1.Node) bool {
+	if len(eng.params.NodeSelector) == 0 {
+		return true
+	}
+	selector := labels.SelectorFromSet(eng.params.NodeSelector)
+	return selector.Matches(labels.Set(node.Labels))
 }
 
 func (eng *K8sEngine) cacheNodes(nodes *corev1.NodeList) {

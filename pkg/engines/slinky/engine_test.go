@@ -361,6 +361,73 @@ func TestGetComputeInstances(t *testing.T) {
 	}
 }
 
+func TestResolveComputeInstancesCachesClusterNodesWhenOutputNeedsThem(t *testing.T) {
+	const namespace = "slurm"
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name: "k8s-node",
+	}}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slurmd",
+			Namespace: namespace,
+			Labels:    map[string]string{topology.KeySlurmNodeName: "slurm-node"},
+		},
+		Spec: corev1.PodSpec{NodeName: node.Name},
+		Status: corev1.PodStatus{Conditions: []corev1.PodCondition{{
+			Type:   corev1.PodReady,
+			Status: corev1.ConditionTrue,
+		}}},
+	}
+	client := fake.NewSimpleClientset(node, pod)
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:       namespace,
+			UseDynamicNodes: true,
+			nodeListOpt:     &metav1.ListOptions{},
+			podListOpt:      &metav1.ListOptions{},
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance": "slurm-node"},
+	}}
+
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.NotNil(t, eng.cachedClusterNodes)
+	client.ClearActions()
+
+	cached, httpErr := eng.getClusterNodes(context.Background())
+	require.Nil(t, httpErr)
+	require.Same(t, eng.cachedClusterNodes, cached)
+	require.Empty(t, client.Actions())
+}
+
+func TestResolveComputeInstancesDoesNotLoadUnusedClusterNodes(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			nodeListOpt: &metav1.ListOptions{},
+			podListOpt:  &metav1.ListOptions{},
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance": "slurm-node"},
+	}}
+
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.Nil(t, eng.cachedClusterNodes)
+	require.Empty(t, client.Actions())
+}
+
 func TestWithGPUCliqueDomains(t *testing.T) {
 	ctx := context.Background()
 	client := fake.NewSimpleClientset()

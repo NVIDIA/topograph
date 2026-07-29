@@ -112,12 +112,11 @@ If `useGpuCliqueLabel` is enabled for a block topology and no matching nodes hav
 ### Kubernetes API rate limiting
 
 The Slinky engine uses client-go's default Kubernetes client limits of 5 QPS
-and a burst of 10 unless `kubeClient.qps` or `kubeClient.burst` is set.
-Dynamic-node
-reconciliation compares each desired topology annotation with the Node objects
-returned by the cluster-wide list, skips nodes that are already current, and
-patches only changed annotations. This avoids a separate Node GET for every
-node during steady-state reconciliation.
+and a burst of 10 unless the `kubeQPS` or `kubeBurst` engine parameter is set.
+Dynamic-node reconciliation compares each desired topology annotation with the
+Node objects returned by the cluster-wide list, skips nodes that are already
+current, and patches only changed annotations. This avoids a separate Node GET
+for every node during steady-state reconciliation.
 
 Large reconciliations that legitimately change many nodes can still exceed the
 default client-side limit. Increase the limits conservatively and monitor API
@@ -129,11 +128,13 @@ kubeClient:
   burst: 100
 ```
 
-The chart applies these limits to the DRA provider and the Kubernetes, NFD, and
-Slinky engines. Configure these limits through `kubeClient`.
-Increasing the limits reduces client-side waiting but does not reduce API-server
-load; narrow `nodeSelector` and `podSelector` values remain the preferred first
-mitigation.
+For Helm deployments, the chart applies these limits as defaults to the DRA
+provider and the Kubernetes, NFD, and Slinky engines. Outside Helm, use
+`kubeQPS` and `kubeBurst` in the configuration's `engineParams` or in a topology
+request's `engine.params`. An explicit request value takes precedence over the
+configured default. Increasing the limits reduces client-side waiting but does
+not reduce API-server load; narrow `nodeSelector` and `podSelector` values
+remain the preferred first mitigation.
 
 ## ConfigMap Annotations
 

@@ -8,6 +8,7 @@ package node_observer
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -91,7 +92,21 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 	}
 
 	statusInformer.ctx, statusInformer.cancel = context.WithCancel(ctx)
+	statusInformer.reqFunc = requestFuncWithContext(statusInformer.ctx, reqFunc)
 	return statusInformer, nil
+}
+
+func requestFuncWithContext(ctx context.Context, f httpreq.RequestFunc) httpreq.RequestFunc {
+	if f == nil {
+		return nil
+	}
+	return func() (*http.Request, *httperr.Error) {
+		req, err := f()
+		if req != nil {
+			req = req.WithContext(ctx)
+		}
+		return req, err
+	}
 }
 
 func newPodFactory(client kubernetes.Interface, selector *metav1.LabelSelector, namespace string) (informers.SharedInformerFactory, error) {
@@ -481,6 +496,9 @@ func (s *StatusInformer) process() {
 	}
 
 	if _, err := s.reqExecFunc(s.reqFunc, false); err != nil {
+		if s.ctx != nil && s.ctx.Err() != nil {
+			return
+		}
 		klog.Errorf("failed to send HTTP request; retrying in %s: %v", s.retryDelay, err)
 
 		// Reset retry timer

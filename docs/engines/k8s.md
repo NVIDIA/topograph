@@ -156,10 +156,12 @@ desired labels. It skips Nodes that are already current and patches only changed
 labels, including removing stale Topograph-managed tier labels. This avoids a
 separate Node GET followed by a full Node update for every reconciliation.
 
-The engine uses client-go's default limits of 5 QPS and burst 10 unless the
-chart-wide `kubeClient.qps` or `kubeClient.burst` value is set. The chart applies
-these limits to the DRA provider and the Kubernetes, NFD, and Slinky engines.
-Configure these limits through `kubeClient`.
+The engine parameters `kubeQPS` and `kubeBurst` override client-go's default
+limits of 5 QPS and burst 10. For Helm deployments, configure the chart-wide
+`kubeClient.qps` and `kubeClient.burst` values; the chart applies them as
+defaults to the DRA provider and the Kubernetes, NFD, and Slinky engines. An
+explicit topology request value in `engine.params` takes precedence over the
+chart-generated default.
 
 A large first reconciliation may still patch many Nodes, so increase the shared
 values only when client-side throttling is slowing the update. Higher values
