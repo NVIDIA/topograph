@@ -153,10 +153,9 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 	nodeB := findNodeFeature(t, features.Items, "node-b")
 	require.Equal(t, map[string]string{nfdNodeName: "node-b"}, attributeElements(t, nodeB, nfdSystemName))
 	require.Equal(t, map[string]string{
-		topologyTypeXclrDomain:    "cluster.0",
-		topologyTypeXclrSubDomain: "nvl-a.rack-1",
-		topologyTypeFabric + "0":  "leaf-1",
-		topologyTypeFabric + "1":  "spine-1",
+		topologyTypeXclrDomain:   "cluster.0",
+		topologyTypeFabric + "0": "leaf-1",
+		topologyTypeFabric + "1": "spine-1",
 	}, attributeElements(t, nodeB, nfdFeatureSet))
 
 	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
@@ -323,7 +322,7 @@ func TestBuildNFDObjectsRejectsInvalidNFDNodeNameLabelValue(t *testing.T) {
 	require.ErrorContains(t, err, "cannot be used as")
 }
 
-func TestBuildNFDObjectsGroupsXclrSubDomainsAndDoesNotGroupShadowedDomains(t *testing.T) {
+func TestBuildNFDObjectsSuppressesSubDomainWhenGPUCliqueExists(t *testing.T) {
 	nodeLabels := k8sengine.NodeLabelMap{
 		"node-a": {
 			topology.KeyTopologyXclrDomain:    "provider-domain-a",
@@ -339,10 +338,11 @@ func TestBuildNFDObjectsGroupsXclrSubDomainsAndDoesNotGroupShadowedDomains(t *te
 
 	require.NoError(t, err)
 	require.Len(t, features, 2)
-	require.Equal(t, "gpu-clique-a", attributeElements(t, *features[0], nfdFeatureSet)[topologyTypeXclrDomain])
-	require.Equal(t, "provider-domain-a.rack-a", attributeElements(t, *features[0], nfdFeatureSet)[topologyTypeXclrSubDomain])
+	nodeAElements := attributeElements(t, *features[0], nfdFeatureSet)
+	require.Equal(t, "gpu-clique-a", nodeAElements[topologyTypeXclrDomain])
+	require.Empty(t, nodeAElements[topologyTypeXclrSubDomain], "sub-domain must be suppressed when GPU clique is present")
 	require.Equal(t, "provider-domain-b", attributeElements(t, *features[1], nfdFeatureSet)[topologyTypeXclrDomain])
-	require.Len(t, groups, 4)
+	require.Len(t, groups, 3, "xclr-domain×2 + fabric-tier-0×1; no xclr-sub-domain group when clique suppresses it")
 	xclrDomainValues := make(map[string]struct{})
 	xclrSubDomainValues := make(map[string]struct{})
 	for _, group := range groups {
@@ -357,9 +357,7 @@ func TestBuildNFDObjectsGroupsXclrSubDomainsAndDoesNotGroupShadowedDomains(t *te
 		"gpu-clique-a":      {},
 		"provider-domain-b": {},
 	}, xclrDomainValues)
-	require.Equal(t, map[string]struct{}{
-		"provider-domain-a.rack-a": {},
-	}, xclrSubDomainValues)
+	require.Empty(t, xclrSubDomainValues, "no xclr-sub-domain NodeFeatureGroup must be created for a clique node")
 }
 
 func TestTopologyKindUsesFabricTierAndXclrLabels(t *testing.T) {

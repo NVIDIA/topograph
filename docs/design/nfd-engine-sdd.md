@@ -230,7 +230,8 @@ small patches to reduce write amplification.
 - Verify stale Topograph-managed groups are removed when `cleanup` is enabled.
 - Verify an empty generated object set returns an error and preserves existing
   objects when `cleanup` is enabled.
-- Verify nodes with `nvidia.com/gpu.clique` override the XCLR domain while
-  retaining any provider-supplied XCLR sub-domain, matching the `k8s` engine.
+- Verify nodes with `nvidia.com/gpu.clique` replace the provider XCLR domain
+  with the clique value and suppress the provider XCLR sub-domain, matching the
+  `k8s` engine's `skipXclrLabelsWhenGPUCliqueExists` behavior.
 - Add a fake dynamic-client test that applies generated `NodeFeature` and
   `NodeFeatureGroup` objects without requiring a live NFD deployment.

@@ -92,7 +92,7 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 			if !ok {
 				continue
 			}
-			if kind == topologyTypeXclrDomain && gpuCliqueValue != "" {
+			if (kind == topologyTypeXclrDomain || kind == topologyTypeXclrSubDomain) && gpuCliqueValue != "" {
 				continue
 			}
 			value := strings.TrimSpace(labels[labelKey])

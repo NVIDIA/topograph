@@ -65,7 +65,7 @@ func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels
 		return nil
 	}
 
-	desiredLabels := mergeNodeLabels(node, labels, eng.params.labelKeys)
+	desiredLabels := mergeNodeLabels(node.Labels, labels, eng.params.labelKeys)
 	if maps.Equal(node.Labels, desiredLabels) {
 		return nil
 	}
@@ -207,20 +207,16 @@ func isManagedLevelLabel(key string, keys *TopologyLabelKeys) bool {
 	return false
 }
 
-func skipXclrLabelsWhenGPUCliqueExists(nodeLabels, labels map[string]string, keys *TopologyLabelKeys) map[string]string {
+func skipXclrLabelsWhenGPUCliqueExists(currentLabels, labels map[string]string, keys *TopologyLabelKeys) map[string]string {
 	xclrDomainLabel := keys.XclrDomainKey()
 	xclrSubDomainLabel := keys.XclrSubDomainKey()
-	if strings.TrimSpace(nodeLabels[topology.KeyNvidiaGPUClique]) == "" {
+	if strings.TrimSpace(currentLabels[topology.KeyNvidiaGPUClique]) == "" {
 		return labels
 	}
 
 	filtered := maps.Clone(labels)
 	delete(filtered, xclrDomainLabel)
 	delete(filtered, xclrSubDomainLabel)
-
-	if xclrDomainLabel != topology.KeyNvidiaGPUClique {
-		delete(nodeLabels, xclrDomainLabel)
-	}
 
 	return filtered
 }
