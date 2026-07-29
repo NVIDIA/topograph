@@ -7,11 +7,13 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -108,7 +110,7 @@ func TestAddNodeLabelsReusesListedNodesAndPatchesOnlyChanges(t *testing.T) {
 
 	_, httpErr := eng.ResolveComputeInstances(context.Background(), nil, nil)
 	require.Nil(t, httpErr)
-	require.NotNil(t, eng.cachedNodes)
+	require.NotNil(t, eng.cachedNodeMap)
 
 	client.ClearActions()
 	require.NoError(t, eng.AddNodeLabels(context.Background(), "changed", map[string]string{
@@ -193,7 +195,7 @@ func TestAddNodeLabelsSkipsNodesOutsideSelector(t *testing.T) {
 	require.Equal(t, 1, countKubernetesActions(client.Actions(), "patch", "nodes"))
 }
 
-func TestAddNodeLabelsErrorsForUnknownNodeWithSelector(t *testing.T) {
+func TestAddNodeLabelsSkipsNodeOutsideSelectorFilteredInstances(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	eng := &K8sEngine{
 		client: client,
@@ -208,12 +210,41 @@ func TestAddNodeLabelsErrorsForUnknownNodeWithSelector(t *testing.T) {
 		topology.FabricTierKey(0): "leaf",
 	})
 
-	require.EqualError(t, err, `node "unknown" was not found in Kubernetes`)
+	require.NoError(t, err)
 	require.Equal(t, 0, countKubernetesActions(client.Actions(), "get", "nodes"))
 	require.Equal(t, 0, countKubernetesActions(client.Actions(), "patch", "nodes"))
 }
 
-func TestResolveComputeInstancesCachesAllNodesWhenInstancesAreSupplied(t *testing.T) {
+func TestAddNodeLabelsSkipsProviderOnlyNodeWithSuppliedInstancesAndNoSelector(t *testing.T) {
+	requestedNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "requested"}}
+	providerOnlyNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "provider-only"}}
+	client := fake.NewSimpleClientset(requestedNode, providerOnlyNode)
+	eng := &K8sEngine{
+		client: client,
+		params: &Params{
+			labelKeys: NewTopologyLabelKeys(nil, ""),
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance": requestedNode.Name},
+	}}
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.NotContains(t, eng.cachedNodeMap, providerOnlyNode.Name)
+
+	client.ClearActions()
+	err := eng.AddNodeLabels(context.Background(), providerOnlyNode.Name, map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "get", "nodes"))
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "patch", "nodes"))
+}
+
+func TestResolveComputeInstancesCachesSelectedNodesAndDefersExcludedNodes(t *testing.T) {
 	selectedNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
 		Name:   "selected",
 		Labels: map[string]string{"topology.example/enabled": "true"},
@@ -243,8 +274,65 @@ func TestResolveComputeInstancesCachesAllNodesWhenInstancesAreSupplied(t *testin
 	require.Nil(t, httpErr)
 	require.Equal(t, instances, actual)
 	require.Contains(t, eng.cachedNodeMap, "selected")
+	require.NotNil(t, eng.cachedNodeMap["selected"])
 	require.Contains(t, eng.cachedNodeMap, "excluded")
+	require.Nil(t, eng.cachedNodeMap["excluded"])
 	require.Equal(t, 1, countKubernetesActions(client.Actions(), "list", "nodes"))
+	listAction, ok := client.Actions()[0].(k8stesting.ListAction)
+	require.True(t, ok)
+	require.Equal(t, "topology.example/enabled=true", listAction.GetListRestrictions().Labels.String())
+
+	client.ClearActions()
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "selected", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	}))
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "excluded", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	}))
+	require.NoError(t, eng.AddNodeLabels(context.Background(), "excluded", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	}))
+
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "get", "nodes"))
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "patch", "nodes"))
+	require.NotNil(t, eng.cachedNodeMap["excluded"])
+}
+
+func TestAddNodeLabelsGetsUnresolvedNodeAndReportsNotFound(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	eng := &K8sEngine{
+		client:        client,
+		params:        &Params{labelKeys: NewTopologyLabelKeys(nil, "")},
+		cachedNodeMap: map[string]*corev1.Node{"missing": nil},
+	}
+
+	err := eng.AddNodeLabels(context.Background(), "missing", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	})
+
+	require.EqualError(t, err, `node "missing" was not found in Kubernetes`)
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "get", "nodes"))
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "patch", "nodes"))
+}
+
+func TestAddNodeLabelsPropagatesUnresolvedNodeGetError(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	client.PrependReactor("get", "nodes", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("API unavailable")
+	})
+	eng := &K8sEngine{
+		client:        client,
+		params:        &Params{labelKeys: NewTopologyLabelKeys(nil, "")},
+		cachedNodeMap: map[string]*corev1.Node{"node": nil},
+	}
+
+	err := eng.AddNodeLabels(context.Background(), "node", map[string]string{
+		topology.FabricTierKey(0): "leaf",
+	})
+
+	require.EqualError(t, err, `failed to get node "node": API unavailable`)
+	require.Equal(t, 1, countKubernetesActions(client.Actions(), "get", "nodes"))
+	require.Equal(t, 0, countKubernetesActions(client.Actions(), "patch", "nodes"))
 }
 
 func countKubernetesActions(actions []k8stesting.Action, verb, resource string) int {

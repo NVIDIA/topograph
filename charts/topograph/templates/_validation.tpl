@@ -12,6 +12,14 @@
   {{- fail "env.NFD_NAMESPACE is managed by the chart for the nfd engine; configure nfdNamespace instead" }}
 {{- end }}
 
+{{- if hasKey (default dict .Values.env) "KUBE_QPS" }}
+  {{- fail "env.KUBE_QPS is managed by the chart; configure kubeClient.qps instead" }}
+{{- end }}
+
+{{- if hasKey (default dict .Values.env) "KUBE_BURST" }}
+  {{- fail "env.KUBE_BURST is managed by the chart; configure kubeClient.burst instead" }}
+{{- end }}
+
 {{- if eq .Values.provider.name "gcp" }}
 {{- $params := default dict .Values.provider.params }}
 

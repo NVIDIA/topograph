@@ -248,6 +248,42 @@ tests:
             value: custom-nfd
         template: templates/deployment.yaml
 
+  - it: injects the configured Kubernetes client limits
+    set:
+      kubeClient:
+        qps: 50
+        burst: 100
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KUBE_QPS
+            value: "50"
+        template: templates/deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KUBE_BURST
+            value: "100"
+        template: templates/deployment.yaml
+
+  - it: supports configuring only one Kubernetes client limit
+    set:
+      kubeClient:
+        qps: 50
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KUBE_QPS
+            value: "50"
+        template: templates/deployment.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KUBE_BURST
+        template: templates/deployment.yaml
+
   - it: omits the node-data-broker coordinates when the broker is disabled
     set:
       nodeDataBroker:

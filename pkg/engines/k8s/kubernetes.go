@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,21 +27,15 @@ import (
 )
 
 func (eng *K8sEngine) ResolveComputeInstances(ctx context.Context, instances []topology.ComputeInstances, _ any) ([]topology.ComputeInstances, *httperr.Error) {
-	listOptions := eng.params.nodeListOpt
-	if len(instances) != 0 {
-		// Cache every Node so output generation can distinguish a nonexistent
-		// requested node from one intentionally excluded by nodeSelector.
-		listOptions = nil
-	}
-
-	nodes, err := k8s.GetNodes(ctx, eng.client, listOptions)
+	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
-	eng.cacheNodes(nodes)
 	if len(instances) != 0 {
+		eng.cacheRequestedNodes(instances, nodes)
 		return instances, nil
 	}
+	eng.cacheNodes(nodes)
 	return k8s.GetComputeInstances(nodes), nil
 }
 
@@ -49,9 +44,21 @@ func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels
 		return err
 	}
 
-	node, ok := eng.cachedNodeMap[nodeName]
-	if !ok {
-		return fmt.Errorf("node %q was not found in Kubernetes", nodeName)
+	node, expected := eng.cachedNodeMap[nodeName]
+	if !expected {
+		klog.Warningf("Skipping topology labels for node %q because it is not part of the resolved compute instances", nodeName)
+		return nil
+	}
+	if node == nil {
+		var err error
+		node, err = eng.client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("node %q was not found in Kubernetes", nodeName)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get node %q: %w", nodeName, err)
+		}
+		eng.cachedNodeMap[nodeName] = node
 	}
 	if !eng.matchesNodeSelector(node) {
 		klog.Warningf("Skipping topology labels for node %q because it does not match the engine nodeSelector", nodeName)
@@ -85,14 +92,11 @@ func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels
 }
 
 func (eng *K8sEngine) loadNodes(ctx context.Context) error {
-	if eng.cachedNodes != nil {
+	if eng.cachedNodeMap != nil {
 		return nil
 	}
 
-	// Without a preceding ResolveComputeInstances call, load every Node so a
-	// cache miss still means the Node does not exist rather than merely being
-	// excluded by nodeSelector.
-	nodes, err := k8s.GetNodes(ctx, eng.client, nil)
+	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
 		return err
 	}
@@ -109,11 +113,26 @@ func (eng *K8sEngine) matchesNodeSelector(node *corev1.Node) bool {
 }
 
 func (eng *K8sEngine) cacheNodes(nodes *corev1.NodeList) {
-	eng.cachedNodes = nodes
 	eng.cachedNodeMap = make(map[string]*corev1.Node, len(nodes.Items))
 	for i := range nodes.Items {
 		node := &nodes.Items[i]
 		eng.cachedNodeMap[node.Name] = node
+	}
+}
+
+func (eng *K8sEngine) cacheRequestedNodes(instances []topology.ComputeInstances, nodes *corev1.NodeList) {
+	eng.cachedNodeMap = make(map[string]*corev1.Node)
+	for _, region := range instances {
+		for _, nodeName := range region.Instances {
+			eng.cachedNodeMap[nodeName] = nil
+		}
+	}
+
+	for i := range nodes.Items {
+		node := &nodes.Items[i]
+		if _, requested := eng.cachedNodeMap[node.Name]; requested {
+			eng.cachedNodeMap[node.Name] = node
+		}
 	}
 }
 

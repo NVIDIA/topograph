@@ -48,7 +48,7 @@ engine:
 ```
 
 The DRA provider and the Kubernetes, NFD, and Slinky engines can share
-Kubernetes client rate limits:
+deployment-level Kubernetes client rate limits:
 
 ```yaml
 kubeClient:
@@ -56,7 +56,8 @@ kubeClient:
   burst: 100
 ```
 
-Configure these limits through `kubeClient`.
+Configure these limits through `kubeClient`; the chart passes them to the
+Topograph deployment as `KUBE_QPS` and `KUBE_BURST`.
 
 For the full list of values and their defaults, see [`values.yaml`](./values.yaml). Example values files for specific deployment patterns:
 

@@ -56,7 +56,7 @@
     },
     "kubeClient": {
       "type": "object",
-      "description": "Kubernetes client rate limits for the DRA provider and the k8s, NFD, and Slinky engines.",
+      "description": "Kubernetes client rate limits exposed to the Topograph deployment as KUBE_QPS and KUBE_BURST.",
       "properties": {
         "qps": {
           "type": "number",

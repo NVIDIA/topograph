@@ -74,8 +74,6 @@ Parameters:
 |---|---:|---|---|
 | `nodeSelector` | No | all nodes | Limits the Kubernetes nodes used as provider input. Same meaning as the `k8s` engine selector. |
 | `cleanup` | No | `true` | Deletes stale Topograph-managed `NodeFeature` and `NodeFeatureGroup` objects that are no longer present in the generated topology. If generation produces no objects, the engine returns an error and preserves the existing topology. |
-| `kubeQPS` | No | `5` | Kubernetes client request rate. Zero or omission uses the client-go default; negative values are rejected. |
-| `kubeBurst` | No | `10` | Kubernetes client burst capacity. Zero or omission uses the client-go default; negative values are rejected. |
 
 `nfdNamespace` is a deployment-level Helm value, not an engine request
 parameter. It must be the namespace where NFD master runs because NFD updates
@@ -93,17 +91,13 @@ authoritative.
 ### Kubernetes API rate limiting
 
 The NFD engine uses a typed Kubernetes client to list Nodes and a dynamic client
-to reconcile `NodeFeature` and `NodeFeatureGroup` objects. When either
-`kubeQPS` or `kubeBurst` engine parameter is configured, both clients share one
-token-bucket limiter, so `kubeQPS` is the aggregate request rate rather than a
-separate allowance for each client. Without these overrides, each client
-retains its client-go default limiter.
-
-For Helm deployments, `kubeClient.qps` and `kubeClient.burst` populate those
-engine parameters and also apply to the DRA provider and the Kubernetes and
-Slinky engines. If only QPS or burst is configured, the other value uses the
-client-go default. An explicit topology request value in `engine.params` takes
-precedence over the chart-generated default.
+to reconcile `NodeFeature` and `NodeFeatureGroup` objects. Helm configures their
+shared token-bucket limiter through `kubeClient.qps` and `kubeClient.burst`,
+which become `KUBE_QPS` and `KUBE_BURST` in the Topograph deployment. The
+configured QPS is the aggregate request rate rather than a separate allowance
+for each client. If only QPS or burst is configured, the other value uses the
+client-go default. Without either setting, each client retains its client-go
+default limiter. Outside Helm, set the environment variables directly.
 
 ## Generated Objects
 

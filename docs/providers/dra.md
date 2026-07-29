@@ -52,8 +52,6 @@ If no nodes with matching labels are found, Topograph returns a `502` error with
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `nodeSelector` | `map[string]string` | No | Label selector to filter which nodes participate in topology discovery |
-| `kubeQPS` | `number` | No | Kubernetes client request rate. Zero or omission uses the client-go default of 5 QPS; negative values are rejected. |
-| `kubeBurst` | `integer` | No | Kubernetes client burst capacity. Zero or omission uses the client-go default of 10; negative values are rejected. |
 
 ## Configuration
 
@@ -77,9 +75,9 @@ configuration surface and applies to both the provider and engine. Tune the
 Slinky client first when dynamic-node reconciliation is the source of
 client-side throttling.
 
-Outside Helm, set the same limits with `kubeQPS` and `kubeBurst` in the
-configuration's `providerParams` or in a topology request's `provider.params`.
-An explicit request value takes precedence over the configured default.
+Outside Helm, set `KUBE_QPS` and `KUBE_BURST` on the Topograph process.
+Kubernetes client limits are deployment settings and cannot be overridden by a
+topology request.
 
 No credentials are required. The provider uses the in-cluster service account
 automatically. See the [Slinky engine documentation](../engines/slinky.md#configuration)

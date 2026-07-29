@@ -20,7 +20,9 @@ engine:
   #   useGpuCliqueLabel: true
 
 # Kubernetes client rate limits for the DRA provider and the k8s, NFD, and
-# Slinky engines. Leave unset to use client-go defaults (5 QPS and burst 10).
+# Slinky engines. The chart passes configured values to the Topograph deployment
+# as KUBE_QPS and KUBE_BURST. Leave unset to use client-go defaults (5 QPS and
+# burst 10).
 # kubeClient:
 #   qps: 50
 #   burst: 100

@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -208,6 +209,43 @@ func TestAPIServerPodDeleteQueuesRequest(t *testing.T) {
 				require.Empty(t, s.queue)
 			}
 		})
+	}
+}
+
+func TestAPIServerInformerRegistersDeleteHandler(t *testing.T) {
+	pod := makeWorkloadPod(false, makeContainerStatus("topograph", false, 0))
+	client := k8sfake.NewSimpleClientset(pod)
+	s, err := NewStatusInformer(
+		context.Background(),
+		client,
+		nil,
+		&APIServer{
+			Namespace:     pod.Namespace,
+			PodSelector:   &metav1.LabelSelector{},
+			ContainerName: "topograph",
+		},
+		"",
+		"",
+		0,
+		nil,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		s.Stop(nil)
+	})
+
+	require.NoError(t, s.startAPIServerInformer())
+	require.Empty(t, s.queue)
+	require.NoError(t, client.CoreV1().Pods(pod.Namespace).Delete(
+		context.Background(),
+		pod.Name,
+		metav1.DeleteOptions{},
+	))
+
+	select {
+	case <-s.queue:
+	case <-time.After(time.Second):
+		t.Fatal("API-server Pod deletion did not queue a topology request")
 	}
 }
 

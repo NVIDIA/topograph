@@ -98,11 +98,6 @@ type Params struct {
 	ConfigUpdateMode string `mapstructure:"configUpdateMode,omitempty"`
 	// Topologies specifies per-partition topology configuration
 	Topologies map[string]*Topology `mapstructure:"topologies,omitempty"`
-	// KubeQPS overrides the client-go default QPS for Kubernetes API calls (default: 5).
-	// Increase on large clusters where per-node annotation updates saturate the rate limiter.
-	KubeQPS float32 `mapstructure:"kubeQPS"`
-	// KubeBurst overrides the client-go default burst for Kubernetes API calls (default: 10).
-	KubeBurst int `mapstructure:"kubeBurst"`
 
 	// derived fields
 	podListOpt  *metav1.ListOptions
@@ -134,7 +129,9 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	k8s.ConfigureClientRateLimits(config, p.KubeQPS, p.KubeBurst)
+	if err := k8s.ConfigureClientRateLimits(config); err != nil {
+		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
+	}
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -153,13 +150,6 @@ func getParameters(params engines.Config) (*Params, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
 	}
-	if p.KubeQPS < 0 {
-		return nil, fmt.Errorf("kubeQPS must be greater than or equal to zero")
-	}
-	if p.KubeBurst < 0 {
-		return nil, fmt.Errorf("kubeBurst must be greater than or equal to zero")
-	}
-
 	// Validate config update mode
 	if len(p.ConfigUpdateMode) != 0 && p.ConfigUpdateMode != ConfigUpdateModeNone && p.ConfigUpdateMode != ConfigUpdateModeSkeletonOnly {
 		return nil, fmt.Errorf("invalid configUpdateMode: %s, must be either %s, or %s", p.ConfigUpdateMode, ConfigUpdateModeNone, ConfigUpdateModeSkeletonOnly)

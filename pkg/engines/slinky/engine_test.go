@@ -240,48 +240,6 @@ func TestGetParameters(t *testing.T) {
 				podListOpt:        &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
-		{
-			name: "Case 11: kubeQPS and kubeBurst",
-			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyTopoConfigPath:    "path",
-				topology.KeyTopoConfigmapName: "name",
-				"kubeQPS":                     float32(50),
-				"kubeBurst":                   100,
-			},
-			ret: &Params{
-				Namespace:     "namespace",
-				PodSelector:   labelSelector,
-				ConfigPath:    "path",
-				ConfigMapName: "name",
-				KubeQPS:       50,
-				KubeBurst:     100,
-				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
-			},
-		},
-		{
-			name: "Case 12: negative kubeQPS",
-			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyTopoConfigPath:    "path",
-				topology.KeyTopoConfigmapName: "name",
-				"kubeQPS":                     -1,
-			},
-			err: "kubeQPS must be greater than or equal to zero",
-		},
-		{
-			name: "Case 13: negative kubeBurst",
-			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyTopoConfigPath:    "path",
-				topology.KeyTopoConfigmapName: "name",
-				"kubeBurst":                   -1,
-			},
-			err: "kubeBurst must be greater than or equal to zero",
-		},
 	}
 
 	for _, tc := range testCases {

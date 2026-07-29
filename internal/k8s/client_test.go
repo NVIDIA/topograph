@@ -6,6 +6,7 @@
 package k8s
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,8 +16,8 @@ import (
 func TestConfigureClientRateLimits(t *testing.T) {
 	testCases := []struct {
 		name      string
-		qps       float32
-		burst     int
+		qps       *string
+		burst     *string
 		wantQPS   float32
 		wantBurst int
 	}{
@@ -25,50 +26,118 @@ func TestConfigureClientRateLimits(t *testing.T) {
 		},
 		{
 			name:      "both overrides",
-			qps:       50,
-			burst:     100,
+			qps:       ptr("50"),
+			burst:     ptr("100"),
 			wantQPS:   50,
 			wantBurst: 100,
 		},
 		{
 			name:      "QPS only",
-			qps:       50,
+			qps:       ptr("50"),
 			wantQPS:   50,
 			wantBurst: rest.DefaultBurst,
 		},
 		{
 			name:      "burst only",
-			burst:     100,
+			burst:     ptr("100"),
 			wantQPS:   rest.DefaultQPS,
 			wantBurst: 100,
+		},
+		{
+			name:      "zero uses defaults",
+			qps:       ptr("0"),
+			burst:     ptr("0"),
+			wantQPS:   rest.DefaultQPS,
+			wantBurst: rest.DefaultBurst,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			unsetEnv(t, envKubeQPS)
+			unsetEnv(t, envKubeBurst)
+			if tc.qps != nil {
+				t.Setenv(envKubeQPS, *tc.qps)
+			}
+			if tc.burst != nil {
+				t.Setenv(envKubeBurst, *tc.burst)
+			}
 			config := &rest.Config{}
-			ConfigureClientRateLimits(config, tc.qps, tc.burst)
+			require.NoError(t, ConfigureClientRateLimits(config))
 			require.Equal(t, tc.wantQPS, config.QPS)
 			require.Equal(t, tc.wantBurst, config.Burst)
-			require.Nil(t, config.RateLimiter)
+			if tc.qps == nil && tc.burst == nil {
+				require.Nil(t, config.RateLimiter)
+			} else {
+				require.Equal(t, tc.wantQPS, config.RateLimiter.QPS())
+			}
 		})
 	}
 }
 
-func TestConfigureSharedClientRateLimiter(t *testing.T) {
-	defaultConfig := &rest.Config{}
-	ConfigureSharedClientRateLimiter(defaultConfig, 0, 0)
-	require.Zero(t, defaultConfig.QPS)
-	require.Zero(t, defaultConfig.Burst)
-	require.Nil(t, defaultConfig.RateLimiter)
+func TestConfigureClientRateLimitsRejectsInvalidEnvironment(t *testing.T) {
+	testCases := []struct {
+		name  string
+		env   string
+		value string
+		err   string
+	}{
+		{
+			name:  "invalid QPS",
+			env:   envKubeQPS,
+			value: "fast",
+			err:   "KUBE_QPS must be a non-negative number",
+		},
+		{
+			name:  "negative QPS",
+			env:   envKubeQPS,
+			value: "-1",
+			err:   "KUBE_QPS must be a non-negative number",
+		},
+		{
+			name:  "non-finite QPS",
+			env:   envKubeQPS,
+			value: "Inf",
+			err:   "KUBE_QPS must be a non-negative number",
+		},
+		{
+			name:  "invalid burst",
+			env:   envKubeBurst,
+			value: "large",
+			err:   "KUBE_BURST must be a non-negative integer",
+		},
+		{
+			name:  "negative burst",
+			env:   envKubeBurst,
+			value: "-1",
+			err:   "KUBE_BURST must be a non-negative integer",
+		},
+	}
 
-	configuredConfig := &rest.Config{}
-	ConfigureSharedClientRateLimiter(configuredConfig, 0.001, 3)
-	require.Equal(t, float32(0.001), configuredConfig.QPS)
-	require.Equal(t, 3, configuredConfig.Burst)
-	require.Equal(t, float32(0.001), configuredConfig.RateLimiter.QPS())
-	require.True(t, configuredConfig.RateLimiter.TryAccept())
-	require.True(t, configuredConfig.RateLimiter.TryAccept())
-	require.True(t, configuredConfig.RateLimiter.TryAccept())
-	require.False(t, configuredConfig.RateLimiter.TryAccept())
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			unsetEnv(t, envKubeQPS)
+			unsetEnv(t, envKubeBurst)
+			t.Setenv(tc.env, tc.value)
+			err := ConfigureClientRateLimits(&rest.Config{})
+			require.EqualError(t, err, tc.err)
+		})
+	}
+}
+
+func ptr(value string) *string {
+	return &value
+}
+
+func unsetEnv(t *testing.T, name string) {
+	t.Helper()
+	value, ok := os.LookupEnv(name)
+	require.NoError(t, os.Unsetenv(name))
+	t.Cleanup(func() {
+		if ok {
+			require.NoError(t, os.Setenv(name, value))
+		} else {
+			require.NoError(t, os.Unsetenv(name))
+		}
+	})
 }
