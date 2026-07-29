@@ -25,40 +25,49 @@ already supplies nodes, a pod selector, or the default flat topology.
 {{- end -}}
 {{- end -}}
 {{- end -}}
+{{- $needsPods := or (eq .Values.provider.name "infiniband-k8s") (eq .Values.engine.name "slinky") -}}
+{{- $needsDaemonsets := eq .Values.provider.name "infiniband-k8s" -}}
+{{- $needsNodesList := or (eq .Values.provider.name "infiniband-k8s") (eq .Values.provider.name "dra") (eq .Values.engine.name "k8s") (eq .Values.engine.name "slinky") (eq .Values.engine.name "nfd") -}}
+{{- $needsConfigMaps := eq .Values.engine.name "slinky" -}}
+{{- $needsClusterRole := or $needsPods $needsPodExec.value $needsNodesList $needsDaemonsets $needsConfigMaps -}}
+{{- if $needsClusterRole }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ include "topograph.rbacName" . }}
 rules:
+{{- if $needsPods }}
 - apiGroups: [""]
   resources: [pods]
   verbs: [list]
+{{ end }}
 {{- if $needsPodExec.value }}
 - apiGroups: [""]
   resources: [pods/exec]
   verbs: [create]
-{{- end }}
+{{ end }}
+{{- if $needsNodesList }}
+{{- $nodeVerbs := list "list" -}}
+{{- if eq .Values.engine.name "k8s" -}}
+{{- $nodeVerbs = list "get" "list" "update" -}}
+{{- end -}}
+{{- if eq .Values.engine.name "slinky" -}}
+{{- $nodeVerbs = append $nodeVerbs "patch" -}}
+{{- end -}}
 - apiGroups: [""]
   resources: [nodes]
-  verbs: [get,list]
-{{- if eq .Values.engine.name "k8s" }}
-- apiGroups: [""]
-  resources: [nodes]
-  verbs: [update]
-{{- end }}
-{{- if eq .Values.engine.name "slinky" }}
-- apiGroups: [""]
-  resources: [nodes]
-  verbs: [patch]
-{{- end }}
+  verbs: {{ $nodeVerbs | toJson }}
+{{ end }}
+{{- if $needsDaemonsets }}
 - apiGroups: [apps]
   resources: [daemonsets]
   verbs: [get]
-{{- if eq .Values.engine.name "slinky" }}
+{{ end }}
+{{- if $needsConfigMaps }}
 - apiGroups: [""]
   resources: [configmaps]
   verbs: [create,get,update]
-{{- end }}
+{{ end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -73,6 +82,7 @@ roleRef:
   kind: ClusterRole
   name: {{ include "topograph.rbacName" . }}
   apiGroup: ""
+{{- end }}
 {{- if eq .Values.engine.name "nfd" }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
