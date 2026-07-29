@@ -21,8 +21,10 @@ With the **Slurm engine**, `lambdai` does **not** auto-discover nodes: the topol
 
 | Field | Required | Description |
 |---|---|---|
-| `workspaceId` | Yes | Lambda workspace ID; sent as the `workspace_id` query parameter |
-| `token` | Yes | Bearer token used for topology API requests |
+| `workspaceId` | Yes\* | Lambda workspace ID; sent as the `workspace_id` query parameter |
+| `token` | Yes\* | Bearer token used for topology API requests |
+
+\* Required for static-token authentication. With [workload identity](#authentication-via-workload-identity) no credentials are needed — the API token is minted at runtime and `workspaceId` is supplied as a provider parameter instead. A `token` supplied here always takes precedence over a workload identity.
 
 Store credentials in a YAML file:
 
@@ -39,11 +41,99 @@ credentialsPath: /etc/topograph/lambdai-credentials.yaml
 
 Credentials can also be supplied directly in the topology request payload under `provider.creds`.
 
+## Authentication via Workload Identity
+
+Instead of storing a long-lived API token in a Kubernetes Secret, Topograph can authenticate with **Kubernetes workload identity**. On a Lambda Kubernetes Service (LKS) cluster, Lambda's `lambda-pod-identity-webhook` injects a projected ServiceAccount token into the API-server pod; Topograph exchanges that token at Lambda's OIDC endpoint (`POST /api/v1/oidc/token`) for a short-lived Lambda API key, which it uses for topology requests and refreshes automatically before expiry. No API token ever lives in the cluster.
+
+The cluster's OIDC provider (issuer + JWKS) is **pre-registered by LKS** at provisioning, so there is no `audience` to manage and no provider to register from scratch. You only create an identity, grant it access, and trust the ServiceAccount subject.
+
+### Prerequisites
+
+- An **LKS cluster** — its OIDC issuer and public JWKS are registered with Lambda automatically at provisioning.
+- **`lambda-pod-identity-webhook`** installed in the cluster (LKS ships it). The webhook watches for pods whose ServiceAccount is annotated `lambda.ai/role-lrn` and mutates them to inject the projected token and identity env vars.
+- **Workload identity enabled** for your Lambda account.
+- A Lambda **admin API key** for the one-time operator setup below.
+
+### 1. Create the identity and attach a trust (operator, out of band)
+
+Using an admin key, create a service identity, add it to the workspace whose topology you will read, and assign it the `workload-identity` role (workspace-scoped `COMPUTE_INSTANCE_READ`). Note the returned **identity LRN** (`lrn:iam:identity:<id>`).
+
+Then trust Topograph's ServiceAccount to assume that identity. LKS already registered the cluster's OIDC provider, but it does not trust any of your ServiceAccounts — that part is yours. Because there is no lookup-by-issuer API, re-posting the issuer and JWKS acts as an idempotent upsert that returns the provider LKS already registered:
+
+```bash
+# The cluster's issuer and public JWKS, read from the workload cluster.
+ISS=$(kubectl get --raw /.well-known/openid-configuration | jq -r .issuer)
+kubectl get --raw /openid/v1/jwks > /tmp/jwks.json
+
+# Idempotent upsert -> the existing provider_id for this issuer.
+PID=$(curl -s -X POST -H "Authorization: Bearer $LAMBDA_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" "$URL/api/v1/oidc-providers" \
+  -d "$(jq -n --arg iss "$ISS" --slurpfile jwks /tmp/jwks.json \
+        '{issuer_url:$iss, jwks:$jwks[0]}')" | jq -r .data.provider_id)
+
+# Add the trust. PATCH is additive, so other trusts are left alone.
+curl -s -X PATCH -H "Authorization: Bearer $LAMBDA_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  "$URL/api/v1/identities/<identity-id>/oidc-trusts" \
+  -d "$(jq -n --arg pid "$PID" \
+        --arg sub "system:serviceaccount:<namespace>:<topograph-serviceaccount>" \
+        '{trusts:[{provider_id:$pid, subject:$sub}]}')"
+```
+
+- `subject` is the projected token's `sub` claim, `system:serviceaccount:<namespace>:<serviceAccountName>`. Use `"*"` to trust any subject under the issuer (least restrictive).
+- The provider upsert reports the `audience` it expects (`lambda-workload-identity`); the webhook stamps that same audience onto the projected token, so there is nothing to configure.
+
+### 2. Configure Topograph
+
+Annotate Topograph's ServiceAccount with the identity LRN and set the provider params — no Secret and no audience:
+
+```yaml
+provider:
+  name: lambdai
+  params:
+    url: https://cloud.lambda.ai
+    workspaceId: "<WORKSPACE_ID>"
+
+serviceAccount:
+  annotations:
+    lambda.ai/role-lrn: "lrn:iam:identity:<id>"
+```
+
+`workspaceId` is an identifier, not a secret, so it lives in params and no `config.credentialsSecret` is required. The webhook keys off the `lambda.ai/role-lrn` annotation on the pod's ServiceAccount — there is no `workloadIdentity` parameter and no chart-managed volume.
+
+### 3. Install with Helm (no credentials Secret)
+
+```bash
+helm install topograph oci://ghcr.io/nvidia/topograph/topograph \
+  --version <chart-version> -n topograph --create-namespace \
+  -f values.k8s.lambdai-workload-identity-example.yaml
+```
+
+See [`values.k8s.lambdai-workload-identity-example.yaml`](../../charts/topograph/values.k8s.lambdai-workload-identity-example.yaml) for a complete example. Unlike the static-token flow, **no `config.credentialsSecret` is set**.
+
+### How it works
+
+Because the pod's ServiceAccount carries the `lambda.ai/role-lrn` annotation, `lambda-pod-identity-webhook` mutates the pod to inject:
+
+- a projected ServiceAccount token at `/var/run/secrets/lambda.ai/serviceaccount/token`, and
+- the env vars `LAMBDA_ROLE_LRN` (the identity LRN) and `LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE` (the token path).
+
+Topograph reads `LAMBDA_ROLE_LRN` to switch into workload-identity mode, reads the projected token from `LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE`, and exchanges it at `POST /api/v1/oidc/token` for a Lambda API key. The key is cached process-wide and refreshed shortly (≈5 minutes, jittered) before expiry so a fleet of pods does not refresh in lockstep. A transient exchange failure while the cached key is still valid is tolerated — Topograph keeps serving the current key until it actually expires. If the Lambda API rejects a cached key mid-life, Topograph mints a new one and retries the request once.
+
+The pod identity is a fallback, not an override: a request (or `credentialsPath`) that supplies a `token` credential authenticates with **that** token even when the pod carries a workload identity, so a caller's credentials are never silently replaced by the pod's principal. Topograph logs which one it used. Supplying a `token` that is empty or whitespace is treated as a malformed credential and rejected with `400` — not as a request to fall back to the pod identity. To use workload identity, omit the `token` credential entirely.
+
+### Caveats
+
+- **Stable subject.** The trust pins the token's `sub` claim, `system:serviceaccount:<namespace>:<serviceAccountName>`. The chart's generated ServiceAccount name derives from the release name and can change; set a fixed `serviceAccount.name` and trust that exact subject (or use `"*"`) so the trust keeps matching.
+- **JWKS rotation is handled by LKS.** LKS keeps the cluster's registered issuer and JWKS current, so key rotation does not require operator action.
+- **Opaque failures.** The token-exchange endpoint returns an identical `401` for every failure (unknown issuer, untrusted subject, missing role). Topograph logs only the HTTP status and the identity LRN; check the pod logs for `workload-identity token exchange failed (status ...)` and verify the trust, subject, and role.
+
 ## Parameters
 
 | Field | Required | Description |
 |---|---|---|
 | `url` | Yes | Base URL for the Lambda topology API, for example `https://cloud.example.com` |
+| `workspaceId` | No | Lambda workspace ID. Normally supplied as a credential; in [workload-identity mode](#authentication-via-workload-identity) it may be given here instead (it is an identifier, not a secret), so that no Secret is required. |
 | `trimTiers` | No | Number of highest topology tiers to trim from output. Defaults to `0` |
 
 The region is **not** a parameter — it is taken from each entry in the request's `nodes` list and forwarded to the API as the `region` query parameter (the API requires it). The top-level Topograph `pageSize` setting controls the page size for paginated topology requests.
