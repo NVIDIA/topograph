@@ -179,8 +179,15 @@ func removeManagedTopologyLabels(labels map[string]string, keys *TopologyLabelKe
 	}
 }
 
+// legacyXclrDomainLabel is the accelerator-domain label written by Topograph releases
+// before the XCLR rename (commit 654a715). It is included in the managed set so that
+// removeManagedTopologyLabels cleans it up from nodes on the first reconcile after
+// upgrading.
+const legacyXclrDomainLabel = "network.topology.nvidia.com/accelerator"
+
 func isManagedLevelLabel(key string, keys *TopologyLabelKeys) bool {
-	if key == topology.KeyTopologyXclrDomain || key == topology.KeyTopologyXclrSubDomain {
+	if key == topology.KeyTopologyXclrDomain || key == topology.KeyTopologyXclrSubDomain ||
+		key == legacyXclrDomainLabel {
 		return true
 	}
 	configuredKeys := append(append([]string(nil), keys.Fabric...), keys.XclrDomain, keys.XclrSubDomain)

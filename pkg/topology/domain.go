@@ -37,6 +37,14 @@ type HostInfo struct {
 // general-purpose Vertex type is kept unmodified; BlockVertex embeds it and
 // reuses Vertex.Vertices to store child BlockVertices (cast as *Vertex) so
 // there is no separate Children map.
+//
+// Safety invariant: every *Vertex stored in Vertices must be the address of the
+// embedded Vertex field of a *BlockVertex — that is, values of the form
+// &child.Vertex. Inserting a plain *Vertex that was not obtained this way breaks
+// the unsafe cast in asBlockVertex and ChildAt. All writes to Vertices for a
+// BlockVertex must go through code that upholds this invariant; the exported
+// Vertices field inherited from the embedded Vertex provides no compiler
+// enforcement of this constraint.
 type BlockVertex struct {
 	Vertex
 	actualNodeCount  int
@@ -46,13 +54,16 @@ type BlockVertex struct {
 
 // asBlockVertex recovers the *BlockVertex whose embedded Vertex field v points
 // to. Because BlockVertex embeds Vertex as its first field, Go guarantees that
-// the addresses are identical, making the unsafe cast safe for any *Vertex that
-// was stored as &blockVertex.Vertex.
+// the addresses are identical, making the cast safe — but only for *Vertex
+// values stored as &blockVertex.Vertex. Callers must never pass a *Vertex that
+// was not obtained that way; see the BlockVertex safety invariant.
 func asBlockVertex(v *Vertex) *BlockVertex {
 	return (*BlockVertex)(unsafe.Pointer(v))
 }
 
 // ChildAt returns the child BlockVertex keyed by name, or nil if absent.
+// It is the safe public accessor for child vertices; callers should use this
+// rather than reading Vertices directly to avoid bypassing the safety invariant.
 func (bv *BlockVertex) ChildAt(name string) *BlockVertex {
 	if v := bv.Vertices[name]; v != nil {
 		return asBlockVertex(v)
@@ -118,12 +129,19 @@ func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
 //     that holds its hosts directly (one level below root).
 //   - When hosts carry a SubDomain, the domain vertex has one child per distinct
 //     SubDomain value, and each sub-domain vertex holds the hosts belonging to it
-//     (two levels below root).
+//     (two levels below root). A host with an empty SubDomain in an otherwise
+//     dual-level domain is placed in a fallback sub-domain vertex keyed by the
+//     accelerator domain name, so the host is always emitted.
 //
-// DesiredNodeCount is then set on every vertex via a BFS pass: all vertices at
-// the same tree depth receive the smallest blockSize >= the maximum
-// actualNodeCount at that depth. Root (actualNodeCount == 0) always receives
-// blockSizes[last].
+// DesiredNodeCount is then set on every vertex via a BFS pass whose behaviour
+// depends on the number of blockSizes provided:
+//
+//   - Multiple blockSizes: all vertices at the same tree depth receive the
+//     smallest blockSize >= the maximum actualNodeCount at that depth; the root
+//     (actualNodeCount == 0) receives blockSizes[last].
+//   - Single blockSize: each vertex is rounded up independently to the nearest
+//     multiple of that size; the root receives 0 (ceil(0/bs)*bs = 0) and is
+//     therefore not padded by convert().
 func (m DomainMap) GetDomainTree(blockSizes []int) *BlockVertex {
 	root := &BlockVertex{Vertex: Vertex{ID: "root", Vertices: make(map[string]*Vertex)}}
 
@@ -154,12 +172,13 @@ func (m DomainMap) GetDomainTree(blockSizes []int) *BlockVertex {
 			for _, host := range hosts {
 				gn := host.SubDomain
 				if gn == "" {
-					// A host with no SubDomain in a domain where other hosts carry
-					// SubDomains indicates a partially-configured provider. Bucketing
-					// it under key "" would create a vertex that sorts before all real
-					// sub-domains, shifting block numbers and emitting a nameless block.
-					klog.Warningf("domain %q: host %q has no SubDomain while other hosts in the domain do; skipping", domain, host.HostName)
-					continue
+					// A host with no SubDomain in a domain where other hosts carry one
+					// indicates a partially-configured provider (e.g. OCI missing rack
+					// info). Place it in a fallback sub-domain vertex keyed by the
+					// accelerator domain name so the host is always emitted rather than
+					// silently dropped.
+					klog.Warningf("domain %q: host %q has no SubDomain; placing in fallback sub-domain %q", domain, host.HostName, domain)
+					gn = domain
 				}
 				sub := domainBV.ChildAt(gn)
 				if sub == nil {
@@ -178,16 +197,22 @@ func (m DomainMap) GetDomainTree(blockSizes []int) *BlockVertex {
 	return root
 }
 
-// setDesiredCountByLevel assigns desiredNodeCount via a BFS pass: all vertices
-// at the same depth receive the smallest blockSize >= the maximum actualNodeCount
-// at that depth. Root (actualNodeCount == 0) always receives blockSizes[last].
+// setDesiredCountByLevel assigns desiredNodeCount via a BFS pass.
+//
+// Multiple blockSizes: all vertices at the same depth receive the smallest
+// blockSize >= the maximum actualNodeCount at that depth; the root
+// (actualNodeCount == 0) receives blockSizes[last].
+//
+// Single blockSize: each vertex is rounded up to the nearest multiple of that
+// size independently (ceil(actualNodeCount/bs)*bs). Root gets 0 because its
+// actualNodeCount is 0.
+//
 // blockSizes need not be sorted by the caller; a sorted copy is used internally.
 func (bv *BlockVertex) setDesiredCountByLevel(blockSizes []int) {
 	if bv == nil || len(blockSizes) == 0 {
 		return
 	}
 	bs := slices.Sorted(slices.Values(blockSizes)) // ascending copy, caller's slice is unchanged
-	last := bs[len(bs)-1]
 
 	type entry struct {
 		node  *BlockVertex
@@ -195,44 +220,83 @@ func (bv *BlockVertex) setDesiredCountByLevel(blockSizes []int) {
 	}
 
 	queue := []entry{{bv, 0}}
-	depthMax := map[int]int{}
+	maxCountByDepth := []int{}
 	var visited []entry
 
 	for len(queue) > 0 {
 		curr := queue[0]
 		queue = queue[1:]
 		visited = append(visited, curr)
-		// Always insert the depth key so depthMax covers every level, including
-		// root (actualNodeCount == 0). Without this, depth 0 is absent from the
-		// map and root's desiredNodeCount would be left at 0.
 		actual := curr.node.actualNodeCount
-		if actual > depthMax[curr.depth] {
-			depthMax[curr.depth] = actual
-		} else if _, seen := depthMax[curr.depth]; !seen {
-			depthMax[curr.depth] = 0
+
+		//Calculate the maximum actualNodeCount seen at this depth so far.
+		if curr.depth >= len(maxCountByDepth) {
+			maxCountByDepth = append(maxCountByDepth, actual)
+		} else {
+			maxCountByDepth[curr.depth] = max(maxCountByDepth[curr.depth], actual)
 		}
 		for _, v := range curr.node.Vertices {
 			queue = append(queue, entry{asBlockVertex(v), curr.depth + 1})
 		}
 	}
 
-	desiredByDepth := make(map[int]int, len(depthMax))
-	for depth, maxCount := range depthMax {
-		if maxCount == 0 {
-			desiredByDepth[depth] = last
-			continue
-		}
-		desired := last
-		for _, v := range bs {
-			if v >= maxCount {
-				desired = v
-				break
-			}
-		}
-		desiredByDepth[depth] = desired
-	}
+	//Get the desired node count for each depth level
+	// based on the maximum actual node count at that depth and the block sizes.
+	desiredByDepth := getDesiredCountByLevel(maxCountByDepth, bs)
 
 	for _, e := range visited {
-		e.node.desiredNodeCount = desiredByDepth[e.depth]
+		if len(bs) == 1 {
+			// Single block size:
+			// Round up actualNodeCount to the nearest multiple of the single block size.
+			cnt := e.node.actualNodeCount
+			e.node.desiredNodeCount = ((cnt + bs[0] - 1) / bs[0]) * bs[0]
+		} else {
+			e.node.desiredNodeCount = desiredByDepth[e.depth]
+		}
 	}
+}
+
+// Returns the desired node count for each depth level
+// based on the maximum actual node count at that depth and the block sizes.
+func getDesiredCountByLevel(maxCountByDepth, bs []int) []int {
+	desiredByDepth := make([]int, len(maxCountByDepth))
+
+	if len(maxCountByDepth) == 0 || len(bs) == 0 {
+		return desiredByDepth
+	}
+
+	bsIndex := 0
+	for i := len(desiredByDepth) - 1; i >= 0; i-- {
+		//Derive the desired value either from the provided block size (if available)
+		// or from the previously computed desired value at the next depth level.
+		var base int
+		if bsIndex < len(bs) {
+			base = bs[bsIndex]
+		} else {
+			base = desiredByDepth[i+1]
+		}
+		desiredByDepth[i] = pow2GroupCapacity(base, maxCountByDepth[i])
+
+		//Increament the block size index to the next block size that is larger than the current desired value.
+		for bsIndex+1 < len(bs) && bs[bsIndex+1] <= desiredByDepth[i] {
+			bsIndex++
+		}
+		bsIndex++
+	}
+
+	//If there are still block sizes left, set the desired node count for the root to the largest block size.
+	if bsIndex < len(bs) {
+		desiredByDepth[0] = bs[len(bs)-1]
+	}
+	return desiredByDepth
+}
+
+// pow2GroupCapacity returns the smallest value of the form 2^n × base that is
+// >= maxCount, matching the pre-change groupSizeFromDomains power-of-two logic.
+func pow2GroupCapacity(base, maxCount int) int {
+	capacity := base
+	for capacity < maxCount {
+		capacity *= 2
+	}
+	return capacity
 }

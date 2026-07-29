@@ -110,10 +110,9 @@ placed in a named sub-domain node under the accelerator domain node (dual-level)
 
 Partially-configured deployments — where some hosts in a domain carry a
 `SubDomain` and others do not — are detected and warned about: hosts with an
-empty `SubDomain` in a grouped domain are skipped with a `klog.Warningf`, rather
-than being silently bucketed under an empty-string key that would sort before all
-real sub-domains and shift block numbering.
-
+empty `SubDomain` in a grouped domain are placed in a fallback sub-domain vertex
+keyed by the accelerator domain name (with a `klog.Warningf`), so the host is
+always emitted rather than silently dropped.
 ### `BlockVertex`
 
 `BlockVertex` (`pkg/topology/domain.go`) augments the existing `topology.Vertex`
@@ -235,9 +234,14 @@ pad with newEmptyBaseBlock until len(blocks) == groupSize
 for each child ID in sorted(src.Vertices.keys()):
     append convert(src.ChildAt(id), baseBlockSize)
     accumulate nodeCount
-while nodeCount < src.DesiredNodeCount():
+while nodeCount % src.DesiredNodeCount() != 0:
     append newEmptyChildAggregate(childCapacity, baseBlockSize)
 ```
+
+The modulo condition pads to the nearest positive multiple of `DesiredNodeCount`
+rather than just to `DesiredNodeCount`. This handles the over-full case — when
+real children already exceed `DesiredNodeCount` but are not yet at a multiple
+boundary — as well as the under-full case.
 
 Children are always visited in ascending alphabetical order, making block
 assignments deterministic and reproducible across topology regenerations.
@@ -252,10 +256,14 @@ numbered `block001`, `block002`, … by position in that flat slice.
 
 Sub-domains absent from the live `DomainMap` appear as trailing empty slots
 within their accelerator domain's aggregate: after exhausting real children,
-`convert` pads with `newEmptyChildAggregate` until `DesiredNodeCount` is reached.
-`baseBlockToBlockInfo` converts zero-host base blocks to `blockInfo` entries with
-no name and no nodes. `toBlockTopology` writes them as bare `BlockName=blockNNN`
-lines in `topology.conf` — the placeholder semantics required by Slurm.
+`convert` pads with `newEmptyChildAggregate` until `nodeCount` is a positive
+multiple of `DesiredNodeCount`. This applies at every interior level — both
+accelerator-domain aggregates (padding missing sub-domains) and the root
+(padding when the total real-child capacity is not already a multiple of the
+last block size). `baseBlockToBlockInfo` converts zero-host base blocks to
+`blockInfo` entries with no name and no nodes. `toBlockTopology` writes them as
+bare `BlockName=blockNNN` lines in `topology.conf` — the placeholder semantics
+required by Slurm.
 
 ## Example
 
@@ -275,8 +283,8 @@ nodes. Accelerator domain 1 has 14 active sub-domains; accelerator domain 2 has
 **`convert` for domain-02:** 15 real sub-domain children + 1 empty padding slot
 → 16 base blocks, `nodeCount = 144`.
 
-**`convert` for root:** 2 accelerator domain children totalling 288 >
-`DesiredNodeCount = 144` → no root-level padding.
+**`convert` for root:** 2 accelerator domain children totalling 288; 288 is
+already a multiple of `DesiredNodeCount = 144` → no root-level padding.
 
 **Output** (`BlockSizes=9,144`, 32 blocks total):
 ```
@@ -327,16 +335,30 @@ The output is identical to the pre-change single-level behavior.
 
 ## Test Plan
 
-- `TestComplementDualLevel` in `pkg/translate/block_complement_test.go`: uses a
-  two-level simulation model (`tests/models/dual-level.yaml`) with `BlockSizes=[9,144]`
-  to assert 32 blocks — 16 per accelerator domain — with correct placeholder
-  entries for absent sub-domains.
+**Dual-level complement output (`pkg/translate/block_complement_test.go`):**
+- `TestComplementDualLevel`: uses a two-level simulation model
+  (`tests/models/dual-level.yaml`) with `BlockSizes=[9,144]` to assert 32 blocks
+  — 16 per accelerator domain — with correct placeholder entries for absent
+  sub-domains.
+- `TestComplementMultiGroupRootExpansion6x16`, `TestComplementMultiGroupRootExpansion3x72`:
+  verify over-full root padding — when the total real-child capacity exceeds
+  `blockSizes[last]` but is not yet a multiple of it, empty domain slots are
+  appended to reach the next multiple boundary.
 - All existing complement tests (`TestComplementMissingBaseBlock`,
   `TestComplementMissingLeafSegment`, `TestComplementKeepsSeparateAccelerators`,
   etc.) continue to pass, verifying backward compatibility for the no-`SubDomain`
   path.
-- `pkg/topology` and `pkg/models` unit tests cover `GetDomainTree`,
-  `setDesiredCountByLevel`, and `SubDomain` propagation from YAML labels.
-- `TestBuildNodeLabelsWithXclrSubDomain` in
-  `pkg/engines/k8s/labeler_test.go` verifies that Kubernetes nodes receive both
-  accelerator hierarchy labels when `XclrSubDomainID` is present.
+
+**`GetDomainTree` and `setDesiredCountByLevel` unit tests (`pkg/topology/domain_test.go`):**
+- `TestBlockVertexNilSafety`: nil-receiver guards on `DesiredNodeCount()` and `Hosts()`.
+- `TestGetDomainTreeSingleLevel`: one-level leaf path, desired counts, root gets `blockSizes[last]`.
+- `TestGetDomainTreeTwoLevel`: two-level interior path, max-driven desired count across sub-domain siblings.
+- `TestGetDomainTreeBFSLevelSizing`: BFS max propagation — smaller domain gets the larger sibling's desired count.
+- `TestGetDomainTreeSingleBlockSizeRounding`: single-blockSize per-node ceil rounding.
+- `TestGetDomainTreeBlockSizesUnsortedContract`: sorted and unsorted blockSizes inputs produce identical desired counts.
+- `TestGetDomainTreeUnrackedHostFallback`: host with empty `SubDomain` in a grouped domain is placed in a fallback vertex keyed by the domain name rather than dropped.
+
+**Kubernetes label output:**
+- `TestBuildNodeLabelsWithXclrSubDomain` in `pkg/engines/k8s/labeler_test.go`
+  verifies that Kubernetes nodes receive both accelerator hierarchy labels when
+  `XclrSubDomainID` is present.

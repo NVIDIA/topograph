@@ -467,6 +467,27 @@ func TestMergeNodeLabels(t *testing.T) {
 			},
 			out: map[string]string{},
 		},
+		{
+			name: "Case 9: legacy accelerator label is cleaned up on upgrade",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						legacyXclrDomainLabel:     "old-domain",
+						topology.FabricTierKey(0): "old-leaf",
+						"workload.example/keep":   "yes",
+					},
+				},
+			},
+			in: map[string]string{
+				topology.KeyTopologyXclrDomain: "new-domain",
+				topology.FabricTierKey(0):      "new-leaf",
+			},
+			out: map[string]string{
+				topology.KeyTopologyXclrDomain: "new-domain",
+				topology.FabricTierKey(0):      "new-leaf",
+				"workload.example/keep":        "yes",
+			},
+		},
 	}
 
 	for _, tc := range testCases {

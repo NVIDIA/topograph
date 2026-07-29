@@ -263,6 +263,72 @@ func TestDomainsForBlocksFilteredToPartitionNodes(t *testing.T) {
 	require.False(t, seen["n4"], "n4 belongs to another partition and must not appear")
 }
 
+// TestComplementMultiGroupRootExpansion6x16 verifies that when total domain capacity
+// (6 × groupSize × baseBlockSize) exceeds blockSizes[last]=64, the root expands to
+// the next multiple of blockSizes[last] so that empty domain padding slots are emitted.
+// 6 domains × 16 hosts each, blockSizes=[8,64]:
+//   - groupSize = 2×8 = 16 (pow2: 2^1 × 8 ≥ 16)
+//   - total capacity = 6 × 16 = 96 > 64 → root rounds up to ceil(96/64)×64 = 128
+//   - 8 domain slots needed: 6 real + 2 empty → 8 × (16/8) = 16 base blocks, 4 empty
+func TestComplementMultiGroupRootExpansion6x16(t *testing.T) {
+	domains := topology.NewDomainMap()
+	nodes := make([]*blockInfo, 0, 6)
+	for d := 0; d < 6; d++ {
+		domain := fmt.Sprintf("D%d", d)
+		var ns []string
+		for h := 0; h < 16; h++ {
+			name := fmt.Sprintf("%s-n%02d", domain, h)
+			ns = append(ns, name)
+			domains.AddHostInfo(&topology.HostInfo{Domain: domain, HostName: name, InstanceID: name})
+		}
+		nodes = append(nodes, &blockInfo{name: domain, nodes: ns})
+	}
+
+	nt := &NetworkTopology{domains: domains, blocks: nodes}
+	out := nt.complementBlocks(nt.blocks, []int{8, 64})
+
+	require.Len(t, out, 16, "expected 16 base blocks (8 domain slots × 2 blocks each)")
+	empty := 0
+	for _, b := range out {
+		if isEmptyBlock(b) {
+			empty++
+		}
+	}
+	require.Equal(t, 4, empty, "expected 4 empty padding blocks (2 empty domain slots × 2 blocks)")
+}
+
+// TestComplementMultiGroupRootExpansion3x72 verifies the same multi-group root expansion
+// for 3 domains × 72 hosts each, blockSizes=[18,144]:
+//   - groupSize = 4×18 = 72 (pow2: 2^2 × 18 ≥ 72)
+//   - total capacity = 3 × 72 = 216 > 144 → root rounds up to ceil(216/144)×144 = 288
+//   - 4 domain slots needed: 3 real + 1 empty → 4 × (72/18) = 16 base blocks, 4 empty
+func TestComplementMultiGroupRootExpansion3x72(t *testing.T) {
+	domains := topology.NewDomainMap()
+	nodes := make([]*blockInfo, 0, 3)
+	for d := 0; d < 3; d++ {
+		domain := fmt.Sprintf("D%d", d)
+		var ns []string
+		for h := 0; h < 72; h++ {
+			name := fmt.Sprintf("%s-n%02d", domain, h)
+			ns = append(ns, name)
+			domains.AddHostInfo(&topology.HostInfo{Domain: domain, HostName: name, InstanceID: name})
+		}
+		nodes = append(nodes, &blockInfo{name: domain, nodes: ns})
+	}
+
+	nt := &NetworkTopology{domains: domains, blocks: nodes}
+	out := nt.complementBlocks(nt.blocks, []int{18, 144})
+
+	require.Len(t, out, 16, "expected 16 base blocks (4 domain slots × 4 blocks each)")
+	empty := 0
+	for _, b := range out {
+		if isEmptyBlock(b) {
+			empty++
+		}
+	}
+	require.Equal(t, 4, empty, "expected 4 empty padding blocks (1 empty domain slot × 4 blocks)")
+}
+
 // TestComplementWithMissingDomain verifies that when B2 has no entry in the domain map,
 // domainsForBlocks only sees B1. The complement tree produces block001 with B1's nodes
 // and an empty block002 padding slot (root-padded to reach blockSizes[last]=4).

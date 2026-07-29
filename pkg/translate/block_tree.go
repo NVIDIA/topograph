@@ -254,6 +254,12 @@ func convert(src *topology.BlockVertex, baseBlockSize int) *aggregateBlockNode {
 	// skipped domain still emits the correct number of empty placeholder slots
 	// instead of producing a silent 0-nodeCount aggregate via the interior path.
 	if hosts != nil {
+		// groupSize is 0 when desiredNodeCount == 0, which occurs for leaf vertices
+		// in single-blockSize deployments only when actualNodeCount == 0
+		// (ceil(0/bs)*bs = 0). GetDomainTree never creates a domain vertex with zero
+		// hosts, so groupSize == 0 is unreachable in practice. If it were reached,
+		// splitIntoBaseBlocks would return no blocks and the padding loop would not
+		// fire, producing an empty aggregate — the same result as a missed domain.
 		groupSize := desiredNodeCount / baseBlockSize
 		sorted := hostsSorted(hosts)
 		blocks := splitIntoBaseBlocks(src.ID, sorted, baseBlockSize)
@@ -282,17 +288,24 @@ func convert(src *topology.BlockVertex, baseBlockSize int) *aggregateBlockNode {
 		}
 	}
 
-	// Pad with empty sibling aggregates until DesiredNodeCount is reached.
+	// Pad to the nearest positive multiple of lcm(childCapacity, desiredNodeCount).
+	// Pre-computing the target via the LCM bounds the loop to ≤ desiredNodeCount/gcd
+	// iterations for any block-size pair, including non-power-of-2-aligned ones.
 	padded := 0
-	for target.nodeCount < desiredNodeCount && childCapacity > 0 {
-		empty := newEmptyChildAggregate(childCapacity, baseBlockSize)
-		target.children = append(target.children, empty)
-		target.nodeCount += childCapacity
-		padded++
+	if desiredNodeCount > 0 && childCapacity > 0 && target.nodeCount > 0 && target.nodeCount%desiredNodeCount != 0 {
+		g := blockTreeGCD(childCapacity, desiredNodeCount)
+		step := childCapacity / g * desiredNodeCount // = lcm(childCapacity, desiredNodeCount)
+		targetCount := ((target.nodeCount + step - 1) / step) * step
+		for target.nodeCount < targetCount {
+			empty := newEmptyChildAggregate(childCapacity, baseBlockSize)
+			target.children = append(target.children, empty)
+			target.nodeCount += childCapacity
+			padded++
+		}
 	}
 	if padded > 0 {
-		klog.V(4).Infof("convert: vertex %q padded with %d empty slot(s) to reach desiredNodeCount=%d",
-			src.ID, padded, desiredNodeCount)
+		klog.V(4).Infof("convert: vertex %q padded with %d empty slot(s) to nodeCount=%d (desiredNodeCount=%d)",
+			src.ID, padded, target.nodeCount, desiredNodeCount)
 	}
 
 	// An interior vertex with neither real children nor successful padding produces
@@ -314,6 +327,14 @@ func newEmptyChildAggregate(capacity, baseBlockSize int) *aggregateBlockNode {
 		agg.nodeCount += baseBlockSize
 	}
 	return agg
+}
+
+// blockTreeGCD returns the greatest common divisor of two positive integers.
+func blockTreeGCD(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
 }
 
 // sortHostsByName sorts hosts alphabetically by HostName for deterministic packing.
