@@ -130,7 +130,7 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 	}
 
 	if err := k8s.ConfigureClientRateLimits(config); err != nil {
-		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(config)
@@ -270,7 +270,10 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 	for _, node := range nodes.Items {
 		hostName, ok := nodeMap[node.Name]
 		if !ok {
-			klog.V(4).Infof("Cannot resolve k8s node %q", node.Name)
+			klog.V(4).Infof(
+				"Cannot resolve k8s node %q: no resolvable mapping from a Ready SLURM pod; check the engine namespace, podSelector, pod readiness, and Slurm node-name metadata",
+				node.Name,
+			)
 			continue
 		}
 		instance, ok := node.Annotations[topology.KeyNodeInstance]

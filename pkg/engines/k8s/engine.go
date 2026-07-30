@@ -62,7 +62,7 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 	}
 
 	if err := internalk8s.ConfigureClientRateLimits(config); err != nil {
-		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(config)

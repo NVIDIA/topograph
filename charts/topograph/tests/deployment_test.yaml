@@ -282,6 +282,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: KUBE_BURST
+          any: true
         template: templates/deployment.yaml
 
   - it: omits the node-data-broker coordinates when the broker is disabled

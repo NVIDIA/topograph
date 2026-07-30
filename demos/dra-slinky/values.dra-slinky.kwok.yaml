@@ -39,6 +39,10 @@ nodeObserver:
     trigger:
       nodeSelector:
         kwok.x-k8s.io/node: "fake"
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: worker
+          app.kubernetes.io/instance: slurm-worker-kwok
 
 nodeDataBroker:
   enabled: false

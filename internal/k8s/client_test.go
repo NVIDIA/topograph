@@ -32,13 +32,34 @@ func TestConfigureClientRateLimits(t *testing.T) {
 			wantBurst: 100,
 		},
 		{
+			name:      "whitespace-padded overrides",
+			qps:       ptr(" 50 "),
+			burst:     ptr("\t100\n"),
+			wantQPS:   50,
+			wantBurst: 100,
+		},
+		{
 			name:      "QPS only",
 			qps:       ptr("50"),
 			wantQPS:   50,
 			wantBurst: rest.DefaultBurst,
 		},
 		{
+			name:      "QPS with blank burst",
+			qps:       ptr("50"),
+			burst:     ptr(" "),
+			wantQPS:   50,
+			wantBurst: rest.DefaultBurst,
+		},
+		{
 			name:      "burst only",
+			burst:     ptr("100"),
+			wantQPS:   rest.DefaultQPS,
+			wantBurst: 100,
+		},
+		{
+			name:      "burst with blank QPS",
+			qps:       ptr(" "),
 			burst:     ptr("100"),
 			wantQPS:   rest.DefaultQPS,
 			wantBurst: 100,
@@ -71,6 +92,47 @@ func TestConfigureClientRateLimits(t *testing.T) {
 			} else {
 				require.Equal(t, tc.wantQPS, config.RateLimiter.QPS())
 			}
+		})
+	}
+}
+
+func TestConfigureClientRateLimitsTreatsBlankEnvironmentAsUnset(t *testing.T) {
+	testCases := []struct {
+		name  string
+		env   string
+		value string
+	}{
+		{
+			name: "empty QPS",
+			env:  envKubeQPS,
+		},
+		{
+			name:  "whitespace-only QPS",
+			env:   envKubeQPS,
+			value: " \t\n",
+		},
+		{
+			name: "empty burst",
+			env:  envKubeBurst,
+		},
+		{
+			name:  "whitespace-only burst",
+			env:   envKubeBurst,
+			value: " \t\n",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			unsetEnv(t, envKubeQPS)
+			unsetEnv(t, envKubeBurst)
+			t.Setenv(tc.env, tc.value)
+
+			config := &rest.Config{}
+			require.NoError(t, ConfigureClientRateLimits(config))
+			require.Zero(t, config.QPS)
+			require.Zero(t, config.Burst)
+			require.Nil(t, config.RateLimiter)
 		})
 	}
 }

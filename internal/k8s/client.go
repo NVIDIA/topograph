@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
@@ -45,7 +46,8 @@ func ConfigureClientRateLimits(config *rest.Config) error {
 
 func envFloat32(name string) (float32, bool, error) {
 	value, ok := os.LookupEnv(name)
-	if !ok {
+	value = strings.TrimSpace(value)
+	if !ok || value == "" {
 		return 0, false, nil
 	}
 	parsed, err := strconv.ParseFloat(value, 32)
@@ -57,7 +59,8 @@ func envFloat32(name string) (float32, bool, error) {
 
 func envInt(name string) (int, bool, error) {
 	value, ok := os.LookupEnv(name)
-	if !ok {
+	value = strings.TrimSpace(value)
+	if !ok || value == "" {
 		return 0, false, nil
 	}
 	parsed, err := strconv.ParseInt(value, 10, 0)

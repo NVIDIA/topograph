@@ -144,10 +144,12 @@ func TestResolveComputeInstancesPrecedence(t *testing.T) {
 }
 
 type retrier struct {
-	codes []int
+	codes    []int
+	attempts int
 }
 
 func (r *retrier) callback(_ *topology.Request) ([]byte, *httperr.Error) {
+	r.attempts++
 	var code int
 	if len(r.codes) == 0 {
 		code = http.StatusInternalServerError
@@ -177,26 +179,30 @@ func TestProcessRequestWithRetries(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name    string
-		retrier *retrier
-		err     string
-		code    int
+		name     string
+		retrier  *retrier
+		err      string
+		code     int
+		attempts int
 	}{
 		{
-			name:    "Case 1: retry and failure",
-			retrier: &retrier{},
-			err:     "error",
-			code:    500,
+			name:     "Case 1: retry and failure",
+			retrier:  &retrier{},
+			err:      "error",
+			code:     500,
+			attempts: maxRetries,
 		},
 		{
-			name:    "Case 2: retry and success",
-			retrier: &retrier{codes: []int{http.StatusInternalServerError, http.StatusOK}},
+			name:     "Case 2: retry and success",
+			retrier:  &retrier{codes: []int{http.StatusInternalServerError, http.StatusOK}},
+			attempts: 2,
 		},
 		{
-			name:    "Case 3: user error",
-			retrier: &retrier{codes: []int{http.StatusBadRequest}},
-			err:     "error",
-			code:    400,
+			name:     "Case 3: user error",
+			retrier:  &retrier{codes: []int{http.StatusBadRequest}},
+			err:      "error",
+			code:     400,
+			attempts: 1,
 		},
 	}
 
@@ -210,6 +216,7 @@ func TestProcessRequestWithRetries(t *testing.T) {
 				require.Nil(t, err)
 				require.Equal(t, []byte{1, 2, 3, 4, 5}, ret)
 			}
+			require.Equal(t, tc.attempts, tc.retrier.attempts)
 		})
 	}
 }

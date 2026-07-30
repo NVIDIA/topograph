@@ -34,6 +34,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Blank or whitespace-only `KUBE_QPS` and `KUBE_BURST` values are now treated as unset for non-Helm deployments, while numeric values may include surrounding whitespace.
+- Invalid `KUBE_QPS` and `KUBE_BURST` deployment values now fail Kubernetes-client provider and engine loading immediately with HTTP 400 instead of being retried as HTTP 502 errors.
+- Slinky node-resolution logs now explain that an unresolved Kubernetes node lacks a mapping from a Ready Slurm pod and identify the relevant namespace, pod selector, readiness, and node-name metadata checks.
+- The DRA/Slinky KWOK demo now waits for all simulated worker pods before installing Topograph and retriggers topology generation when those pods become Ready, avoiding startup races during slow image pulls.
 - The node-observer now remains active after informer startup and retriggers topology generation when an API-server pod is deleted, preventing rolling deployments from losing requests accepted by a retiring pod.
 - `kwok-nodes` now prevents model-provided metadata from overriding its required KWOK selector and model-derived `topograph.nvidia.com/instance` and `topograph.nvidia.com/region` annotations.
 - Kubernetes engine label reconciliation now reuses the listed Nodes, skips unchanged labels without a per-node GET, and patches only changed topology labels, substantially reducing Kubernetes client-side throttling on large clusters.
