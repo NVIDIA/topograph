@@ -9,6 +9,7 @@ import (
 	"context"
 	"net/http"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
+	internalk8s "github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -24,8 +26,11 @@ const NAME = "k8s"
 
 type K8sEngine struct {
 	config *rest.Config
-	client *kubernetes.Clientset
+	client kubernetes.Interface
 	params *Params
+	// cachedNodeMap contains resolved node names. A nil value marks a requested
+	// Node that was not returned by the selector-filtered list and must be fetched.
+	cachedNodeMap map[string]*corev1.Node
 }
 
 type Params struct {
@@ -54,6 +59,10 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
+	}
+
+	if err := internalk8s.ConfigureClientRateLimits(config); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(config)

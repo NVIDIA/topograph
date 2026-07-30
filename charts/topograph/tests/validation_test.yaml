@@ -60,3 +60,19 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "env.NFD_NAMESPACE is managed by the chart for the nfd engine; configure nfdNamespace instead"
+
+  - it: rejects overriding the chart-managed Kubernetes QPS environment variable
+    set:
+      env:
+        KUBE_QPS: "50"
+    asserts:
+      - failedTemplate:
+          errorMessage: "env.KUBE_QPS is managed by the chart; configure kubeClient.qps instead"
+
+  - it: rejects overriding the chart-managed Kubernetes burst environment variable
+    set:
+      env:
+        KUBE_BURST: "100"
+    asserts:
+      - failedTemplate:
+          errorMessage: "env.KUBE_BURST is managed by the chart; configure kubeClient.burst instead"

@@ -69,7 +69,7 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [update]
+            verbs: [patch]
       - contains:
           path: rules
           content:
@@ -149,10 +149,29 @@ tests:
             resources: [nodes]
             verbs: [patch]
 
-  - it: does not grant node patch access to non-slinky engines
+  - it: grants node patch access to the k8s engine
     set:
       engine:
         name: k8s
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
+
+  - it: does not grant node patch access to the slurm engine
+    set:
+      engine:
+        name: slurm
     documentIndex: 0
     asserts:
       - notContains:
@@ -161,12 +180,6 @@ tests:
             apiGroups: [""]
             resources: [nodes]
             verbs: [patch]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [update]
 
   - it: does not grant node update access to the slinky engine
     set:
@@ -220,6 +233,13 @@ tests:
             apiGroups: [nfd.k8s-sigs.io]
             resources: [nodefeatures, nodefeaturegroups]
             verbs: [create, list, patch, delete]
+        documentIndex: 0
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [patch]
         documentIndex: 0
       - isKind:
           of: Role

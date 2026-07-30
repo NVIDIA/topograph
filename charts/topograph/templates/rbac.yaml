@@ -44,7 +44,7 @@ rules:
 {{- if eq .Values.engine.name "k8s" }}
 - apiGroups: [""]
   resources: [nodes]
-  verbs: [update]
+  verbs: [patch]
 {{- end }}
 {{- if eq .Values.engine.name "slinky" }}
 - apiGroups: [""]

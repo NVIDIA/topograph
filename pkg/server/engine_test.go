@@ -17,6 +17,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -27,6 +28,35 @@ import (
 	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+type resolvingEngine struct {
+	received []topology.ComputeInstances
+	calls    int
+}
+
+func (e *resolvingEngine) ResolveComputeInstances(_ context.Context, instances []topology.ComputeInstances, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+	e.calls++
+	e.received = instances
+	return instances, nil
+}
+
+func (*resolvingEngine) GenerateOutput(_ context.Context, _ *topology.Graph, _ map[string]any) ([]byte, *httperr.Error) {
+	return nil, nil
+}
+
+type resolvingProvider struct {
+	instances []topology.ComputeInstances
+	calls     int
+}
+
+func (p *resolvingProvider) GetComputeInstances(_ context.Context) ([]topology.ComputeInstances, *httperr.Error) {
+	p.calls++
+	return p.instances, nil
+}
+
+func (*resolvingProvider) GenerateTopologyConfig(_ context.Context, _ *int, _ []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
+	return nil, nil
+}
 
 func TestCheckCredentials(t *testing.T) {
 	credPayload := map[string]any{"key1": "val1"}
@@ -64,11 +94,62 @@ func TestCheckCredentials(t *testing.T) {
 
 }
 
+func TestResolveComputeInstancesPrecedence(t *testing.T) {
+	requested := []topology.ComputeInstances{{
+		Region:    "request",
+		Instances: map[string]string{"request-instance": "request-node"},
+	}}
+	provided := []topology.ComputeInstances{{
+		Region:    "provider",
+		Instances: map[string]string{"provider-instance": "provider-node"},
+	}}
+
+	t.Run("request instances win and still pass through engine", func(t *testing.T) {
+		eng := &resolvingEngine{}
+		prv := &resolvingProvider{instances: provided}
+
+		actual, httpErr := resolveComputeInstances(context.Background(), eng, prv, requested)
+
+		require.Nil(t, httpErr)
+		require.Equal(t, requested, actual)
+		require.Equal(t, requested, eng.received)
+		require.Equal(t, 1, eng.calls)
+		require.Zero(t, prv.calls)
+	})
+
+	t.Run("provider instances pass through engine", func(t *testing.T) {
+		eng := &resolvingEngine{}
+		prv := &resolvingProvider{instances: provided}
+
+		actual, httpErr := resolveComputeInstances(context.Background(), eng, prv, nil)
+
+		require.Nil(t, httpErr)
+		require.Equal(t, provided, actual)
+		require.Equal(t, provided, eng.received)
+		require.Equal(t, 1, eng.calls)
+		require.Equal(t, 1, prv.calls)
+	})
+
+	t.Run("an empty provider result remains authoritative", func(t *testing.T) {
+		eng := &resolvingEngine{}
+		prv := &resolvingProvider{instances: []topology.ComputeInstances{}}
+
+		actual, httpErr := resolveComputeInstances(context.Background(), eng, prv, nil)
+
+		require.Nil(t, httpErr)
+		require.Empty(t, actual)
+		require.Zero(t, eng.calls)
+		require.Equal(t, 1, prv.calls)
+	})
+}
+
 type retrier struct {
-	codes []int
+	codes    []int
+	attempts int
 }
 
 func (r *retrier) callback(_ *topology.Request) ([]byte, *httperr.Error) {
+	r.attempts++
 	var code int
 	if len(r.codes) == 0 {
 		code = http.StatusInternalServerError
@@ -98,26 +179,30 @@ func TestProcessRequestWithRetries(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name    string
-		retrier *retrier
-		err     string
-		code    int
+		name     string
+		retrier  *retrier
+		err      string
+		code     int
+		attempts int
 	}{
 		{
-			name:    "Case 1: retry and failure",
-			retrier: &retrier{},
-			err:     "error",
-			code:    500,
+			name:     "Case 1: retry and failure",
+			retrier:  &retrier{},
+			err:      "error",
+			code:     500,
+			attempts: maxRetries,
 		},
 		{
-			name:    "Case 2: retry and success",
-			retrier: &retrier{codes: []int{http.StatusInternalServerError, http.StatusOK}},
+			name:     "Case 2: retry and success",
+			retrier:  &retrier{codes: []int{http.StatusInternalServerError, http.StatusOK}},
+			attempts: 2,
 		},
 		{
-			name:    "Case 3: user error",
-			retrier: &retrier{codes: []int{http.StatusBadRequest}},
-			err:     "error",
-			code:    400,
+			name:     "Case 3: user error",
+			retrier:  &retrier{codes: []int{http.StatusBadRequest}},
+			err:      "error",
+			code:     400,
+			attempts: 1,
 		},
 	}
 
@@ -131,6 +216,7 @@ func TestProcessRequestWithRetries(t *testing.T) {
 				require.Nil(t, err)
 				require.Equal(t, []byte{1, 2, 3, 4, 5}, ret)
 			}
+			require.Equal(t, tc.attempts, tc.retrier.attempts)
 		})
 	}
 }

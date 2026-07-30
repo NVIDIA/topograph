@@ -38,10 +38,6 @@ type Provider struct {
 type Params struct {
 	// NodeSelector (optional) specifies nodes participating in the topology
 	NodeSelector map[string]string `mapstructure:"nodeSelector"`
-	// KubeQPS overrides the client-go default QPS for Kubernetes API calls (default: 5).
-	KubeQPS float32 `mapstructure:"kubeQPS"`
-	// KubeBurst overrides the client-go default burst for Kubernetes API calls (default: 10).
-	KubeBurst int `mapstructure:"kubeBurst"`
 
 	// derived fields
 	nodeListOpt *metav1.ListOptions
@@ -62,11 +58,8 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	if p.KubeQPS > 0 {
-		cfg.QPS = p.KubeQPS
-	}
-	if p.KubeBurst > 0 {
-		cfg.Burst = p.KubeBurst
+	if err := k8s.ConfigureClientRateLimits(cfg); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
@@ -86,13 +79,6 @@ func getParameters(params map[string]any) (*Params, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
 	}
-	if p.KubeQPS < 0 {
-		return nil, fmt.Errorf("kubeQPS must be greater than or equal to zero")
-	}
-	if p.KubeBurst < 0 {
-		return nil, fmt.Errorf("kubeBurst must be greater than or equal to zero")
-	}
-
 	if len(p.NodeSelector) != 0 {
 		p.nodeListOpt = &metav1.ListOptions{
 			LabelSelector: labels.Set(p.NodeSelector).String(),

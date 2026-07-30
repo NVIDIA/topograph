@@ -403,7 +403,7 @@ renders default values.yaml:
         resources:
           - nodes
         verbs:
-          - update
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -973,7 +973,7 @@ renders values.k8s.gateway-api-example.yaml:
         resources:
           - nodes
         verbs:
-          - update
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -1553,7 +1553,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
         resources:
           - nodes
         verbs:
-          - update
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -2121,7 +2121,7 @@ renders values.k8s.gcp-service-account-example.yaml:
         resources:
           - nodes
         verbs:
-          - update
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -2697,7 +2697,7 @@ renders values.k8s.ib-example.yaml:
         resources:
           - nodes
         verbs:
-          - update
+          - patch
       - apiGroups:
           - apps
         resources:

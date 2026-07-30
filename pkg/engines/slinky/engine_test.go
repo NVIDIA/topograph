@@ -240,48 +240,6 @@ func TestGetParameters(t *testing.T) {
 				podListOpt:        &metav1.ListOptions{LabelSelector: "key=value"},
 			},
 		},
-		{
-			name: "Case 11: kubeQPS and kubeBurst",
-			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyTopoConfigPath:    "path",
-				topology.KeyTopoConfigmapName: "name",
-				"kubeQPS":                     float32(50),
-				"kubeBurst":                   100,
-			},
-			ret: &Params{
-				Namespace:     "namespace",
-				PodSelector:   labelSelector,
-				ConfigPath:    "path",
-				ConfigMapName: "name",
-				KubeQPS:       50,
-				KubeBurst:     100,
-				podListOpt:    &metav1.ListOptions{LabelSelector: "key=value"},
-			},
-		},
-		{
-			name: "Case 12: negative kubeQPS",
-			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyTopoConfigPath:    "path",
-				topology.KeyTopoConfigmapName: "name",
-				"kubeQPS":                     -1,
-			},
-			err: "kubeQPS must be greater than or equal to zero",
-		},
-		{
-			name: "Case 13: negative kubeBurst",
-			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyTopoConfigPath:    "path",
-				topology.KeyTopoConfigmapName: "name",
-				"kubeBurst":                   -1,
-			},
-			err: "kubeBurst must be greater than or equal to zero",
-		},
 	}
 
 	for _, tc := range testCases {
@@ -359,6 +317,73 @@ func TestGetComputeInstances(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveComputeInstancesCachesClusterNodesWhenOutputNeedsThem(t *testing.T) {
+	const namespace = "slurm"
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name: "k8s-node",
+	}}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slurmd",
+			Namespace: namespace,
+			Labels:    map[string]string{topology.KeySlurmNodeName: "slurm-node"},
+		},
+		Spec: corev1.PodSpec{NodeName: node.Name},
+		Status: corev1.PodStatus{Conditions: []corev1.PodCondition{{
+			Type:   corev1.PodReady,
+			Status: corev1.ConditionTrue,
+		}}},
+	}
+	client := fake.NewSimpleClientset(node, pod)
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:       namespace,
+			UseDynamicNodes: true,
+			nodeListOpt:     &metav1.ListOptions{},
+			podListOpt:      &metav1.ListOptions{},
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance": "slurm-node"},
+	}}
+
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.NotNil(t, eng.cachedClusterNodes)
+	client.ClearActions()
+
+	cached, httpErr := eng.getClusterNodes(context.Background())
+	require.Nil(t, httpErr)
+	require.Same(t, eng.cachedClusterNodes, cached)
+	require.Empty(t, client.Actions())
+}
+
+func TestResolveComputeInstancesDoesNotLoadUnusedClusterNodes(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			nodeListOpt: &metav1.ListOptions{},
+			podListOpt:  &metav1.ListOptions{},
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance": "slurm-node"},
+	}}
+
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.Nil(t, eng.cachedClusterNodes)
+	require.Empty(t, client.Actions())
 }
 
 func TestWithGPUCliqueDomains(t *testing.T) {

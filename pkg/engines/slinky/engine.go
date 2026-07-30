@@ -66,9 +66,10 @@ const (
 var execInPod = k8s.ExecInPod
 
 type SlinkyEngine struct {
-	config *rest.Config
-	client kubernetes.Interface
-	params *Params
+	config             *rest.Config
+	client             kubernetes.Interface
+	params             *Params
+	cachedClusterNodes *clusterNodes
 }
 
 type clusterNodes struct {
@@ -97,11 +98,6 @@ type Params struct {
 	ConfigUpdateMode string `mapstructure:"configUpdateMode,omitempty"`
 	// Topologies specifies per-partition topology configuration
 	Topologies map[string]*Topology `mapstructure:"topologies,omitempty"`
-	// KubeQPS overrides the client-go default QPS for Kubernetes API calls (default: 5).
-	// Increase on large clusters where per-node annotation updates saturate the rate limiter.
-	KubeQPS float32 `mapstructure:"kubeQPS"`
-	// KubeBurst overrides the client-go default burst for Kubernetes API calls (default: 10).
-	KubeBurst int `mapstructure:"kubeBurst"`
 
 	// derived fields
 	podListOpt  *metav1.ListOptions
@@ -133,11 +129,8 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	if p.KubeQPS > 0 {
-		config.QPS = p.KubeQPS
-	}
-	if p.KubeBurst > 0 {
-		config.Burst = p.KubeBurst
+	if err := k8s.ConfigureClientRateLimits(config); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
 	client, err := kubernetes.NewForConfig(config)
@@ -157,13 +150,6 @@ func getParameters(params engines.Config) (*Params, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
 	}
-	if p.KubeQPS < 0 {
-		return nil, fmt.Errorf("kubeQPS must be greater than or equal to zero")
-	}
-	if p.KubeBurst < 0 {
-		return nil, fmt.Errorf("kubeBurst must be greater than or equal to zero")
-	}
-
 	// Validate config update mode
 	if len(p.ConfigUpdateMode) != 0 && p.ConfigUpdateMode != ConfigUpdateModeNone && p.ConfigUpdateMode != ConfigUpdateModeSkeletonOnly {
 		return nil, fmt.Errorf("invalid configUpdateMode: %s, must be either %s, or %s", p.ConfigUpdateMode, ConfigUpdateModeNone, ConfigUpdateModeSkeletonOnly)
@@ -210,12 +196,19 @@ func isEmptySelector(sel *metav1.LabelSelector) bool {
 	return sel == nil || (len(sel.MatchLabels) == 0 && len(sel.MatchExpressions) == 0)
 }
 
-func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+func (eng *SlinkyEngine) ResolveComputeInstances(ctx context.Context, instances []topology.ComputeInstances, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+	if len(instances) != 0 && !eng.params.UseDynamicNodes && !eng.params.UseGPUCliqueLabel {
+		return instances, nil
+	}
+
 	clusterNodes, err := eng.getClusterNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	if len(instances) != 0 {
+		return instances, nil
+	}
 	return getComputeInstances(clusterNodes.nodes, clusterNodes.nodeMap)
 }
 
@@ -233,6 +226,10 @@ func resolveSlurmNodeName(pod *corev1.Pod) string {
 // from Ready slurmd pods in the configured namespace and pod selector, using the
 // slurm.node.name label when present and falling back to pod.spec.hostname.
 func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*clusterNodes, *httperr.Error) {
+	if eng.cachedClusterNodes != nil {
+		return eng.cachedClusterNodes, nil
+	}
+
 	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
@@ -260,10 +257,11 @@ func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*clusterNodes, *h
 		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, host)
 		nodeMap[pod.Spec.NodeName] = host
 	}
-	return &clusterNodes{
+	eng.cachedClusterNodes = &clusterNodes{
 		nodes:   nodes,
 		nodeMap: nodeMap,
-	}, nil
+	}
+	return eng.cachedClusterNodes, nil
 }
 
 func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]topology.ComputeInstances, *httperr.Error) {
@@ -272,7 +270,10 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 	for _, node := range nodes.Items {
 		hostName, ok := nodeMap[node.Name]
 		if !ok {
-			klog.V(4).Infof("Cannot resolve k8s node %q", node.Name)
+			klog.V(4).Infof(
+				"Cannot resolve k8s node %q: no resolvable mapping from a Ready SLURM pod; check the engine namespace, podSelector, pod readiness, and Slurm node-name metadata",
+				node.Name,
+			)
 			continue
 		}
 		instance, ok := node.Annotations[topology.KeyNodeInstance]
@@ -665,14 +666,15 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit, clusterNodes *clusterNodes) *httperr.Error {
 	// Update node annotations based on the desired topology and the current cluster state.
 	// This will trigger Slinky to reconfigure the nodes accordingly.
-	for _, node := range clusterNodes.nodes.Items {
+	for i := range clusterNodes.nodes.Items {
+		node := &clusterNodes.nodes.Items[i]
 		slurmName, ok := clusterNodes.nodeMap[node.Name]
 		if !ok {
 			klog.V(4).Infof("Skipping node %s as it does not have a corresponding SLURM name", node.Name)
 			continue
 		}
 
-		if httpErr := eng.updateNodeAnnotation(ctx, &node, slurmName, nt, topologies); httpErr != nil {
+		if httpErr := eng.updateNodeAnnotation(ctx, node, slurmName, nt, topologies); httpErr != nil {
 			return httpErr
 		}
 		klog.V(4).Infof("Successfully updated annotation for node %s (SLURM name: %s)", node.Name, slurmName)
@@ -720,6 +722,11 @@ func (eng *SlinkyEngine) updateNodeAnnotation(ctx context.Context, node *corev1.
 	if err != nil {
 		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to patch node annotation: %v", err))
 	}
+
+	if node.Annotations == nil {
+		node.Annotations = make(map[string]string)
+	}
+	node.Annotations[topology.KeySlinkyTopologySpec] = desiredSpec
 
 	return nil
 }

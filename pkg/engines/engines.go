@@ -27,8 +27,8 @@ import (
 )
 
 type Engine interface {
-	GetComputeInstances(ctx context.Context, environment any) ([]topology.ComputeInstances, *httperr.Error)
-	GenerateOutput(ctx context.Context, graph *topology.Graph, params map[string]any) ([]byte, *httperr.Error)
+	ResolveComputeInstances(context.Context, []topology.ComputeInstances, any) ([]topology.ComputeInstances, *httperr.Error)
+	GenerateOutput(context.Context, *topology.Graph, map[string]any) ([]byte, *httperr.Error)
 }
 
 type Config = map[string]any

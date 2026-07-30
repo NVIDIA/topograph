@@ -62,6 +62,9 @@ engine:
     nodeSelector:
       nvidia.com/gpu.present: "true"
     cleanup: true
+kubeClient:
+  qps: 50
+  burst: 100
 nfdNamespace: node-feature-discovery
 ```
 
@@ -84,6 +87,17 @@ process. The NFD engine returns an error if the variable is unset or blank.
 
 Topology requests cannot select an NFD namespace; the deployment environment is
 authoritative.
+
+### Kubernetes API rate limiting
+
+The NFD engine uses a typed Kubernetes client to list Nodes and a dynamic client
+to reconcile `NodeFeature` and `NodeFeatureGroup` objects. Helm configures their
+shared token-bucket limiter through `kubeClient.qps` and `kubeClient.burst`,
+which become `KUBE_QPS` and `KUBE_BURST` in the Topograph deployment. The
+configured QPS is the aggregate request rate rather than a separate allowance
+for each client. If only QPS or burst is configured, the other value uses the
+client-go default. Without either setting, each client retains its client-go
+default limiter. Outside Helm, set the environment variables directly.
 
 ## Generated Objects
 

@@ -139,6 +139,13 @@ if [[ "$compute_mode" == "kwok" ]]; then
         exit 1
     fi
 
+    echo "Waiting for $kwok_node_count KWOK worker pods to become Ready"
+    kubectl --context "$kube_context" wait \
+        --namespace slurm \
+        --for="jsonpath={.status.readyReplicas}=${kwok_node_count}" \
+        nodeset/slurm-worker-kwok \
+        --timeout 10m
+
     echo "Slinky $slinky_version deployed to $kube_context with $kwok_node_count KWOK compute nodes"
 else
     echo "Slinky $slinky_version deployed to $kube_context without compute nodes"

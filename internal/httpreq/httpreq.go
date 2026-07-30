@@ -124,13 +124,41 @@ func DoRequestWithRetries(f RequestFunc, insecureSkipVerify bool) ([]byte, *http
 	attempt := 0
 	for {
 		attempt++
-		resp, body, err := DoRequest(f, insecureSkipVerify)
+		var requestCtx context.Context
+		resp, body, err := DoRequest(func() (*http.Request, *httperr.Error) {
+			req, httpErr := f()
+			if req != nil {
+				requestCtx = req.Context()
+			}
+			return req, httpErr
+		}, insecureSkipVerify)
+		if requestCtx != nil && requestCtx.Err() != nil {
+			return body, err
+		}
 		if err == nil || attempt == maxRetries || !ShouldRetry(err.Code()) {
 			return body, err
 		}
 		wait := GetNextBackoff(resp, backOff, attempt-1)
 		klog.Infof("Attempt %d failed with error: %v. Retrying in %s", attempt, err, wait.String())
-		time.Sleep(wait)
+		if !waitForRetry(requestCtx, wait) {
+			return body, err
+		}
+	}
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) bool {
+	if ctx == nil {
+		time.Sleep(delay)
+		return true
+	}
+
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
 	}
 }
 

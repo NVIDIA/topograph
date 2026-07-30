@@ -106,7 +106,7 @@ func processTopologyRequest(tr *topology.Request) ([]byte, *httperr.Error) {
 	}
 
 	// if the instance/node mapping is not provided in the payload, get the mapping from the provider
-	computeInstances, err := getComputeInstances(ctx, eng, prv, tr.Nodes)
+	computeInstances, err := resolveComputeInstances(ctx, eng, prv, tr.Nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -126,14 +126,21 @@ func checkCredentials(payloadCreds, cfgCreds map[string]any) map[string]any {
 	return cfgCreds
 }
 
-func getComputeInstances(ctx context.Context, eng engines.Engine, prv providers.Provider, requested []topology.ComputeInstances) ([]topology.ComputeInstances, *httperr.Error) {
+func resolveComputeInstances(ctx context.Context, eng engines.Engine, prv providers.Provider, requested []topology.ComputeInstances) ([]topology.ComputeInstances, *httperr.Error) {
 	if len(requested) != 0 {
-		return requested, nil
+		return eng.ResolveComputeInstances(ctx, requested, prv)
 	}
 
 	if p, ok := prv.(computeInstancesProvider); ok {
-		return p.GetComputeInstances(ctx)
+		instances, err := p.GetComputeInstances(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if len(instances) == 0 {
+			return instances, nil
+		}
+		return eng.ResolveComputeInstances(ctx, instances, prv)
 	}
 
-	return eng.GetComputeInstances(ctx, prv)
+	return eng.ResolveComputeInstances(ctx, nil, prv)
 }

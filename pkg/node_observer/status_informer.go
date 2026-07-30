@@ -8,6 +8,7 @@ package node_observer
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,6 +28,7 @@ import (
 
 type StatusInformer struct {
 	ctx           context.Context
+	cancel        context.CancelFunc
 	nodeFactory   informers.SharedInformerFactory
 	podFactory    informers.SharedInformerFactory
 	apiFactory    informers.SharedInformerFactory
@@ -45,7 +47,6 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 	klog.InfoS("Configuring status informer", "trigger", trigger, "apiServer", apiServer, "brokerName", brokerName, "brokerNamespace", brokerNamespace)
 
 	statusInformer := &StatusInformer{
-		ctx:         ctx,
 		retryDelay:  retryDelay,
 		reqFunc:     reqFunc,
 		reqExecFunc: httpreq.DoRequestWithRetries,
@@ -90,7 +91,22 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 		)
 	}
 
+	statusInformer.ctx, statusInformer.cancel = context.WithCancel(ctx)
+	statusInformer.reqFunc = requestFuncWithContext(statusInformer.ctx, reqFunc)
 	return statusInformer, nil
+}
+
+func requestFuncWithContext(ctx context.Context, f httpreq.RequestFunc) httpreq.RequestFunc {
+	if f == nil {
+		return nil
+	}
+	return func() (*http.Request, *httperr.Error) {
+		req, err := f()
+		if req != nil {
+			req = req.WithContext(ctx)
+		}
+		return req, err
+	}
 }
 
 func newPodFactory(client kubernetes.Interface, selector *metav1.LabelSelector, namespace string) (informers.SharedInformerFactory, error) {
@@ -132,13 +148,14 @@ func (s *StatusInformer) Start() error {
 		return err
 	}
 
-	go s.run()
-
+	s.run()
 	return nil
 }
 
 func (s *StatusInformer) Stop(_ error) {
 	klog.Info("Stopping status informer")
+	s.cancel()
+	close(s.stopCh)
 	if s.nodeFactory != nil {
 		s.nodeFactory.Shutdown()
 	}
@@ -151,7 +168,6 @@ func (s *StatusInformer) Stop(_ error) {
 	if s.brokerFactory != nil {
 		s.brokerFactory.Shutdown()
 	}
-	close(s.stopCh)
 }
 
 func (s *StatusInformer) startNodeInformer() error {
@@ -215,6 +231,7 @@ func (s *StatusInformer) startAPIServerInformer() error {
 					s.sendRequest()
 				}
 			},
+			DeleteFunc: s.requestOnAPIServerDelete,
 		})
 		if err != nil {
 			return err
@@ -223,6 +240,19 @@ func (s *StatusInformer) startAPIServerInformer() error {
 		s.apiFactory.WaitForCacheSync(s.ctx.Done())
 	}
 	return nil
+}
+
+func (s *StatusInformer) requestOnAPIServerDelete(obj any) {
+	switch pod := obj.(type) {
+	case *corev1.Pod:
+		klog.V(4).Infof("Informer deleted API server pod %s/%s", pod.Namespace, pod.Name)
+		s.sendRequest()
+	case cache.DeletedFinalStateUnknown:
+		if pod, ok := pod.Obj.(*corev1.Pod); ok {
+			klog.V(4).Infof("Informer deleted API server pod %s/%s", pod.Namespace, pod.Name)
+			s.sendRequest()
+		}
+	}
 }
 
 func (s *StatusInformer) startBrokerInformer() error {
@@ -466,6 +496,9 @@ func (s *StatusInformer) process() {
 	}
 
 	if _, err := s.reqExecFunc(s.reqFunc, false); err != nil {
+		if s.ctx != nil && s.ctx.Err() != nil {
+			return
+		}
 		klog.Errorf("failed to send HTTP request; retrying in %s: %v", s.retryDelay, err)
 
 		// Reset retry timer

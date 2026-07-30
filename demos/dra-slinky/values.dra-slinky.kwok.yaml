@@ -21,8 +21,10 @@ engine:
     topologyConfigPath: topology.conf
     topologyConfigmapName: slurm-config-extra
     useDynamicNodes: true
-    kubeQPS: 50
-    kubeBurst: 100
+
+kubeClient:
+  qps: 50
+  burst: 100
 
 config:
   requestAggregationDelay: 2s
@@ -37,6 +39,10 @@ nodeObserver:
     trigger:
       nodeSelector:
         kwok.x-k8s.io/node: "fake"
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: worker
+          app.kubernetes.io/instance: slurm-worker-kwok
 
 nodeDataBroker:
   enabled: false

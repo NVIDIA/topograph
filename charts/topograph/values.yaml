@@ -10,10 +10,6 @@ provider:
   #   # accelerator-domain source instead of running nvidia-smi through the
   #   # GPU Operator device-plugin DaemonSet.
   #   useGpuCliqueLabel: true
-  #   # DRA provider Kubernetes client rate limits. Leave unset to use the
-  #   # client-go defaults (5 QPS and burst 10).
-  #   kubeQPS: 50
-  #   kubeBurst: 100
 
 engine:
   # name: "k8s", "nfd", "slinky", "slurm" or "graph"
@@ -22,11 +18,15 @@ engine:
   #   # For slinky topology/block output, use the GPU Operator's existing
   #   # Kubernetes node label as the block-domain source.
   #   useGpuCliqueLabel: true
-  #   # Slinky engine Kubernetes client rate limits. Raise these only when
-  #   # large dynamic-node reconciliations still experience client throttling.
-  #   # Leave unset to use the client-go defaults (5 QPS and burst 10).
-  #   kubeQPS: 50
-  #   kubeBurst: 100
+
+# Kubernetes client rate limits for the DRA provider and the k8s, NFD, and
+# Slinky engines. The chart passes configured values to the Topograph deployment
+# as KUBE_QPS and KUBE_BURST. Leave unset to use client-go defaults (5 QPS and
+# burst 10).
+# kubeClient:
+#   qps: 50
+#   burst: 100
+kubeClient: {}
 
 # Namespace where NFD master runs. The nfd engine creates NodeFeature and
 # NodeFeatureGroup resources here, and its Role/RoleBinding are scoped here.
@@ -80,11 +80,11 @@ podAnnotations: {}
 podLabels: {}
 
 # Hardened by default to satisfy the Kubernetes "restricted" Pod Security
-# Standard. The Topograph API server (Kubernetes and Slinky engines) writes
-# node labels / a ConfigMap through the API server and does not write to the
+# Standard. The Topograph API server (Kubernetes, NFD, and Slinky engines)
+# writes Kubernetes resources through the API server and does not write to the
 # container filesystem, so a read-only root filesystem and non-root execution
-# are safe. Providers that need elevated privileges override these values --
-# see `values.k8s.ib-example.yaml`, where the InfiniBand provider runs
+# are safe. Providers that need elevated privileges override these values -- see
+# `values.k8s.ib-example.yaml`, where the InfiniBand provider runs
 # `ibnetdiscover` and must set `privileged: true`.
 podSecurityContext:
   runAsNonRoot: true

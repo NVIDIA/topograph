@@ -18,6 +18,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 )
 
 func TestNewStatusInformer(t *testing.T) {
@@ -165,6 +167,88 @@ func TestAPIServerPodReadinessRequiresTargetContainer(t *testing.T) {
 	))
 }
 
+func TestAPIServerPodDeleteQueuesRequest(t *testing.T) {
+	pod := makeWorkloadPod(true, makeContainerStatus("topograph", true, 0))
+	testCases := []struct {
+		name   string
+		obj    any
+		queued bool
+	}{
+		{
+			name:   "pod",
+			obj:    pod,
+			queued: true,
+		},
+		{
+			name: "tombstone containing pod",
+			obj: cache.DeletedFinalStateUnknown{
+				Key: "topograph/api-server",
+				Obj: pod,
+			},
+			queued: true,
+		},
+		{
+			name: "tombstone containing unexpected object",
+			obj: cache.DeletedFinalStateUnknown{
+				Key: "topograph/api-server",
+				Obj: &appsv1.DaemonSet{},
+			},
+			queued: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &StatusInformer{queue: make(chan struct{}, 1)}
+
+			s.requestOnAPIServerDelete(tc.obj)
+
+			if tc.queued {
+				require.Len(t, s.queue, 1)
+			} else {
+				require.Empty(t, s.queue)
+			}
+		})
+	}
+}
+
+func TestAPIServerInformerRegistersDeleteHandler(t *testing.T) {
+	pod := makeWorkloadPod(false, makeContainerStatus("topograph", false, 0))
+	client := k8sfake.NewSimpleClientset(pod)
+	s, err := NewStatusInformer(
+		context.Background(),
+		client,
+		nil,
+		&APIServer{
+			Namespace:     pod.Namespace,
+			PodSelector:   &metav1.LabelSelector{},
+			ContainerName: "topograph",
+		},
+		"",
+		"",
+		0,
+		nil,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		s.Stop(nil)
+	})
+
+	require.NoError(t, s.startAPIServerInformer())
+	require.Empty(t, s.queue)
+	require.NoError(t, client.CoreV1().Pods(pod.Namespace).Delete(
+		context.Background(),
+		pod.Name,
+		metav1.DeleteOptions{},
+	))
+
+	select {
+	case <-s.queue:
+	case <-time.After(time.Second):
+		t.Fatal("API-server Pod deletion did not queue a topology request")
+	}
+}
+
 func reqExecFunc(f httpreq.RequestFunc, _ bool) ([]byte, *httperr.Error) {
 	if _, err := f(); err != nil {
 		return nil, err
@@ -234,6 +318,101 @@ func TestDeduplicatesRequests(t *testing.T) {
 
 	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
 
+}
+
+func TestStartBlocksUntilStopped(t *testing.T) {
+	s, err := NewStatusInformer(
+		context.Background(),
+		nil,
+		nil,
+		nil,
+		"",
+		"",
+		0,
+		nil,
+	)
+	require.NoError(t, err)
+	done := make(chan error, 1)
+
+	go func() {
+		done <- s.Start()
+	}()
+
+	select {
+	case err := <-done:
+		require.Failf(t, "Start returned before Stop", "error: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	s.Stop(nil)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		require.Fail(t, "Start did not return after Stop")
+	}
+}
+
+func TestStopCancelsRequestContext(t *testing.T) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://topograph.invalid", nil)
+	require.NoError(t, err)
+	s, err := NewStatusInformer(
+		context.Background(),
+		nil,
+		nil,
+		nil,
+		"",
+		"",
+		0,
+		func() (*http.Request, *httperr.Error) {
+			return req, nil
+		},
+	)
+	require.NoError(t, err)
+
+	boundReq, httpErr := s.reqFunc()
+	require.Nil(t, httpErr)
+	s.Stop(nil)
+
+	select {
+	case <-boundReq.Context().Done():
+		require.ErrorIs(t, boundReq.Context().Err(), context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("request context was not cancelled by Stop")
+	}
+}
+
+func TestStopCancelsRequestRetry(t *testing.T) {
+	requestAttempted := make(chan struct{}, 1)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://topograph.invalid", nil)
+	require.NoError(t, err)
+	reqFunc := func() (*http.Request, *httperr.Error) {
+		requestAttempted <- struct{}{}
+		return req, httperr.NewError(http.StatusServiceUnavailable, "retry")
+	}
+	s, err := NewStatusInformer(context.Background(), nil, nil, nil, "", "", 0, reqFunc)
+	require.NoError(t, err)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- s.Start()
+	}()
+	s.sendRequest()
+
+	select {
+	case <-requestAttempted:
+	case <-time.After(time.Second):
+		s.Stop(nil)
+		t.Fatal("request was not attempted")
+	}
+
+	s.Stop(nil)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("Start did not return after Stop cancelled the request retry")
+	}
 }
 
 func TestRetryCancelledByNewRequest(t *testing.T) {
