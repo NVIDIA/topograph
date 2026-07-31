@@ -19,9 +19,7 @@ package topology
 import (
 	"fmt"
 	"maps"
-	"slices"
 	"strings"
-	"unsafe"
 
 	"k8s.io/klog/v2"
 )
@@ -34,57 +32,24 @@ type HostInfo struct {
 }
 
 // BlockVertex augments a Vertex with domain-tree-specific metadata. The
-// general-purpose Vertex type is kept unmodified; BlockVertex embeds it and
-// reuses Vertex.Vertices to store child BlockVertices (cast as *Vertex) so
-// there is no separate Children map.
-//
-// Safety invariant: every *Vertex stored in Vertices must be the address of the
-// embedded Vertex field of a *BlockVertex — that is, values of the form
-// &child.Vertex. Inserting a plain *Vertex that was not obtained this way breaks
-// the unsafe cast in asBlockVertex and ChildAt. All writes to Vertices for a
-// BlockVertex must go through code that upholds this invariant; the exported
-// Vertices field inherited from the embedded Vertex provides no compiler
-// enforcement of this constraint.
+// general-purpose Vertex type is kept unmodified; BlockVertex does NOT use the
+// inherited Vertex.Vertices field for its own child storage — instead it carries
+// a type-safe Children map so the compiler enforces that only *BlockVertex values
+// are inserted.
 type BlockVertex struct {
 	Vertex
-	actualNodeCount  int
-	desiredNodeCount int
-	hosts            map[string]*HostInfo // non-nil only for leaf vertices
-}
-
-// asBlockVertex recovers the *BlockVertex whose embedded Vertex field v points
-// to. Because BlockVertex embeds Vertex as its first field, Go guarantees that
-// the addresses are identical, making the cast safe — but only for *Vertex
-// values stored as &blockVertex.Vertex. Callers must never pass a *Vertex that
-// was not obtained that way; see the BlockVertex safety invariant.
-func asBlockVertex(v *Vertex) *BlockVertex {
-	return (*BlockVertex)(unsafe.Pointer(v))
+	ActualNodeCount   int
+	MaxChildNodeCount int                     // maximum ActualNodeCount among this vertex's direct children
+	Hosts             map[string]*HostInfo    // non-nil only for leaf vertices
+	Children          map[string]*BlockVertex // type-safe children (interior vertices only)
 }
 
 // ChildAt returns the child BlockVertex keyed by name, or nil if absent.
-// It is the safe public accessor for child vertices; callers should use this
-// rather than reading Vertices directly to avoid bypassing the safety invariant.
 func (bv *BlockVertex) ChildAt(name string) *BlockVertex {
-	if v := bv.Vertices[name]; v != nil {
-		return asBlockVertex(v)
-	}
-	return nil
-}
-
-// Hosts returns the host map for this vertex; nil for interior vertices.
-func (bv *BlockVertex) Hosts() map[string]*HostInfo {
 	if bv == nil {
 		return nil
 	}
-	return bv.hosts
-}
-
-// DesiredNodeCount returns the slot capacity assigned to this vertex.
-func (bv *BlockVertex) DesiredNodeCount() int {
-	if bv == nil {
-		return 0
-	}
-	return bv.desiredNodeCount
+	return bv.Children[name]
 }
 
 // DomainMap maps accelerator domain name to host metadata.
@@ -123,7 +88,8 @@ func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
 	}
 }
 
-// GetDomainTree builds a flat BlockVertex tree from the DomainMap:
+// GetDomainTree builds a flat BlockVertex tree from the DomainMap and populates
+// ActualNodeCount and MaxChildNodeCount on every vertex.
 //
 //   - When no host in a domain has a SubDomain, the domain vertex is a leaf
 //     that holds its hosts directly (one level below root).
@@ -133,21 +99,15 @@ func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
 //     dual-level domain is placed in a fallback sub-domain vertex keyed by the
 //     accelerator domain name, so the host is always emitted.
 //
-// DesiredNodeCount is then set on every vertex via a BFS pass whose behaviour
-// depends on the number of blockSizes provided:
-//
-//   - Multiple blockSizes: all vertices at the same tree depth receive the
-//     smallest blockSize >= the maximum actualNodeCount at that depth; the root
-//     (actualNodeCount == 0) receives blockSizes[last].
-//   - Single blockSize: each vertex is rounded up independently to the nearest
-//     multiple of that size; the root receives 0 (ceil(0/bs)*bs = 0) and is
-//     therefore not padded by convert().
-func (m DomainMap) GetDomainTree(blockSizes []int) *BlockVertex {
-	root := &BlockVertex{Vertex: Vertex{ID: "root", Vertices: make(map[string]*Vertex)}}
+// After the tree is built, MaxChildNodeCount on each interior vertex is set to the
+// maximum ActualNodeCount among its direct children. The translate layer uses this
+// to size base-block slots without a separate BFS pass.
+func (m DomainMap) GetDomainTree() *BlockVertex {
+	root := &BlockVertex{Children: make(map[string]*BlockVertex)}
 
 	for domain, hosts := range m {
 		domainBV := &BlockVertex{Vertex: Vertex{ID: domain}}
-		root.Vertices[domain] = &domainBV.Vertex
+		root.Children[domain] = domainBV
 
 		hasSubDomain := false
 		for _, host := range hosts {
@@ -161,13 +121,13 @@ func (m DomainMap) GetDomainTree(blockSizes []int) *BlockVertex {
 			// One-level: domain vertex is the leaf; hosts live here directly.
 			hostMap := make(map[string]*HostInfo, len(hosts))
 			maps.Copy(hostMap, hosts)
-			domainBV.hosts = hostMap
-			domainBV.actualNodeCount = len(hosts)
+			domainBV.Hosts = hostMap
+			domainBV.ActualNodeCount = len(hosts)
 		} else {
 			// Two-level: one sub-domain vertex per distinct SubDomain under the domain.
 			// Count only hosts that are successfully placed so that partially-configured
 			// deployments (some hosts missing SubDomain) do not inflate actualNodeCount.
-			domainBV.Vertices = make(map[string]*Vertex)
+			domainBV.Children = make(map[string]*BlockVertex)
 			placed := 0
 			for _, host := range hosts {
 				gn := host.SubDomain
@@ -182,121 +142,26 @@ func (m DomainMap) GetDomainTree(blockSizes []int) *BlockVertex {
 				}
 				sub := domainBV.ChildAt(gn)
 				if sub == nil {
-					sub = &BlockVertex{Vertex: Vertex{ID: gn}, hosts: make(map[string]*HostInfo)}
-					domainBV.Vertices[gn] = &sub.Vertex
+					sub = &BlockVertex{Vertex: Vertex{ID: gn}, Hosts: make(map[string]*HostInfo)}
+					domainBV.Children[gn] = sub
 				}
-				sub.hosts[host.HostName] = host
-				sub.actualNodeCount++
+				sub.Hosts[host.HostName] = host
+				sub.ActualNodeCount++
 				placed++
 			}
-			domainBV.actualNodeCount = placed
+			domainBV.ActualNodeCount = placed
+			// MaxChildNodeCount = largest sub-domain host count within this domain.
+			for _, sub := range domainBV.Children {
+				if sub.ActualNodeCount > domainBV.MaxChildNodeCount {
+					domainBV.MaxChildNodeCount = sub.ActualNodeCount
+				}
+			}
+		}
+		// MaxChildNodeCount on root = largest domain host count across all domains.
+		if domainBV.ActualNodeCount > root.MaxChildNodeCount {
+			root.MaxChildNodeCount = domainBV.ActualNodeCount
 		}
 	}
 
-	root.setDesiredCountByLevel(blockSizes)
 	return root
-}
-
-// setDesiredCountByLevel assigns desiredNodeCount via a BFS pass.
-//
-// Multiple blockSizes: all vertices at the same depth receive the smallest
-// blockSize >= the maximum actualNodeCount at that depth; the root
-// (actualNodeCount == 0) receives blockSizes[last].
-//
-// Single blockSize: each vertex is rounded up to the nearest multiple of that
-// size independently (ceil(actualNodeCount/bs)*bs). Root gets 0 because its
-// actualNodeCount is 0.
-//
-// blockSizes need not be sorted by the caller; a sorted copy is used internally.
-func (bv *BlockVertex) setDesiredCountByLevel(blockSizes []int) {
-	if bv == nil || len(blockSizes) == 0 {
-		return
-	}
-	bs := slices.Sorted(slices.Values(blockSizes)) // ascending copy, caller's slice is unchanged
-
-	type entry struct {
-		node  *BlockVertex
-		depth int
-	}
-
-	queue := []entry{{bv, 0}}
-	maxCountByDepth := []int{}
-	var visited []entry
-
-	for len(queue) > 0 {
-		curr := queue[0]
-		queue = queue[1:]
-		visited = append(visited, curr)
-		actual := curr.node.actualNodeCount
-
-		//Calculate the maximum actualNodeCount seen at this depth so far.
-		if curr.depth >= len(maxCountByDepth) {
-			maxCountByDepth = append(maxCountByDepth, actual)
-		} else {
-			maxCountByDepth[curr.depth] = max(maxCountByDepth[curr.depth], actual)
-		}
-		for _, v := range curr.node.Vertices {
-			queue = append(queue, entry{asBlockVertex(v), curr.depth + 1})
-		}
-	}
-
-	//Get the desired node count for each depth level
-	// based on the maximum actual node count at that depth and the block sizes.
-	desiredByDepth := getDesiredCountByLevel(maxCountByDepth, bs)
-
-	for _, e := range visited {
-		if len(bs) == 1 {
-			// Single block size:
-			// Round up actualNodeCount to the nearest multiple of the single block size.
-			cnt := e.node.actualNodeCount
-			e.node.desiredNodeCount = ((cnt + bs[0] - 1) / bs[0]) * bs[0]
-		} else {
-			e.node.desiredNodeCount = desiredByDepth[e.depth]
-		}
-	}
-}
-
-// Returns the desired node count for each depth level
-// based on the maximum actual node count at that depth and the block sizes.
-func getDesiredCountByLevel(maxCountByDepth, bs []int) []int {
-	desiredByDepth := make([]int, len(maxCountByDepth))
-
-	if len(maxCountByDepth) == 0 || len(bs) == 0 {
-		return desiredByDepth
-	}
-
-	bsIndex := 0
-	for i := len(desiredByDepth) - 1; i >= 0; i-- {
-		//Derive the desired value either from the provided block size (if available)
-		// or from the previously computed desired value at the next depth level.
-		var base int
-		if bsIndex < len(bs) {
-			base = bs[bsIndex]
-		} else {
-			base = desiredByDepth[i+1]
-		}
-		desiredByDepth[i] = pow2GroupCapacity(base, maxCountByDepth[i])
-
-		//Increament the block size index to the next block size that is larger than the current desired value.
-		for bsIndex+1 < len(bs) && bs[bsIndex+1] <= desiredByDepth[i] {
-			bsIndex++
-		}
-		bsIndex++
-	}
-
-	//If there are still block sizes left, set the desired node count for the root to the largest block size.
-	if bsIndex < len(bs) {
-		desiredByDepth[0] = bs[len(bs)-1]
-	}
-	return desiredByDepth
-}
-
-// pow2GroupCapacity returns the smallest value of the form 2^n × base that is
-// >= maxCount, matching the pre-change groupSizeFromDomains power-of-two logic.
-func pow2GroupCapacity(base, maxCount int) int {
-	capacity := base
-	for capacity < maxCount {
-		capacity *= 2
-	}
-	return capacity
 }

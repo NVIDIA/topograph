@@ -87,7 +87,7 @@ func TestGetParameters(t *testing.T) {
 			params: map[string]any{
 				"acceleratorLabel": topology.KeyTopologyXclrSubDomain,
 			},
-			err: `topology label key "xclr.topology.nvidia.com/sub-domain" is configured for both acceleratorLabel and XclrSubDomain`,
+			err: `topology label key "xclr.topology.nvidia.com/sub-domain" is configured for both acceleratorLabel and xclr.topology.nvidia.com/sub-domain`,
 		},
 	}
 

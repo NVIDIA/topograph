@@ -162,8 +162,9 @@ KWOK nodes. Topograph does not write `status.nodes`; NFD owns status updates.
 If a Kubernetes node already has `nvidia.com/gpu.clique`, the engine uses that
 label's value as the authoritative `xclr-domain` attribute instead of the value
 derived from the provider graph. The matching `NodeFeatureGroup` records
-`nvidia.com/gpu.clique` as its source label key. Any provider-supplied
-`xclr-sub-domain` and all fabric-tier attributes are still published.
+`nvidia.com/gpu.clique` as its source label key. The provider-supplied `xclr-sub-domain` is suppressed alongside `xclr-domain`
+(matching the `k8s` engine behaviour); all fabric-tier attributes are still
+published.
 
 ## Caveats
 

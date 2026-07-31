@@ -468,6 +468,142 @@ func TestGetBlockTopologyUnitSingleBlockSize(t *testing.T) {
 	require.Equal(t, expected, buf.String())
 }
 
+// TestComplementUnequalDomainSubDomainCounts verifies that domains with different
+// sub-domain counts are sized independently. toDomainAggregate selects a strategy per
+// domain based on its own MaxChildNodeCount; neither domain forces padding onto the other.
+//
+// Setup: blockSizes=[18,72,288]
+//   - domain "a": 4 sub-domains × 9 hosts = 36 hosts total
+//   - domain "b": 1 sub-domain "b.sd0" × 36 hosts
+//   - root.MaxChildNodeCount = max(36, 36) = 36
+//
+// toDomainAggregate("a", maxSiblingNodes=36, [18,72,288]):
+//   - nodeCount = aggregateSlotCapacity(36, 18) = 36; numBaseBlocks = 2
+//   - MaxChildNodeCount=9 ≤ baseBlockSize/2=9 → Strategy 2
+//   - combineChildHostsIntoAggregate appends each child then flushes when
+//     accumulated sum > baseBlockSize/2 (=9, strictly greater):
+//     a.sd0 (9): append → sum=9. 9>9? NO.
+//     a.sd1 (9): append → sum=18. 18>9? YES → flush "a.sd0+a.sd1" (18 hosts). Reset.
+//     a.sd2 (9): append → sum=9. NO.
+//     a.sd3 (9): append → sum=18. YES → flush "a.sd2+a.sd3". Reset.
+//   - 2 combined blocks of 18 hosts each → domain "a" nodeCount = 36
+//
+// toDomainAggregate("b", maxSiblingNodes=36, [18,72,288]):
+//   - nodeCount = 36; numBaseBlocks = 2
+//   - MaxChildNodeCount=36 > 9 → Strategy 3 (recurse per sub-domain)
+//   - Recurses into "b.sd0" (leaf, 36 hosts) → Strategy 1 → 2 full blocks (name="b.sd0")
+//   - b produces 2 blocks → domain "b" nodeCount = 36
+//
+// Root: total=72, rootDesired=288; childCapacity=36; lcm(36,288)=288; targetCount=288.
+//
+//	6 empty domain aggregates × 2 blocks each = 12 empty blocks.
+//
+// Expected: 16 base blocks total — block001-002 from "a", block003-004 from "b.sd0",
+// block005-016 empty root padding.
+func TestComplementUnequalDomainSubDomainCounts(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for sd := 0; sd < 4; sd++ {
+		for h := 0; h < 9; h++ {
+			domains.AddHostInfo(&topology.HostInfo{Domain: "a", SubDomain: fmt.Sprintf("a.sd%d", sd), HostName: fmt.Sprintf("a-sd%d-h%d", sd, h)})
+		}
+	}
+	for h := 0; h < 36; h++ {
+		// Zero-padded so alphabetical sort matches numeric order (b-h00 < b-h09 < b-h10).
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", SubDomain: "b.sd0", HostName: fmt.Sprintf("b-h%02d", h)})
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{18, 72, 288},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=a.sd0+a.sd1",
+		"BlockName=block001 Nodes=a-sd0-h[0-8],a-sd1-h[0-8]",
+		"# block002=a.sd2+a.sd3",
+		"BlockName=block002 Nodes=a-sd2-h[0-8],a-sd3-h[0-8]",
+		"# block003=b.sd0",
+		"BlockName=block003 Nodes=b-h[00-17]",
+		"# block004=b.sd0",
+		"BlockName=block004 Nodes=b-h[18-35]",
+		"BlockName=block005",
+		"BlockName=block006",
+		"BlockName=block007",
+		"BlockName=block008",
+		"BlockName=block009",
+		"BlockName=block010",
+		"BlockName=block011",
+		"BlockName=block012",
+		"BlockName=block013",
+		"BlockName=block014",
+		"BlockName=block015",
+		"BlockName=block016",
+		"BlockSizes=18,72,288",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementStrategy2CombinesSmallSubDomains validates Strategy 2 in
+// toDomainAggregate: when MaxChildNodeCount ≤ baseBlockSize/2, sub-domain hosts are
+// accumulated and grouped into combined base blocks, each named with the "+" delimited
+// contributing sub-domains.
+//
+// Setup: blockSizes=[8, 32], domain "d" with 4 sub-domains of 3 hosts each (12 total).
+//   - baseBlockSize=8, Strategy 2 flush threshold = sum > baseBlockSize/2 (=4, strictly)
+//   - MaxChildNodeCount=3 ≤ 4 → Strategy 2 fires
+//   - combineChildHostsIntoAggregate appends each child then flushes when sum > 4:
+//     d.sd0 (3): append → sum=3. 3>4? NO.
+//     d.sd1 (3): append → sum=6. 6>4? YES → flush "d.sd0+d.sd1" (6 hosts). Reset.
+//     d.sd2 (3): append → sum=3. NO.
+//     d.sd3 (3): append → sum=6. YES → flush "d.sd2+d.sd3" (6 hosts). Reset.
+//   - 2 combined blocks, each with hosts from 2 sub-domains (6 of 8 slots filled)
+//   - Root: aggregateSlotCapacity(12, 8)=16; 12%32≠0 → 1 empty domain agg (2 blocks)
+//   - Total: 4 base blocks (2 real, 2 empty)
+func TestComplementStrategy2CombinesSmallSubDomains(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for sd := 0; sd < 4; sd++ {
+		for h := 0; h < 3; h++ {
+			domains.AddHostInfo(&topology.HostInfo{
+				Domain:    "d",
+				SubDomain: fmt.Sprintf("d.sd%d", sd),
+				HostName:  fmt.Sprintf("d-sd%d-h%d", sd, h),
+			})
+		}
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{8, 32},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	// block001 contains hosts from d-sd0 and d-sd1, block002 from d-sd2 and d-sd3,
+	// confirming Strategy 2 merged across sub-domain boundaries into full base blocks.
+	expected := strings.Join([]string{
+		"# block001=d.sd0+d.sd1",
+		"BlockName=block001 Nodes=d-sd0-h[0-2],d-sd1-h[0-2]",
+		"# block002=d.sd2+d.sd3",
+		"BlockName=block002 Nodes=d-sd2-h[0-2],d-sd3-h[0-2]",
+		"BlockName=block003",
+		"BlockName=block004",
+		"BlockSizes=8,32",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
 // TestComplementDualLevel validates dual-level block tree construction using the
 // dual-level simulation model. Two accelerator domains (domain-01, domain-02) each
 // contain sub-domains identified by SubDomain (rack-1-01 … rack-1-16 and
