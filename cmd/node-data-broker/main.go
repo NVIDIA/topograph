@@ -7,10 +7,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"maps"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -32,6 +33,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
 	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
+	"github.com/NVIDIA/topograph/pkg/providers/lldp"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -51,8 +53,19 @@ type nodeBroker struct {
 }
 
 type nodeDataBrokerConfig struct {
-	Provider    topology.Provider `yaml:"provider"`
-	HealthzPort int               `yaml:"healthzPort"`
+	Provider          topology.Provider   `yaml:"provider"`
+	HealthzPort       int                 `yaml:"healthzPort"`
+	NICRailsConfigMap *configMapReference `yaml:"nicRailsConfigMap,omitempty"`
+}
+
+type configMapReference struct {
+	Name      string `yaml:"name"`
+	Namespace string `yaml:"namespace"`
+}
+
+type collectedNodeData struct {
+	annotations map[string]string
+	nicRails    map[string][]string
 }
 
 func main() {
@@ -140,26 +153,67 @@ func newInClusterClientset() (kubernetes.Interface, *rest.Config, error) {
 }
 
 func (b *nodeBroker) apply(ctx context.Context) error {
-	klog.InfoS("Applying node annotations", "provider", b.config.Provider.Name)
+	klog.InfoS("Applying node topology data", "provider", b.config.Provider.Name)
 
-	annotations, err := b.getAnnotations(ctx)
+	data, err := b.getNodeData(ctx)
 	if err != nil {
 		return err
 	}
-	klog.Infof("adding annotations %v in node %s for provider %s", annotations, b.nodeName, b.config.Provider.Name)
+	klog.Infof("adding annotations %v in node %s for provider %s", data.annotations, b.nodeName, b.config.Provider.Name)
 
 	node, err := b.clientset.CoreV1().Nodes().Get(ctx, b.nodeName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get node %q: %v", b.nodeName, err)
 	}
 
-	mergeNodeAnnotations(node, annotations)
+	mergeNodeAnnotations(node, data.annotations)
 
 	_, err = b.clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update node: %v", err)
 	}
+	if data.nicRails != nil {
+		if err := b.patchNICRailsConfigMap(ctx, data.nicRails); err != nil {
+			return err
+		}
+	}
 
+	return nil
+}
+
+func (b *nodeBroker) patchNICRailsConfigMap(ctx context.Context, nicRails map[string][]string) error {
+	ref := b.config.NICRailsConfigMap
+	if ref == nil || ref.Name == "" || ref.Namespace == "" {
+		return fmt.Errorf("nicRailsConfigMap name and namespace are required when LLDP rail discovery is configured")
+	}
+
+	var value *string
+	if len(nicRails) != 0 {
+		encoded, err := json.Marshal(nicRails)
+		if err != nil {
+			return fmt.Errorf("failed to encode NIC rail data for node %q: %w", b.nodeName, err)
+		}
+		text := string(encoded)
+		value = &text
+	}
+	patch, err := json.Marshal(struct {
+		Data map[string]*string `json:"data"`
+	}{Data: map[string]*string{b.nodeName: value}})
+	if err != nil {
+		return fmt.Errorf("failed to encode NIC rail ConfigMap patch for node %q: %w", b.nodeName, err)
+	}
+
+	_, err = b.clientset.CoreV1().ConfigMaps(ref.Namespace).Patch(
+		ctx,
+		ref.Name,
+		types.MergePatchType,
+		patch,
+		metav1.PatchOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to patch NIC rail ConfigMap %s/%s for node %q: %w", ref.Namespace, ref.Name, b.nodeName, err)
+	}
+	klog.InfoS("Updated NIC rail ConfigMap", "namespace", ref.Namespace, "name", ref.Name, "node", b.nodeName, "nicRails", nicRails)
 	return nil
 }
 
@@ -202,32 +256,58 @@ func healthHandler() http.Handler {
 }
 
 func (b *nodeBroker) getAnnotations(ctx context.Context) (map[string]string, error) {
+	data, err := b.getNodeData(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return data.annotations, nil
+}
+
+func (b *nodeBroker) getNodeData(ctx context.Context) (*collectedNodeData, error) {
+	var annotations map[string]string
+	var err error
 	switch b.config.Provider.Name {
 	case aws.NAME:
-		return aws.GetNodeAnnotations(ctx)
+		annotations, err = aws.GetNodeAnnotations(ctx)
 	case gcp.NAME:
-		return gcp.GetNodeAnnotations(ctx)
+		annotations, err = gcp.GetNodeAnnotations(ctx)
 	case oci.NAME:
-		return oci.GetNodeAnnotations(ctx)
+		annotations, err = oci.GetNodeAnnotations(ctx)
 	case nebius.NAME:
-		return nebius.GetNodeAnnotations(ctx)
+		annotations, err = nebius.GetNodeAnnotations(ctx)
 	case dra.NAME:
-		return dra.GetNodeAnnotations(ctx, b.nodeName)
+		annotations, err = dra.GetNodeAnnotations(ctx, b.nodeName)
 	case infiniband.NAME_K8S:
 		section := accelerator.SectionFromProviderParams(b.config.Provider.Params)
-		return infiniband.GetNodeAnnotations(ctx, b.clientset, b.restConfig, b.nodeName, section)
+		annotations, err = infiniband.GetNodeAnnotations(ctx, b.clientset, b.restConfig, b.nodeName, section)
 	case lambdai.NAME:
-		return lambdai.GetNodeAnnotations(ctx, b.clientset, b.nodeName)
+		annotations, err = lambdai.GetNodeAnnotations(ctx, b.clientset, b.nodeName)
+	case lldp.NAME_K8S:
+		lldpData, lldpErr := lldp.GetNodeData(ctx, b.nodeName, b.config.Provider.Params)
+		if lldpErr != nil {
+			return nil, lldpErr
+		}
+		return &collectedNodeData{annotations: lldpData.Annotations, nicRails: lldpData.NICRails}, nil
 	case "":
 		return nil, fmt.Errorf("must set provider")
 	default:
 		return nil, fmt.Errorf("unsupported provider %q", b.config.Provider.Name)
 	}
+	if err != nil {
+		return nil, err
+	}
+	return &collectedNodeData{annotations: annotations}, nil
 }
 
 func mergeNodeAnnotations(node *corev1.Node, annotations map[string]string) {
 	if node.Annotations == nil {
 		node.Annotations = make(map[string]string)
 	}
-	maps.Copy(node.Annotations, annotations)
+	for key, value := range annotations {
+		if value == "" {
+			delete(node.Annotations, key)
+		} else {
+			node.Annotations[key] = value
+		}
+	}
 }

@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- LLDP leaf-locality providers for bare-metal (`lldp-bm`) and Kubernetes (`lldp-k8s`) deployments, plus an `lldp-sim` provider for replaying saved `lldpctl` JSON. They group nodes by directly connected switch chassis ID, support exact or regular-expression interface filtering, reject ambiguous multi-switch attachments, and can derive per-node physical-NIC-to-rail mappings in a shared Kubernetes ConfigMap by combining interface-name-derived rails under device names resolved from sysfs.
+
+---
+
 ## [v1.0.0] - 2026-08-18
 
 ### Added

@@ -1,0 +1,46 @@
+provider:
+  name: lldp-k8s
+  params:
+    # Select only interfaces whose leaf-switch attachment represents
+    # scheduling locality. Use either an exact interfaces list or one Go
+    # regular expression. Omit both when every reported LLDP neighbor is the
+    # same switch.
+    interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+    # Optional: expand regex capture groups into rail IDs. Topograph resolves
+    # each interface's /sys/class/net/<interface>/device link and publishes a
+    # per-node physical-NIC-to-rails mapping in topograph-nic-rails.
+    railID: 'rail$1'
+
+engine:
+  name: k8s
+
+# Mount the node's lldpd control socket. The common socket location is
+# /var/run/lldpd.socket (usually a symlink-equivalent of /run/lldpd.socket).
+# This example runs only the broker as root because lldpd sockets are commonly
+# root-owned. No privilege escalation or Linux capabilities are required. If
+# the socket is group-readable, prefer the chart's non-root defaults and set
+# podSecurityContext.supplementalGroups to the host lldpd group's numeric GID.
+nodeDataBroker:
+  podSecurityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: false
+    runAsUser: 0
+    capabilities:
+      drop:
+        - ALL
+  volumeMounts:
+    - name: lldpd-socket
+      mountPath: /var/run/lldpd.socket
+  volumes:
+    - name: lldpd-socket
+      hostPath:
+        path: /var/run/lldpd.socket
+        type: Socket

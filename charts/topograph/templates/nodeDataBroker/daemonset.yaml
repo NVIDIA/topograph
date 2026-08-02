@@ -83,6 +83,11 @@ spec:
             - name: config-volume
               mountPath: /etc/topograph
               readOnly: true
+            {{- if eq (include "nodeDataBroker.nicRailsEnabled" .) "true" }}
+            - name: host-sys-class-net
+              mountPath: /sys/class/net
+              readOnly: true
+            {{- end }}
             {{- range $configMapMounts }}
             - name: {{ include "nodeDataBroker.configMapMountVolumeName" (dict "name" .name) }}
               mountPath: {{ required "nodeDataBroker.configMapMounts[].mountPath is required" .mountPath | quote }}
@@ -99,6 +104,12 @@ spec:
           configMap:
             defaultMode: 420
             name: {{ include "nodeDataBroker.fullname" . }}
+        {{- if eq (include "nodeDataBroker.nicRailsEnabled" .) "true" }}
+        - name: host-sys-class-net
+          hostPath:
+            path: /sys/class/net
+            type: Directory
+        {{- end }}
         {{- range $configMapMounts }}
         - name: {{ include "nodeDataBroker.configMapMountVolumeName" (dict "name" .name) }}
           configMap:

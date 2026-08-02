@@ -19,6 +19,8 @@
             "dsx-sim",
             "infiniband-bm",
             "infiniband-k8s",
+            "lldp-bm",
+            "lldp-k8s",
             "lambdai",
             "lambdai-sim",
             "nebius",
@@ -250,6 +252,13 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "nicRailsConfigMap": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "minLength": 1 }
+          },
+          "required": ["name"]
+        },
         "startupProbe": { "type": "object" },
         "serviceAccount": { "type": "object" },
         "rbac": { "type": "object" },

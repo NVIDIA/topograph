@@ -159,6 +159,30 @@ tests:
           path: spec.template.spec.containers[0].livenessProbe.httpGet.path
           value: /healthz
 
+  - it: mounts host network sysfs read-only for LLDP physical NIC discovery
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+          railID: 'rail$1'
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: host-sys-class-net
+            mountPath: /sys/class/net
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: host-sys-class-net
+            hostPath:
+              path: /sys/class/net
+              type: Directory
+
   - it: is omitted when the component is disabled
     templates:
       - templates/nodeDataBroker/daemonset.yaml

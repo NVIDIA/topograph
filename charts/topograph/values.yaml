@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 provider:
-  # name: "aws", "oci", "gcp", "nebius", "nscale", "lambdai", "netq", "infiniband-k8s", "dra" or "test".
+  # name: "aws", "oci", "gcp", "nebius", "nscale", "lambdai", "netq", "infiniband-k8s", "lldp-k8s", "dra" or "test".
   name: test
   # params:
   #   accelerator:
@@ -23,6 +23,13 @@ provider:
   #       # shown below.
   #       gpuOperatorNamespace: gpu-operator
   #       devicePluginDaemonSet: nvidia-device-plugin-daemonset
+  #   # For lldp-k8s, limit neighbor discovery to data-plane interfaces with
+  #   # either exact names or a Go regular expression (mutually exclusive).
+  #   # interfaces: [eno1]
+  #   interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+  #   # Optional with interfaceRegex: expand capture groups into rail IDs and
+  #   # publish the NIC-to-rails mapping in the topograph-nic-rails ConfigMap.
+  #   railID: 'rail$1'
 
 engine:
   # name: "k8s", "nfd", "slinky", "slurm" or "graph"
@@ -320,6 +327,12 @@ nodeObserver:
 # Node Data Broker collects per-node topology attributes as annotations.
 nodeDataBroker:
   enabled: true
+
+  # Shared ConfigMap populated by lldp-k8s when provider.params.railID is set.
+  # Each data key is a Kubernetes node name and each value is JSON mapping
+  # physical NIC device names from /sys/class/net to derived rail ID arrays.
+  nicRailsConfigMap:
+    name: topograph-nic-rails
 
   # Port serving the /healthz endpoint after node annotations are applied.
   port: 8080

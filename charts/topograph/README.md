@@ -42,7 +42,7 @@ The default `values.yaml` ships the `test` provider + `k8s` engine, suitable for
 
 ```yaml
 provider:
-  name: test       # or aws, gcp, oci, nebius, netq, infiniband-k8s, ...
+  name: test       # or aws, gcp, oci, nebius, netq, infiniband-k8s, lldp-k8s, ...
 engine:
   name: k8s        # or nfd, slurm, slinky, graph
 ```
@@ -62,6 +62,7 @@ Topograph deployment as `KUBE_QPS` and `KUBE_BURST`.
 For the full list of values and their defaults, see [`values.yaml`](./values.yaml). Example values files for specific deployment patterns:
 
 - [`values.k8s.ib-example.yaml`](./values.k8s.ib-example.yaml) — InfiniBand provider on Kubernetes
+- [`values.k8s.lldp-example.yaml`](./values.k8s.lldp-example.yaml) — LLDP leaf-switch provider using the host `lldpd` socket
 - [`values.k8s.gcp-service-account-example.yaml`](./values.k8s.gcp-service-account-example.yaml) — GCP provider with a service account key mounted from a Secret
 - [`values.k8s.gcp-federated-workload-identity-example.yaml`](./values.k8s.gcp-federated-workload-identity-example.yaml) — GCP provider using Workload Identity Federation
 - [`values.k8s.gateway-api-example.yaml`](./values.k8s.gateway-api-example.yaml) — exposing the Topograph API via Gateway API (`HTTPRoute`) instead of `Ingress`

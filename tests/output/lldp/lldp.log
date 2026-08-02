@@ -1,0 +1,4306 @@
+{
+  "lldp": {
+    "interface": [
+      {
+        "enxac3ae20ab81d": {
+          "via": "LLDP",
+          "rid": "2",
+          "age": "0 day, 05:03:19",
+          "chassis": {
+            "d05-ipmi-1.pod2.ff.mec01.il.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "2c:5e:ab:12:67:20"
+              },
+              "descr": "Cumulus Linux version 5.12.1 running on NVIDIA SN2201_M",
+              "mgmt-ip": [
+                "10.193.251.251",
+                "fe80::2e5e:abff:fe12:6720"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp30"
+            },
+            "descr": "swp30",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "advertised": [
+                {
+                  "type": "10Base-T",
+                  "hd": true,
+                  "fd": true
+                },
+                {
+                  "type": "100Base-TX",
+                  "hd": true,
+                  "fd": true
+                },
+                {
+                  "type": "1000Base-X",
+                  "hd": false,
+                  "fd": true
+                },
+                {
+                  "type": "1000Base-T",
+                  "hd": false,
+                  "fd": true
+                }
+              ],
+              "current": "1000BaseTFD - Four-pair Category 5 UTP, full duplex mode"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r0_p0": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:15",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp5s4"
+            },
+            "descr": "swp5s4",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r0_p1": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp5s5"
+            },
+            "descr": "swp5s5",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r0_p2": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp5s6"
+            },
+            "descr": "swp5s6",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r0_p3": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp5s7"
+            },
+            "descr": "swp5s7",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r1_p0": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:15",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp5s0"
+            },
+            "descr": "swp5s0",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r1_p1": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp5s1"
+            },
+            "descr": "swp5s1",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r1_p2": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp5s2"
+            },
+            "descr": "swp5s2",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r1_p3": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp5s3"
+            },
+            "descr": "swp5s3",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r1_p4": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:15",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp1s4"
+            },
+            "descr": "swp1s4",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r1_p5": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp1s5"
+            },
+            "descr": "swp1s5",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r1_p6": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp1s6"
+            },
+            "descr": "swp1s6",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r1_p7": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp1s7"
+            },
+            "descr": "swp1s7",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r0_p4": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:15",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp1s0"
+            },
+            "descr": "swp1s0",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r0_p5": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp1s1"
+            },
+            "descr": "swp1s1",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r0_p6": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp1s2"
+            },
+            "descr": "swp1s2",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r0_p7": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp1s3"
+            },
+            "descr": "swp1s3",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r2_p0": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:15",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp7s0"
+            },
+            "descr": "swp7s0",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r2_p1": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp7s1"
+            },
+            "descr": "swp7s1",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r2_p2": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp7s2"
+            },
+            "descr": "swp7s2",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r2_p3": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp7s3"
+            },
+            "descr": "swp7s3",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r3_p0": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:15",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp7s4"
+            },
+            "descr": "swp7s4",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r3_p1": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp7s5"
+            },
+            "descr": "swp7s5",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r3_p2": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp7s6"
+            },
+            "descr": "swp7s6",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r3_p3": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:23",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp7s7"
+            },
+            "descr": "swp7s7",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r3_p4": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:15",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp3s0"
+            },
+            "descr": "swp3s0",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r3_p5": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:09",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp3s1"
+            },
+            "descr": "swp3s1",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r3_p6": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:20",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp3s2"
+            },
+            "descr": "swp3s2",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r3_p7": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:20",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp3s3"
+            },
+            "descr": "swp3s3",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r2_p4": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:15",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp3s4"
+            },
+            "descr": "swp3s4",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r2_p5": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:20",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp3s5"
+            },
+            "descr": "swp3s5",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r2_p6": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:20",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp3s6"
+            },
+            "descr": "swp3s6",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_r2_p7": {
+          "via": "LLDP",
+          "rid": "6",
+          "age": "0 day, 00:00:20",
+          "chassis": {
+            "spcx-qa-spc06-02": {
+              "id": {
+                "type": "mac",
+                "value": "f4:20:4d:da:ac:1a"
+              },
+              "descr": "Cumulus Linux version 5.18.0 running on Nvidia SN6600_LD",
+              "mgmt-ip": [
+                "10.220.102.97",
+                "fe80::f620:4dff:feda:ac1a"
+              ],
+              "mgmt-iface": [
+                "2",
+                "2"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": false
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "swp3s7"
+            },
+            "descr": "swp3s7",
+            "ttl": "120",
+            "mfs": "9216",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          },
+          "lldp-med": {
+            "device-type": "Network Connectivity Device",
+            "capability": [
+              {
+                "type": "Capabilities",
+                "available": true
+              },
+              {
+                "type": "Policy",
+                "available": true
+              },
+              {
+                "type": "Location",
+                "available": true
+              },
+              {
+                "type": "MDI/PSE",
+                "available": true
+              },
+              {
+                "type": "MDI/PD",
+                "available": true
+              },
+              {
+                "type": "Inventory",
+                "available": true
+              }
+            ]
+          },
+          "unknown-tlvs": {
+            "unknown-tlv": [
+              {
+                "oui": "00,80,C2",
+                "subtype": "11",
+                "len": "2",
+                "value": "08,08"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "9",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "10",
+                "len": "21",
+                "value": "00,00,03,00,60,32,00,00,32,00,00,00,00,02,02,02,02,02,02,00,02"
+              },
+              {
+                "oui": "00,80,C2",
+                "subtype": "12",
+                "len": "4",
+                "value": "00,63,12,B7"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "eth_vf0_rep_r0": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 01:08:58",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf0_r0"
+            },
+            "descr": "eth_vf0_r0",
+            "ttl": "120",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          }
+        }
+      },
+      {
+        "eth_vf0_r0": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 04:53:32",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf0_rep_r0"
+            },
+            "descr": "eth_vf0_rep_r0",
+            "ttl": "120"
+          }
+        }
+      },
+      {
+        "eth_vf0_rep_r1": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 01:08:58",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf0_r1"
+            },
+            "descr": "eth_vf0_r1",
+            "ttl": "120",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          }
+        }
+      },
+      {
+        "eth_vf0_r1": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 04:53:32",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf0_rep_r1"
+            },
+            "descr": "eth_vf0_rep_r1",
+            "ttl": "120"
+          }
+        }
+      },
+      {
+        "eth_vf1_rep_r1": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 01:08:58",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf1_r1"
+            },
+            "descr": "eth_vf1_r1",
+            "ttl": "120",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          }
+        }
+      },
+      {
+        "eth_vf1_r1": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 04:53:32",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf1_rep_r1"
+            },
+            "descr": "eth_vf1_rep_r1",
+            "ttl": "120"
+          }
+        }
+      },
+      {
+        "eth_vf1_rep_r0": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 01:08:58",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf1_r0"
+            },
+            "descr": "eth_vf1_r0",
+            "ttl": "120",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          }
+        }
+      },
+      {
+        "eth_vf1_r0": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 04:53:32",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf1_rep_r0"
+            },
+            "descr": "eth_vf1_rep_r0",
+            "ttl": "120"
+          }
+        }
+      },
+      {
+        "eth_vf0_rep_r2": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 01:08:58",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf0_r2"
+            },
+            "descr": "eth_vf0_r2",
+            "ttl": "120",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          }
+        }
+      },
+      {
+        "eth_vf0_r2": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 04:53:32",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf0_rep_r2"
+            },
+            "descr": "eth_vf0_rep_r2",
+            "ttl": "120"
+          }
+        }
+      },
+      {
+        "eth_vf0_rep_r3": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 01:08:58",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf0_r3"
+            },
+            "descr": "eth_vf0_r3",
+            "ttl": "120",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          }
+        }
+      },
+      {
+        "eth_vf0_r3": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 04:53:32",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf0_rep_r3"
+            },
+            "descr": "eth_vf0_rep_r3",
+            "ttl": "120"
+          }
+        }
+      },
+      {
+        "eth_vf1_rep_r3": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 01:08:58",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf1_r3"
+            },
+            "descr": "eth_vf1_r3",
+            "ttl": "120",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          }
+        }
+      },
+      {
+        "eth_vf1_r3": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 04:53:32",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf1_rep_r3"
+            },
+            "descr": "eth_vf1_rep_r3",
+            "ttl": "120"
+          }
+        }
+      },
+      {
+        "eth_vf1_rep_r2": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 01:08:58",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf1_r2"
+            },
+            "descr": "eth_vf1_r2",
+            "ttl": "120",
+            "auto-negotiation": {
+              "supported": true,
+              "enabled": true,
+              "current": "unknown"
+            }
+          }
+        }
+      },
+      {
+        "eth_vf1_r2": {
+          "via": "LLDP",
+          "rid": "5",
+          "age": "0 day, 04:53:32",
+          "chassis": {
+            "vr-nvl-mec-03-strata01.mec01.nbulabs.nvidia.com": {
+              "id": {
+                "type": "mac",
+                "value": "ba:d6:08:9d:ad:63"
+              },
+              "descr": "Ubuntu 24.04.4 LTS Linux 6.17.0-1029-nvidia-64k #29-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 01:53:52 UTC 2026 aarch64",
+              "mgmt-ip": [
+                "10.0.1.2",
+                "2604:a140:6200:402::47c9"
+              ],
+              "mgmt-iface": [
+                "2",
+                "3"
+              ],
+              "capability": [
+                {
+                  "type": "Bridge",
+                  "enabled": true
+                },
+                {
+                  "type": "Router",
+                  "enabled": true
+                },
+                {
+                  "type": "Wlan",
+                  "enabled": false
+                },
+                {
+                  "type": "Station",
+                  "enabled": false
+                }
+              ]
+            }
+          },
+          "port": {
+            "id": {
+              "type": "ifname",
+              "value": "eth_vf1_rep_r2"
+            },
+            "descr": "eth_vf1_rep_r2",
+            "ttl": "120"
+          }
+        }
+      }
+    ]
+  }
+}
+

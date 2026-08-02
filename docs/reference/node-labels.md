@@ -42,6 +42,8 @@ types:
 | `netq` | Yes (NMX `DomainUUID`) | Yes (Spectrum-X switch hierarchy) |
 | `infiniband-bm` | Optional (`ClusterUUID.CliqueId` when configured) | Yes (IB switch hierarchy) |
 | `infiniband-k8s` | Optional (`ClusterUUID.CliqueId` when configured) | Yes (IB switch hierarchy) |
+| `lldp-bm` | No | Yes (directly connected leaf only) |
+| `lldp-k8s` | No | Yes (directly connected leaf only) |
 
 The OCI API provider can publish both accelerator hierarchy levels when
 `additionalData.locationDetails.rack` is available. Other providers currently
@@ -154,6 +156,7 @@ Topograph sets the following annotations on nodes as internal bookkeeping metada
 | `topograph.run/instance` | The cloud instance ID or node identifier as returned by the provider |
 | `topograph.run/region` | The provider region associated with this node |
 | `topograph.run/cluster-id` | The cluster identifier (where reported by the provider) |
+| `topograph.run/lldp-chassis-id` | The LLDP chassis-ID subtype and value reported by the node's selected directly connected switch, stored as `<subtype>:<value>` |
 
 Additional annotations are set on topology ConfigMaps (used by the Slinky engine):
 
@@ -165,6 +168,18 @@ Additional annotations are set on topology ConfigMaps (used by the Slinky engine
 | `topograph.run/plugin` | The scheduler plugin that consumes the ConfigMap |
 | `topograph.run/block-sizes` | Comma-separated list of block sizes in the topology |
 | `topograph.run/slurm-namespace` | The Slurm namespace associated with this topology ConfigMap |
+
+## LLDP NIC-to-rail ConfigMap
+
+When `lldp-k8s` is configured with `provider.params.interfaceRegex` and
+`provider.params.railID`, the node-data-broker writes rail metadata to the
+`topograph-nic-rails` ConfigMap in its namespace instead of adding a Node
+annotation. Each `data` key is a node name. Its value is a JSON object mapping
+physical NIC device names to sorted arrays of derived rail IDs. The broker
+derives each device name from the basename of the selected interface's
+`/sys/class/net/<interface>/device` symlink target and combines rails from all
+interfaces belonging to that device. The ConfigMap name is configurable with
+`nodeDataBroker.nicRailsConfigMap.name`.
 
 ## Integration with NVSentinel
 

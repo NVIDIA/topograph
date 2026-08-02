@@ -11,4 +11,9 @@ data:
     provider:
       {{- include "nodeDataBroker.providerConfig" . | nindent 6 }}
     healthzPort: {{ .Values.nodeDataBroker.port }}
+    {{- if eq (include "nodeDataBroker.nicRailsEnabled" .) "true" }}
+    nicRailsConfigMap:
+      name: {{ include "nodeDataBroker.nicRailsConfigMapName" . }}
+      namespace: {{ .Release.Namespace }}
+    {{- end }}
 {{- end }}

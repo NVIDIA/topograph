@@ -95,6 +95,48 @@ tests:
           path: data["node-data-broker-config.yaml"]
           pattern: "devicePluginDaemonSet:"
 
+  - it: forwards LLDP interface selection
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          interfaces:
+            - eno1
+            - eno2
+    asserts:
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "interfaces:\\n\\s+- eno1\\n\\s+- eno2"
+
+  - it: forwards LLDP interface regex and rail ID template
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+          railID: 'rail$1'
+    asserts:
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "interfaceRegex: \\^eth_r\\(\\[0-9\\]\\+\\)_p\\[0-9\\]\\+\\$"
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: 'railID: rail\$1'
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "nicRailsConfigMap:\\n\\s+name: topograph-nic-rails\\n\\s+namespace: topograph"
+
+  - it: omits the NIC rails ConfigMap reference without a rail ID template
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+    asserts:
+      - notMatchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "nicRailsConfigMap:"
+
   - it: is omitted when node-data-broker is disabled
     set:
       nodeDataBroker:

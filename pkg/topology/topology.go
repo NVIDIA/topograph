@@ -32,9 +32,10 @@ const (
 	TopologyFlat  = "topology/flat"
 	NoTopology    = "no-topology"
 
-	KeyNodeInstance = "topograph.run/instance"
-	KeyNodeRegion   = "topograph.run/region"
-	KeyGpuClusterID = "topograph.run/cluster-id"
+	KeyNodeInstance  = "topograph.run/instance"
+	KeyNodeRegion    = "topograph.run/region"
+	KeyGpuClusterID  = "topograph.run/cluster-id"
+	KeyLLDPChassisID = "topograph.run/lldp-chassis-id"
 
 	// Topograph default node labels. Fabric tier zero is closest to the compute
 	// node.

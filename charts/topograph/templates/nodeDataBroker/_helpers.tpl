@@ -53,6 +53,19 @@ Create the name of the RBAC resources.
 {{- include "nodeDataBroker.fullname" . }}
 {{- end }}
 
+{{/* Return "true" when LLDP NIC-to-rail discovery is configured. */}}
+{{- define "nodeDataBroker.nicRailsEnabled" -}}
+{{- $params := default dict .Values.provider.params -}}
+{{- if and (eq .Values.provider.name "lldp-k8s") (ne (trim (toString (get $params "railID"))) "") -}}
+true
+{{- end -}}
+{{- end }}
+
+{{/* Resolve the shared NIC-to-rails ConfigMap name. */}}
+{{- define "nodeDataBroker.nicRailsConfigMapName" -}}
+{{- required "nodeDataBroker.nicRailsConfigMap.name must be set when LLDP rail discovery is configured" .Values.nodeDataBroker.nicRailsConfigMap.name -}}
+{{- end }}
+
 {{/* Resolve the configured accelerator source. */}}
 {{- define "nodeDataBroker.acceleratorSource" -}}
 {{- $providerParams := default dict .Values.provider.params -}}

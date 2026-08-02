@@ -89,10 +89,11 @@ Several providers also have simulation variants, such as:
 - `nscale-sim`
 - `lambdai-sim`
 - `dsx-sim`
+- `lldp-sim`
 
-These providers load a model file and then simulate that provider's API responses. This is useful when you want to exercise the normal provider translation logic without real provider credentials or infrastructure.
+Most of these providers load a model file and then simulate that provider's API responses. This is useful when you want to exercise the normal provider translation logic without real provider credentials or infrastructure. `lldp-sim` instead replays a raw `lldpctl -f json` document configured through `lldpFileName`; see the [LLDP provider reference](./providers/lldp.md#lldp-sim-saved-output).
 
-Simulation providers share these common parameters:
+The model-backed simulation providers share these common parameters:
 
 | Parameter | Required | Description |
 |---|---:|---|

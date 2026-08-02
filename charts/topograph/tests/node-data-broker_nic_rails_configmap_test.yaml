@@ -1,0 +1,62 @@
+suite: node-data-broker NIC rails ConfigMap
+release:
+  name: chart-ci
+  namespace: topograph
+templates:
+  - templates/nodeDataBroker/nic-rails-configmap.yaml
+tests:
+  - it: is omitted unless LLDP rail discovery is configured
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: creates the shared NIC rails ConfigMap
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+          railID: 'rail$1'
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: topograph-nic-rails
+      - equal:
+          path: metadata.namespace
+          value: topograph
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: nic-rails
+      - equal:
+          path: data
+          value: {}
+
+  - it: supports a custom ConfigMap name
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+          railID: 'rail$1'
+      nodeDataBroker:
+        nicRailsConfigMap:
+          name: custom-nic-rails
+    asserts:
+      - equal:
+          path: metadata.name
+          value: custom-nic-rails
+
+  - it: is omitted when node data broker is disabled
+    set:
+      nodeDataBroker:
+        enabled: false
+      provider:
+        name: lldp-k8s
+        params:
+          interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+          railID: 'rail$1'
+    asserts:
+      - hasDocuments:
+          count: 0

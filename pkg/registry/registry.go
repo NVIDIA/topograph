@@ -30,6 +30,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
 	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
+	"github.com/NVIDIA/topograph/pkg/providers/lldp"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/netq"
 	"github.com/NVIDIA/topograph/pkg/providers/nscale"
@@ -42,6 +43,9 @@ var Providers = providers.NewRegistry(
 	aws.NamedLoaderSim,
 	infiniband.NamedLoaderBM,
 	infiniband.NamedLoaderK8S,
+	lldp.NamedLoaderBM,
+	lldp.NamedLoaderK8S,
+	lldp.NamedLoaderSim,
 	dra.NamedLoader,
 	gcp.NamedLoader,
 	gcp.NamedLoaderSim,

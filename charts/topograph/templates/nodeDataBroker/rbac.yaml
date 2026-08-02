@@ -33,4 +33,32 @@ roleRef:
   kind: ClusterRole
   name: {{ include "nodeDataBroker.rbacName" . }}
   apiGroup: rbac.authorization.k8s.io
+{{- if eq (include "nodeDataBroker.nicRailsEnabled" .) "true" }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "nodeDataBroker.rbacName" . }}-nic-rails
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: [""]
+  resources: [configmaps]
+  resourceNames: [{{ include "nodeDataBroker.nicRailsConfigMapName" . | quote }}]
+  verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "nodeDataBroker.rbacName" . }}-nic-rails
+  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "nodeDataBroker.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  apiGroup: ""
+roleRef:
+  kind: Role
+  name: {{ include "nodeDataBroker.rbacName" . }}-nic-rails
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
 {{- end }}

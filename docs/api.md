@@ -15,7 +15,7 @@ http:
   ssl: false
 
 # provider: the provider that topograph will use (optional)
-# Valid options include "aws", "oci", "gcp", "nebius", "nscale", "netq", "dra", "infiniband-k8s", "infiniband-bm" or "test".
+# Valid options include "aws", "oci", "gcp", "nebius", "nscale", "netq", "dra", "infiniband-k8s", "infiniband-bm", "lldp-k8s", "lldp-bm", "lldp-sim" or "test".
 # Can be overridden if the provider is specified in a topology request to topograph
 provider: test
 
@@ -69,13 +69,17 @@ Topograph exposes three endpoints for interacting with the service. Below are th
 - **Payload:** The request body is a JSON object organized into three top-level sections:
 
   - **provider**: (optional) Selects the topology source and provides any provider-specific authentication or parameters.
-    - **name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm` or `test`. This parameter will override the provider set in the topograph config.
+    - **name**: (optional) A string specifying the Service Provider, such as `aws`, `oci`, `gcp`, `nebius`, `nscale`, `netq`, `dra`, `infiniband-k8s`, `infiniband-bm`, `lldp-k8s`, `lldp-bm`, `lldp-sim` or `test`. This parameter will override the provider set in the topograph config.
     - **creds**: (optional) A key-value map with provider-specific parameters for authentication.
     - **params**: (optional) A key-value map with provider-specific parameters. The `test` provider uses these parameters for response simulation; for complete behavior and examples, see [Test Mode and Test Provider](./providers/test.md).
       - **accelerator**: (optional) Used in: [`dra`, `infiniband-k8s`, `infiniband-bm`]. Configures accelerator-domain discovery independently of network-fabric discovery. For InfiniBand, omitting this section or setting it to an empty object disables accelerator-domain discovery. DRA supports only `kubernetes-label` and retains its legacy `nvidia.com/gpu.clique` default when the section is omitted.
         - **source**: (required when `accelerator` is non-empty) `nvidia-smi`, `kubernetes-label` (`dra` and `infiniband-k8s`), or `none`. DRA accepts only `kubernetes-label`.
         - **kubernetesLabel.key**: (required for `kubernetes-label`) Kubernetes Node label read as the accelerator-domain ID. No default is assumed for an explicit section.
         - For `infiniband-k8s`, a request with `source: nvidia-smi` reads accelerator-domain annotations previously collected by the node-data-broker. The request does not run `nvidia-smi` or reconfigure the broker. Deploy the broker with the same accelerator source before sending the request; see [Helm node-data-broker settings](./providers/infiniband.md#helm-node-data-broker-settings).
+      - **interfaces**: (optional) Used in: [`lldp-bm`, `lldp-k8s`, `lldp-sim`]. An array of local data-plane interface names eligible for directly connected switch discovery. Mutually exclusive with `interfaceRegex`. Multiple selected interfaces may report the same switch; different switch chassis IDs are rejected as ambiguous.
+      - **interfaceRegex**: (optional) Used in: [`lldp-bm`, `lldp-k8s`, `lldp-sim`]. A Go regular expression selecting eligible local data-plane interface names. Mutually exclusive with `interfaces`.
+      - **railID**: (optional) Used in: [`lldp-k8s`]. A Go regexp expansion template, such as `rail$1`, applied to interfaces selected by `interfaceRegex`. Requires `interfaceRegex`; the node-data-broker resolves each selected interface's `/sys/class/net/<interface>/device` link and stores each physical NIC device name with its sorted, deduplicated rail IDs in the shared `topograph-nic-rails` ConfigMap (configurable through `nodeDataBroker.nicRailsConfigMap.name`).
+      - **lldpFileName**: (required) Used in: [`lldp-sim`]. Path to a saved raw `lldpctl -f json` document. The selected attachment from that node-local view is applied to every requested node.
   - **engine**: (optional) Selects the topology output and provides any engine-specific parameters.
     - **name**: (optional) A string specifying the topology output, either `slurm`, `k8s`, `nfd`, `slinky`, or `graph`. This parameter will override the engine set in the topograph config.
     - **params**: (optional) A key-value map with engine-specific parameters.

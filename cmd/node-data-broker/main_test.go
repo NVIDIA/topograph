@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
 	"github.com/NVIDIA/topograph/pkg/topology"
@@ -112,6 +113,9 @@ provider:
     accelerator:
       source: none
 healthzPort: 18080
+nicRailsConfigMap:
+  name: topograph-nic-rails
+  namespace: topograph
 `), 0o600))
 
 	config, err := newNodeDataBrokerConfig(configPath)
@@ -121,6 +125,10 @@ healthzPort: 18080
 		"accelerator": map[string]any{"source": "none"},
 	}, config.Provider.Params)
 	require.Equal(t, 18080, config.HealthzPort)
+	require.Equal(t, &configMapReference{
+		Name:      "topograph-nic-rails",
+		Namespace: "topograph",
+	}, config.NICRailsConfigMap)
 
 	_, err = newNodeDataBrokerConfig(filepath.Join(dir, "missing.yaml"))
 	require.ErrorContains(t, err, "failed to read node-data-broker config")
@@ -146,6 +154,50 @@ healthzPort: 18080
 	require.EqualError(t, err, "must specify a positive healthzPort")
 }
 
+func TestPatchNICRailsConfigMap(t *testing.T) {
+	ctx := context.Background()
+	clientset := fake.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "topograph-nic-rails",
+			Namespace: "topograph",
+		},
+		Data: map[string]string{
+			"node-2": `{"0000:af:00.0":["rail2"]}`,
+		},
+	})
+	broker := &nodeBroker{
+		clientset: clientset,
+		nodeName:  "node-1",
+		config: nodeDataBrokerConfig{NICRailsConfigMap: &configMapReference{
+			Name:      "topograph-nic-rails",
+			Namespace: "topograph",
+		}},
+	}
+
+	err := broker.patchNICRailsConfigMap(ctx, map[string][]string{
+		"0000:af:00.0": {"rail1"},
+		"0000:3b:00.0": {"rail0"},
+	})
+	require.NoError(t, err)
+
+	configMap, err := clientset.CoreV1().ConfigMaps("topograph").Get(ctx, "topograph-nic-rails", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, `{"0000:3b:00.0":["rail0"],"0000:af:00.0":["rail1"]}`, configMap.Data["node-1"])
+	require.Equal(t, `{"0000:af:00.0":["rail2"]}`, configMap.Data["node-2"])
+
+	require.NoError(t, broker.patchNICRailsConfigMap(ctx, map[string][]string{}))
+	configMap, err = clientset.CoreV1().ConfigMaps("topograph").Get(ctx, "topograph-nic-rails", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotContains(t, configMap.Data, "node-1")
+	require.Equal(t, `{"0000:af:00.0":["rail2"]}`, configMap.Data["node-2"])
+}
+
+func TestPatchNICRailsConfigMapRequiresReference(t *testing.T) {
+	broker := &nodeBroker{nodeName: "node-1"}
+	err := broker.patchNICRailsConfigMap(context.Background(), map[string][]string{"0000:3b:00.0": {"rail0"}})
+	require.EqualError(t, err, "nicRailsConfigMap name and namespace are required when LLDP rail discovery is configured")
+}
+
 func TestMergeNodeAnnotations(t *testing.T) {
 	tests := []struct {
 		name string
@@ -154,7 +206,7 @@ func TestMergeNodeAnnotations(t *testing.T) {
 		out  map[string]string
 	}{
 		{
-			name: "Case 1: no labels",
+			name: "Case 1: no annotations",
 			node: &corev1.Node{},
 			out:  map[string]string{},
 		},
@@ -174,6 +226,15 @@ func TestMergeNodeAnnotations(t *testing.T) {
 			},
 			in:  map[string]string{"c": "3", "d": "4"},
 			out: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4"},
+		},
+		{
+			name: "Case 4: empty value deletes annotation",
+			node: &corev1.Node{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+				"keep":  "value",
+				"stale": "value",
+			}}},
+			in:  map[string]string{"new": "value", "stale": ""},
+			out: map[string]string{"keep": "value", "new": "value"},
 		},
 	}
 

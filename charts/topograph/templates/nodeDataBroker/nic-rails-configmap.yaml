@@ -1,0 +1,11 @@
+{{- if and .Values.nodeDataBroker.enabled (eq (include "nodeDataBroker.nicRailsEnabled" .) "true") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nodeDataBroker.nicRailsConfigMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "topograph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nic-rails
+data: {}
+{{- end }}

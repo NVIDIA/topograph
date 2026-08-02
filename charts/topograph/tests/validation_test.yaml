@@ -88,6 +88,27 @@ tests:
       - failedTemplate:
           errorMessage: "env.KUBE_BURST is managed by the chart; configure kubeClient.burst instead"
 
+  - it: rejects LLDP exact and regex interface selectors together
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          interfaces: [eno1]
+          interfaceRegex: '^eth_r([0-9]+)_p[0-9]+$'
+    asserts:
+      - failedTemplate:
+          errorMessage: "provider.params.interfaces and provider.params.interfaceRegex are mutually exclusive"
+
+  - it: rejects an LLDP rail ID template without an interface regex
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          railID: 'rail$1'
+    asserts:
+      - failedTemplate:
+          errorMessage: "provider.params.railID requires provider.params.interfaceRegex"
+
   - it: rejects an unsupported InfiniBand accelerator source
     set:
       provider:

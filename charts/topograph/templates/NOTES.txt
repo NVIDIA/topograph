@@ -52,6 +52,19 @@
   NOTE: The NFD engine writes NodeFeature and NodeFeatureGroup resources in
         {{ .Values.nfdNamespace }}. This must be the namespace where NFD master runs.
 {{- end }}
+{{- if eq .Values.provider.name "lldp-k8s" }}
+
+  NOTE: lldp-k8s requires each host's lldpd control socket to be mounted at
+        /var/run/lldpd.socket in the node-data-broker and readable by its user.
+        provider.params.interfaceRegex can select data-plane interfaces.
+{{- if eq (include "nodeDataBroker.nicRailsEnabled" .) "true" }}
+        The railID template publishes per-node NIC-to-rails data in the
+        {{ include "nodeDataBroker.nicRailsConfigMapName" . }} ConfigMap.
+        Host /sys/class/net is mounted read-only to resolve interfaces to
+        physical NIC device names.
+{{- end }}
+        See values.k8s.lldp-example.yaml.
+{{- end }}
 {{- $kubeClient := default dict .Values.kubeClient }}
 {{- if or (hasKey $kubeClient "qps") (hasKey $kubeClient "burst") }}
 
