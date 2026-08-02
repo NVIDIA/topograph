@@ -19,6 +19,8 @@
             "dsx-sim",
             "infiniband-bm",
             "infiniband-k8s",
+            "lldp-bm",
+            "lldp-k8s",
             "lambdai",
             "lambdai-sim",
             "nebius",

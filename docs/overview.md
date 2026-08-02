@@ -43,6 +43,7 @@ Currently supported providers:
 - [DRA](./providers/dra.md) — provides Slinky block topology from pre-existing `nvidia.com/gpu.clique` labels; it does not discover the backend switch fabric
 - [InfiniBand (bare-metal)](./providers/infiniband.md#infiniband-bm-bare-metal)
 - [InfiniBand (Kubernetes)](./providers/infiniband.md#infiniband-k8s-kubernetes)
+- [LLDP](./providers/lldp.md) — discovers directly connected Ethernet leaf switches on bare-metal or Kubernetes nodes
 - [Test](./providers/test.md) - simulates Topograph success, pending, and error responses for integration testing
 
 Currently supported engines:
@@ -64,6 +65,7 @@ Currently supported engines:
 | InfiniBand fabric, NetQ deployed | [NetQ](./providers/netq.md) |
 | InfiniBand fabric, no NetQ, bare-metal / Slurm | [InfiniBand (bare-metal)](./providers/infiniband.md) |
 | InfiniBand fabric, no NetQ, Kubernetes | [InfiniBand (Kubernetes)](./providers/infiniband.md) |
+| Ethernet leaf-switch locality, no fabric management plane | [LLDP](./providers/lldp.md) |
 | Client integration and regression testing | [Test](./providers/test.md) |
 
 The DRA provider is a narrow Slinky integration, not a general Kubernetes MNNVL topology provider. It groups nodes into Slurm `topology/block` domains from existing `nvidia.com/gpu.clique` labels. Those labels are not present in every GPU Operator deployment, and DRA does not discover the backend switch fabric between NVLink partitions. Consequently, if a workload cannot fit in one partition, selection of additional partitions is not informed by network proximity. Use NetQ or `infiniband-k8s` when cross-partition fabric locality is required.

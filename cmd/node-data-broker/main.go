@@ -10,7 +10,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"maps"
 	"net/http"
 	"os"
 	"os/signal"
@@ -31,6 +30,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
 	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
+	"github.com/NVIDIA/topograph/pkg/providers/lldp"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 )
@@ -216,6 +216,8 @@ func getAnnotations(ctx context.Context, client kubernetes.Interface, config *re
 		return infiniband.GetNodeAnnotations(ctx, client, config, nodeName, extras)
 	case lambdai.NAME:
 		return lambdai.GetNodeAnnotations(ctx, client, nodeName)
+	case lldp.NAME_K8S:
+		return lldp.GetNodeAnnotations(ctx, nodeName, extras)
 	case "":
 		return nil, fmt.Errorf("must set provider")
 	default:
@@ -227,5 +229,11 @@ func mergeNodeAnnotations(node *corev1.Node, annotations map[string]string) {
 	if node.Annotations == nil {
 		node.Annotations = make(map[string]string)
 	}
-	maps.Copy(node.Annotations, annotations)
+	for key, value := range annotations {
+		if value == "" {
+			delete(node.Annotations, key)
+		} else {
+			node.Annotations[key] = value
+		}
+	}
 }
