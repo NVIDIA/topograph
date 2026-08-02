@@ -40,6 +40,8 @@ types:
 | `netq` | Yes (NMX `DomainUUID`) | Yes (Spectrum-X switch hierarchy) |
 | `infiniband-bm` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
 | `infiniband-k8s` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
+| `lldp-bm` | No | Yes (directly connected leaf only) |
+| `lldp-k8s` | No | Yes (directly connected leaf only) |
 
 The DRA provider is intentionally omitted: its supported use is with the Slinky
 engine, where it converts existing `nvidia.com/gpu.clique` labels into Slurm
@@ -121,6 +123,7 @@ Topograph sets the following annotations on nodes as internal bookkeeping metada
 | `topograph.nvidia.com/instance` | The cloud instance ID or node identifier as returned by the provider |
 | `topograph.nvidia.com/region` | The provider region associated with this node |
 | `topograph.nvidia.com/cluster-id` | The cluster identifier (where reported by the provider) |
+| `topograph.nvidia.com/lldp-chassis-id` | The LLDP chassis-ID subtype and value reported by the node's selected directly connected switch, stored as `<subtype>:<value>` |
 
 Additional annotations are set on topology ConfigMaps (used by the Slinky engine):
 

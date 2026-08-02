@@ -104,7 +104,7 @@ func TestMergeNodeAnnotations(t *testing.T) {
 		out  map[string]string
 	}{
 		{
-			name: "Case 1: no labels",
+			name: "Case 1: no annotations",
 			node: &corev1.Node{},
 			out:  map[string]string{},
 		},
@@ -124,6 +124,15 @@ func TestMergeNodeAnnotations(t *testing.T) {
 			},
 			in:  map[string]string{"c": "3", "d": "4"},
 			out: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4"},
+		},
+		{
+			name: "Case 4: empty value deletes annotation",
+			node: &corev1.Node{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+				"keep":  "value",
+				"stale": "value",
+			}}},
+			in:  map[string]string{"new": "value", "stale": ""},
+			out: map[string]string{"keep": "value", "new": "value"},
 		},
 	}
 

@@ -3,13 +3,15 @@
 # Declare variables to be passed into your templates.
 
 provider:
-  # name: "aws", "oci", "gcp", "nebius", "nscale", "lambdai", "netq", "infiniband-k8s", "dra" or "test".
+  # name: "aws", "oci", "gcp", "nebius", "nscale", "lambdai", "netq", "infiniband-k8s", "lldp-k8s", "dra" or "test".
   name: test
   # params:
   #   # For infiniband-k8s, use an existing Kubernetes node label as the
   #   # accelerator-domain source instead of running nvidia-smi through the
   #   # GPU Operator device-plugin DaemonSet.
   #   useGpuCliqueLabel: true
+  #   # For lldp-k8s, limit neighbor discovery to data-plane interfaces.
+  #   interfaces: [eno1]
 
 engine:
   # name: "k8s", "nfd", "slinky", "slurm" or "graph"

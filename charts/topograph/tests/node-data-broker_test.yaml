@@ -159,6 +159,21 @@ tests:
           path: spec.template.spec.containers[0].args
           content: --set=foo=bar
 
+  - it: forwards LLDP interface selection
+    templates:
+      - templates/nodeDataBroker/daemonset.yaml
+    set:
+      provider:
+        name: lldp-k8s
+        params:
+          interfaces:
+            - eno1
+            - eno2
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --set=interfaces=eno1,eno2
+
   - it: is omitted when the component is disabled
     templates:
       - templates/nodeDataBroker/daemonset.yaml

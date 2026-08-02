@@ -1,0 +1,42 @@
+provider:
+  name: lldp-k8s
+  params:
+    # Select only interfaces whose leaf-switch attachment represents
+    # scheduling locality. Omit this list when every reported LLDP neighbor is
+    # the same switch.
+    interfaces:
+      - eno1
+
+engine:
+  name: k8s
+
+# Mount the node's lldpd control socket. The common socket location is
+# /var/run/lldpd.socket (usually a symlink-equivalent of /run/lldpd.socket).
+# This example runs only the broker as root because lldpd sockets are commonly
+# root-owned. No privilege escalation or Linux capabilities are required. If
+# the socket is group-readable, prefer the chart's non-root defaults and set
+# podSecurityContext.supplementalGroups to the host lldpd group's numeric GID.
+nodeDataBroker:
+  podSecurityContext:
+    runAsNonRoot: false
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: false
+    runAsUser: 0
+    capabilities:
+      drop:
+        - ALL
+  volumeMounts:
+    - name: lldpd-socket
+      mountPath: /var/run/lldpd.socket
+  volumes:
+    - name: lldpd-socket
+      hostPath:
+        path: /var/run/lldpd.socket
+        type: Socket
