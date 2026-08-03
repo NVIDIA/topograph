@@ -329,6 +329,57 @@ func TestComplementMultiGroupRootExpansion3x72(t *testing.T) {
 	require.Equal(t, 4, empty, "expected 4 empty padding blocks (1 empty domain slot × 4 blocks)")
 }
 
+// TestComplementMixedDomainSizesLCMPadding is a regression test for the LCM padding bug
+// in toRootAggregate. When blockSizes[last] < maxSiblingNodes the capping branch in
+// toDomainAggregate sizes each domain by its own ActualNodeCount, producing non-uniform
+// child capacities. The old code set childCapacity from only the first domain; the LCM
+// step was then too coarse to land on targetCount and the loop overshot, leaving
+// result.nodeCount % rootDesired ≠ 0.
+//
+// Setup: blockSizes=[8,32], domain "a" with 64 nodes (capacity=64), domain "b" with 12
+// nodes (capacity=16). result.nodeCount before padding = 80; 80%32=16≠0.
+//
+// Old (buggy): childCapacity=64 → step=lcm(64,32)=64 → targetCount=128 → adds 64 →
+//
+//	nodeCount=144, 144%32=16≠0.
+//
+// Fixed: childCapacity=GCD(64,16)=16 → step=lcm(16,32)=32 → targetCount=96 → adds 16 →
+//
+//	nodeCount=96, 96%32=0. Total: 12 base blocks (8 from "a", 2 from "b", 2 empty).
+func TestComplementMixedDomainSizesLCMPadding(t *testing.T) {
+	domains := topology.NewDomainMap()
+	var aNodes, bNodes []string
+	for i := 0; i < 64; i++ {
+		name := fmt.Sprintf("a-n%02d", i)
+		aNodes = append(aNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a", HostName: name, InstanceID: name})
+	}
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("b-n%02d", i)
+		bNodes = append(bNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", HostName: name, InstanceID: name})
+	}
+
+	blocks := []*blockInfo{
+		{name: "a", nodes: aNodes},
+		{name: "b", nodes: bNodes},
+	}
+	nt := &NetworkTopology{domains: domains, blocks: blocks}
+	out := nt.complementBlocks(nt.blocks, []int{8, 32})
+
+	// 8 real blocks from "a" + 2 real from "b" + 2 empty padding = 12 total; 96%32==0.
+	require.Len(t, out, 12, "expected 12 base blocks: 8 (a) + 2 (b) + 2 (padding)")
+	require.Equal(t, 0, len(out)*8%32, "total capacity must be divisible by rootDesired=32")
+
+	empty := 0
+	for _, b := range out {
+		if isEmptyBlock(b) {
+			empty++
+		}
+	}
+	require.Equal(t, 2, empty, "expected 2 empty padding blocks")
+}
+
 // TestComplementWithMissingDomain verifies that when B2 has no entry in the domain map,
 // domainsForBlocks only sees B1. The complement tree produces block001 with B1's nodes
 // and an empty block002 padding slot (root-padded to reach blockSizes[last]=4).

@@ -335,6 +335,8 @@ func toRootAggregate(root *topology.BlockVertex, blockSizes []int) *aggregateBlo
 		result.nodeCount += domainAgg.nodeCount
 		if childCapacity == 0 {
 			childCapacity = domainAgg.nodeCount
+		} else {
+			childCapacity = blockTreeGCD(childCapacity, domainAgg.nodeCount)
 		}
 	}
 
