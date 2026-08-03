@@ -88,3 +88,41 @@ func TestExpandList(t *testing.T) {
 		})
 	}
 }
+
+func TestExpandWithLimit(t *testing.T) {
+	t.Run("valid range within limit", func(t *testing.T) {
+		result, err := ExpandWithLimit([]string{"n[1-3]"}, 10)
+		require.NoError(t, err)
+		require.Equal(t, []string{"n1", "n2", "n3"}, result)
+	})
+
+	t.Run("range exactly at limit", func(t *testing.T) {
+		result, err := ExpandWithLimit([]string{"n[1-5]"}, 5)
+		require.NoError(t, err)
+		require.Len(t, result, 5)
+	})
+
+	t.Run("range exceeds limit — no allocation", func(t *testing.T) {
+		// A single token expands to 2 billion entries; limit is 10.
+		// The check must fire before any heap allocation.
+		_, err := ExpandWithLimit([]string{"n[0-2000000000]"}, 10)
+		require.ErrorContains(t, err, "exceeds")
+	})
+
+	t.Run("multiple entries accumulate toward limit", func(t *testing.T) {
+		// Two ranges of 3 each; limit of 5 should be exceeded on the second.
+		_, err := ExpandWithLimit([]string{"n[1-3]", "m[1-3]"}, 5)
+		require.ErrorContains(t, err, "exceeds")
+	})
+
+	t.Run("scalar entries count toward limit", func(t *testing.T) {
+		_, err := ExpandWithLimit([]string{"a", "b", "c"}, 2)
+		require.ErrorContains(t, err, "exceeds")
+	})
+
+	t.Run("passthrough entries (no brackets) count toward limit", func(t *testing.T) {
+		result, err := ExpandWithLimit([]string{"node1", "node2"}, 5)
+		require.NoError(t, err)
+		require.Equal(t, []string{"node1", "node2"}, result)
+	})
+}

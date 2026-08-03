@@ -94,6 +94,51 @@ func Expand(compressed []string) []string {
 	return result
 }
 
+// MaxExpandedNodes is the maximum number of node names that ExpandWithLimit
+// may return in a single call. It guards against decompression-bomb inputs
+// (e.g. "n[0-2000000000]") from untrusted sources such as HTTP request bodies.
+// Use ExpandWithLimit at call sites where the input is attacker-controlled.
+const MaxExpandedNodes = 500_000
+
+// ExpandWithLimit is like Expand but returns an error if the total number of
+// expanded node names would exceed limit. The check for ranged parts is done
+// before any allocation so a single oversized token causes no heap growth.
+func ExpandWithLimit(compressed []string, limit int) ([]string, error) {
+	var result []string
+
+	for _, entry := range compressed {
+		matches := expandRegexp.FindStringSubmatch(entry)
+		if matches != nil {
+			prefix, ranges := matches[1], matches[2]
+			rangesParts := strings.Split(ranges, ",")
+			for _, part := range rangesParts {
+				if strings.Contains(part, "-") {
+					bounds := strings.Split(part, "-")
+					lo, hi := atoi(bounds[0]), atoi(bounds[1])
+					width := len(bounds[0])
+					if hi >= lo && hi-lo+1 > limit-len(result) {
+						return nil, fmt.Errorf("expanded node list exceeds %d entries", limit)
+					}
+					for i := lo; i <= hi; i++ {
+						result = append(result, fmt.Sprintf("%s%0*d", prefix, width, i))
+					}
+				} else {
+					result = append(result, fmt.Sprintf("%s%s", prefix, part))
+					if len(result) > limit {
+						return nil, fmt.Errorf("expanded node list exceeds %d entries", limit)
+					}
+				}
+			}
+		} else {
+			result = append(result, entry)
+			if len(result) > limit {
+				return nil, fmt.Errorf("expanded node list exceeds %d entries", limit)
+			}
+		}
+	}
+	return result, nil
+}
+
 // ExpandList decompresses a list of compacted node names back to individual entries
 func ExpandList(compressed string) []string {
 	return Expand(splitList(compressed))
