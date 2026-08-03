@@ -19,6 +19,7 @@ package translate
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -1011,4 +1012,25 @@ func TestInitTreeNilVertexNoPanic(t *testing.T) {
 	}
 	require.NotPanics(t, func() { nt.initTree(graph) })
 	require.Contains(t, nt.tree, "real-child")
+}
+
+// TestTreeSelfEdgeDoesNotHang verifies that a vertex whose ID equals one of its
+// child map keys (creating a self-edge in the adjacency list) is skipped by
+// initTree and does not cause toTreeTopology to loop forever.
+func TestTreeSelfEdgeDoesNotHang(t *testing.T) {
+	node := &topology.Vertex{ID: "x", Name: "x"}
+	sw := &topology.Vertex{ID: "x", Vertices: map[string]*topology.Vertex{"x": node}}
+	root := &topology.Vertex{Vertices: map[string]*topology.Vertex{"x": sw}}
+	g := &topology.Graph{Tiers: root}
+
+	nt, err := NewNetworkTopology(g, &Config{Plugin: topology.TopologyTree})
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() { _ = nt.Generate(&bytes.Buffer{}); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Generate hung: self-edge cycle not guarded")
+	}
 }

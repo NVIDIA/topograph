@@ -251,10 +251,15 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 	} else {
 		tu.Tree = &TreeTopo{Switches: []*Switch{}, parents: make(map[string][]string)}
 
+		visited := make(map[string]bool)
 		queue := []string{""}
 		for len(queue) > 0 {
 			switchID := queue[0]
 			queue = queue[1:]
+			if visited[switchID] {
+				continue
+			}
+			visited[switchID] = true
 			connects, ok := tree[switchID]
 			if !ok {
 				// ignore the leaves (nodes)

@@ -252,6 +252,10 @@ func (nt *NetworkTopology) initTree(graph *topology.Graph) {
 				klog.Warningf("initTree: skipping nil vertex with key %q under %q", id, v.ID)
 				continue
 			}
+			if id == v.ID {
+				klog.Warningf("initTree: skipping self-edge on vertex %q (child map key equals parent ID)", v.ID)
+				continue
+			}
 			if len(v.ID) != 0 {
 				parentMap[w.ID] = append([]string{}, parentMap[v.ID]...)
 				parentMap[w.ID] = append(parentMap[w.ID], v.ID)
