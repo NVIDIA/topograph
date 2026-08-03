@@ -251,3 +251,38 @@ BlockSizes=2,4
 		})
 	}
 }
+
+// TestProviderSimNodeFewerThanThreeNetLayers verifies that a model node with
+// fewer than 3 network layers (e.g. a single-level switch, giving NetLayers
+// length 1) does not cause an index-out-of-range panic in simClient.Instances.
+// The instance is included in the result without PhysicalHostTopology, which
+// generateRegionInstanceTopology already handles gracefully via a nil-check.
+func TestProviderSimNodeFewerThanThreeNetLayers(t *testing.T) {
+	const singleSwitchModel = `
+switches:
+  sw1: {}
+blocks:
+- switch: sw1
+  nodes: ["11"]
+`
+	f, err := os.CreateTemp("", "test-single-switch-*")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer func() { _ = f.Close() }()
+	_, err = f.WriteString(singleSwitchModel)
+	require.NoError(t, err)
+	require.NoError(t, f.Sync())
+
+	cfg := providers.Config{
+		Params: map[string]any{"modelFileName": f.Name()},
+	}
+	provider, httpErr := LoaderSim(context.Background(), cfg)
+	require.Nil(t, httpErr)
+
+	cis := []topology.ComputeInstances{
+		{Region: "us-central1-a", Instances: map[string]string{"11": "node11"}},
+	}
+	// Must not panic; the node has only 1 NetLayer so ResourceStatus is omitted.
+	_, httpErr = provider.GenerateTopologyConfig(context.Background(), nil, cis)
+	require.Nil(t, httpErr)
+}

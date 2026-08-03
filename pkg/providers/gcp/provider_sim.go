@@ -94,13 +94,15 @@ func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesR
 		instance := &computepb.Instance{
 			Id:   &instanceID,
 			Name: &node.ID,
-			ResourceStatus: &computepb.ResourceStatus{
+		}
+		if len(node.NetLayers) >= 3 {
+			instance.ResourceStatus = &computepb.ResourceStatus{
 				PhysicalHostTopology: &computepb.ResourceStatusPhysicalHostTopology{
 					Cluster:  &node.NetLayers[2],
 					Block:    &node.NetLayers[1],
 					Subblock: &node.NetLayers[0],
 				},
-			},
+			}
 		}
 		iter.instances = append(iter.instances, instance)
 	}
