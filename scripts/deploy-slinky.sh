@@ -98,6 +98,24 @@ helm upgrade --install slurm-operator \
     --set-json "webhook.tolerations=$control_plane_tolerations" \
     --wait --timeout 5m
 
+webhook_proxy_path="/api/v1/namespaces/slinky/services/http:slurm-operator-webhook:health/proxy/readyz"
+webhook_ready=false
+
+echo "Waiting for the Slinky admission webhook Service"
+for _ in {1..60}; do
+    if kubectl --context "$kube_context" get \
+        --raw "$webhook_proxy_path" >/dev/null 2>&1; then
+        webhook_ready=true
+        break
+    fi
+    sleep 1
+done
+
+if [[ "$webhook_ready" != "true" ]]; then
+    echo "Slinky admission webhook Service did not become reachable" >&2
+    exit 1
+fi
+
 slurm_args=(
     upgrade --install slurm
     oci://ghcr.io/slinkyproject/charts/slurm
