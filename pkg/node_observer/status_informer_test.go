@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 NVIDIA CORPORATION
+ * Copyright 2025-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -39,6 +39,7 @@ func TestNewStatusInformer(t *testing.T) {
 	}
 	informer, err := NewStatusInformer(ctx, nil, trigger, apiServer, "topograph-node-data-broker", "topograph", 0, nil)
 	require.NoError(t, err)
+	t.Cleanup(func() { informer.Stop(nil) })
 	require.NotNil(t, informer.nodeFactory)
 	require.NotNil(t, informer.podFactory)
 	require.NotNil(t, informer.apiFactory)
@@ -61,9 +62,61 @@ func TestNewStatusInformerBrokerGateRequiresNameAndNamespace(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			informer, err := NewStatusInformer(context.TODO(), nil, nil, nil, tc.brokerName, tc.brokerNamespace, 0, nil)
 			require.NoError(t, err)
+			t.Cleanup(func() { informer.Stop(nil) })
 			require.Nil(t, informer.brokerFactory)
 		})
 	}
+}
+
+func TestNodeInformerPreservesMainBranchTriggers(t *testing.T) {
+	client := k8sfake.NewSimpleClientset()
+	s, err := NewStatusInformer(
+		context.Background(),
+		client,
+		&Trigger{NodeSelector: map[string]string{"role": "compute"}},
+		nil,
+		"",
+		"",
+		time.Second,
+		nil,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { s.Stop(nil) })
+	require.NoError(t, s.startNodeInformer())
+
+	node, err := client.CoreV1().Nodes().Create(context.Background(), &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "node-1",
+			Labels: map[string]string{"role": "compute"},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	require.Eventually(t, func() bool { return s.queue.Len() == 1 }, time.Second, 10*time.Millisecond)
+
+	key, shutdown := s.queue.Get()
+	require.False(t, shutdown)
+	s.queue.Done(key)
+	s.queue.Forget(key)
+	require.Zero(t, s.queue.Len())
+
+	updated := node.DeepCopy()
+	updated.Annotations = map[string]string{"example.com/input": "changed"}
+	_, err = client.CoreV1().Nodes().Update(context.Background(), updated, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	informer := s.nodeFactory.Core().V1().Nodes().Informer()
+	require.Eventually(t, func() bool {
+		obj, exists, getErr := informer.GetStore().GetByKey(node.Name)
+		if getErr != nil || !exists {
+			return false
+		}
+		cachedNode, ok := obj.(*corev1.Node)
+		return ok && cachedNode.Annotations["example.com/input"] == "changed"
+	}, time.Second, 10*time.Millisecond)
+	require.Never(t, func() bool { return s.queue.Len() != 0 }, 100*time.Millisecond, 10*time.Millisecond)
+
+	require.NoError(t, client.CoreV1().Nodes().Delete(context.Background(), node.Name, metav1.DeleteOptions{}))
+	require.Eventually(t, func() bool { return s.queue.Len() == 1 }, time.Second, 10*time.Millisecond)
 }
 
 func TestBrokerDaemonSetReady(t *testing.T) {
@@ -199,14 +252,14 @@ func TestAPIServerPodDeleteQueuesRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			s := &StatusInformer{queue: make(chan struct{}, 1)}
+			s := newTestStatusInformer(t, time.Second, nil)
 
 			s.requestOnAPIServerDelete(tc.obj)
 
 			if tc.queued {
-				require.Len(t, s.queue, 1)
+				require.Equal(t, 1, s.queue.Len())
 			} else {
-				require.Empty(t, s.queue)
+				require.Zero(t, s.queue.Len())
 			}
 		})
 	}
@@ -235,18 +288,14 @@ func TestAPIServerInformerRegistersDeleteHandler(t *testing.T) {
 	})
 
 	require.NoError(t, s.startAPIServerInformer())
-	require.Empty(t, s.queue)
+	require.Zero(t, s.queue.Len())
 	require.NoError(t, client.CoreV1().Pods(pod.Namespace).Delete(
 		context.Background(),
 		pod.Name,
 		metav1.DeleteOptions{},
 	))
 
-	select {
-	case <-s.queue:
-	case <-time.After(time.Second):
-		t.Fatal("API-server Pod deletion did not queue a topology request")
-	}
+	require.Eventually(t, func() bool { return s.queue.Len() == 1 }, time.Second, 10*time.Millisecond)
 }
 
 func reqExecFunc(f httpreq.RequestFunc, _ bool) ([]byte, *httperr.Error) {
@@ -254,6 +303,15 @@ func reqExecFunc(f httpreq.RequestFunc, _ bool) ([]byte, *httperr.Error) {
 		return nil, err
 	}
 	return nil, nil
+}
+
+func newTestStatusInformer(t *testing.T, retryDelay time.Duration, reqFunc httpreq.RequestFunc) *StatusInformer {
+	t.Helper()
+	s, err := NewStatusInformer(context.Background(), nil, nil, nil, "", "", retryDelay, reqFunc)
+	require.NoError(t, err)
+	s.reqExecFunc = reqExecFunc
+	t.Cleanup(func() { s.Stop(nil) })
+	return s
 }
 
 func TestSendRequestAndRetry(t *testing.T) {
@@ -269,25 +327,45 @@ func TestSendRequestAndRetry(t *testing.T) {
 		}
 	}
 
-	s := &StatusInformer{
-		queue:       make(chan struct{}, 1),
-		stopCh:      make(chan struct{}),
-		retryDelay:  50 * time.Millisecond,
-		reqFunc:     reqFunc,
-		reqExecFunc: reqExecFunc,
-	}
+	s := newTestStatusInformer(t, 50*time.Millisecond, reqFunc)
 
 	// start worker
 	go s.run()
-	defer close(s.stopCh)
 
 	// trigger request
 	s.sendRequest()
 
 	// wait enough time for: fail + delay + fail + delay + success
-	time.Sleep(200 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt32(&calls) == 3
+	}, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		return s.queue.NumRequeues(topologyQueueKey) == 0
+	}, time.Second, 10*time.Millisecond)
+}
 
-	require.Equal(t, int32(3), atomic.LoadInt32(&calls))
+func TestReconcileRequeuesWhileBrokerCacheIsNotReady(t *testing.T) {
+	var calls int32
+	s, err := NewStatusInformer(
+		context.Background(),
+		k8sfake.NewSimpleClientset(),
+		nil,
+		nil,
+		"topograph-node-data-broker",
+		"topograph",
+		time.Second,
+		func() (*http.Request, *httperr.Error) {
+			atomic.AddInt32(&calls, 1)
+			return nil, nil
+		},
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { s.Stop(nil) })
+
+	requeueAfter, reconcileErr := s.reconcile()
+	require.NoError(t, reconcileErr)
+	require.Equal(t, defaultBrokerRetryDelay, requeueAfter)
+	require.Zero(t, atomic.LoadInt32(&calls))
 }
 
 func TestDeduplicatesRequests(t *testing.T) {
@@ -298,26 +376,18 @@ func TestDeduplicatesRequests(t *testing.T) {
 		return nil, nil
 	}
 
-	s := &StatusInformer{
-		queue:       make(chan struct{}, 1),
-		stopCh:      make(chan struct{}),
-		retryDelay:  50 * time.Millisecond,
-		reqFunc:     reqFunc,
-		reqExecFunc: reqExecFunc,
-	}
-
-	go s.run()
-	defer close(s.stopCh)
+	s := newTestStatusInformer(t, 50*time.Millisecond, reqFunc)
 
 	// flood with requests
 	for range 5 {
 		s.sendRequest()
 	}
+	require.Equal(t, 1, s.queue.Len())
+	go s.run()
 
-	time.Sleep(50 * time.Millisecond)
-
-	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
-
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt32(&calls) == 1
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestStartBlocksUntilStopped(t *testing.T) {
@@ -351,6 +421,41 @@ func TestStartBlocksUntilStopped(t *testing.T) {
 	case <-time.After(time.Second):
 		require.Fail(t, "Start did not return after Stop")
 	}
+}
+
+func TestStartDoesNotRequestWithoutInformerEvent(t *testing.T) {
+	requestAttempted := make(chan struct{}, 1)
+	s := newTestStatusInformer(t, time.Second, func() (*http.Request, *httperr.Error) {
+		requestAttempted <- struct{}{}
+		return nil, nil
+	})
+	done := make(chan error, 1)
+	go func() {
+		done <- s.Start()
+	}()
+
+	select {
+	case <-requestAttempted:
+		t.Fatal("Start issued a topology request without an informer event")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	s.Stop(nil)
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("Start did not return after Stop")
+	}
+}
+
+func TestWaitForInformerCacheReportsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := waitForInformerCache(ctx, "nodes", func() bool { return false })
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorContains(t, err, "failed to sync nodes informer cache")
 }
 
 func TestStopCancelsRequestContext(t *testing.T) {
@@ -415,7 +520,7 @@ func TestStopCancelsRequestRetry(t *testing.T) {
 	}
 }
 
-func TestRetryCancelledByNewRequest(t *testing.T) {
+func TestNewRequestRunsBeforeRateLimitedRetry(t *testing.T) {
 	var calls int32
 
 	// always fail
@@ -424,29 +529,92 @@ func TestRetryCancelledByNewRequest(t *testing.T) {
 		return nil, httperr.NewError(http.StatusInternalServerError, "")
 	}
 
-	s := &StatusInformer{
-		queue:       make(chan struct{}, 1),
-		stopCh:      make(chan struct{}),
-		retryDelay:  200 * time.Millisecond,
-		reqFunc:     reqFunc,
-		reqExecFunc: reqExecFunc,
-	}
+	s := newTestStatusInformer(t, time.Second, reqFunc)
 
 	go s.run()
-	defer close(s.stopCh)
 
 	s.sendRequest()
 
-	time.Sleep(50 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt32(&calls) == 1
+	}, time.Second, 10*time.Millisecond)
 
 	// send another request before retry fires
 	s.sendRequest()
 
-	time.Sleep(100 * time.Millisecond)
-
 	// expected 2 calls:
 	// - initial
 	// - immediate second (not waiting full retryDelay)
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt32(&calls) == 2
+	}, 500*time.Millisecond, 10*time.Millisecond)
+}
+
+func TestSuccessfulEventSupersedesPendingRetry(t *testing.T) {
+	const retryDelay = 100 * time.Millisecond
+	var calls int32
+	thirdCall := make(chan struct{}, 1)
+
+	reqFunc := func() (*http.Request, *httperr.Error) {
+		call := atomic.AddInt32(&calls, 1)
+		if call == 1 {
+			return nil, httperr.NewError(http.StatusInternalServerError, "retry")
+		}
+		if call > 2 {
+			select {
+			case thirdCall <- struct{}{}:
+			default:
+			}
+		}
+		return nil, nil
+	}
+
+	s := newTestStatusInformer(t, retryDelay, reqFunc)
+	go s.run()
+
+	// The first request fails and schedules a delayed retry.
+	s.sendRequest()
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt32(&calls) == 1
+	}, time.Second, 10*time.Millisecond)
+
+	// A new event reconciles successfully before the delayed retry fires.
+	s.sendRequest()
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt32(&calls) == 2
+	}, time.Second, 10*time.Millisecond)
+
+	// The obsolete delayed item may still enter the queue, but it must not
+	// issue another topology-generation request.
+	select {
+	case <-thirdCall:
+		t.Fatal("obsolete delayed retry issued a third request")
+	case <-time.After(3 * retryDelay):
+	}
+	require.Equal(t, int32(2), atomic.LoadInt32(&calls))
+}
+
+func TestNewFailedEventResetsPendingRetry(t *testing.T) {
+	var calls int32
+	s := newTestStatusInformer(t, time.Second, func() (*http.Request, *httperr.Error) {
+		atomic.AddInt32(&calls, 1)
+		return nil, httperr.NewError(http.StatusInternalServerError, "retry")
+	})
+
+	// The initial event fails and schedules a retry.
+	s.sendRequest()
+	require.True(t, s.processNextWorkItem())
+	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
+
+	// A newer event runs immediately, fails, and resets the retry deadline.
+	s.sendRequest()
+	require.True(t, s.processNextWorkItem())
+	require.Equal(t, int32(2), atomic.LoadInt32(&calls))
+
+	// Simulate the older delayed entry reaching the queue before the reset
+	// deadline. It must be postponed without issuing another request.
+	s.queue.Add(topologyQueueKey)
+	require.True(t, s.processNextWorkItem())
 	require.Equal(t, int32(2), atomic.LoadInt32(&calls))
 }
 

@@ -25,10 +25,9 @@ const (
 )
 
 type Controller struct {
-	ctx            context.Context
-	client         kubernetes.Interface
-	statusInformer *StatusInformer
-	healthURL      string
+	ctx        context.Context
+	reconciler *StatusInformer
+	healthURL  string
 }
 
 func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config) (*Controller, error) {
@@ -59,10 +58,9 @@ func NewController(ctx context.Context, client kubernetes.Interface, cfg *Config
 		return nil, err
 	}
 	return &Controller{
-		ctx:            ctx,
-		client:         client,
-		statusInformer: statusInformer,
-		healthURL:      healthURL,
+		ctx:        ctx,
+		reconciler: statusInformer,
+		healthURL:  healthURL,
 	}, nil
 }
 
@@ -72,11 +70,11 @@ func (c *Controller) Start() error {
 		return err
 	}
 
-	klog.Infof("Starting state observer")
-	return c.statusInformer.Start()
+	klog.Infof("Starting topology controller")
+	return c.reconciler.Start()
 }
 
 func (c *Controller) Stop(err error) {
-	klog.Infof("Stopping state observer")
-	c.statusInformer.Stop(err)
+	klog.Infof("Stopping topology controller")
+	c.reconciler.Stop(err)
 }
