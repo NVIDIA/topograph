@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -274,6 +275,29 @@ func TestGetTranslateConfig(t *testing.T) {
 				BlockSizes: []int{2, 5},
 			},
 			err: "blockSizes[1]=5 must be a multiple of blockSizes[0]=2",
+		},
+		{
+			name: "Case 4a: too many blockSizes entries",
+			params: &BaseParams{
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: func() []int {
+					bs := make([]int, maxBlockSizesLen+1)
+					bs[0] = 1
+					for i := 1; i <= maxBlockSizesLen; i++ {
+						bs[i] = bs[i-1] * 2
+					}
+					return bs
+				}(),
+			},
+			err: fmt.Sprintf("blockSizes has too many entries (%d); max allowed is %d", maxBlockSizesLen+1, maxBlockSizesLen),
+		},
+		{
+			name: "Case 4b: blockSizes value exceeds maximum",
+			params: &BaseParams{
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{maxBlockSizeValue + 1},
+			},
+			err: fmt.Sprintf("blockSizes[0]=%d exceeds maximum allowed value %d", maxBlockSizeValue+1, maxBlockSizeValue),
 		},
 		{
 			name:   "Case 5: invalid partition topology",
