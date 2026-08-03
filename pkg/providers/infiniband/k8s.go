@@ -100,6 +100,9 @@ func parseClusterID(txt string) (string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		arr := strings.Split(line, ":")
+		if len(arr) < 2 {
+			continue
+		}
 		switch strings.TrimSpace(arr[0]) {
 		case "CliqueId":
 			cliqueId = strings.TrimSpace(arr[1])

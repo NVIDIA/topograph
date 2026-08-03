@@ -94,6 +94,11 @@ func TestParseClusterID(t *testing.T) {
 `,
 			clusterID: "00000000-0000-0000-0000-000000000000.0",
 		},
+		{
+			name:  "Case 4: malformed line (no colon) is skipped",
+			input: "CliqueId\n",
+			err:   "missing ClusterUUID",
+		},
 	}
 
 	for _, tt := range tests {

@@ -58,6 +58,11 @@ func TestPopulateDomainsFromPdshOutput(t *testing.T) {
 			nvOutput: nvOutput,
 			domains:  domainMap,
 		},
+		{
+			name:     "Case 4: malformed line (missing second colon) is skipped gracefully",
+			nvOutput: "node1:CliqueId\n",
+			domains:  topology.NewDomainMap(),
+		},
 	}
 
 	for _, tc := range testCases {

@@ -47,6 +47,10 @@ func populateDomainsFromPdshOutput(stdout *bytes.Buffer) (topology.DomainMap, er
 	for scanner.Scan() {
 		nodeLine := scanner.Text()
 		arr := strings.Split(nodeLine, ":")
+		if len(arr) < 3 {
+			klog.V(4).Infof("skipping malformed ibnetdiscover line: %q", nodeLine)
+			continue
+		}
 		nodeName := strings.TrimSpace(arr[0])
 		idName := strings.TrimSpace(arr[1])
 		val := strings.TrimSpace(arr[2])
