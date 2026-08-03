@@ -279,7 +279,7 @@ func TestGetTranslateConfig(t *testing.T) {
 		{
 			name: "Case 4a: too many blockSizes entries",
 			params: &BaseParams{
-				Plugin:     topology.TopologyBlock,
+				Plugin: topology.TopologyBlock,
 				BlockSizes: func() []int {
 					bs := make([]int, maxBlockSizesLen+1)
 					bs[0] = 1

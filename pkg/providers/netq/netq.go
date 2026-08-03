@@ -204,16 +204,15 @@ func parseNetq(treeRoot *topology.Vertex, data []byte, inputNodes map[string]boo
 				v, ok := nextLayer[up]
 				if !ok {
 					v = nodeMap[up]
+					if v == nil {
+						klog.Warningf("node ID %q not found", up)
+						continue
+					}
 					v.Vertices = make(map[string]*topology.Vertex)
 					nextLayer[up] = v
 					delete(nodeMap, up)
 				}
-
-				if v != nil {
-					v.Vertices[id] = w
-				} else {
-					klog.Warningf("node ID %q not found", up)
-				}
+				v.Vertices[id] = w
 			}
 		}
 
