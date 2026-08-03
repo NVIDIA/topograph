@@ -158,6 +158,9 @@ func (m *Model) buildSwitchMaps() (*switchMaps, error) {
 
 	for _, parent := range m.Switches {
 		for _, sw := range parent.Switches {
+			if _, exists := m.Switches[sw]; !exists {
+				return nil, fmt.Errorf("switch %q references unknown sub-switch %q", parent.Name, sw)
+			}
 			if p, ok := swmap[sw]; ok {
 				// a child switch cannot have more than one parent switch
 				return nil, fmt.Errorf("switch %q has two parent switches %q and %q", sw, parent.Name, p.Name)

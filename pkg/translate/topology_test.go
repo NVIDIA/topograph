@@ -987,3 +987,28 @@ func TestGetNodeTopologySpecAfterComplementPerPartition(t *testing.T) {
 		require.Equal(t, tc.spec, spec, "node %s", tc.node)
 	}
 }
+
+// TestInitTreeNilVertexNosPanic verifies that a nil child *Vertex stored in
+// graph.Tiers.Vertices does not crash initTree (defense-in-depth guard).
+func TestInitTreeNilVertexNoPanic(t *testing.T) {
+	graph := &topology.Graph{
+		Tiers: &topology.Vertex{
+			ID: "root",
+			Vertices: map[string]*topology.Vertex{
+				"nil-child": nil,
+				"real-child": {
+					ID:       "real-child",
+					Vertices: map[string]*topology.Vertex{},
+				},
+			},
+		},
+	}
+
+	nt := &NetworkTopology{
+		tree:     make(map[string][]string),
+		vertices: make(map[string]*topology.Vertex),
+		nodeInfo: make(map[string]*nodeInfo),
+	}
+	require.NotPanics(t, func() { nt.initTree(graph) })
+	require.Contains(t, nt.tree, "real-child")
+}

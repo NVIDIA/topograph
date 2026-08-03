@@ -283,6 +283,22 @@ blocks:
 	}
 }
 
+// TestBuildSwitchMapsUnknownSubSwitch verifies that buildSwitchMaps rejects a
+// programmatically-constructed model whose switch.Switches list references a
+// switch that is not present in m.Switches. (The YAML parsing path
+// auto-materializes missing sub-switches, so this validation guards against
+// programmatic misuse or future code paths that skip UnmarshalYAML.)
+func TestBuildSwitchMapsUnknownSubSwitch(t *testing.T) {
+	m := &Model{
+		Switches: map[string]*Switch{
+			"sw1": {Name: "sw1", Switches: []string{"ghost"}},
+			// "ghost" is intentionally absent
+		},
+	}
+	_, err := m.buildSwitchMaps()
+	require.ErrorContains(t, err, `switch "sw1" references unknown sub-switch "ghost"`)
+}
+
 func TestSwitchAndBlockMetadataMerge(t *testing.T) {
 	cfg := `
 switches:
