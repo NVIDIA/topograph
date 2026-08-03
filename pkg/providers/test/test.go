@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 
 	"k8s.io/klog/v2"
 
@@ -105,6 +106,10 @@ func Loader(_ context.Context, cfg providers.Config) (providers.Provider, *httpe
 	}
 
 	if len(p.ModelFileName) != 0 {
+		if filepath.Base(p.ModelFileName) != p.ModelFileName {
+			return nil, httperr.NewError(http.StatusBadRequest,
+				fmt.Sprintf("modelFileName %q must be a bare filename, not a path", p.ModelFileName))
+		}
 		klog.InfoS("Using simulated topology from", "modelFileName", p.ModelFileName)
 		model, err := models.NewModelFromFile(p.ModelFileName)
 		if err != nil {
