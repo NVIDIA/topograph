@@ -98,6 +98,51 @@ helm upgrade --install slurm-operator \
     --set-json "webhook.tolerations=$control_plane_tolerations" \
     --wait --timeout 5m
 
+webhook_local_port=19443
+webhook_url="https://127.0.0.1:${webhook_local_port}/validate-slinky-slurm-net-v1beta1-controller"
+webhook_port_forward_log="$(mktemp)"
+webhook_ready=false
+
+# Slinky 1.2.0 implements /readyz as a standalone ping that can succeed before
+# the TLS admission server starts. Probe an actual validation route instead.
+kubectl --context "$kube_context" --namespace slinky port-forward \
+    service/slurm-operator-webhook "${webhook_local_port}:https" \
+    >"$webhook_port_forward_log" 2>&1 &
+webhook_port_forward_pid=$!
+
+cleanup_webhook_port_forward() {
+    kill "$webhook_port_forward_pid" >/dev/null 2>&1 || true
+    wait "$webhook_port_forward_pid" >/dev/null 2>&1 || true
+    rm -f "$webhook_port_forward_log"
+}
+trap cleanup_webhook_port_forward EXIT
+
+echo "Waiting for the Slinky admission webhook TLS listener"
+for _ in {1..60}; do
+    if ! kill -0 "$webhook_port_forward_pid" >/dev/null 2>&1; then
+        echo "Failed to establish port-forward to the Slinky admission webhook" >&2
+        cat "$webhook_port_forward_log" >&2
+        exit 1
+    fi
+    # Any HTTP response proves that the TLS admission server is accepting
+    # connections; this validation endpoint does not need to accept GET.
+    if curl --insecure --silent --output /dev/null \
+        --connect-timeout 1 --max-time 2 "$webhook_url"; then
+        webhook_ready=true
+        break
+    fi
+    sleep 1
+done
+
+if [[ "$webhook_ready" != "true" ]]; then
+    echo "Slinky admission webhook TLS listener did not become reachable" >&2
+    cat "$webhook_port_forward_log" >&2
+    exit 1
+fi
+
+cleanup_webhook_port_forward
+trap - EXIT
+
 slurm_args=(
     upgrade --install slurm
     oci://ghcr.io/slinkyproject/charts/slurm
