@@ -116,11 +116,18 @@ func ExpandWithLimit(compressed []string, limit int) ([]string, error) {
 					bounds := strings.Split(part, "-")
 					lo, hi := atoi(bounds[0]), atoi(bounds[1])
 					width := len(bounds[0])
-					if hi >= lo && hi-lo+1 > limit-len(result) {
+					// Use hi-lo >= remaining instead of hi-lo+1 > remaining to
+					// avoid integer overflow when hi == math.MaxInt.
+					if hi >= lo && hi-lo >= limit-len(result) {
 						return nil, fmt.Errorf("expanded node list exceeds %d entries", limit)
 					}
+					// Break before i++ when i == hi to prevent i wrapping past
+					// math.MaxInt and keeping the loop condition true forever.
 					for i := lo; i <= hi; i++ {
 						result = append(result, fmt.Sprintf("%s%0*d", prefix, width, i))
+						if i == hi {
+							break
+						}
 					}
 				} else {
 					result = append(result, fmt.Sprintf("%s%s", prefix, part))

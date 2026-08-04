@@ -17,6 +17,8 @@
 package cluset
 
 import (
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -124,5 +126,25 @@ func TestExpandWithLimit(t *testing.T) {
 		result, err := ExpandWithLimit([]string{"node1", "node2"}, 5)
 		require.NoError(t, err)
 		require.Equal(t, []string{"node1", "node2"}, result)
+	})
+
+	t.Run("maximum-integer range does not bypass the guard via overflow", func(t *testing.T) {
+		// hi-lo+1 wraps to math.MinInt when hi==math.MaxInt and lo==0,
+		// making the old guard (hi-lo+1 > limit) evaluate to false and
+		// silently skip into an unbounded expansion loop.
+		// The fixed guard (hi-lo >= limit) evaluates math.MaxInt >= 10 → true.
+		entry := fmt.Sprintf("n[0-%d]", math.MaxInt)
+		_, err := ExpandWithLimit([]string{entry}, 10)
+		require.ErrorContains(t, err, "exceeds")
+	})
+
+	t.Run("singleton range at MaxInt terminates without loop overflow", func(t *testing.T) {
+		// lo == hi == math.MaxInt passes the size guard (hi-lo == 0 < limit)
+		// but the old loop's i++ wrapped MaxInt to MinInt, keeping i <= hi
+		// true and spinning forever. The fixed loop breaks before i++ fires.
+		entry := fmt.Sprintf("n[%d-%d]", math.MaxInt, math.MaxInt)
+		result, err := ExpandWithLimit([]string{entry}, MaxExpandedNodes)
+		require.NoError(t, err)
+		require.Len(t, result, 1)
 	})
 }
