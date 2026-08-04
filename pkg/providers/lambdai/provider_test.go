@@ -271,6 +271,38 @@ func TestLoader(t *testing.T) {
 			},
 			err: "credentials error: missing 'token'",
 		},
+		{
+			// Security: duplicate case-insensitive spellings both feed the same
+			// decoded field, and randomized map iteration picks the winner, so the
+			// ambiguity is reported rather than resolved arbitrarily.
+			name:    "Case 19: duplicate token spellings are rejected",
+			roleLRN: "lrn:iam:identity:abc",
+			config: providers.Config{
+				Creds: map[string]any{
+					"workspaceId": "workspace-123",
+					"token":       "token-abc",
+					"Token":       "token-xyz",
+				},
+				Params: map[string]any{
+					"url": "https://api.example.com",
+				},
+			},
+			err: "credentials error: ambiguous 'token' credential: Token, token",
+		},
+		{
+			name: "Case 20: duplicate workspaceId spellings are rejected",
+			config: providers.Config{
+				Creds: map[string]any{
+					"workspaceId": "workspace-123",
+					"WorkspaceID": "workspace-999",
+					"token":       "token-abc",
+				},
+				Params: map[string]any{
+					"url": "https://api.example.com",
+				},
+			},
+			err: "credentials error: ambiguous 'workspaceId' credential: WorkspaceID, workspaceId",
+		},
 	}
 
 	for _, tt := range tests {

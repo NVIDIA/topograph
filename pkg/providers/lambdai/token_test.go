@@ -22,6 +22,15 @@ import (
 	"github.com/NVIDIA/topograph/internal/httperr"
 )
 
+// resetCredentialCache clears the process-level credential cache between tests.
+// Test-only, so it lives here rather than in the production file.
+func resetCredentialCache() {
+	credMu.Lock()
+	credCache = map[string]*workloadIdentityCredential{}
+	credOrder = nil
+	credMu.Unlock()
+}
+
 // writeToken writes contents to a fresh temp file and returns its path, standing
 // in for the webhook-projected ServiceAccount token volume.
 func writeToken(t *testing.T, contents string) string {
@@ -370,6 +379,92 @@ func TestWorkloadIdentityCredentialInvalidateIfCurrentIgnoresStale(t *testing.T)
 	require.Nil(t, herr)
 	require.Equal(t, current, again, "the newer key must survive a stale invalidation")
 	require.Equal(t, 2, hits, "a stale invalidation must not trigger a re-exchange")
+}
+
+// TestWorkloadIdentityCredentialFailedRefreshIsShared covers the burst case: once
+// a refresh fails while the cached key is still valid, later callers must reuse
+// that outcome instead of each grinding through their own retry cycle against the
+// failing endpoint.
+func TestWorkloadIdentityCredentialFailedRefreshIsShared(t *testing.T) {
+	ctx := context.Background()
+	tokenPath := writeToken(t, "jwt")
+
+	var mu sync.Mutex
+	var hits int
+	var fail bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hits++
+		f := fail
+		mu.Unlock()
+		if f {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"access_token":"minted-1","expires_in":3600}}`))
+	}))
+	defer server.Close()
+
+	current := time.Unix(1_000_000, 0)
+	c := testCredential(server.URL, tokenPath, func() time.Time { return current })
+
+	tok, herr := c.Token(ctx)
+	require.Nil(t, herr)
+	require.Equal(t, "minted-1", tok)
+	mu.Lock()
+	require.Equal(t, 1, hits)
+	mu.Unlock()
+
+	// Past refreshAt (3300s) but before expiresAt (3600s), with the endpoint down.
+	current = current.Add(3400 * time.Second)
+	mu.Lock()
+	fail = true
+	mu.Unlock()
+
+	tok, herr = c.Token(ctx)
+	require.Nil(t, herr, "the still-valid key survives a failed refresh")
+	require.Equal(t, "minted-1", tok)
+	mu.Lock()
+	require.Equal(t, 2, hits, "one attempt for the failed refresh")
+	mu.Unlock()
+
+	// Subsequent callers inside the backoff must not attempt another exchange.
+	for range 5 {
+		tok, herr = c.Token(ctx)
+		require.Nil(t, herr)
+		require.Equal(t, "minted-1", tok)
+	}
+	mu.Lock()
+	require.Equal(t, 2, hits, "queued callers should share the failed refresh, not re-attempt")
+	mu.Unlock()
+
+	// The deferral never outlives the key: at expiry the exchange is retried.
+	current = current.Add(300 * time.Second) // now == expiresAt
+	_, _ = c.Token(ctx)
+	mu.Lock()
+	require.Greater(t, hits, 2, "an expired key must still trigger a fresh attempt")
+	mu.Unlock()
+}
+
+// TestSharedCredentialCacheIsBounded guards against unbounded growth: baseURL is
+// a caller-supplied provider parameter, so the cache key space is not closed.
+func TestSharedCredentialCacheIsBounded(t *testing.T) {
+	resetCredentialCache()
+	defer resetCredentialCache()
+
+	for i := range maxCachedCredentials + 20 {
+		sharedCredential(fmt.Sprintf("https://api-%d.example.com", i), "lrn:1", "/path/token")
+	}
+
+	credMu.Lock()
+	defer credMu.Unlock()
+	require.LessOrEqual(t, len(credCache), maxCachedCredentials, "cache must stay bounded")
+	require.Equal(t, len(credCache), len(credOrder), "eviction must keep map and order in step")
+	// FIFO: the oldest entries are the ones evicted.
+	_, oldestPresent := credCache["lrn:1|/path/token|https://api-0.example.com"]
+	require.False(t, oldestPresent, "the first inserted entry should have been evicted")
+	_, newestPresent := credCache[fmt.Sprintf("lrn:1|/path/token|https://api-%d.example.com", maxCachedCredentials+19)]
+	require.True(t, newestPresent, "the most recent entry should be retained")
 }
 
 func TestSharedCredentialCaching(t *testing.T) {

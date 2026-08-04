@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -181,6 +182,10 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
 	}
 
+	if err := requireUnambiguousCredentials(config.Creds); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
+	}
+
 	creds, err := decodeCredentials(config.Creds)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
@@ -267,6 +272,31 @@ func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
 	}
 
 	return c, nil
+}
+
+// requireUnambiguousCredentials rejects duplicate case-insensitive spellings of a
+// credential key.
+//
+// mapstructure matches keys case-insensitively, so "token" and "Token" both feed
+// the same field and Go's randomized map iteration picks a winner
+// nondeterministically -- the very same request could authenticate as a different
+// principal, or against a different workspace, from one run to the next. There is
+// no safe way to choose, so the ambiguity is reported instead of resolved.
+func requireUnambiguousCredentials(creds map[string]any) error {
+	for _, key := range []string{authWorkspaceID, authToken} {
+		var spellings []string
+		for k := range creds {
+			if strings.EqualFold(k, key) {
+				spellings = append(spellings, k)
+			}
+		}
+		if len(spellings) > 1 {
+			sort.Strings(spellings) // map order is random; keep the message stable
+			return fmt.Errorf("ambiguous '%s' credential: %s", key, strings.Join(spellings, ", "))
+		}
+	}
+
+	return nil
 }
 
 // credentialSupplied reports whether the credential map names the given key.

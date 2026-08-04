@@ -38,6 +38,11 @@ const (
 	defaultTokenTTL   = 60 * time.Minute
 	defaultRefreshWin = 5 * time.Minute
 	defaultJitterFrac = 0.2
+
+	// failedRefreshBackoff defers the next exchange attempt after a failed
+	// refresh, so a burst of callers shares one outcome instead of each grinding
+	// through its own retry cycle while a usable cached key is still in hand.
+	failedRefreshBackoff = 30 * time.Second
 )
 
 // tokenProvider yields a Lambda API bearer token. *httperr.Error preserves the
@@ -55,9 +60,18 @@ func (s staticToken) Token(context.Context) (string, *httperr.Error) { return st
 // persist across requests so its token cache, single-flight refresh, and
 // graceful degradation take effect. Cache one credential per
 // (identityLRN, tokenPath, baseURL).
+//
+// identityLRN and tokenPath come from the pod environment and are therefore
+// fixed for the process, but baseURL is a per-request provider parameter, so the
+// key space is caller-controlled and must be bounded. Eviction is by insertion
+// order: dropping an entry costs one extra token exchange, whereas unbounded
+// growth is a slow leak. Real deployments hold exactly one entry.
+const maxCachedCredentials = 32
+
 var (
 	credMu    sync.Mutex
 	credCache = map[string]*workloadIdentityCredential{}
+	credOrder []string
 )
 
 func sharedCredential(baseURL, identityLRN, tokenPath string) *workloadIdentityCredential {
@@ -66,6 +80,10 @@ func sharedCredential(baseURL, identityLRN, tokenPath string) *workloadIdentityC
 	defer credMu.Unlock()
 	if c, ok := credCache[key]; ok {
 		return c
+	}
+	for len(credOrder) >= maxCachedCredentials {
+		delete(credCache, credOrder[0])
+		credOrder = credOrder[1:]
 	}
 	c := &workloadIdentityCredential{
 		baseURL:       baseURL,
@@ -76,14 +94,8 @@ func sharedCredential(baseURL, identityLRN, tokenPath string) *workloadIdentityC
 		now:           time.Now,
 	}
 	credCache[key] = c
+	credOrder = append(credOrder, key)
 	return c
-}
-
-// resetCredentialCache clears the process-level cache. Test-only.
-func resetCredentialCache() {
-	credMu.Lock()
-	credCache = map[string]*workloadIdentityCredential{}
-	credMu.Unlock()
 }
 
 type cachedToken struct {
@@ -132,6 +144,7 @@ func (c *workloadIdentityCredential) Token(ctx context.Context) (string, *httper
 	if herr != nil {
 		// A still-valid key survives a failed refresh; only a dead one errors.
 		if cur != nil && c.now().Before(cur.expiresAt) {
+			c.deferRefresh(cur, failedRefreshBackoff)
 			return cur.accessToken, nil
 		}
 		return "", herr
@@ -140,6 +153,34 @@ func (c *workloadIdentityCredential) Token(ctx context.Context) (string, *httper
 	c.cur = &fresh
 	c.mu.Unlock()
 	return fresh.accessToken, nil
+}
+
+// deferRefresh pushes the next refresh attempt out after a failed exchange, so
+// callers queued behind refreshMu reuse the still-valid cached key instead of
+// each running its own retry cycle against a failing endpoint. It never defers
+// past the hard expiry, since the key must still be re-minted before it dies.
+//
+// A copy is republished rather than the cached token mutated in place: Token
+// reads a published cachedToken after releasing the lock, so published values
+// must stay immutable.
+func (c *workloadIdentityCredential) deferRefresh(stale *cachedToken, d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cur == nil || c.cur != stale {
+		return // someone installed a fresh key meanwhile; leave theirs alone
+	}
+
+	next := c.now().Add(d)
+	if next.After(c.cur.expiresAt) {
+		next = c.cur.expiresAt
+	}
+	if !next.After(c.cur.refreshAt) {
+		return
+	}
+
+	updated := *c.cur
+	updated.refreshAt = next
+	c.cur = &updated
 }
 
 // InvalidateIfCurrent drops the cached key only when it still matches the token
