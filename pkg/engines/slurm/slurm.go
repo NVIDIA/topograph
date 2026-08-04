@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package slurm
@@ -333,18 +322,36 @@ func GetTranslateConfig(ctx context.Context, params *BaseParams, topologies map[
 	return cfg, nil
 }
 
+// maxBlockSizesLen caps the number of entries in a blockSizes list.
+// maxBlockSizeValue caps the largest allowed block size value.
+// Together they bound the O(blockSizes[last]) tree allocation in buildBlockTree
+// and prevent a decompression-bomb DoS via an attacker-controlled blockSizes list.
+const (
+	maxBlockSizesLen  = 20
+	maxBlockSizeValue = 65_536 // 64Ki nodes — larger than any real cluster block
+)
+
 func validateBlockSizes(blockSizes []int) error {
 	if len(blockSizes) == 0 {
 		return nil
+	}
+	if len(blockSizes) > maxBlockSizesLen {
+		return fmt.Errorf("blockSizes has too many entries (%d); max allowed is %d", len(blockSizes), maxBlockSizesLen)
 	}
 	prev := blockSizes[0]
 	if prev <= 0 {
 		return fmt.Errorf("blockSizes[0]=%d must be positive", prev)
 	}
+	if prev > maxBlockSizeValue {
+		return fmt.Errorf("blockSizes[0]=%d exceeds maximum allowed value %d", prev, maxBlockSizeValue)
+	}
 	for i := 1; i < len(blockSizes); i++ {
 		cur := blockSizes[i]
 		if cur <= 0 {
 			return fmt.Errorf("blockSizes[%d]=%d must be positive", i, cur)
+		}
+		if cur > maxBlockSizeValue {
+			return fmt.Errorf("blockSizes[%d]=%d exceeds maximum allowed value %d", i, cur, maxBlockSizeValue)
 		}
 		if cur <= prev {
 			return fmt.Errorf("blockSizes[%d]=%d must be greater than blockSizes[%d]=%d", i, cur, i-1, prev)

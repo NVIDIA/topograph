@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package models
@@ -158,6 +147,9 @@ func (m *Model) buildSwitchMaps() (*switchMaps, error) {
 
 	for _, parent := range m.Switches {
 		for _, sw := range parent.Switches {
+			if _, exists := m.Switches[sw]; !exists {
+				return nil, fmt.Errorf("switch %q references unknown sub-switch %q", parent.Name, sw)
+			}
 			if p, ok := swmap[sw]; ok {
 				// a child switch cannot have more than one parent switch
 				return nil, fmt.Errorf("switch %q has two parent switches %q and %q", sw, parent.Name, p.Name)

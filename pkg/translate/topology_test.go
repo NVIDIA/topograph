@@ -19,6 +19,7 @@ package translate
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -985,5 +986,56 @@ func TestGetNodeTopologySpecAfterComplementPerPartition(t *testing.T) {
 		spec, err := nt.GetNodeTopologySpec(tc.node, topologies)
 		require.Nil(t, err, "node %s", tc.node)
 		require.Equal(t, tc.spec, spec, "node %s", tc.node)
+	}
+}
+
+// TestInitTreeNilVertexRejected verifies that a nil child is rejected during
+// topology construction before any output path can dereference it.
+func TestInitTreeNilVertexRejected(t *testing.T) {
+	graph := &topology.Graph{
+		Tiers: &topology.Vertex{
+			ID: "root",
+			Vertices: map[string]*topology.Vertex{
+				"nil-child": nil,
+			},
+		},
+	}
+
+	_, err := NewNetworkTopology(graph, &Config{Plugin: topology.TopologyTree})
+	require.EqualError(t, err, `vertex "root" contains nil child with key "nil-child"`)
+}
+
+// TestTreeSelfEdgeRejected verifies that a self-edge is rejected before
+// topology generation can traverse it.
+func TestTreeSelfEdgeRejected(t *testing.T) {
+	node := &topology.Vertex{ID: "x", Name: "x"}
+	sw := &topology.Vertex{ID: "x", Vertices: map[string]*topology.Vertex{"x": node}}
+	root := &topology.Vertex{Vertices: map[string]*topology.Vertex{"x": sw}}
+	g := &topology.Graph{Tiers: root}
+
+	_, err := NewNetworkTopology(g, &Config{Plugin: topology.TopologyTree})
+	require.EqualError(t, err, `vertex "x" contains a self-edge`)
+}
+
+// TestTreeMultiVertexCycleRejected verifies that initTree rejects an edge back
+// to an already-seen vertex instead of repeatedly traversing A -> B -> A.
+func TestTreeMultiVertexCycleRejected(t *testing.T) {
+	a := &topology.Vertex{ID: "a", Vertices: make(map[string]*topology.Vertex)}
+	b := &topology.Vertex{ID: "b", Vertices: make(map[string]*topology.Vertex)}
+	a.Vertices[b.ID] = b
+	b.Vertices[a.ID] = a
+	root := &topology.Vertex{Vertices: map[string]*topology.Vertex{a.ID: a}}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewNetworkTopology(&topology.Graph{Tiers: root}, &Config{Plugin: topology.TopologyTree})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.EqualError(t, err, `vertex "a" is reachable more than once; topology must be a tree`)
+	case <-time.After(5 * time.Second):
+		t.Fatal("NewNetworkTopology hung: multi-vertex cycle not guarded")
 	}
 }

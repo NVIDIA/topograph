@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 NVIDIA CORPORATION
+ * Copyright 2024-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -57,6 +57,11 @@ func TestPopulateDomainsFromPdshOutput(t *testing.T) {
 			name:     "Case 3: valid input",
 			nvOutput: nvOutput,
 			domains:  domainMap,
+		},
+		{
+			name:     "Case 4: malformed line (missing second colon) is skipped gracefully",
+			nvOutput: "node1:CliqueId\n",
+			domains:  topology.NewDomainMap(),
 		},
 	}
 

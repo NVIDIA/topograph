@@ -18,10 +18,15 @@ import (
 
 // toTreeTopology generates SLURM cluster topology config in "topology/tree" format
 func (nt *NetworkTopology) toTreeTopology(wr io.Writer, skeletonOnly bool) *httperr.Error {
+	visited := make(map[string]bool)
 	queue := []string{""}
 	for len(queue) > 0 {
 		id := queue[0]
 		queue = queue[1:]
+		if visited[id] {
+			continue
+		}
+		visited[id] = true
 		v, ok := nt.vertices[id]
 		if !ok {
 			return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("missing vertex with ID %q", id))

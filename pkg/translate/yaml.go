@@ -92,7 +92,10 @@ func (nt *NetworkTopology) GetTopologies() ([]*TopologyUnit, *httperr.Error) {
 		topoSpec := nt.config.Topologies[topoName]
 		switch topoSpec.Plugin {
 		case topology.TopologyTree:
-			tu := nt.getTreeTopologyUnit(topoName, topoSpec)
+			tu, err := nt.getTreeTopologyUnit(topoName, topoSpec)
+			if err != nil {
+				return topologies, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("topology %q: %v", topoName, err))
+			}
 			topologies = append(topologies, tu)
 		case topology.TopologyBlock:
 			tu, err := nt.getBlockTopologyUnit(topoName, topoSpec)
@@ -137,7 +140,10 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer, topologies []*TopologyUn
 
 func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, error) {
 	// populate map [block indx : blockInfo]
-	nodeNames := cluset.Expand(topoSpec.Nodes)
+	nodeNames, err := cluset.ExpandWithLimit(topoSpec.Nodes)
+	if err != nil {
+		return nil, fmt.Errorf("nodes expansion failed for topology %q: %w", topoName, err)
+	}
 	blockMap := make(map[int]*blockInfo)
 	for _, nodeName := range nodeNames {
 		info, ok := nt.nodeInfo[nodeName]
@@ -217,14 +223,17 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 	return tu, nil
 }
 
-func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) *TopologyUnit {
+func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, error) {
 	tu := &TopologyUnit{
 		Name:    topoName,
 		Default: topoSpec.ClusterDefault,
 	}
 
 	// get participating node name and corresponding instance IDs
-	nodeNames := cluset.Expand(topoSpec.Nodes)
+	nodeNames, err := cluset.ExpandWithLimit(topoSpec.Nodes)
+	if err != nil {
+		return nil, fmt.Errorf("nodes expansion failed for topology %q: %w", topoName, err)
+	}
 	nodeSelector := newSelector(nodeNames)
 	nodeIDs := make([]string, 0, len(nodeNames))
 	for _, nodeName := range nodeNames {
@@ -242,10 +251,15 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 	} else {
 		tu.Tree = &TreeTopo{Switches: []*Switch{}, parents: make(map[string][]string)}
 
+		visited := make(map[string]bool)
 		queue := []string{""}
 		for len(queue) > 0 {
 			switchID := queue[0]
 			queue = queue[1:]
+			if visited[switchID] {
+				continue
+			}
+			visited[switchID] = true
 			connects, ok := tree[switchID]
 			if !ok {
 				// ignore the leaves (nodes)
@@ -286,7 +300,7 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 			queue = append(queue, connects...)
 		}
 	}
-	return tu
+	return tu, nil
 }
 
 func (nt *NetworkTopology) getPartitionTree(nodes []string) map[string][]string {

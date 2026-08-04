@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 NVIDIA CORPORATION
+ * Copyright 2025-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -62,4 +62,11 @@ func TestParseNetq(t *testing.T) {
 	str := `[{},{}]`
 	err = parseNetq(treeRoot, []byte(str), map[string]bool{})
 	require.EqualError(t, err, "invalid NetQ response: multiple entries")
+
+	// link referencing an undeclared switch must not panic; the orphaned leaf
+	// has no valid parent so it surfaces at the top tier of the tree.
+	treeRoot = &topology.Vertex{Vertices: make(map[string]*topology.Vertex)}
+	crasher := []byte(`[{"nodes":[{"compounded_nodes":[{"id":"leaf1","name":"node-a","tier":-1}]}],"links":[{"id":"leaf1-*-sw_undeclared"}]}]`)
+	err = parseNetq(treeRoot, crasher, map[string]bool{"node-a": true})
+	require.Nil(t, err)
 }

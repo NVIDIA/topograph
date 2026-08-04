@@ -197,7 +197,7 @@ BlockSizes=8,16,32
   "provider": {
     "name": "%s",
     "params": {
-      "modelFileName": "../../tests/models/small-tree.yaml"
+      "modelFileName": "small-tree.yaml"
     }
   },
   "engine": {

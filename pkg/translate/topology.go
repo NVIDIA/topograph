@@ -222,18 +222,21 @@ func NewNetworkTopology(graph *topology.Graph, cfg *Config) (*NetworkTopology, e
 		nodeInfo: make(map[string]*nodeInfo),
 	}
 
-	nt.initTree(graph)
+	if err := nt.initTree(graph); err != nil {
+		return nil, err
+	}
 	nt.initBlocks(graph)
 
 	return nt, nil
 }
 
-func (nt *NetworkTopology) initTree(graph *topology.Graph) {
+func (nt *NetworkTopology) initTree(graph *topology.Graph) error {
 	if graph == nil || graph.Tiers == nil {
-		return
+		return nil
 	}
 
 	parentMap := make(map[string][]string)
+	seen := map[string]bool{graph.Tiers.ID: true}
 	queue := []*topology.Vertex{graph.Tiers}
 	for len(queue) > 0 {
 		v := queue[0]
@@ -248,6 +251,16 @@ func (nt *NetworkTopology) initTree(graph *topology.Graph) {
 			}
 		}
 		for id, w := range v.Vertices {
+			if w == nil {
+				return fmt.Errorf("vertex %q contains nil child with key %q", v.ID, id)
+			}
+			if id == v.ID || w.ID == v.ID {
+				return fmt.Errorf("vertex %q contains a self-edge", v.ID)
+			}
+			if seen[w.ID] {
+				return fmt.Errorf("vertex %q is reachable more than once; topology must be a tree", w.ID)
+			}
+			seen[w.ID] = true
 			if len(v.ID) != 0 {
 				parentMap[w.ID] = append([]string{}, parentMap[v.ID]...)
 				parentMap[w.ID] = append(parentMap[w.ID], v.ID)
@@ -260,6 +273,7 @@ func (nt *NetworkTopology) initTree(graph *topology.Graph) {
 	for _, val := range nt.tree {
 		sort.Strings(val)
 	}
+	return nil
 }
 
 func toBlockInfos(domains topology.DomainMap) []*blockInfo {

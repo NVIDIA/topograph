@@ -405,3 +405,51 @@ func TestGetBlockTopologyUnitComplementEmptyNodes(t *testing.T) {
 	require.Nil(t, nt.Generate(buf))
 	require.Equal(t, expected, buf.String())
 }
+
+// TestExpandDoSNodeRange verifies that an attacker-supplied node range that
+// would expand to billions of entries (decompression bomb) is rejected with an
+// error — not an OOM kill — for both the block and tree topology plugins.
+func TestExpandDoSNodeRange(t *testing.T) {
+	t.Run(topology.TopologyBlock, func(t *testing.T) {
+		graph := &topology.Graph{Domains: topology.NewDomainMap()}
+		cfg := &Config{
+			Topologies: map[string]*TopologySpec{
+				"evil": {
+					Plugin: topology.TopologyBlock,
+					Nodes:  []string{"n[0-2000000000]"},
+				},
+			},
+		}
+		nt, err := NewNetworkTopology(graph, cfg)
+		require.NoError(t, err)
+
+		_, httpErr := nt.GetTopologies()
+		require.NotNil(t, httpErr, "expected error from oversized range, got nil")
+		require.Equal(t, 400, httpErr.Code())
+		require.Contains(t, httpErr.Error(), "exceeds")
+	})
+
+	t.Run(topology.TopologyTree, func(t *testing.T) {
+		// Tree topology requires a non-nil graph.Tiers to pass validation.
+		graph := &topology.Graph{
+			Tiers: &topology.Vertex{
+				Vertices: map[string]*topology.Vertex{},
+			},
+		}
+		cfg := &Config{
+			Topologies: map[string]*TopologySpec{
+				"evil": {
+					Plugin: topology.TopologyTree,
+					Nodes:  []string{"n[0-2000000000]"},
+				},
+			},
+		}
+		nt, err := NewNetworkTopology(graph, cfg)
+		require.NoError(t, err)
+
+		_, httpErr := nt.GetTopologies()
+		require.NotNil(t, httpErr, "expected error from oversized range, got nil")
+		require.Equal(t, 400, httpErr.Code())
+		require.Contains(t, httpErr.Error(), "exceeds")
+	})
+}
