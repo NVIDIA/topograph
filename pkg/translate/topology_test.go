@@ -989,48 +989,53 @@ func TestGetNodeTopologySpecAfterComplementPerPartition(t *testing.T) {
 	}
 }
 
-// TestInitTreeNilVertexNosPanic verifies that a nil child *Vertex stored in
-// graph.Tiers.Vertices does not crash initTree (defense-in-depth guard).
-func TestInitTreeNilVertexNoPanic(t *testing.T) {
+// TestInitTreeNilVertexRejected verifies that a nil child is rejected during
+// topology construction before any output path can dereference it.
+func TestInitTreeNilVertexRejected(t *testing.T) {
 	graph := &topology.Graph{
 		Tiers: &topology.Vertex{
 			ID: "root",
 			Vertices: map[string]*topology.Vertex{
 				"nil-child": nil,
-				"real-child": {
-					ID:       "real-child",
-					Vertices: map[string]*topology.Vertex{},
-				},
 			},
 		},
 	}
 
-	nt := &NetworkTopology{
-		tree:     make(map[string][]string),
-		vertices: make(map[string]*topology.Vertex),
-		nodeInfo: make(map[string]*nodeInfo),
-	}
-	require.NotPanics(t, func() { nt.initTree(graph) })
-	require.Contains(t, nt.tree, "real-child")
+	_, err := NewNetworkTopology(graph, &Config{Plugin: topology.TopologyTree})
+	require.EqualError(t, err, `vertex "root" contains nil child with key "nil-child"`)
 }
 
-// TestTreeSelfEdgeDoesNotHang verifies that a vertex whose ID equals one of its
-// child map keys (creating a self-edge in the adjacency list) is skipped by
-// initTree and does not cause toTreeTopology to loop forever.
-func TestTreeSelfEdgeDoesNotHang(t *testing.T) {
+// TestTreeSelfEdgeRejected verifies that a self-edge is rejected before
+// topology generation can traverse it.
+func TestTreeSelfEdgeRejected(t *testing.T) {
 	node := &topology.Vertex{ID: "x", Name: "x"}
 	sw := &topology.Vertex{ID: "x", Vertices: map[string]*topology.Vertex{"x": node}}
 	root := &topology.Vertex{Vertices: map[string]*topology.Vertex{"x": sw}}
 	g := &topology.Graph{Tiers: root}
 
-	nt, err := NewNetworkTopology(g, &Config{Plugin: topology.TopologyTree})
-	require.NoError(t, err)
+	_, err := NewNetworkTopology(g, &Config{Plugin: topology.TopologyTree})
+	require.EqualError(t, err, `vertex "x" contains a self-edge`)
+}
 
-	done := make(chan struct{})
-	go func() { _ = nt.Generate(&bytes.Buffer{}); close(done) }()
+// TestTreeMultiVertexCycleRejected verifies that initTree rejects an edge back
+// to an already-seen vertex instead of repeatedly traversing A -> B -> A.
+func TestTreeMultiVertexCycleRejected(t *testing.T) {
+	a := &topology.Vertex{ID: "a", Vertices: make(map[string]*topology.Vertex)}
+	b := &topology.Vertex{ID: "b", Vertices: make(map[string]*topology.Vertex)}
+	a.Vertices[b.ID] = b
+	b.Vertices[a.ID] = a
+	root := &topology.Vertex{Vertices: map[string]*topology.Vertex{a.ID: a}}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewNetworkTopology(&topology.Graph{Tiers: root}, &Config{Plugin: topology.TopologyTree})
+		done <- err
+	}()
+
 	select {
-	case <-done:
+	case err := <-done:
+		require.EqualError(t, err, `vertex "a" is reachable more than once; topology must be a tree`)
 	case <-time.After(5 * time.Second):
-		t.Fatal("Generate hung: self-edge cycle not guarded")
+		t.Fatal("NewNetworkTopology hung: multi-vertex cycle not guarded")
 	}
 }

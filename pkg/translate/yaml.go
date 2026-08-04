@@ -140,7 +140,7 @@ func (nt *NetworkTopology) toYamlTopology(wr io.Writer, topologies []*TopologyUn
 
 func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *TopologySpec) (*TopologyUnit, error) {
 	// populate map [block indx : blockInfo]
-	nodeNames, err := cluset.ExpandWithLimit(topoSpec.Nodes, cluset.MaxExpandedNodes)
+	nodeNames, err := cluset.ExpandWithLimit(topoSpec.Nodes)
 	if err != nil {
 		return nil, fmt.Errorf("nodes expansion failed for topology %q: %w", topoName, err)
 	}
@@ -230,7 +230,7 @@ func (nt *NetworkTopology) getTreeTopologyUnit(topoName string, topoSpec *Topolo
 	}
 
 	// get participating node name and corresponding instance IDs
-	nodeNames, err := cluset.ExpandWithLimit(topoSpec.Nodes, cluset.MaxExpandedNodes)
+	nodeNames, err := cluset.ExpandWithLimit(topoSpec.Nodes)
 	if err != nil {
 		return nil, fmt.Errorf("nodes expansion failed for topology %q: %w", topoName, err)
 	}

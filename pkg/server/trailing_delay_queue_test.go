@@ -166,27 +166,6 @@ func TestSubmitRunningCallbackDoesNotDeleteReplacementTimer(t *testing.T) {
 	require.Same(t, replacement, queue.timers[hash])
 }
 
-// TestPanicInHandlerReturns500 verifies that a panic inside the handle func is
-// caught by the recover() added to the AfterFunc goroutine and converted to an
-// HTTP 500 status rather than crashing the process.
-func TestPanicInHandlerReturns500(t *testing.T) {
-	queue := NewTrailingDelayQueue(func(item any) (any, *httperr.Error) {
-		panic("simulated nil-pointer dereference")
-	}, 10*time.Millisecond)
-	defer queue.Shutdown()
-
-	uid, err := queue.Submit(trailingDelayQueueTestItem{hash: "panic-request"})
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		return queue.Get(uid).Status != http.StatusAccepted
-	}, time.Second, 10*time.Millisecond)
-
-	res := queue.Get(uid)
-	require.Equal(t, http.StatusInternalServerError, res.Status)
-	require.Contains(t, res.Message, "simulated nil-pointer dereference")
-}
-
 func TestGetReturnsCompletionSnapshot(t *testing.T) {
 	const hash = "same-request"
 

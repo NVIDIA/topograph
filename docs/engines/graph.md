@@ -28,15 +28,7 @@ Each instance entry contains:
 }
 ```
 
-Set `engine.params.topologyConfigPath` to write the JSON to a path on the Topograph host. When `topologyConfigPath` is set, the HTTP result body is `OK`.
-
-The value must be either a **bare filename** (no directory separator, e.g. `topology.json`) or a **path that begins with the server's `topologyOutputDir`** configuration parameter. Any other value is rejected with HTTP 400 before the file is written. To permit writes to a specific directory, set `topologyOutputDir` in the server configuration file:
-
-```yaml
-topologyOutputDir: /var/lib/topograph/output
-```
-
-With that setting, a `topologyConfigPath` of `/var/lib/topograph/output/graph.json` is accepted while `/etc/cron.d/malicious` is rejected.
+Set `engine.params.topologyConfigPath` to write the JSON to an existing validated path on the Topograph host. When `topologyConfigPath` is set, the HTTP result body is `OK`.
 
 ## Request
 

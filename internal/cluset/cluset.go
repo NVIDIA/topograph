@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package cluset
@@ -98,12 +87,16 @@ func Expand(compressed []string) []string {
 // may return in a single call. It guards against decompression-bomb inputs
 // (e.g. "n[0-2000000000]") from untrusted sources such as HTTP request bodies.
 // Use ExpandWithLimit at call sites where the input is attacker-controlled.
-const MaxExpandedNodes = 500_000
+const maxExpandedNodes = 500_000
 
-// ExpandWithLimit is like Expand but returns an error if the total number of
+func ExpandWithLimit(compressed []string) ([]string, error) {
+	return expandWithLimit(compressed, maxExpandedNodes)
+}
+
+// expandWithLimit is like Expand but returns an error if the total number of
 // expanded node names would exceed limit. The check for ranged parts is done
 // before any allocation so a single oversized token causes no heap growth.
-func ExpandWithLimit(compressed []string, limit int) ([]string, error) {
+func expandWithLimit(compressed []string, limit int) ([]string, error) {
 	var result []string
 
 	for _, entry := range compressed {

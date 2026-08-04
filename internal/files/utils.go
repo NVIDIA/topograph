@@ -19,8 +19,6 @@ package files
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 func Validate(name, description string) error {
@@ -29,29 +27,6 @@ func Validate(name, description string) error {
 	}
 	if _, err := os.Stat(name); err != nil {
 		return fmt.Errorf("failed to validate %s: %v", name, err)
-	}
-	return nil
-}
-
-// ValidateOutputPath checks whether path is a permitted write destination.
-// A bare filename (no directory separator) is always allowed.
-// A path with directory components must begin with outputDir; when outputDir is
-// empty the current working directory (".") is used as the effective directory.
-func ValidateOutputPath(path, outputDir string) error {
-	if path == "" {
-		return nil
-	}
-	if filepath.Base(path) == path {
-		return nil
-	}
-	effective := outputDir
-	if effective == "" {
-		effective = "."
-	}
-	clean := filepath.Clean(path)
-	allowedPrefix := filepath.Clean(effective) + string(filepath.Separator)
-	if !strings.HasPrefix(clean, allowedPrefix) {
-		return fmt.Errorf("topologyConfigPath %q is outside the configured output directory %q", path, effective)
 	}
 	return nil
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 NVIDIA CORPORATION
+ * Copyright 2025-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -58,7 +58,7 @@ type Premises struct {
 
 func (p *Provider) getNetworkTree(ctx context.Context, cis []topology.ComputeInstances) (*topology.Vertex, *httperr.Error) {
 	// login to NetQ server
-	payload := []byte(fmt.Sprintf(`{"username":%q, "password":%q}`, p.creds.Username, p.creds.Password))
+	payload := fmt.Appendf(nil, `{"username":%q, "password":%q}`, p.creds.Username, p.creds.Password)
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"Accept":       "application/json",

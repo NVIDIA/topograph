@@ -88,17 +88,7 @@ func (q *TrailingDelayQueue) Submit(item Hashable) (string, error) {
 	timer = time.AfterFunc(q.delay, func() {
 		klog.Infof("Processing request ID %s", hash)
 		// process the request
-		var data any
-		var err *httperr.Error
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					klog.Errorf("panic processing request ID %s: %v", hash, r)
-					err = httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("internal error: %v", r))
-				}
-			}()
-			data, err = q.handle(item)
-		}()
+		data, err := q.handle(item)
 
 		// update the status and results
 		q.mutex.Lock()

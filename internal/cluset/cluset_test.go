@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package cluset
@@ -93,13 +82,13 @@ func TestExpandList(t *testing.T) {
 
 func TestExpandWithLimit(t *testing.T) {
 	t.Run("valid range within limit", func(t *testing.T) {
-		result, err := ExpandWithLimit([]string{"n[1-3]"}, 10)
+		result, err := expandWithLimit([]string{"n[1-3]"}, 10)
 		require.NoError(t, err)
 		require.Equal(t, []string{"n1", "n2", "n3"}, result)
 	})
 
 	t.Run("range exactly at limit", func(t *testing.T) {
-		result, err := ExpandWithLimit([]string{"n[1-5]"}, 5)
+		result, err := expandWithLimit([]string{"n[1-5]"}, 5)
 		require.NoError(t, err)
 		require.Len(t, result, 5)
 	})
@@ -107,23 +96,23 @@ func TestExpandWithLimit(t *testing.T) {
 	t.Run("range exceeds limit — no allocation", func(t *testing.T) {
 		// A single token expands to 2 billion entries; limit is 10.
 		// The check must fire before any heap allocation.
-		_, err := ExpandWithLimit([]string{"n[0-2000000000]"}, 10)
+		_, err := expandWithLimit([]string{"n[0-2000000000]"}, 10)
 		require.ErrorContains(t, err, "exceeds")
 	})
 
 	t.Run("multiple entries accumulate toward limit", func(t *testing.T) {
 		// Two ranges of 3 each; limit of 5 should be exceeded on the second.
-		_, err := ExpandWithLimit([]string{"n[1-3]", "m[1-3]"}, 5)
+		_, err := expandWithLimit([]string{"n[1-3]", "m[1-3]"}, 5)
 		require.ErrorContains(t, err, "exceeds")
 	})
 
 	t.Run("scalar entries count toward limit", func(t *testing.T) {
-		_, err := ExpandWithLimit([]string{"a", "b", "c"}, 2)
+		_, err := expandWithLimit([]string{"a", "b", "c"}, 2)
 		require.ErrorContains(t, err, "exceeds")
 	})
 
 	t.Run("passthrough entries (no brackets) count toward limit", func(t *testing.T) {
-		result, err := ExpandWithLimit([]string{"node1", "node2"}, 5)
+		result, err := expandWithLimit([]string{"node1", "node2"}, 5)
 		require.NoError(t, err)
 		require.Equal(t, []string{"node1", "node2"}, result)
 	})
@@ -134,7 +123,7 @@ func TestExpandWithLimit(t *testing.T) {
 		// silently skip into an unbounded expansion loop.
 		// The fixed guard (hi-lo >= limit) evaluates math.MaxInt >= 10 → true.
 		entry := fmt.Sprintf("n[0-%d]", math.MaxInt)
-		_, err := ExpandWithLimit([]string{entry}, 10)
+		_, err := expandWithLimit([]string{entry}, 10)
 		require.ErrorContains(t, err, "exceeds")
 	})
 
@@ -143,7 +132,7 @@ func TestExpandWithLimit(t *testing.T) {
 		// but the old loop's i++ wrapped MaxInt to MinInt, keeping i <= hi
 		// true and spinning forever. The fixed loop breaks before i++ fires.
 		entry := fmt.Sprintf("n[%d-%d]", math.MaxInt, math.MaxInt)
-		result, err := ExpandWithLimit([]string{entry}, MaxExpandedNodes)
+		result, err := expandWithLimit([]string{entry}, maxExpandedNodes)
 		require.NoError(t, err)
 		require.Len(t, result, 1)
 	})
