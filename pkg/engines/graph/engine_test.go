@@ -97,7 +97,8 @@ func TestGenerateOutput(t *testing.T) {
 	})
 
 	t.Run("output path existing file writes JSON and returns OK", func(t *testing.T) {
-		f, err := os.CreateTemp(t.TempDir(), "graph-out-*.json")
+		dir := t.TempDir()
+		f, err := os.CreateTemp(dir, "graph-out-*.json")
 		require.NoError(t, err)
 		path := f.Name()
 		require.NoError(t, f.Close())

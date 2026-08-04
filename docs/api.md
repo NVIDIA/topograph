@@ -46,6 +46,17 @@ ssl:
 # For more details about credential configuration, refer to the docs/providers section.
 # credentialsPath:
 
+# topologyOutputDir: restricts where Topograph may write topology files (optional).
+# When set, any `topologyConfigPath` supplied in a request (or in `engineParams`) must either
+# be a bare filename (no directory separator) or begin with this directory.
+# Requests that supply a `topologyConfigPath` with directory components that fall outside this
+# directory are rejected with HTTP 400 before any file is written.
+# When not set, the current working directory (".") is used as the effective allowed directory,
+# which in practice means only bare filenames (e.g. "topology.conf") are accepted.
+# Example:
+#   topologyOutputDir: /etc/slurm
+# topologyOutputDir:
+
 # env: environment variable names and values to inject into Topograph's shell (optional).
 # The `PATH` variable, if provided, will append the specified value to the existing `PATH`.
 # env:
@@ -81,7 +92,7 @@ Topograph exposes three endpoints for interacting with the service. Below are th
       - **blockName**: (optional) Used in: [`slurm`, `slinky`]. Derives names for `topology/block` blocks from their node names. If specified, both nested fields are required. Every node in a non-empty block must match and expand to the same non-empty name, and different blocks must have unique names. Empty complemented blocks retain their generated names.
         - **nodeNameRegexp**: (required with `blockName`) A Go regular expression applied to every node name in the block. The expression is not implicitly anchored.
         - **format**: (required with `blockName`) A Go regexp expansion template used to construct the block name from capture groups, for example `domain${1}_rack${2}`.
-      - **topologyConfigPath**: Used in: [`slurm`, `slinky`, `graph`]. Optional for `slurm` and `graph`; required for `slinky`. For `slurm`, a file path for the topology configuration; if omitted, the topology config content is returned in the HTTP response. For `slinky`, the key for the topology config in the ConfigMap. For `graph`, an existing path on the Topograph host where instance JSON should be written; if omitted, the JSON is returned in the topology response.
+      - **topologyConfigPath**: Used in: [`slurm`, `slinky`, `graph`]. Optional for `slurm` and `graph`; required for `slinky`. For `slurm`, a file path for the topology configuration; if omitted, the topology config content is returned in the HTTP response. For `slinky`, the key for the topology config in the ConfigMap. For `graph`, an existing path on the Topograph host where instance JSON should be written; if omitted, the JSON is returned in the topology response. **Path constraint (`slurm` and `graph`):** the value must be either a bare filename (no directory separator, written to the server's working directory) or an absolute path that begins with the server's `topologyOutputDir` configuration parameter. Requests supplying any other path are rejected with HTTP 400. See `topologyOutputDir` in the [Configuration](#configuration) section.
       - **topologies**: (optional) Used in: [`slurm`, `slinky`]. A map of named per-partition topology settings. Do not set top-level `plugin` together with `topologies`.
         - **plugin**: Used in: [`slurm`, `slinky`]. A required string specifying the per-partition topology plugin: `topology/tree`, `topology/block`, or `topology/flat`.
         - **blockSizes**: (optional) Used in: [`slurm`, `slinky`]. An array of block sizes for `topology/block`.

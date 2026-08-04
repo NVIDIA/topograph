@@ -25,6 +25,65 @@ import (
 	"github.com/NVIDIA/topograph/internal/files"
 )
 
+func TestValidateOutputPath(t *testing.T) {
+	dir := t.TempDir()
+	testCases := []struct {
+		name      string
+		path      string
+		outputDir string
+		err       string
+	}{
+		{
+			name: "empty path is allowed",
+		},
+		{
+			name: "bare filename is always allowed",
+			path: "topology.conf",
+		},
+		{
+			name: "bare filename allowed even without outputDir",
+			path: "out.json",
+		},
+		{
+			name:      "path within outputDir is allowed",
+			path:      dir + "/topology.conf",
+			outputDir: dir,
+		},
+		{
+			name:      "path outside outputDir is rejected",
+			path:      "/etc/passwd",
+			outputDir: dir,
+			err:       `topologyConfigPath "/etc/passwd" is outside the configured output directory "` + dir + `"`,
+		},
+		{
+			name: "path with directory component and no outputDir defaults to cwd (.)",
+			path: "/etc/passwd",
+			err:  `topologyConfigPath "/etc/passwd" is outside the configured output directory "."`,
+		},
+		{
+			name: "relative traversal with no outputDir defaults to cwd (.)",
+			path: "../../etc/shadow",
+			err:  `topologyConfigPath "../../etc/shadow" is outside the configured output directory "."`,
+		},
+		{
+			name:      "traversal escaping outputDir is rejected",
+			path:      dir + "/../etc/passwd",
+			outputDir: dir,
+			err:       `topologyConfigPath "` + dir + `/../etc/passwd" is outside the configured output directory "` + dir + `"`,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := files.ValidateOutputPath(tc.path, tc.outputDir)
+			if tc.err != "" {
+				require.EqualError(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateFile(t *testing.T) {
 	testCases := []struct {
 		name     string

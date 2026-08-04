@@ -77,6 +77,8 @@ providerParams:
   radarApiUrl: https://radar.example.com
   instanceApiUrl: https://api.example.com
 
+topologyOutputDir: /etc/slurm
+
 engineParams:
   plugin: topology/tree
   topologyConfigPath: /etc/slurm/topology.conf

@@ -27,6 +27,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
 
+	"path/filepath"
+
+	"github.com/NVIDIA/topograph/internal/files"
 	"github.com/NVIDIA/topograph/pkg/config"
 	"github.com/NVIDIA/topograph/pkg/metrics"
 	"github.com/NVIDIA/topograph/pkg/providers/test"
@@ -242,8 +245,17 @@ func validate(tr *topology.Request) error {
 			return fmt.Errorf("unsupported engine %s", tr.Engine.Name)
 		}
 	}
-	// TODO: Validate K8s params
-	// This might be moved elsewhere in the flow
+	// Validate topologyConfigPath against the server-configured output directory,
+	// then resolve a bare filename into TopologyOutputDir so the file is
+	// actually written there rather than into the server's working directory.
+	if path, ok := tr.Engine.Params["topologyConfigPath"].(string); ok {
+		if err := files.ValidateOutputPath(path, srv.cfg.TopologyOutputDir); err != nil {
+			return err
+		}
+		if srv.cfg.TopologyOutputDir != "" && path != "" && filepath.Base(path) == path {
+			tr.Engine.Params["topologyConfigPath"] = filepath.Join(srv.cfg.TopologyOutputDir, path)
+		}
+	}
 
 	return nil
 }

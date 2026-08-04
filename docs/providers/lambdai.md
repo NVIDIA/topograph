@@ -157,6 +157,8 @@ credentialsPath: /etc/topograph/lambdai-credentials.yaml
 providerParams:
   url: https://cloud.example.com
 
+topologyOutputDir: /etc/slurm
+
 engineParams:
   plugin: topology/tree
   topologyConfigPath: /etc/slurm/topology.conf

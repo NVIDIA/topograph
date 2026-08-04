@@ -35,6 +35,7 @@ type Config struct {
 	ProviderParams          map[string]any    `yaml:"providerParams,omitempty"`
 	Engine                  string            `yaml:"engine,omitempty"`
 	EngineParams            map[string]any    `yaml:"engineParams,omitempty"`
+	TopologyOutputDir       string            `yaml:"topologyOutputDir,omitempty"`
 	PageSize                *int              `yaml:"pageSize,omitempty"`
 	SSL                     *SSL              `yaml:"ssl,omitempty"`
 	CredsPath               *string           `yaml:"credentialsPath,omitempty"`
