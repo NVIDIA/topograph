@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Helm chart metadata: `home`, `icon`, `maintainers`, `keywords`, and Artifact Hub annotations ([#377](https://github.com/NVIDIA/topograph/pull/377)).
 - Helm `env`, `initContainers`, and `lifecycle` overrides across the API server, node-observer, and node-data-broker containers.
 - Lambda provider Kubernetes node-data-broker support: Topograph instance and region annotations are derived from Lambda node `.spec.providerID` and `topology.kubernetes.io/region`, enabling automatic node discovery with the Kubernetes engine ([#375](https://github.com/NVIDIA/topograph/pull/375)).
+- `lambdai` provider supports Kubernetes workload identity via `lambda-pod-identity-webhook` (OIDC token exchange) for short-lived Lambda API credentials, removing the need for a long-lived API-token Secret.
 - `kwok-nodes` utility and helper script for rendering model-derived KWOK node manifests, creating local kind clusters, and installing KWOK.
 
 ### Changed
