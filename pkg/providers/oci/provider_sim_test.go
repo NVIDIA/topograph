@@ -259,3 +259,18 @@ func TestSimClientGetComputeHostRackAdditionalData(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertComputeHostNoRack(t *testing.T) {
+	host := core.ComputeHost{
+		InstanceId:        ptr.String("srv-norack"),
+		LocalBlockId:      ptr.String("local-1"),
+		NetworkBlockId:    ptr.String("net-1"),
+		HpcIslandId:       ptr.String("island-1"),
+		GpuMemoryFabricId: ptr.String("nvl-1"),
+		// AdditionalData intentionally omitted — no rack metadata
+	}
+	instanceTopology, err := convertComputeHost(&host)
+	require.NoError(t, err)
+	require.Equal(t, "nvl-1", instanceTopology.XclrDomainID)
+	require.Empty(t, instanceTopology.XclrSubDomainID)
+}

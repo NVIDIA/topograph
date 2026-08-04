@@ -8,6 +8,7 @@ package translate
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -145,7 +146,7 @@ func TestComplementKeepsSeparateAccelerators(t *testing.T) {
 		},
 	}
 
-	out := nt.complementBlocks(nt.blocks, []int{8, 16})
+	out := nt.complementBlocks(nt.blocks, []int{8, 16}, true)
 	require.Len(t, out, 2)
 	require.Equal(t, "B1", out[0].name)
 	require.Len(t, out[0].nodes, 3)
@@ -180,7 +181,7 @@ func TestComplementExcessHostsPerAccelerator(t *testing.T) {
 		}},
 	}
 
-	out := nt.complementBlocks(nt.blocks, []int{4, 8, 16})
+	out := nt.complementBlocks(nt.blocks, []int{4, 8, 16}, true)
 	// 3 base blocks (ceil(12/4)) padded to 4 (groupSize=4, ceil(3/4)*4=4).
 	require.Len(t, out, 4)
 	require.True(t, isEmptyBlock(out[3]), "out[3] should be the group-alignment padding block")
@@ -216,7 +217,7 @@ func TestComplementPartitionLocalDomainsOnly(t *testing.T) {
 		partitionBlocks = append(partitionBlocks, b)
 	}
 
-	out := nt.complementBlocks(partitionBlocks, []int{4, 8, 16})
+	out := nt.complementBlocks(partitionBlocks, []int{4, 8, 16}, true)
 	// 3 real domains padded to 4 to reach the 16-node lastBS boundary.
 	require.Len(t, out, 4)
 	require.Equal(t, "B1", out[0].name)
@@ -245,7 +246,7 @@ func TestDomainsForBlocksFilteredToPartitionNodes(t *testing.T) {
 		{name: "B1", nodes: []string{"n1", "n2", "n3"}},
 	}
 
-	out := nt.complementBlocks(partitionBlocks, []int{2, 4})
+	out := nt.complementBlocks(partitionBlocks, []int{2, 4}, true)
 	// groupSize=2 (maxAccelSize=3, 2^1×2=4≥3); B1 splits into 2 base blocks.
 	// len(packed)=2 ≠ len(input)=1 → complement applied.
 	require.Len(t, out, 2)
@@ -285,7 +286,7 @@ func TestComplementMultiGroupRootExpansion6x16(t *testing.T) {
 	}
 
 	nt := &NetworkTopology{domains: domains, blocks: nodes}
-	out := nt.complementBlocks(nt.blocks, []int{8, 64})
+	out := nt.complementBlocks(nt.blocks, []int{8, 64}, true)
 
 	require.Len(t, out, 16, "expected 16 base blocks (8 domain slots × 2 blocks each)")
 	empty := 0
@@ -317,7 +318,7 @@ func TestComplementMultiGroupRootExpansion3x72(t *testing.T) {
 	}
 
 	nt := &NetworkTopology{domains: domains, blocks: nodes}
-	out := nt.complementBlocks(nt.blocks, []int{18, 144})
+	out := nt.complementBlocks(nt.blocks, []int{18, 144}, true)
 
 	require.Len(t, out, 16, "expected 16 base blocks (4 domain slots × 4 blocks each)")
 	empty := 0
@@ -365,7 +366,7 @@ func TestComplementMixedDomainSizesLCMPadding(t *testing.T) {
 		{name: "b", nodes: bNodes},
 	}
 	nt := &NetworkTopology{domains: domains, blocks: blocks}
-	out := nt.complementBlocks(nt.blocks, []int{8, 32})
+	out := nt.complementBlocks(nt.blocks, []int{8, 32}, true)
 
 	// 8 real blocks from "a" + 2 real from "b" + 2 empty padding = 12 total; 96%32==0.
 	require.Len(t, out, 12, "expected 12 base blocks: 8 (a) + 2 (b) + 2 (padding)")
@@ -396,7 +397,7 @@ func TestComplementWithMissingDomain(t *testing.T) {
 		{id: "block001", name: "B1", nodes: []string{"n1", "n2"}},
 		{id: "block002", name: "B2", nodes: []string{"n3", "n4"}}, // no domain entry
 	}
-	out := nt.complementBlocks(input, []int{2, 4})
+	out := nt.complementBlocks(input, []int{2, 4}, true)
 	require.Len(t, out, 2)
 	require.Equal(t, "B1", out[0].name)
 	require.Equal(t, []string{"n1", "n2"}, out[0].nodes)
@@ -530,18 +531,18 @@ func TestGetBlockTopologyUnitSingleBlockSize(t *testing.T) {
 //
 // toDomainAggregate("a", maxSiblingNodes=36, [18,72,288]):
 //   - nodeCount = aggregateSlotCapacity(36, 18) = 36; numBaseBlocks = 2
-//   - MaxChildNodeCount=9 ≤ baseBlockSize/2=9 → Strategy 2
-//   - combineChildHostsIntoAggregate appends each child then flushes when
-//     accumulated sum > baseBlockSize/2 (=9, strictly greater):
-//     a.sd0 (9): append → sum=9. 9>9? NO.
-//     a.sd1 (9): append → sum=18. 18>9? YES → flush "a.sd0+a.sd1" (18 hosts). Reset.
-//     a.sd2 (9): append → sum=9. NO.
-//     a.sd3 (9): append → sum=18. YES → flush "a.sd2+a.sd3". Reset.
+//   - MaxChildNodeCount=9 < baseBlockSize=18 → Strategy 2
+//   - combineChildHostsIntoAggregate flushes before appending a child when
+//     pending + child > baseBlockSize (greedy lookahead):
+//     a.sd0 (9): pending=0, no flush. pending=9.
+//     a.sd1 (9): 9+9=18 ≤ 18, no flush. pending=18.
+//     a.sd2 (9): 18+9=27 > 18 → flush "a.sd0+a.sd1" (18 hosts). pending=9.
+//     a.sd3 (9): 9+9=18 ≤ 18, no flush. pending=18. End → flush "a.sd2+a.sd3".
 //   - 2 combined blocks of 18 hosts each → domain "a" nodeCount = 36
 //
 // toDomainAggregate("b", maxSiblingNodes=36, [18,72,288]):
 //   - nodeCount = 36; numBaseBlocks = 2
-//   - MaxChildNodeCount=36 > 9 → Strategy 3 (recurse per sub-domain)
+//   - MaxChildNodeCount=36 ≥ baseBlockSize=18 → Strategy 3 (recurse per sub-domain)
 //   - Recurses into "b.sd0" (leaf, 36 hosts) → Strategy 1 → 2 full blocks (name="b.sd0")
 //   - b produces 2 blocks → domain "b" nodeCount = 36
 //
@@ -602,18 +603,17 @@ func TestComplementUnequalDomainSubDomainCounts(t *testing.T) {
 }
 
 // TestComplementStrategy2CombinesSmallSubDomains validates Strategy 2 in
-// toDomainAggregate: when MaxChildNodeCount ≤ baseBlockSize/2, sub-domain hosts are
-// accumulated and grouped into combined base blocks, each named with the "+" delimited
-// contributing sub-domains.
+// toDomainAggregate: when MaxChildNodeCount < baseBlockSize, sub-domain hosts are
+// accumulated and grouped into combined base blocks using a greedy lookahead flush,
+// each block named with the "+" delimited contributing sub-domains.
 //
 // Setup: blockSizes=[8, 32], domain "d" with 4 sub-domains of 3 hosts each (12 total).
-//   - baseBlockSize=8, Strategy 2 flush threshold = sum > baseBlockSize/2 (=4, strictly)
-//   - MaxChildNodeCount=3 ≤ 4 → Strategy 2 fires
-//   - combineChildHostsIntoAggregate appends each child then flushes when sum > 4:
-//     d.sd0 (3): append → sum=3. 3>4? NO.
-//     d.sd1 (3): append → sum=6. 6>4? YES → flush "d.sd0+d.sd1" (6 hosts). Reset.
-//     d.sd2 (3): append → sum=3. NO.
-//     d.sd3 (3): append → sum=6. YES → flush "d.sd2+d.sd3" (6 hosts). Reset.
+//   - baseBlockSize=8, MaxChildNodeCount=3 < 8 → Strategy 2 fires
+//   - combineChildHostsIntoAggregate flushes before appending a child when pending+child > 8:
+//     d.sd0 (3): pending=0, skip flush. append → pending=3.
+//     d.sd1 (3): 3+3=6 ≤ 8, no flush. append → pending=6.
+//     d.sd2 (3): 6+3=9 > 8 → flush "d.sd0+d.sd1" (6 hosts). append d.sd2 → pending=3.
+//     d.sd3 (3): 3+3=6 ≤ 8, no flush. append → pending=6. End → flush "d.sd2+d.sd3".
 //   - 2 combined blocks, each with hosts from 2 sub-domains (6 of 8 slots filled)
 //   - Root: aggregateSlotCapacity(12, 8)=16; 12%32≠0 → 1 empty domain agg (2 blocks)
 //   - Total: 4 base blocks (2 real, 2 empty)
@@ -650,6 +650,155 @@ func TestComplementStrategy2CombinesSmallSubDomains(t *testing.T) {
 		"BlockName=block003",
 		"BlockName=block004",
 		"BlockSizes=8,32",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementStrategy2OddSubDomainCount validates Strategy 2 when the sub-domain count
+// does not divide evenly into floor(baseBlockSize/MaxChildNodeCount) groups. This exercises
+// the greedy-overflow path where ceil(M/floor(B/s)) > aggregateSlotCapacity/baseBlockSize.
+//
+// Setup: blockSizes=[8], domain "d" with 5 sub-domains of 3 hosts each (15 total).
+//   - baseBlockSize=8, MaxChildNodeCount=3 < 8 → Strategy 2 fires
+//   - subDomainsPerBlock = floor(8/3) = 2; greedyBlocks = ceil(5/2) = 3
+//   - aggregateSlotCapacity(15, 8) = 16 → base numBaseBlocks = 2 < greedyBlocks
+//   - effectiveNumBaseBlocks = max(2, 3) = 3
+//   - Greedy lookahead:
+//     d.sd0 (3): pending=0, no flush. pending=3.
+//     d.sd1 (3): 3+3=6 ≤ 8, no flush. pending=6.
+//     d.sd2 (3): 6+3=9 > 8 → flush "d.sd0+d.sd1". pending=3.
+//     d.sd3 (3): 3+3=6 ≤ 8, no flush. pending=6.
+//     d.sd4 (3): 6+3=9 > 8 → flush "d.sd2+d.sd3". pending=3. End → flush "d.sd4".
+//   - 3 real blocks (no spurious empty padding). Root: 24%8=0, no padding.
+func TestComplementStrategy2OddSubDomainCount(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for sd := range 5 {
+		for h := range 3 {
+			domains.AddHostInfo(&topology.HostInfo{
+				Domain:    "d",
+				SubDomain: fmt.Sprintf("d.sd%d", sd),
+				HostName:  fmt.Sprintf("d-sd%d-h%d", sd, h),
+			})
+		}
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{8},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=d.sd0+d.sd1",
+		"BlockName=block001 Nodes=d-sd0-h[0-2],d-sd1-h[0-2]",
+		"# block002=d.sd2+d.sd3",
+		"BlockName=block002 Nodes=d-sd2-h[0-2],d-sd3-h[0-2]",
+		"# block003=d.sd4",
+		"BlockName=block003 Nodes=d-sd4-h[0-2]",
+		"BlockSizes=8",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementStrategy2SkippedWithFormatter verifies that Strategy 2 is automatically
+// skipped when a blockName formatter is configured. Without this protection, Strategy 2
+// would combine hosts from sub-domains "r1", "r2", "r3" into one block named "r1+r2+r3";
+// the formatter would then error because "r1-h0" derives "r1" and "r2-h0" derives "r2".
+//
+// resolveCombineSubdomains returns false whenever NodeNameRegexp is set, so Strategy 3
+// is used instead — each sub-domain keeps its own base block and the formatter can derive
+// a consistent name from each block's homogeneous host list. No explicit combineSubdomains
+// flag is needed; the protection is unconditional.
+//
+// Setup: 1 domain "d", 4 sub-domains (r1–r4) × 2 hosts each, blockSizes=[8,16].
+//   - MaxChildNodeCount=2 < baseBlockSize=8 → normally Strategy 2
+//   - formatter configured → resolveCombineSubdomains=false → Strategy 3 → 4 separate blocks
+//   - Each block's hosts share the same sub-domain prefix → formatter succeeds
+//   - Block IDs become "r1"…"r4" as derived by the formatter
+func TestComplementStrategy2SkippedWithFormatter(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for _, rack := range []string{"r1", "r2", "r3", "r4"} {
+		for h := 0; h < 2; h++ {
+			name := fmt.Sprintf("%s-h%d", rack, h)
+			domains.AddHostInfo(&topology.HostInfo{
+				Domain:     "d",
+				SubDomain:  rack,
+				HostName:   name,
+				InstanceID: name,
+			})
+		}
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{8, 16},
+		BlockName: &BlockNameConfig{
+			NodeNameRegexp: `^(r[0-9]+)-`,
+			Format:         "${1}",
+			compiledRegexp: regexp.MustCompile(`^(r[0-9]+)-`),
+		},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false), "formatBlockNames must not error when Strategy 2 is skipped")
+
+	expected := strings.Join([]string{
+		"# r1=r1",
+		"BlockName=r1 Nodes=r1-h[0-1]",
+		"# r2=r2",
+		"BlockName=r2 Nodes=r2-h[0-1]",
+		"# r3=r3",
+		"BlockName=r3 Nodes=r3-h[0-1]",
+		"# r4=r4",
+		"BlockName=r4 Nodes=r4-h[0-1]",
+		"BlockSizes=8,16",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementSingleLevelOversizedDomain verifies that a single-level domain whose
+// node count exceeds blockSizes[last] produces exactly ceil(ActualNodeCount/blockSizes[0])
+// base blocks with no empty placeholder. Setup: 1 domain, 5 hosts, BlockSizes=[2]
+// (lastBlockSize=2 < maxSiblingNodes=5) → 3 blocks.
+func TestComplementSingleLevelOversizedDomain(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for i := 0; i < 5; i++ {
+		domains.AddHostInfo(&topology.HostInfo{
+			Domain:   "d",
+			HostName: fmt.Sprintf("h%d", i),
+		})
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{2},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=d",
+		"BlockName=block001 Nodes=h[0-1]",
+		"# block002=d",
+		"BlockName=block002 Nodes=h[2-3]",
+		"# block003=d",
+		"BlockName=block003 Nodes=h4",
+		"BlockSizes=2",
 		"",
 	}, "\n")
 	require.Equal(t, expected, buf.String())

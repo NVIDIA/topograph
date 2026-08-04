@@ -13,7 +13,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The NFD engine now publishes separate `xclr-domain` and `xclr-sub-domain` attributes and groups.
 - The graph engine now includes `xclr.topology.nvidia.com/sub-domain` in instance labels when supplied alongside an XCLR domain.
 - Exported Go constant `topology.KeyTopologyXclrSubDomain` for the `xclr.topology.nvidia.com/sub-domain` label key.
-- DRA provider and Slinky engine `kubeQPS` and `kubeBurst` parameters for tuning their independent Kubernetes client rate limits on large clusters.
 - Slurm and Slinky block topology configurations can set `blockName.nodeNameRegexp` and `blockName.format` to derive unique block names from site-specific node naming conventions.
 - Simulation model files may omit empty leaf-switch definitions; the model loader now creates leaf switches referenced by the parent switch hierarchy.
 - `govulncheck` job in the Go CI workflow for symbol-level vulnerability scanning on pull requests.
@@ -33,7 +32,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **BREAKING:** The exported Go constant `topology.KeyTopologyAccelerator` is renamed to `topology.KeyTopologyXclrDomain`.
 - **BREAKING:** `topology.InstanceTopology` now represents accelerator locality with `XclrDomainID` and optional `XclrSubDomainID`; these replace the ambiguous `AcceleratorID` and `ParentAcceleratorID` fields.
 - **BREAKING:** The default accelerator-domain label is now `xclr.topology.nvidia.com/domain`, replacing `network.topology.nvidia.com/accelerator`. Topograph will automatically remove the old label from each node on its first reconciliation after upgrading.
-- **BREAKING:** Simulation models now define accelerator topology through inherited `switches[].annotations` and `blocks[].annotations` using `accelerator.topology.test/domain` and optional `accelerator.topology.test/sub-domain`, instead of the `network.topology.nvidia.com/accelerator` model label.
 - The Slurm topology-update trigger script now accepts AWS, GCP, OCI, Nebius, NetQ, Nscale, Lambda, and bare-metal InfiniBand providers.
 - **BREAKING:** Fabric topology now uses variable, closest-first tiers labeled `network.topology.nvidia.com/tier-N`; `InstanceTopology.FabricTiers` and graph conversion support arbitrary fabric depth. Accelerator topology uses `XclrDomainID`, optional `XclrSubDomainID`, and `Graph.Domains`, with the domain labeled `xclr.topology.nvidia.com/domain`. The fixed `leaf`, `spine`, and `core` keys and process-wide Helm/CLI label overrides are replaced by optional `fabricLabels` and `acceleratorLabel` parameters on the `k8s` engine.
 - Simulation model node names are now treated as hostnames; the model-backed test provider generates their instance IDs with an `i-` prefix.

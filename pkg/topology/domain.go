@@ -19,6 +19,7 @@ package topology
 import (
 	"fmt"
 	"maps"
+	"sort"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -125,10 +126,12 @@ func (m DomainMap) GetDomainTree() *BlockVertex {
 			domainBV.ActualNodeCount = len(hosts)
 		} else {
 			// Two-level: one sub-domain vertex per distinct SubDomain under the domain.
-			// Count only hosts that are successfully placed so that partially-configured
-			// deployments (some hosts missing SubDomain) do not inflate actualNodeCount.
+			// Every host is placed: those with a SubDomain go into their named sub-domain
+			// vertex; those without one go into a fallback sub-domain keyed by the domain
+			// name. placed tracks the total so domainBV.ActualNodeCount reflects all hosts.
 			domainBV.Children = make(map[string]*BlockVertex)
 			placed := 0
+			var fallbackHosts []string
 			for _, host := range hosts {
 				gn := host.SubDomain
 				if gn == "" {
@@ -137,7 +140,7 @@ func (m DomainMap) GetDomainTree() *BlockVertex {
 					// info). Place it in a fallback sub-domain vertex keyed by the
 					// accelerator domain name so the host is always emitted rather than
 					// silently dropped.
-					klog.Warningf("domain %q: host %q has no SubDomain; placing in fallback sub-domain %q", domain, host.HostName, domain)
+					fallbackHosts = append(fallbackHosts, host.HostName)
 					gn = domain
 				}
 				sub := domainBV.ChildAt(gn)
@@ -150,6 +153,10 @@ func (m DomainMap) GetDomainTree() *BlockVertex {
 				placed++
 			}
 			domainBV.ActualNodeCount = placed
+			if len(fallbackHosts) > 0 {
+				sort.Strings(fallbackHosts)
+				klog.Warningf("domain %q: hosts %v have no SubDomain; placed in fallback sub-domain %q", domain, fallbackHosts, domain)
+			}
 			// MaxChildNodeCount = largest sub-domain host count within this domain.
 			for _, sub := range domainBV.Children {
 				if sub.ActualNodeCount > domainBV.MaxChildNodeCount {

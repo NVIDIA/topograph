@@ -62,7 +62,7 @@ func TestComplementPaddingBoundedForNonDivisorBlockSizes(t *testing.T) {
 		domains: domains,
 		blocks:  []*blockInfo{{name: "d1", nodes: []string{"h1", "h2", "h3"}}},
 	}
-	out := nt.complementBlocks(nt.blocks, []int{3, 7})
+	out := nt.complementBlocks(nt.blocks, []int{3, 7}, true)
 	// lcm(3, 7) = 21 nodes; 21 / 3 per block = 7 base blocks (1 real + 6 empty)
 	require.Len(t, out, 7)
 	require.Equal(t, "d1", out[0].name)

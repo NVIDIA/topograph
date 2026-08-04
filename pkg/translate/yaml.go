@@ -189,7 +189,7 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 			return bInfos[i].indx < bInfos[j].indx
 		})
 
-		bInfos = nt.complementBlocks(bInfos, topoSpec.BlockSizes)
+		bInfos = nt.complementBlocks(bInfos, topoSpec.BlockSizes, resolveCombineSubdomains(topoSpec.BlockName))
 		for indx, bInfo := range bInfos {
 			bInfo.id = fmt.Sprintf("block%d", indx+1)
 		}

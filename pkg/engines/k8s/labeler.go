@@ -58,7 +58,7 @@ func (keys *TopologyLabelKeys) Validate() error {
 	if err := validate("acceleratorLabel", keys.XclrDomain); err != nil {
 		return err
 	}
-	return validate(topology.KeyTopologyXclrSubDomain, keys.XclrSubDomain)
+	return validate("xclrSubDomainLabel", keys.XclrSubDomain)
 }
 
 // FabricKey returns the fabric key for tier. Defaults are used when no custom

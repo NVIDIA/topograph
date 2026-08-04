@@ -18,11 +18,11 @@ import (
 //
 // buildBlockTree calls GetDomainTree to produce a flat one- or two-level
 // BlockVertex tree (one level when no host carries a SubDomain, two levels
-// otherwise), assigns
-// DesiredNodeCount to every node via a BFS pass, and recursively converts the result
-// into an aggregateBlockNode tree with empty placeholder slots for absent groups or
+// otherwise). GetDomainTree computes ActualNodeCount and MaxChildNodeCount inline
+// as it builds the tree. buildBlockTree then converts the result into an
+// aggregateBlockNode tree with empty placeholder slots for absent groups or
 // domains. The flat base-block slot list is then numbered sequentially.
-func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []int) []*blockInfo {
+func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []int, combineSubdomains bool) []*blockInfo {
 	if len(blockSizes) < 1 || nt.domains == nil {
 		return blocks
 	}
@@ -35,7 +35,7 @@ func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []in
 	klog.Infof("Complementing %d blocks with %d domains into tree shape %v", len(blocks), len(domains), blockSizes)
 	byName := blocksByName(blocks)
 
-	actualTree := buildBlockTree(domains, blockSizes)
+	actualTree := buildBlockTree(domains, blockSizes, combineSubdomains)
 	if actualTree == nil {
 		return blocks
 	}

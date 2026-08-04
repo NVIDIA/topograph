@@ -196,42 +196,54 @@ root's domain children in sorted name order and converts each one by calling
 
 #### Slot capacity
 
-`toDomainAggregate` computes the number of base blocks assigned to a vertex:
+`toDomainAggregate` computes `numBaseBlocks` differently for leaf and interior nodes:
 
-```
-nodeCount    = aggregateSlotCapacity(maxSiblingNodes, blockSizes[0])
-             = smallest 2^n × blockSizes[0]  that is ≥ maxSiblingNodes
-numBaseBlocks = nodeCount / blockSizes[0]
-```
+**Leaf nodes** (`src.Hosts != nil`, single-level domain):
+
+| Condition | Formula |
+|---|---|
+| `blockSizes[last] ≥ maxSiblingNodes` (normal) | `aggregateSlotCapacity(maxSiblingNodes, blockSizes[0]) / blockSizes[0]` |
+| `blockSizes[last] < maxSiblingNodes` (oversized) | `⌈ActualNodeCount / blockSizes[0]⌉` |
+
+The oversized case uses ceiling division rather than power-of-2 rounding. Power-of-2
+rounding is only needed for interior nodes (to keep sub-domain slots uniform); applying
+it to leaf nodes produces spurious empty placeholder blocks for large single-level domains.
+
+**Interior nodes** (`src.Hosts == nil`, two-level domain):
+
+| Condition | `nodeCount` |
+|---|---|
+| `blockSizes[last] ≥ maxSiblingNodes` (normal) | `aggregateSlotCapacity(maxSiblingNodes, blockSizes[0])` |
+| `blockSizes[last] < maxSiblingNodes` (oversized) | `aggregateSlotCapacity(src.ActualNodeCount, blockSizes[0])` |
+
+`numBaseBlocks = nodeCount / blockSizes[0]`.
 
 `maxSiblingNodes` is the `MaxChildNodeCount` of the caller's vertex (the largest
-`ActualNodeCount` among the siblings being processed). This sizes all siblings
-uniformly based on the largest one, so no padding is needed within a set of
-equal-sized siblings.
-
-If `blockSizes[last] < maxSiblingNodes` (the domain is larger than the configured
-last block size), the vertex is sized to its own `ActualNodeCount` instead to avoid
-over-expanding the slot.
+`ActualNodeCount` among the siblings being processed), ensuring uniform slot widths.
 
 #### Three conversion strategies
 
 **Strategy 1 — leaf vertex** (`src.Hosts != nil`):
 ```
+numBaseBlocks = (see slot capacity table above)
 blocks = splitIntoBaseBlocks(src.ID, sortedHosts, blockSizes[0])
 pad with newEmptyBaseBlock until len(blocks) == numBaseBlocks
 ```
 
-**Strategy 2 — small sub-domains** (`src.MaxChildNodeCount ≤ blockSizes[0] / 2`):
-Sub-domain hosts are accumulated in sorted order; a base block is flushed when the
-accumulated count exceeds `blockSizes[0] / 2`. Each flushed block is named with
-the `"+"` delimited sub-domains that contributed to it. Any remaining hosts form a
-partial base block. Result is padded to `numBaseBlocks`.
+**Strategy 2 — small sub-domains** (`src.MaxChildNodeCount < blockSizes[0]`):
+Sub-domain hosts are accumulated in sorted order using a greedy lookahead flush: before
+appending each child's hosts, the pending set is flushed into a new base block if adding
+the child would exceed `blockSizes[0]`. Each flushed block is named with the `"+"`
+delimited sub-domains that contributed to it. Any remaining hosts form a partial base
+block. Result is padded to `numBaseBlocks`.
 
-This prevents wasting empty host slots when sub-domains are small — instead of
-each sub-domain occupying its own half-empty base block, multiple sub-domains
-share one block.
+This strategy fills each block as densely as possible. When a `blockName` formatter is
+configured, Strategy 2 is automatically skipped — combining hosts from different
+sub-domains into one block makes per-sub-domain name derivation ambiguous. Strategy 3
+is used instead. To keep each sub-domain in its own block without a formatter, set
+`BlockSizes[0]` equal to the sub-domain node count so that Strategy 3 fires.
 
-**Strategy 3 — larger sub-domains** (`src.MaxChildNodeCount > blockSizes[0] / 2`):
+**Strategy 3 — larger sub-domains** (`src.MaxChildNodeCount ≥ blockSizes[0]`):
 `toDomainAggregate` is called recursively on each sub-domain child using
 `src.MaxChildNodeCount` as `maxSiblingNodes`. The resulting base blocks are
 flattened into the current aggregate, and the list is padded to `numBaseBlocks`
@@ -274,15 +286,20 @@ any particular topology level.
 The tree builder selects one of two strategies based on how the sub-domain actual host
 count (`MaxChildNodeCount`) compares to `BlockSizes[0]`:
 
-**Strategy 2 — combine sub-domain hosts** (when `MaxChildNodeCount ≤ BlockSizes[0] / 2`):
-All hosts from all sub-domains within a domain are merged into a single sorted list and
-split into full base blocks across sub-domain boundaries. No host slots are wasted.
+**Strategy 2 — combine sub-domain hosts** (when `MaxChildNodeCount < BlockSizes[0]`):
+Hosts from multiple sub-domains are accumulated using a greedy lookahead flush: a new base
+block is flushed before appending the next sub-domain whenever doing so would exceed
+`BlockSizes[0]`. This fills each block as densely as possible. When a `blockName` formatter
+is configured, Strategy 2 is automatically skipped (Strategy 3 is used instead) to avoid
+combining hosts from different sub-domains into one block, which makes per-sub-domain name
+derivation ambiguous. To keep each sub-domain in its own block without a formatter, set
+`BlockSizes[0]` equal to the sub-domain node count so that Strategy 3 fires.
 
-**Strategy 3 — one slot per sub-domain** (when `MaxChildNodeCount > BlockSizes[0] / 2`):
+**Strategy 3 — one slot per sub-domain** (when `MaxChildNodeCount ≥ BlockSizes[0]`):
 Each sub-domain is assigned its own base block slot; slots are padded with empty host
 placeholders when the sub-domain does not fill the full block. This preserves sub-domain
 boundary granularity in the output — callers that rely on per-sub-domain block positions
-for scheduling can request this behavior by setting `BlockSizes[0]` to a value larger than
+for scheduling can use this strategy by setting `BlockSizes[0]` equal to or smaller than
 `MaxChildNodeCount`.
 
 **Example cluster:** 2 accelerator domains, each with 4 racks of 9 hosts = 36 hosts per
@@ -307,10 +324,13 @@ BlockSizes=9,288
 
 ---
 
-**`BlockSizes[0]=18`, rack has 9 hosts — Strategy 2 fires (`9 ≤ 18/2 = 9`)**:
+**`BlockSizes[0]=18`, rack has 9 hosts — Strategy 2 fires (`9 < 18`)**:
 
-Sub-domain hosts are combined across rack boundaries. All 4 racks' 36 hosts pack into 2
-full 18-node base blocks. No host slots are wasted.
+Sub-domain hosts are combined across rack boundaries using the greedy lookahead flush.
+rack-0 (9): pending=0, no flush. pending=9. rack-1 (9): 9+9=18 ≤ 18, no flush. pending=18.
+rack-2 (9): 18+9=27 > 18 → flush "rack-0+rack-1" (18 hosts). pending=9.
+rack-3 (9): 9+9=18 ≤ 18, no flush. pending=18. End → flush "rack-2+rack-3" (18 hosts).
+All 4 racks' 36 hosts pack into 2 full 18-node base blocks.
 
 ```
 block001 Nodes=node[a0-a17]   ← combined racks 0+1 of domain-a (18 real, full)
@@ -321,10 +341,11 @@ BlockSizes=18,288
 
 ---
 
-**`BlockSizes[0]=18`, rack has 12 hosts — Strategy 3 fires (`12 > 18/2 = 9`)**:
+**`BlockSizes[0]=18`, rack has 12 hosts — Strategy 2 fires (`12 < 18`)**:
 
-Each rack is assigned its own 18-node base block, padded with 6 empty host placeholders.
-Sub-domain boundary is preserved in the block output.
+Strategy 2 fires, but the greedy lookahead sees that each pair of racks would overflow
+(12 + 12 = 24 > 18), so every rack still flushes into its own base block with 6 empty slots.
+Sub-domain boundary is preserved in the output, same as if Strategy 3 had been used.
 
 ```
 block001 Nodes=node[a0-a11]   ← rack-0 of domain-a (12 real + 6 empty host slots)
@@ -335,7 +356,8 @@ block004 Nodes=node[a36-a47]  ← rack-3 of domain-a (12 real + 6 empty host slo
 BlockSizes=18,288
 ```
 
-To avoid the per-slot waste, set `BlockSizes[0]=12` (matching the rack size exactly).
+To eliminate the per-slot waste, set `BlockSizes[0]=12` so each rack fills exactly one base
+block and Strategy 3 fires (`12 ≥ 12`).
 
 ## Example
 
@@ -353,7 +375,7 @@ nodes. Accelerator domain 1 has 14 active sub-domains; accelerator domain 2 has
 - `maxSiblingNodes = root.MaxChildNodeCount`
 - `nodeCount = aggregateSlotCapacity(maxSiblingNodes, 9)` = 144 (9 × 16 ≥ max)
 - `numBaseBlocks = 144 / 9 = 16`
-- Strategy 3 (MaxChildNodeCount=9 > 9/2=4): recurse into each sub-domain
+- Strategy 3 (MaxChildNodeCount=9 ≥ blockSizes[0]=9): recurse into each sub-domain
   - Each sub-domain: `nodeCount = aggregateSlotCapacity(9, 9) = 9`, `numBaseBlocks = 1`
   - Strategy 1 (leaf): each sub-domain → 1 base block
 - domain-01: 14 real sub-domain blocks + 2 empty = 16 base blocks
@@ -420,6 +442,9 @@ The output is identical to the pre-change single-level behavior.
   verify over-full root padding — when the total real-child capacity exceeds
   `blockSizes[last]` but is not yet a multiple of it, empty domain slots are
   appended to reach the next multiple boundary.
+- `TestComplementSingleLevelOversizedDomain`: regression test for the power-of-2
+  over-allocation fix — 1 domain, 5 hosts, `BlockSizes=[2]` (`lastBlockSize < maxSiblingNodes`)
+  asserts exactly 3 blocks with no spurious empty placeholder.
 - All existing complement tests (`TestComplementMissingBaseBlock`,
   `TestComplementMissingLeafSegment`, `TestComplementKeepsSeparateAccelerators`,
   etc.) continue to pass, verifying backward compatibility for the no-`SubDomain`
