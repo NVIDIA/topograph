@@ -1,0 +1,100 @@
+# Copyright 2026 NVIDIA CORPORATION
+# SPDX-License-Identifier: Apache-2.0
+
+name: E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      chainsaw_version:
+        description: "Chainsaw version to install (e.g. v0.2.12)"
+        required: false
+        default: "latest"
+
+env:
+  KIND_CLUSTER: topograph-e2e
+  IMAGE_REPO: ghcr.io/nvidia/topograph
+  CHAINSAW_VERSION: ${{ github.event.inputs.chainsaw_version || 'latest' }}
+
+jobs:
+  e2e:
+    name: Chainsaw E2E
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.25.11'
+
+    - name: Install kind
+      run: go install sigs.k8s.io/kind@latest
+
+    - name: Install Chainsaw
+      run: |
+        if [ "$CHAINSAW_VERSION" = "latest" ]; then
+          TAG=$(curl -s https://api.github.com/repos/kyverno/chainsaw/releases/latest \
+            | grep '"tag_name"' | cut -d'"' -f4)
+        else
+          TAG="$CHAINSAW_VERSION"
+        fi
+        echo "Installing Chainsaw $TAG"
+        BASE_URL="https://github.com/kyverno/chainsaw/releases/download/${TAG}"
+        curl -fsSL "${BASE_URL}/chainsaw_linux_amd64.tar.gz"      -o chainsaw.tar.gz
+        curl -fsSL "${BASE_URL}/chainsaw_checksums.txt"            -o chainsaw_checksums.txt
+        grep "chainsaw_linux_amd64.tar.gz" chainsaw_checksums.txt | sha256sum -c -
+        tar xz -f chainsaw.tar.gz chainsaw
+        sudo mv chainsaw /usr/local/bin/
+        rm -f chainsaw.tar.gz chainsaw_checksums.txt
+        chainsaw version
+
+    - name: Create kind cluster
+      run: |
+        kind create cluster \
+          --name "$KIND_CLUSTER" \
+          --config tests/chainsaw/kind-config.yaml \
+          --wait 120s
+
+    - name: Build Linux/amd64 image
+      run: make build-linux-amd64
+
+    - name: Build container image
+      env:
+        GOOS: linux
+        GOARCH: amd64
+      run: |
+        # Use the short commit SHA as the image tag: always a valid Docker tag,
+        # works regardless of branch naming conventions.
+        IMAGE_TAG=$(git rev-parse --short HEAD)
+        make image-build IMAGE_TAG="$IMAGE_TAG"
+        echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+
+    - name: Load image into kind
+      run: |
+        kind load docker-image "${IMAGE_REPO}:${IMAGE_TAG}" \
+          --name "$KIND_CLUSTER"
+
+    - name: Run E2E tests
+      env:
+        TOPOGRAPH_IMAGE_REPO: ${{ env.IMAGE_REPO }}
+        TOPOGRAPH_IMAGE_PULL_POLICY: Never
+      run: |
+        make e2e E2E_IMAGE_TAG="$IMAGE_TAG"
+
+    - name: Collect diagnostic logs on failure
+      if: failure()
+      run: |
+        echo "=== kind nodes ==="
+        kubectl get nodes -o wide
+        echo "=== all pods ==="
+        kubectl get pods -A -o wide
+        echo "=== recent events ==="
+        kubectl get events -A --sort-by='.lastTimestamp' | tail -50
+
+    - name: Delete kind cluster
+      if: always()
+      run: kind delete cluster --name "$KIND_CLUSTER"

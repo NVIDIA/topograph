@@ -1,0 +1,239 @@
+# Copyright 2026 NVIDIA CORPORATION
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: slinky-block-complement
+spec:
+  description: >
+    Verify block-complementing with missing nodes in two of three NVLink cliques.
+    The topology model defines three cliques under a spine→{leaf-1,leaf-2,leaf-3}
+    switch tree: clique-1 has only node-01 (node-02 absent), clique-2 has both
+    node-03 and node-04, and clique-3 has only node-06 (node-05 absent). Four
+    fake K8s nodes and one fake slurmd pod per node are created. With explicit
+    BlockSizes=2,4,8, each clique occupies one base block of capacity 2 regardless
+    of how many nodes are present. Three cliques fill 3 of the 4 base-block slots
+    required at the top level (4×2=8 nodes to satisfy the 8-node lastBS boundary),
+    so complementBlocks pads the output with one empty placeholder (block004).
+    Nodes absent from their clique appear as unfilled host slots within their base
+    block — they are not emitted in the BlockName line. The Node Observer fires on
+    the fake nodes on startup and auto-triggers generation.
+  concurrent: false
+  steps:
+
+  - name: prepare
+    description: >
+      Create the topology-model ConfigMap with three NVLink cliques where node-02
+      (clique-1) and node-05 (clique-3) are absent, simulating unavailable nodes.
+      Create four fake K8s nodes (node-01, node-03, node-04, node-06) and one fake
+      slurmd pod per node. Each pod is placed on the corresponding fake node via
+      spec.nodeName and status-patched to Ready so the Slinky engine can build its
+      k8s-node→SLURM-hostname map. Fake nodes carry kubernetes.io/os=linux so the
+      Node Observer fires on them.
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: topology-test-model
+          data:
+            topology-model.yaml: |
+              switches:
+                spine:
+                  switches:
+                  - leaf-1
+                  - leaf-2
+                  - leaf-3
+              blocks:
+              - switch: leaf-1
+                nodes: [node-01]
+                labels:
+                  network.topology.nvidia.com/accelerator: clique-1
+              - switch: leaf-2
+                nodes: [node-03, node-04]
+                labels:
+                  network.topology.nvidia.com/accelerator: clique-2
+              - switch: leaf-3
+                nodes: [node-06]
+                labels:
+                  network.topology.nvidia.com/accelerator: clique-3
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-01
+            labels:
+              kubernetes.io/os: linux
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-03
+            labels:
+              kubernetes.io/os: linux
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-04
+            labels:
+              kubernetes.io/os: linux
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-06
+            labels:
+              kubernetes.io/os: linux
+    - script:
+        timeout: 30s
+        content: |
+          set -euo pipefail
+          # Create one fake slurmd pod per fake node, directly assigned via spec.nodeName.
+          # The Slinky engine requires ready slurmd pods to build its k8s-node to
+          # SLURM-hostname map. Without pods nodeMap is empty and no nodes are resolved.
+          for NODE in node-01 node-03 node-04 node-06; do
+            kubectl apply -n "$NAMESPACE" -f - <<EOF
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: slurmd-${NODE}
+            namespace: ${NAMESPACE}
+            labels:
+              app: slurmd
+          spec:
+            nodeName: ${NODE}
+            hostname: ${NODE}
+            tolerations:
+            - operator: Exists
+            containers:
+            - name: slurmd
+              image: registry.k8s.io/pause:3.9
+          EOF
+          done
+          # Patch each pod's status to Ready so IsPodReady() returns true.
+          for NODE in node-01 node-03 node-04 node-06; do
+            kubectl patch pod "slurmd-${NODE}" -n "$NAMESPACE" \
+              --type=merge \
+              --subresource=status \
+              -p '{"status":{"conditions":[{"type":"Ready","status":"True","lastTransitionTime":"2024-01-01T00:00:00Z"}]}}'
+          done
+
+  - name: install-topograph
+    description: >
+      Install Topograph with the Node Observer using the test provider and Slinky
+      engine configured with topology/block and explicit BlockSizes=2,4,8. The
+      namespace is injected via --set so the Slinky engine writes the
+      slurm-topology ConfigMap into the correct test namespace (where the fake
+      slurmd pods already exist). The observer fires on the fake nodes on startup
+      and auto-triggers generation.
+    try:
+    - script:
+        timeout: 120s
+        content: |
+          set -euo pipefail
+          REPO_ROOT=$(git rev-parse --show-toplevel)
+          IMAGE_REPO="${TOPOGRAPH_IMAGE_REPO:-ghcr.io/nvidia/topograph}"
+          IMAGE_TAG="${TOPOGRAPH_IMAGE_TAG:-}"
+          PULL_POLICY="${TOPOGRAPH_IMAGE_PULL_POLICY:-IfNotPresent}"
+
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+
+          helm upgrade --install topograph "${REPO_ROOT}/charts/topograph" \
+            --namespace "$NAMESPACE" --create-namespace \
+            --values "$(pwd)/values.yaml" \
+            --set "image.repository=${IMAGE_REPO}" \
+            ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
+            --set "image.pullPolicy=${PULL_POLICY}" \
+            --set "engine.params.namespace=${NAMESPACE}" \
+            --wait --timeout 90s
+    catch:
+    - description: Pod status on install failure
+      script:
+        content: |
+          kubectl get pods -n "$NAMESPACE" -o wide
+          kubectl describe pods -n "$NAMESPACE"
+
+  - name: assert
+    description: >
+      The Node Observer fires on the fake nodes on startup, triggering generation
+      automatically. The test provider returns a graph with three NVLink clique
+      domains: clique-1 (node-01 only), clique-2 (node-03 and node-04), and
+      clique-3 (node-06 only). The Slinky engine with BlockSizes=2,4,8 calls
+      complementBlocks: each clique occupies one base block of capacity 2
+      regardless of how many live nodes it has. Three cliques fill 3 of the 4
+      required top-level slots, so block004 is added as an empty placeholder.
+      Nodes absent from a clique (node-02 in clique-1, node-05 in clique-3) are
+      not emitted in their BlockName line — the base block simply has fewer live
+      hosts. Assert the ConfigMap contains all three real blocks with their
+      respective live nodes and the empty complement placeholder.
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: slurm-topology
+          data:
+            topology.conf: |
+              # block001=clique-1
+              BlockName=block001 Nodes=node-01
+              # block002=clique-2
+              BlockName=block002 Nodes=node-[03-04]
+              # block003=clique-3
+              BlockName=block003 Nodes=node-06
+              BlockName=block004
+              BlockSizes=2,4,8
+    catch:
+    - description: Topograph and Node Observer logs on failure
+      script:
+        content: |
+          echo "=== Topograph logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph --tail=80 || true
+          echo "=== Node Observer logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph-node-observer --tail=50 || true
+          echo "=== slurm-topology content ==="
+          kubectl get configmap slurm-topology -n "$NAMESPACE" -o yaml 2>/dev/null || true
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          helm uninstall topograph -n "$NAMESPACE" --wait --timeout 60s || true
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete pod \
+            slurmd-node-01 slurmd-node-03 slurmd-node-04 slurmd-node-06 \
+            -n "$NAMESPACE" --ignore-not-found --grace-period=0 --force 2>/dev/null || true
+          kubectl delete namespace "$NAMESPACE" --timeout=60s || true
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-01
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-03
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-04
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-06

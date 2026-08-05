@@ -1,0 +1,151 @@
+# Copyright 2026 NVIDIA CORPORATION
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: k8s-label-truncation
+spec:
+  description: >
+    Verify that switch names exceeding 63 characters (the Kubernetes label-value
+    limit) are replaced with an FNV64a hash prefixed with "x". The test uses
+    a static topology model with a 65-char leaf switch name, embedded inline in
+    a ConfigMap and mounted into the pod. A fake Node object (node-01) is
+    created to receive the label. After generation the leaf label must be ≤63
+    chars and start with "x".
+  concurrent: false
+  steps:
+
+  - name: prepare
+    description: >
+      Create a fake K8s Node object (node-01) matching the model instance ID,
+      then create the topology-model ConfigMap with inline content.
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: node-01
+            labels:
+              kubernetes.io/os: linux
+            annotations:
+              topograph.nvidia.com/instance: node-01
+              topograph.nvidia.com/region: local
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: topology-test-model
+          data:
+            topology-model.yaml: |
+              switches:
+                s1:
+                  switches:
+                  - AVERYLONGSWITCHNAMETHATEXCEEDSSIXTYCHARACTERSFORTESTINGPURPOSES01
+              blocks:
+              - switch: AVERYLONGSWITCHNAMETHATEXCEEDSSIXTYCHARACTERSFORTESTINGPURPOSES01
+                nodes: [node-01]
+
+  - name: install-topograph
+    description: >
+      Install Topograph together with the Node Observer. The observer fires
+      "Added" events for the fake node on startup, automatically triggering
+      topology generation via the modelFileName configured in values.yaml.
+    try:
+    - script:
+        timeout: 120s
+        content: |
+          set -euo pipefail
+          REPO_ROOT=$(git rev-parse --show-toplevel)
+          IMAGE_REPO="${TOPOGRAPH_IMAGE_REPO:-ghcr.io/nvidia/topograph}"
+          IMAGE_TAG="${TOPOGRAPH_IMAGE_TAG:-}"
+          PULL_POLICY="${TOPOGRAPH_IMAGE_PULL_POLICY:-IfNotPresent}"
+
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+
+          helm upgrade --install topograph "${REPO_ROOT}/charts/topograph" \
+            --namespace "$NAMESPACE" --create-namespace \
+            --values "$(pwd)/values.yaml" \
+            --set "image.repository=${IMAGE_REPO}" \
+            ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
+            --set "image.pullPolicy=${PULL_POLICY}" \
+            --wait --timeout 90s
+    catch:
+    - description: Pod status on install failure
+      script:
+        content: |
+          kubectl get pods -n "$NAMESPACE" -o wide
+          kubectl describe pods -n "$NAMESPACE"
+
+  - name: assert
+    description: >
+      The Node Observer fires "Added" events for the fake node on startup,
+      triggering generation automatically. Assert the leaf label on node-01
+      is ≤63 chars and starts with "x" (FNV64a hash of the 65-char switch name).
+    try:
+    - script:
+        timeout: 90s
+        content: |
+          set -euo pipefail
+
+          echo "Polling for leaf label on node-01..."
+          LEAF=""
+          for i in $(seq 1 30); do
+            LEAF=$(kubectl get node node-01 \
+              -o jsonpath='{.metadata.labels.network\.topology\.nvidia\.com/leaf}' 2>/dev/null || true)
+            [ -n "$LEAF" ] && break
+            sleep 2
+          done
+
+          if [ -z "$LEAF" ]; then
+            echo "FAIL: leaf label not set on node-01"
+            exit 1
+          fi
+
+          echo "leaf label value: '$LEAF' (length=${#LEAF})"
+
+          if [ "${#LEAF}" -gt 63 ]; then
+            echo "FAIL: label length ${#LEAF} exceeds 63"
+            exit 1
+          fi
+
+          ORIGINAL="AVERYLONGSWITCHNAMETHATEXCEEDSSIXTYCHARACTERSFORTESTINGPURPOSES01"
+          if [ "$LEAF" = "$ORIGINAL" ]; then
+            echo "FAIL: label was not hashed (still equals original name)"
+            exit 1
+          fi
+
+          if [ "${LEAF:0:1}" != "x" ]; then
+            echo "FAIL: expected hashed label to start with 'x', got: $LEAF"
+            exit 1
+          fi
+
+          echo "OK: label correctly hashed to '$LEAF'"
+    catch:
+    - description: Topograph and Node Observer logs on assertion failure
+      script:
+        content: |
+          echo "=== Topograph logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph --tail=50 || true
+          echo "=== Node Observer logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph-node-observer --tail=50 || true
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          helm uninstall topograph -n "$NAMESPACE" --wait --timeout 60s || true
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete namespace "$NAMESPACE" --timeout=60s || true
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Node
+          name: node-01

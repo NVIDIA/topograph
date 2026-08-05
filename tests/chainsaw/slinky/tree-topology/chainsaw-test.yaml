@@ -1,0 +1,116 @@
+# Copyright 2026 NVIDIA CORPORATION
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: slinky-tree-topology
+spec:
+  description: >
+    Verify that the Slinky engine writes a correct topology.conf fragment into
+    a ConfigMap. The test uses a static topology model (S1→S2/S3, node-01 under
+    S2 and node-02 under S3) embedded inline in a ConfigMap and mounted into the
+    pod. The Node Observer fires on cluster nodes (which already carry the
+    kubernetes.io/os=linux label) and auto-triggers generation — no manual POST
+    is required. The Slinky engine derives topology.conf entirely from the graph
+    switch structure; no actual slurmd pods are needed.
+  concurrent: false
+  steps:
+
+  - name: prepare-model-configmap
+    description: Create the topology-model ConfigMap with inline content.
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: topology-test-model
+          data:
+            topology-model.yaml: |
+              switches:
+                S1:
+                  switches:
+                  - S2
+                  - S3
+              blocks:
+              - switch: S2
+                nodes: [node-01]
+              - switch: S3
+                nodes: [node-02]
+
+  - name: install-topograph
+    description: >
+      Install Topograph together with the Node Observer. The namespace is
+      injected via --set so the Slinky engine writes the slurm-topology
+      ConfigMap into the correct test namespace. The observer fires on cluster
+      nodes on startup, auto-triggering generation.
+    try:
+    - script:
+        timeout: 120s
+        content: |
+          set -euo pipefail
+          REPO_ROOT=$(git rev-parse --show-toplevel)
+          IMAGE_REPO="${TOPOGRAPH_IMAGE_REPO:-ghcr.io/nvidia/topograph}"
+          IMAGE_TAG="${TOPOGRAPH_IMAGE_TAG:-}"
+          PULL_POLICY="${TOPOGRAPH_IMAGE_PULL_POLICY:-IfNotPresent}"
+
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+
+          helm upgrade --install topograph "${REPO_ROOT}/charts/topograph" \
+            --namespace "$NAMESPACE" --create-namespace \
+            --values "$(pwd)/values.yaml" \
+            --set "image.repository=${IMAGE_REPO}" \
+            ${IMAGE_TAG:+--set "image.tag=${IMAGE_TAG}"} \
+            --set "image.pullPolicy=${PULL_POLICY}" \
+            --set "engine.params.namespace=${NAMESPACE}" \
+            --wait --timeout 90s
+    catch:
+    - description: Pod status on install failure
+      script:
+        content: |
+          kubectl get pods -n "$NAMESPACE" -o wide
+          kubectl describe pods -n "$NAMESPACE"
+
+  - name: assert
+    description: >
+      The Node Observer fires on cluster nodes on startup, triggering generation
+      automatically. The Slinky engine derives topology.conf from the graph
+      switch structure (S1→S2/S3) and writes it into the slurm-topology
+      ConfigMap. Assert the ConfigMap contains the correct topology.conf entries.
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: slurm-topology
+          data:
+            topology.conf: |
+              SwitchName=S1 Switches=S[2-3]
+              SwitchName=S2 Nodes=node-01
+              SwitchName=S3 Nodes=node-02
+    catch:
+    - description: Topograph and Node Observer logs on failure
+      script:
+        content: |
+          echo "=== Topograph logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph --tail=50 || true
+          echo "=== Node Observer logs ==="
+          kubectl logs -n "$NAMESPACE" deploy/topograph-node-observer --tail=50 || true
+          echo "=== ConfigMaps ==="
+          kubectl get configmaps -n "$NAMESPACE"
+    finally:
+    - script:
+        timeout: 120s
+        content: |
+          helm uninstall topograph -n "$NAMESPACE" --wait --timeout 60s || true
+          kubectl delete clusterrole topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete clusterrolebinding topograph topograph-node-observer \
+            --ignore-not-found 2>/dev/null || true
+          kubectl delete namespace "$NAMESPACE" --timeout=60s || true

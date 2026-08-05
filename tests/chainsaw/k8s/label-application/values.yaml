@@ -1,0 +1,29 @@
+provider:
+  name: test
+  params:
+    modelFileName: /etc/topograph/models/topology-model.yaml
+
+engine:
+  name: k8s
+
+config:
+  requestAggregationDelay: 1s
+
+nodeObserver:
+  topograph:
+    trigger:
+      nodeSelector:
+        kubernetes.io/os: linux
+
+nodeDataBroker:
+  enabled: false
+
+# test specific values to mount the topology-model.yaml ConfigMap into the Topograph pod
+volumes:
+- name: topology-test-model
+  configMap:
+    name: topology-test-model
+
+volumeMounts:
+- name: topology-test-model
+  mountPath: /etc/topograph/models
