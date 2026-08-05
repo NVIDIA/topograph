@@ -251,6 +251,46 @@ func newEmptyChildAggregate(capacity, baseBlockSize int) *aggregateBlockNode {
 	return agg
 }
 
+// isSingleLevelDomainTree reports whether every accelerator domain under root
+// stores hosts directly rather than through sub-domain children. This is the
+// legacy DomainMap shape and must retain the pre-dual-level block sizing rules.
+func isSingleLevelDomainTree(root *topology.BlockVertex) bool {
+	if root == nil || len(root.Children) == 0 {
+		return false
+	}
+	for _, domain := range root.Children {
+		if domain == nil || domain.Hosts == nil || len(domain.Children) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// toSingleLevelDomainAggregate preserves the block allocation used before
+// dual-level domains were introduced.
+//
+// With a single BlockSizes entry there is no aggregate tier, so a domain uses
+// only ceil(ActualNodeCount/baseBlockSize) base blocks. With multiple entries,
+// every domain receives the same power-of-two slot sized from the largest
+// sibling domain. The latter reservation keeps domain positions stable when
+// differently sized single-level domains share a topology.
+func toSingleLevelDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int, blockSizes []int) *aggregateBlockNode {
+	if src == nil || len(blockSizes) == 0 {
+		return nil
+	}
+
+	baseBlockSize := blockSizes[0]
+	var numBaseBlocks int
+	if len(blockSizes) == 1 {
+		numBaseBlocks = (src.ActualNodeCount + baseBlockSize - 1) / baseBlockSize
+	} else {
+		numBaseBlocks = aggregateSlotCapacity(maxSiblingNodes, baseBlockSize) / baseBlockSize
+	}
+	numBaseBlocks = max(numBaseBlocks, 1)
+
+	return packHostsIntoAggregate(src.ID, hostsSorted(src.Hosts), numBaseBlocks, baseBlockSize)
+}
+
 // toDomainAggregate converts a BlockVertex into a flat aggregateBlockNode whose
 // slot capacity is determined by the maximum actualNodeCount among the vertex's
 // siblings (maxSiblingNodes).
@@ -338,21 +378,29 @@ func toDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int, blockSize
 // each domain child of root and appending empty domain aggregates until the total
 // nodeCount reaches a positive multiple of blockSizes[last].
 //
-// The slot capacity for each domain is determined by root.MaxChildNodeCount() so that
-// every domain aggregate occupies the same number of base blocks. Empty domain
-// aggregates are sized to match that same per-domain capacity.
+// Entirely single-level trees use toSingleLevelDomainAggregate to preserve the
+// pre-dual-level allocation rules. Dual-level and mixed trees use
+// toDomainAggregate. Empty root-padding aggregates use the GCD of the resulting
+// child capacities so padding can reach a valid root boundary even when child
+// capacities differ.
 func toRootAggregate(root *topology.BlockVertex, blockSizes []int, combineSubdomains bool) *aggregateBlockNode {
 	if root == nil || len(blockSizes) == 0 || blockSizes[0] <= 0 {
 		return nil
 	}
 	baseBlockSize := blockSizes[0]
 	rootDesired := blockSizes[len(blockSizes)-1]
+	singleLevel := isSingleLevelDomainTree(root)
 
 	result := &aggregateBlockNode{id: root.ID}
 	childCapacity := 0
 	for _, name := range slices.Sorted(maps.Keys(root.Children)) {
 		domain := root.ChildAt(name)
-		domainAgg := toDomainAggregate(domain, root.MaxChildNodeCount, blockSizes, combineSubdomains)
+		var domainAgg *aggregateBlockNode
+		if singleLevel {
+			domainAgg = toSingleLevelDomainAggregate(domain, root.MaxChildNodeCount, blockSizes)
+		} else {
+			domainAgg = toDomainAggregate(domain, root.MaxChildNodeCount, blockSizes, combineSubdomains)
+		}
 		if domainAgg == nil {
 			continue
 		}

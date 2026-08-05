@@ -17,7 +17,7 @@ step "make build TARGETS=kwok-nodes"
 
 step "delete_cluster"
 
-step "./scripts/create-kind-kwok-cluster.sh -m ./tests/models/dual-accelerator.yaml"
+step "./scripts/create-kind-kwok-cluster.sh -m ./tests/models/dual-xclr-regular.yaml"
 
 step "kubectl --context \"$KUBE_CONTEXT\" get node"
 

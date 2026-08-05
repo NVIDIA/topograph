@@ -1,7 +1,7 @@
 provider:
   name: oci-sim
   params:
-    modelFileName: dual-accelerator.yaml
+    modelFileName: dual-xclr-regular.yaml
 engine:
   name: k8s
 

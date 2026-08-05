@@ -331,7 +331,7 @@ func TestComplementMultiGroupRootExpansion3x72(t *testing.T) {
 }
 
 // TestComplementMixedDomainSizesLCMPadding is a regression test for the LCM padding bug
-// in toRootAggregate. When blockSizes[last] < maxSiblingNodes the capping branch in
+// in toRootAggregate. Both domains are dual-level, so the capping branch in
 // toDomainAggregate sizes each domain by its own ActualNodeCount, producing non-uniform
 // child capacities. The old code set childCapacity from only the first domain; the LCM
 // step was then too coarse to land on targetCount and the loop overshot, leaving
@@ -353,12 +353,12 @@ func TestComplementMixedDomainSizesLCMPadding(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		name := fmt.Sprintf("a-n%02d", i)
 		aNodes = append(aNodes, name)
-		domains.AddHostInfo(&topology.HostInfo{Domain: "a", HostName: name, InstanceID: name})
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a", SubDomain: "a-rack", HostName: name, InstanceID: name})
 	}
 	for i := 0; i < 12; i++ {
 		name := fmt.Sprintf("b-n%02d", i)
 		bNodes = append(bNodes, name)
-		domains.AddHostInfo(&topology.HostInfo{Domain: "b", HostName: name, InstanceID: name})
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", SubDomain: "b-rack", HostName: name, InstanceID: name})
 	}
 
 	blocks := []*blockInfo{
@@ -379,6 +379,87 @@ func TestComplementMixedDomainSizesLCMPadding(t *testing.T) {
 		}
 	}
 	require.Equal(t, 2, empty, "expected 2 empty padding blocks")
+}
+
+// TestComplementSingleLevelMixedOversizedDomainsPreservesUniformSlots verifies
+// backward compatibility for single-level domains of different sizes when the
+// largest domain exceeds blockSizes[last]. Before dual-level support, every
+// domain received the same power-of-two slot derived from the largest domain.
+// With blockSizes=[8,32], domain a (64 nodes) and domain b (12 nodes) therefore
+// each occupy 8 base blocks; b has 2 live blocks followed by 6 placeholders.
+func TestComplementSingleLevelMixedOversizedDomainsPreservesUniformSlots(t *testing.T) {
+	domains := topology.NewDomainMap()
+	var aNodes, bNodes []string
+	for i := 0; i < 64; i++ {
+		name := fmt.Sprintf("a-n%02d", i)
+		aNodes = append(aNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a", HostName: name, InstanceID: name})
+	}
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("b-n%02d", i)
+		bNodes = append(bNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", HostName: name, InstanceID: name})
+	}
+
+	blocks := []*blockInfo{
+		{name: "a", nodes: aNodes},
+		{name: "b", nodes: bNodes},
+	}
+	nt := &NetworkTopology{domains: domains, blocks: blocks}
+	out := nt.complementBlocks(nt.blocks, []int{8, 32}, true)
+
+	require.Len(t, out, 16, "expected 8 uniformly allocated base blocks per domain")
+	empty := 0
+	for _, b := range out {
+		if isEmptyBlock(b) {
+			empty++
+		}
+	}
+	require.Equal(t, 6, empty, "expected the smaller domain's 6 reserved placeholder blocks")
+	for i := 0; i < 8; i++ {
+		require.Equal(t, "a", out[i].name)
+	}
+	for i := 8; i < 10; i++ {
+		require.Equal(t, "b", out[i].name)
+	}
+	for i := 10; i < 16; i++ {
+		require.True(t, isEmptyBlock(out[i]))
+	}
+}
+
+// TestComplementMixedLevelDomainsUseDualLevelSizing verifies that the legacy
+// compatibility path is not selected when even one root domain has sub-domains.
+// The single-level domain a and dual-level domain b are therefore sized
+// independently, and root padding uses their GCD capacity.
+func TestComplementMixedLevelDomainsUseDualLevelSizing(t *testing.T) {
+	domains := topology.NewDomainMap()
+	var aNodes, bNodes []string
+	for i := 0; i < 64; i++ {
+		name := fmt.Sprintf("a-n%02d", i)
+		aNodes = append(aNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a", HostName: name, InstanceID: name})
+	}
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("b-n%02d", i)
+		bNodes = append(bNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", SubDomain: "b-rack", HostName: name, InstanceID: name})
+	}
+
+	blocks := []*blockInfo{
+		{name: "a", nodes: aNodes},
+		{name: "b", nodes: bNodes},
+	}
+	nt := &NetworkTopology{domains: domains, blocks: blocks}
+	out := nt.complementBlocks(nt.blocks, []int{8, 32}, true)
+
+	require.Len(t, out, 12, "expected independent 64- and 16-node slots plus 16 nodes of root padding")
+	empty := 0
+	for _, b := range out {
+		if isEmptyBlock(b) {
+			empty++
+		}
+	}
+	require.Equal(t, 2, empty)
 }
 
 // TestComplementWithMissingDomain verifies that when B2 has no entry in the domain map,
@@ -822,7 +903,7 @@ func TestComplementSingleLevelOversizedDomain(t *testing.T) {
 //
 //   - Total output: 32 blocks (16 per domain) followed by BlockSizes=9,144.
 func TestComplementDualLevel(t *testing.T) {
-	model, err := models.NewModelFromFile("dual-level.yaml")
+	model, err := models.NewModelFromFile("dual-xclr-irregular.yaml")
 	require.NoError(t, err)
 
 	graph, _ := model.ToGraph(nil)

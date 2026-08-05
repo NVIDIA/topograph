@@ -143,11 +143,11 @@ Additional annotations are set on topology ConfigMaps (used by the Slinky engine
 
 ## Integration with NVSentinel
 
-NVSentinel's Metadata Augmentor enriches health events with node labels from a configurable `allowedLabels` list. As of [NVSentinel #1226](https://github.com/NVIDIA/NVSentinel/pull/1226) (merged 2026-04-23; shipping in the next NVSentinel release), the four `network.topology.nvidia.com/*` labels are included in the default `allowedLabels` — so on clusters where Topograph is deployed, NVSentinel propagates topology into health event metadata automatically, with no operator configuration required. Downstream consumers — fault-quarantine CEL rules, remediation custom resources, dashboards, blast-radius analysis — can then reason about topological locality at NVL Partition, NVL Domain, or switch-hierarchy level.
+NVSentinel's Metadata Augmentor enriches health events with node labels from a configurable `allowedLabels` list. NVSentinel's defaults do not include Topograph's `xclr.topology.nvidia.com/*` accelerator keys or variable-depth `network.topology.nvidia.com/tier-N` fabric keys. Operators must therefore add the Topograph keys to `allowedLabels` for NVSentinel to propagate accelerator and fabric locality into health event metadata.
 
 NVSentinel's Metadata Augmentor skips labels that aren't present on a node, so nodes without Topograph (or MNNVL-only labels on non-MNNVL hardware) behave cleanly — no configuration conditionals needed.
 
-Operators on earlier NVSentinel versions, or operators running a customized `allowedLabels` list, can add the Topograph labels explicitly in `distros/kubernetes/nvsentinel/values.yaml`:
+Operators can add the current Topograph labels explicitly in `distros/kubernetes/nvsentinel/values.yaml`. Include every fabric tier that downstream consumers need; the following example covers a three-tier fabric:
 
 ```yaml
 transformers:

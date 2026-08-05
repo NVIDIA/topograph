@@ -239,4 +239,3 @@ blocks:
   annotations:
     accelerator.topology.test/domain: domain-02
     accelerator.topology.test/sub-domain: rack-2-16
-

@@ -219,7 +219,7 @@ BlockSizes=2,4
 }
 
 func TestSimClientGetComputeHostRackAdditionalData(t *testing.T) {
-	model, err := models.NewModelFromFile("dual-accelerator.yaml")
+	model, err := models.NewModelFromFile("dual-xclr-regular.yaml")
 	require.NoError(t, err)
 
 	client := &simClient{model: model}

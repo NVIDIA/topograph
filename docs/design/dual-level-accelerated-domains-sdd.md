@@ -196,7 +196,21 @@ root's domain children in sorted name order and converts each one by calling
 
 #### Slot capacity
 
-`toDomainAggregate` computes `numBaseBlocks` differently for leaf and interior nodes:
+Before using the dual-level conversion strategies, `toRootAggregate` detects an
+entirely single-level tree (every accelerator domain stores hosts directly). That
+shape uses the pre-dual-level allocation rules:
+
+| Configuration | Single-level domain allocation |
+|---|---|
+| One `BlockSizes` entry | `ceil(ActualNodeCount / blockSizes[0])` base blocks per domain |
+| Multiple `BlockSizes` entries | Every domain receives the same `aggregateSlotCapacity(maxSiblingNodes, blockSizes[0])` slot |
+
+This compatibility path is selected only when every root domain is single-level.
+A mixed tree containing any dual-level domain uses the new conversion path for
+all domains.
+
+For dual-level and mixed trees, `toDomainAggregate` computes `numBaseBlocks`
+differently for leaf and interior nodes:
 
 **Leaf nodes** (`src.Hosts != nil`, single-level domain):
 
@@ -207,7 +221,7 @@ root's domain children in sorted name order and converts each one by calling
 
 The oversized case uses ceiling division rather than power-of-2 rounding. Power-of-2
 rounding is only needed for interior nodes (to keep sub-domain slots uniform); applying
-it to leaf nodes produces spurious empty placeholder blocks for large single-level domains.
+it to a leaf in the dual-level path produces spurious empty placeholder blocks.
 
 **Interior nodes** (`src.Hosts == nil`, two-level domain):
 
@@ -427,17 +441,19 @@ tracked as a follow-up.
 ## Backward Compatibility
 
 When no host carries a `SubDomain`, `GetDomainTree` produces a single-level tree
-where every domain vertex is a leaf with `Hosts` set directly. `toDomainAggregate`
-takes Strategy 1 for each domain (leaf path: split hosts, pad to `numBaseBlocks`).
-The output is identical to the pre-change single-level behavior.
+where every domain vertex is a leaf with `Hosts` set directly. `toRootAggregate`
+detects this shape and uses `toSingleLevelDomainAggregate`: a single `BlockSizes`
+entry allocates only the minimum required base blocks, while multiple entries
+reserve the same power-of-two slot for every domain based on the largest sibling.
+The output is therefore identical to the pre-change single-level behavior.
 
 ## Test Plan
 
 **Dual-level complement output (`pkg/translate/block_complement_test.go`):**
 - `TestComplementDualLevel`: uses a two-level simulation model
-  (`tests/models/dual-level.yaml`) with `BlockSizes=[9,144]` to assert 32 blocks
-  — 16 per accelerator domain — with correct placeholder entries for absent
-  sub-domains.
+  (`tests/models/dual-xclr-irregular.yaml`) with `BlockSizes=[9,144]` to assert
+  32 blocks — 16 per accelerator domain — with correct placeholder entries for
+  absent sub-domains.
 - `TestComplementMultiGroupRootExpansion6x16`, `TestComplementMultiGroupRootExpansion3x72`:
   verify over-full root padding — when the total real-child capacity exceeds
   `blockSizes[last]` but is not yet a multiple of it, empty domain slots are
@@ -445,6 +461,11 @@ The output is identical to the pre-change single-level behavior.
 - `TestComplementSingleLevelOversizedDomain`: regression test for the power-of-2
   over-allocation fix — 1 domain, 5 hosts, `BlockSizes=[2]` (`lastBlockSize < maxSiblingNodes`)
   asserts exactly 3 blocks with no spurious empty placeholder.
+- `TestComplementSingleLevelMixedOversizedDomainsPreservesUniformSlots`: verifies
+  that differently sized single-level domains retain the legacy uniform slot
+  reservation when the largest domain exceeds `blockSizes[last]`.
+- `TestComplementMixedLevelDomainsUseDualLevelSizing`: verifies that a tree with
+  any sub-domain bypasses the single-level compatibility path.
 - All existing complement tests (`TestComplementMissingBaseBlock`,
   `TestComplementMissingLeafSegment`, `TestComplementKeepsSeparateAccelerators`,
   etc.) continue to pass, verifying backward compatibility for the no-`SubDomain`

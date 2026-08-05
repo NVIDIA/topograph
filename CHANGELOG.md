@@ -27,11 +27,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - The node-observer now processes its existing topology-generation triggers through a client-go rate-limiting work queue, coalescing event bursts into a single cluster-wide reconciliation while preserving existing trigger and retry behavior.
-- **BREAKING:** Simulation models now define accelerator topology through inherited `switches[].annotations` and `blocks[].annotations` using `accelerator.topology.test/domain` and optional `accelerator.topology.test/sub-domain`, instead of the `network.topology.nvidia.com/accelerator` model label.
+- Simulation models now define accelerator topology through inherited `switches[].annotations` and `blocks[].annotations` using `accelerator.topology.test/domain` and optional `accelerator.topology.test/sub-domain`.
 - **BREAKING:** `k8s.TopologyLabelKeys.Accelerator` and `AcceleratorKey` are renamed to `XclrDomain` and `XclrDomainKey`; the struct now also exposes `XclrSubDomain` and `XclrSubDomainKey`.
 - **BREAKING:** The exported Go constant `topology.KeyTopologyAccelerator` is renamed to `topology.KeyTopologyXclrDomain`.
 - **BREAKING:** `topology.InstanceTopology` now represents accelerator locality with `XclrDomainID` and optional `XclrSubDomainID`; these replace the ambiguous `AcceleratorID` and `ParentAcceleratorID` fields.
-- **BREAKING:** The default accelerator-domain label is now `xclr.topology.nvidia.com/domain`, replacing `network.topology.nvidia.com/accelerator`. Topograph will automatically remove the old label from each node on its first reconciliation after upgrading.
+- The default accelerator-domain label is now `xclr.topology.nvidia.com/domain`.
 - The Slurm topology-update trigger script now accepts AWS, GCP, OCI, Nebius, NetQ, Nscale, Lambda, and bare-metal InfiniBand providers.
 - **BREAKING:** Fabric topology now uses variable, closest-first tiers labeled `network.topology.nvidia.com/tier-N`; `InstanceTopology.FabricTiers` and graph conversion support arbitrary fabric depth. Accelerator topology uses `XclrDomainID`, optional `XclrSubDomainID`, and `Graph.Domains`, with the domain labeled `xclr.topology.nvidia.com/domain`. The fixed `leaf`, `spine`, and `core` keys and process-wide Helm/CLI label overrides are replaced by optional `fabricLabels` and `acceleratorLabel` parameters on the `k8s` engine.
 - Simulation model node names are now treated as hostnames; the model-backed test provider generates their instance IDs with an `i-` prefix.
