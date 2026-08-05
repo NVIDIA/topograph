@@ -36,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- AWS provider authentication now uses the standard SDK credential chain when explicit credentials are absent, enabling EKS Pod Identity and IRSA with automatic temporary-credential refresh instead of forcing EC2 instance-role credentials.
 - Blank or whitespace-only `KUBE_QPS` and `KUBE_BURST` values are now treated as unset for non-Helm deployments, while numeric values may include surrounding whitespace.
 - Invalid `KUBE_QPS` and `KUBE_BURST` deployment values now fail Kubernetes-client provider and engine loading immediately with HTTP 400 instead of being retried as HTTP 502 errors.
 - Slinky node-resolution logs now explain that an unresolved Kubernetes node lacks a mapping from a Ready Slurm pod and identify the relevant namespace, pod selector, readiness, and node-name metadata checks.

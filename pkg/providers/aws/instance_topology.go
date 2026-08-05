@@ -55,6 +55,12 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 		return httperr.NewError(http.StatusBadGateway,
 			fmt.Sprintf("failed to get client: %v", err))
 	}
+	if client.credentials != nil {
+		if _, err := client.credentials.Retrieve(ctx); err != nil {
+			return httperr.NewError(http.StatusUnauthorized,
+				fmt.Sprintf("failed to retrieve AWS credentials: %v", err))
+		}
+	}
 	input := &ec2.DescribeInstanceTopologyInput{}
 
 	// AWS allows up to 100 explicitly specified instance IDs

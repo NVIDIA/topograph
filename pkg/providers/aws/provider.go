@@ -20,13 +20,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/mitchellh/mapstructure"
 	"k8s.io/klog/v2"
@@ -52,15 +49,12 @@ type EC2Client interface {
 	DescribeInstanceTopology(ctx context.Context, params *ec2.DescribeInstanceTopologyInput, optFns ...func(*ec2.Options)) (*ec2.DescribeInstanceTopologyOutput, error)
 }
 
-type CredsClient interface {
-	Retrieve(ctx context.Context) (aws.Credentials, error)
-}
-
 type ClientFactory func(region string, pageSize *int) (*Client, error)
 
 type Client struct {
-	ec2      EC2Client
-	pageSize int32
+	ec2         EC2Client
+	credentials aws.CredentialsProvider
+	pageSize    int32
 }
 
 func (c *Client) PageSize() *int32 {
@@ -78,7 +72,7 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *httperr.Error) {
-	creds, httpErr := getCredentials(ctx, cfg.Creds)
+	credsProvider, httpErr := getCredentialsProvider(cfg.Creds)
 	if httpErr != nil {
 		return nil, httpErr
 	}
@@ -89,13 +83,7 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *htt
 	}
 
 	clientFactory := func(region string, pageSize *int) (*Client, error) {
-		opts := []func(*config.LoadOptions) error{
-			config.WithRegion(region),
-			config.WithCredentialsProvider(
-				credentials.NewStaticCredentialsProvider(creds.AccessKeyId, creds.SecretAccessKey, creds.Token),
-			)}
-
-		awsCfg, err := config.LoadDefaultConfig(ctx, opts...)
+		awsCfg, err := loadAWSConfig(ctx, region, credsProvider)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load SDK config: %v", err)
 		}
@@ -103,47 +91,41 @@ func Loader(ctx context.Context, cfg providers.Config) (providers.Provider, *htt
 		ec2Client := ec2.NewFromConfig(awsCfg)
 
 		return &Client{
-			ec2:      ec2Client,
-			pageSize: setPageSize(pageSize),
+			ec2:         ec2Client,
+			credentials: awsCfg.Credentials,
+			pageSize:    setPageSize(pageSize),
 		}, nil
 	}
 
 	return New(clientFactory, trimTiers), nil
 }
 
-func getCredentials(ctx context.Context, creds map[string]any) (*Credentials, *httperr.Error) {
-	var accessKeyID, secretAccessKey, sessionToken string
-
-	if len(creds) != 0 {
-		klog.Infof("Using provided AWS credentials")
-		parsedCreds, err := decodeCredentials(creds)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
-		}
-		accessKeyID = parsedCreds.AccessKeyId
-		secretAccessKey = parsedCreds.SecretAccessKey
-		sessionToken = parsedCreds.Token
-	} else if len(os.Getenv("AWS_ACCESS_KEY_ID")) != 0 && len(os.Getenv("AWS_SECRET_ACCESS_KEY")) != 0 {
-		klog.Infof("Using shell AWS credentials")
-		accessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
-		secretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
-		sessionToken = os.Getenv("AWS_SESSION_TOKEN")
-	} else {
-		klog.Infof("Using node AWS access credentials")
-		creds, err := getCredentialsFromProvider(ctx)
-		if err != nil {
-			return nil, httperr.NewError(http.StatusUnauthorized, err.Error())
-		}
-		accessKeyID = creds.AccessKeyID
-		secretAccessKey = creds.SecretAccessKey
-		sessionToken = creds.SessionToken
+func getCredentialsProvider(creds map[string]any) (aws.CredentialsProvider, *httperr.Error) {
+	if len(creds) == 0 {
+		klog.Infof("Using AWS SDK default credential chain")
+		return nil, nil
 	}
 
-	return &Credentials{
-		AccessKeyId:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		Token:           sessionToken,
-	}, nil
+	klog.Infof("Using explicit Topograph AWS credentials")
+	parsedCreds, err := decodeCredentials(creds)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
+	}
+
+	return credentials.NewStaticCredentialsProvider(
+		parsedCreds.AccessKeyId,
+		parsedCreds.SecretAccessKey,
+		parsedCreds.Token,
+	), nil
+}
+
+func loadAWSConfig(ctx context.Context, region string, credsProvider aws.CredentialsProvider) (aws.Config, error) {
+	opts := []func(*config.LoadOptions) error{config.WithRegion(region)}
+	if credsProvider != nil {
+		opts = append(opts, config.WithCredentialsProvider(credsProvider))
+	}
+
+	return config.LoadDefaultConfig(ctx, opts...)
 }
 
 func decodeCredentials(creds map[string]any) (*Credentials, error) {
@@ -159,25 +141,6 @@ func decodeCredentials(creds map[string]any) (*Credentials, error) {
 	}
 
 	return c, nil
-}
-
-func getCredentialsFromProvider(ctx context.Context) (creds aws.Credentials, err error) {
-	credsClient := ec2rolecreds.New()
-
-	for {
-		creds, err = credsClient.Retrieve(ctx)
-		if err != nil {
-			return creds, err
-		}
-
-		if time.Now().Add(tokenTimeDelay).After(creds.Expires) {
-			klog.V(4).Infof("Waiting %s for new token", tokenTimeDelay.String())
-			time.Sleep(tokenTimeDelay)
-			continue
-		}
-
-		return creds, nil
-	}
 }
 
 func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
