@@ -39,6 +39,7 @@ const (
 	errClientFactory
 	errListAvailabilityDomains
 	errListComputeHosts
+	errGetComputeHost
 )
 
 type simClient struct {
@@ -88,7 +89,10 @@ func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHo
 	from := getPage(req.Page)
 	for indx = from; indx < from+*c.pageSize; indx++ {
 		node := c.model.Nodes[c.instanceIDs[indx]]
-		host := core.ComputeHostSummary{InstanceId: ptr.String(node.ID)}
+		host := core.ComputeHostSummary{
+			Id:         ptr.String(node.ID),
+			InstanceId: ptr.String(node.ID),
+		}
 		for i := 0; i < len(node.NetLayers) && i < 3; i++ {
 			switch i {
 			case 0:
@@ -99,7 +103,7 @@ func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHo
 				host.HpcIslandId = ptr.String(node.NetLayers[i])
 			}
 		}
-		domainID := node.Labels[topology.KeyTopologyAccelerator]
+		domainID := node.AcceleratorDomain()
 		if domainID != "" {
 			host.GpuMemoryFabricId = &domainID
 		}
@@ -111,6 +115,52 @@ func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHo
 	}
 
 	return resp, nil
+}
+
+func (c *simClient) GetComputeHost(ctx context.Context, req core.GetComputeHostRequest) (core.GetComputeHostResponse, error) {
+	if c.apiErr == errGetComputeHost {
+		return core.GetComputeHostResponse{}, providers.ErrAPIError
+	}
+
+	node, ok := c.model.Nodes[*req.ComputeHostId]
+	if !ok {
+		return core.GetComputeHostResponse{}, fmt.Errorf("compute host %q not found", *req.ComputeHostId)
+	}
+
+	host := core.ComputeHost{
+		Id:                 ptr.String(node.ID),
+		InstanceId:         ptr.String(node.ID),
+		AvailabilityDomain: ptr.String("ad"),
+		CompartmentId:      c.TenantID(),
+		FaultDomain:        ptr.String("fd"),
+		Shape:              ptr.String("shape"),
+	}
+	for i := 0; i < len(node.NetLayers) && i < 3; i++ {
+		switch i {
+		case 0:
+			host.LocalBlockId = ptr.String(node.NetLayers[i])
+		case 1:
+			host.NetworkBlockId = ptr.String(node.NetLayers[i])
+		case 2:
+			host.HpcIslandId = ptr.String(node.NetLayers[i])
+		}
+	}
+	domainID := node.AcceleratorDomain()
+	if domainID != "" {
+		host.GpuMemoryFabricId = &domainID
+	}
+	if rack := node.AcceleratorSubDomain(); rack != "" {
+		host.AdditionalData = map[string]any{
+			"locationDetails": map[string]any{
+				"rack": rack,
+			},
+		}
+	}
+
+	return core.GetComputeHostResponse{
+		RawResponse: httpResponce,
+		ComputeHost: host,
+	}, nil
 }
 
 func getPage(page *string) int {

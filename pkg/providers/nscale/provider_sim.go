@@ -56,7 +56,7 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 			ID:          node.ID,
 			NetworkPath: path,
 		}
-		domainID := node.Labels[topology.KeyTopologyAccelerator]
+		domainID := node.AcceleratorDomain()
 		if domainID != "" {
 			instance.BlockID = &domainID
 		}

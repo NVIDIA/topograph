@@ -1,0 +1,57 @@
+# Slinky integration test: deploy a control-plane-only Slurm cluster and verify
+# that Topograph publishes OCI-sim tree topology configuration.
+
+name: Slinky Test
+
+on:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SLINKY_VERSION: 1.2.0
+  TOPOGRAPH_IMAGE: topograph:ci
+
+jobs:
+  integration:
+    name: oci-sim / slinky
+    runs-on: linux-amd64-cpu16
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.1.1
+
+      - name: Create kind cluster
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          cluster_name: topograph
+          wait: 120s
+
+      - name: Build test image
+        run: |
+          docker build \
+            --build-arg TARGETOS=linux \
+            --build-arg TARGETARCH=amd64 \
+            --tag "$TOPOGRAPH_IMAGE" \
+            .
+          kind load docker-image "$TOPOGRAPH_IMAGE" --name topograph
+
+      - name: Deploy Slinky
+        run: scripts/deploy-slinky.sh --compute-mode none
+
+      - name: Deploy and verify Topograph
+        run: tests/ci/run-slinky-test.sh
+
+      - name: Collect diagnostics
+        if: failure()
+        run: tests/ci/collect-slinky-diagnostics.sh

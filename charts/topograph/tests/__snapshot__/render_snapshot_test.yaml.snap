@@ -398,7 +398,12 @@ renders default values.yaml:
         verbs:
           - get
           - list
-          - update
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -963,7 +968,12 @@ renders values.k8s.gateway-api-example.yaml:
         verbs:
           - get
           - list
-          - update
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -1538,7 +1548,12 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
         verbs:
           - get
           - list
-          - update
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -2101,7 +2116,12 @@ renders values.k8s.gcp-service-account-example.yaml:
         verbs:
           - get
           - list
-          - update
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -2672,7 +2692,12 @@ renders values.k8s.ib-example.yaml:
         verbs:
           - get
           - list
-          - update
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -3239,7 +3264,12 @@ renders values.slinky.block-example.yaml:
         verbs:
           - get
           - list
-          - update
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -3831,7 +3861,12 @@ renders values.slinky.partition-example.yaml:
         verbs:
           - get
           - list
-          - update
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
+          - patch
       - apiGroups:
           - apps
         resources:
@@ -4398,7 +4433,12 @@ renders values.slinky.tree-example.yaml:
         verbs:
           - get
           - list
-          - update
+      - apiGroups:
+          - ""
+        resources:
+          - nodes
+        verbs:
+          - patch
       - apiGroups:
           - apps
         resources:

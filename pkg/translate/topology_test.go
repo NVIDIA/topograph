@@ -19,6 +19,7 @@ package translate
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -191,6 +192,35 @@ func TestValidateConfig(t *testing.T) {
 					"topo": {Plugin: topology.TopologyFlat}},
 			},
 		},
+		{
+			name: "Case 9: block name with cluster-wide tree plugin",
+			root: emptyRoot,
+			cfg: &Config{
+				Plugin: topology.TopologyTree,
+				BlockName: &BlockNameConfig{
+					NodeNameRegexp: `^node([0-9]+)$`,
+					Format:         `block${1}`,
+				},
+			},
+			err: `blockName is only supported with plugin "topology/block"`,
+		},
+		{
+			name: "Case 10: block name with per-topology tree plugin",
+			root: emptyRoot,
+			cfg: &Config{
+				Topologies: map[string]*TopologySpec{
+					"topo": {
+						Plugin: topology.TopologyTree,
+						BlockName: &BlockNameConfig{
+							NodeNameRegexp: `^node([0-9]+)$`,
+							Format:         `block${1}`,
+						},
+						Nodes: []string{"node001"},
+					},
+				},
+			},
+			err: `topology "topo": blockName is only supported with plugin "topology/block"`,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -263,6 +293,138 @@ func TestToBlockTopology(t *testing.T) {
 	err := nt.Generate(buf)
 	require.Nil(t, err)
 	require.Equal(t, testBlockConfig1_1, buf.String())
+}
+
+func TestToBlockTopologyWithFormattedBlockNames(t *testing.T) {
+	v, _ := getBlockTestSet()
+	cfg := &Config{
+		Plugin: topology.TopologyBlock,
+		BlockName: &BlockNameConfig{
+			NodeNameRegexp: `^Node([0-9])[0-9]{2}$`,
+			Format:         `domain${1}`,
+		},
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.NoError(t, err)
+
+	buf := &bytes.Buffer{}
+	require.Nil(t, nt.Generate(buf))
+	require.Equal(t, `# domain1=B1
+BlockName=domain1 Nodes=Node[104-106]
+# domain2=B2
+BlockName=domain2 Nodes=Node[201-202,205]
+BlockSizes=3,6
+`, buf.String())
+	require.Equal(t, "block001", nt.blocks[0].id)
+	require.Equal(t, "block002", nt.blocks[1].id)
+
+	buf.Reset()
+	require.Nil(t, nt.Generate(buf))
+	require.Contains(t, buf.String(), "BlockName=domain1 ")
+
+	spec, httpErr := nt.GetNodeTopologySpec("Node104", nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, "default:domain1", spec)
+}
+
+func TestBlockNameFormatter(t *testing.T) {
+	t.Run("unanchored match", func(t *testing.T) {
+		config := &BlockNameConfig{
+			NodeNameRegexp: `d([0-9]{2})-r([0-9]{2})`,
+			Format:         `domain${1}_rack${2}`,
+		}
+		require.NoError(t, ValidateBlockNameConfig(config))
+		formatter := compileBlockNameFormatter(config)
+
+		name, err := formatter.formatBlockName("block001", "", []string{
+			"gpu-d05-r04-srv4",
+			"gpu-d05-r04-srv5",
+		})
+		require.NoError(t, err)
+		require.Equal(t, "domain05_rack04", name)
+	})
+
+	t.Run("unmatched node", func(t *testing.T) {
+		config := &BlockNameConfig{
+			NodeNameRegexp: `^domain([0-9]{3})`,
+			Format:         `block${1}`,
+		}
+		require.NoError(t, ValidateBlockNameConfig(config))
+		formatter := compileBlockNameFormatter(config)
+
+		_, err := formatter.formatBlockName("block001", "", []string{"domain001", "legacy001"})
+		require.EqualError(t, err, `node "legacy001" in block "block001" does not match nodeNameRegexp "^domain([0-9]{3})"`)
+	})
+
+	t.Run("nodes produce different names", func(t *testing.T) {
+		config := &BlockNameConfig{
+			NodeNameRegexp: `^domain([0-9]{3})`,
+			Format:         `block${1}`,
+		}
+		require.NoError(t, ValidateBlockNameConfig(config))
+		formatter := compileBlockNameFormatter(config)
+
+		_, err := formatter.formatBlockName("block001", "", []string{"domain001", "domain002"})
+		require.EqualError(t, err, `nodes in block "block001" produce different block names "block001" and "block002"`)
+	})
+
+	t.Run("format produces empty name", func(t *testing.T) {
+		config := &BlockNameConfig{
+			NodeNameRegexp: `^node()$`,
+			Format:         `${1}`,
+		}
+		require.NoError(t, ValidateBlockNameConfig(config))
+		formatter := compileBlockNameFormatter(config)
+
+		_, err := formatter.formatBlockName("block001", "", []string{"node"})
+		require.EqualError(t, err, `blockName format "${1}" produces an empty name for node "node" in block "block001"`)
+	})
+
+	t.Run("empty complemented block keeps default name", func(t *testing.T) {
+		config := &BlockNameConfig{
+			NodeNameRegexp: `^domain([0-9]{3})`,
+			Format:         `block${1}`,
+		}
+		require.NoError(t, ValidateBlockNameConfig(config))
+		formatter := compileBlockNameFormatter(config)
+
+		name, err := formatter.formatBlockName("block005", "", nil)
+		require.NoError(t, err)
+		require.Equal(t, "block005", name)
+	})
+
+	t.Run("different blocks produce duplicate names", func(t *testing.T) {
+		config := &BlockNameConfig{
+			NodeNameRegexp: `^domain[0-9]{3}`,
+			Format:         `shared`,
+		}
+		require.NoError(t, ValidateBlockNameConfig(config))
+		formatter := compileBlockNameFormatter(config)
+
+		_, err := formatBlockNames([]*blockInfo{
+			{id: "block001", nodes: []string{"domain001"}},
+			{id: "block002", nodes: []string{"domain002"}},
+		}, formatter)
+		require.EqualError(t, err, `blocks "block001" and "block002" produce duplicate block name "shared"`)
+	})
+}
+
+func TestValidateBlockNameConfigCachesRegexp(t *testing.T) {
+	config := &BlockNameConfig{
+		NodeNameRegexp: `^node([0-9]+)$`,
+		Format:         `block${1}`,
+	}
+
+	require.NoError(t, ValidateBlockNameConfig(config))
+	compiled := config.compiledRegexp
+	require.NotNil(t, compiled)
+
+	require.NoError(t, ValidateBlockNameConfig(config))
+	require.Same(t, compiled, config.compiledRegexp)
+
+	config.NodeNameRegexp = `^gpu([0-9]+)$`
+	require.NoError(t, ValidateBlockNameConfig(config))
+	require.NotSame(t, compiled, config.compiledRegexp)
 }
 
 func TestToBlockMultiIBTopology(t *testing.T) {
@@ -668,6 +830,60 @@ func TestGetNodeTopologySpecInTopologyYaml(t *testing.T) {
 	require.Equal(t, expectedNode999Spec, spec)
 }
 
+func TestBlockTopologyYamlWithFormattedBlockNames(t *testing.T) {
+	v, _ := getBlockTestSet()
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo": {
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{3},
+				BlockName: &BlockNameConfig{
+					NodeNameRegexp: `^Node([0-9])[0-9]{2}$`,
+					Format:         `domain${1}`,
+				},
+				Nodes: []string{"Node[104-106,201-202,205]"},
+			},
+		},
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.NoError(t, err)
+
+	topologies, httpErr := nt.GetTopologies()
+	require.Nil(t, httpErr)
+	require.Len(t, topologies, 1)
+	require.Equal(t, "domain1", topologies[0].Block.Blocks[0].Name)
+	require.Equal(t, "domain2", topologies[0].Block.Blocks[1].Name)
+
+	spec, httpErr := nt.GetNodeTopologySpec("Node205", topologies)
+	require.Nil(t, httpErr)
+	require.Equal(t, "topo:domain2", spec)
+}
+
+func TestBlockTopologyYamlBlockNameErrorIncludesDomain(t *testing.T) {
+	v, _ := getBlockTestSet()
+	cfg := &Config{
+		Topologies: map[string]*TopologySpec{
+			"topo": {
+				Plugin: topology.TopologyBlock,
+				BlockName: &BlockNameConfig{
+					NodeNameRegexp: `^gpu([0-9]+)$`,
+					Format:         `domain${1}`,
+				},
+				Nodes: []string{"Node[104-106]"},
+			},
+		},
+	}
+	nt, err := NewNetworkTopology(v, cfg)
+	require.NoError(t, err)
+
+	_, httpErr := nt.GetTopologies()
+	require.EqualError(
+		t,
+		httpErr,
+		`topology "topo": node "Node104" in block "block1" (domain "B1") does not match nodeNameRegexp "^gpu([0-9]+)$"`,
+	)
+}
+
 func TestGetNodeTopologySpecInTreeTopologyConf(t *testing.T) {
 	node201Id := "Node201"
 	node305Id := "Node305"
@@ -770,5 +986,56 @@ func TestGetNodeTopologySpecAfterComplementPerPartition(t *testing.T) {
 		spec, err := nt.GetNodeTopologySpec(tc.node, topologies)
 		require.Nil(t, err, "node %s", tc.node)
 		require.Equal(t, tc.spec, spec, "node %s", tc.node)
+	}
+}
+
+// TestInitTreeNilVertexRejected verifies that a nil child is rejected during
+// topology construction before any output path can dereference it.
+func TestInitTreeNilVertexRejected(t *testing.T) {
+	graph := &topology.Graph{
+		Tiers: &topology.Vertex{
+			ID: "root",
+			Vertices: map[string]*topology.Vertex{
+				"nil-child": nil,
+			},
+		},
+	}
+
+	_, err := NewNetworkTopology(graph, &Config{Plugin: topology.TopologyTree})
+	require.EqualError(t, err, `vertex "root" contains nil child with key "nil-child"`)
+}
+
+// TestTreeSelfEdgeRejected verifies that a self-edge is rejected before
+// topology generation can traverse it.
+func TestTreeSelfEdgeRejected(t *testing.T) {
+	node := &topology.Vertex{ID: "x", Name: "x"}
+	sw := &topology.Vertex{ID: "x", Vertices: map[string]*topology.Vertex{"x": node}}
+	root := &topology.Vertex{Vertices: map[string]*topology.Vertex{"x": sw}}
+	g := &topology.Graph{Tiers: root}
+
+	_, err := NewNetworkTopology(g, &Config{Plugin: topology.TopologyTree})
+	require.EqualError(t, err, `vertex "x" contains a self-edge`)
+}
+
+// TestTreeMultiVertexCycleRejected verifies that initTree rejects an edge back
+// to an already-seen vertex instead of repeatedly traversing A -> B -> A.
+func TestTreeMultiVertexCycleRejected(t *testing.T) {
+	a := &topology.Vertex{ID: "a", Vertices: make(map[string]*topology.Vertex)}
+	b := &topology.Vertex{ID: "b", Vertices: make(map[string]*topology.Vertex)}
+	a.Vertices[b.ID] = b
+	b.Vertices[a.ID] = a
+	root := &topology.Vertex{Vertices: map[string]*topology.Vertex{a.ID: a}}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewNetworkTopology(&topology.Graph{Tiers: root}, &Config{Plugin: topology.TopologyTree})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.EqualError(t, err, `vertex "a" is reachable more than once; topology must be a tree`)
+	case <-time.After(5 * time.Second):
+		t.Fatal("NewNetworkTopology hung: multi-vertex cycle not guarded")
 	}
 }

@@ -13,7 +13,6 @@
           "enum": [
             "aws",
             "aws-sim",
-            "cw",
             "dra",
             "gcp",
             "gcp-sim",
@@ -54,6 +53,22 @@
         }
       },
       "required": ["name"]
+    },
+    "kubeClient": {
+      "type": "object",
+      "description": "Kubernetes client rate limits exposed to the Topograph deployment as KUBE_QPS and KUBE_BURST.",
+      "properties": {
+        "qps": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Kubernetes API requests per second. Omit or set to zero to use the client-go default of 5."
+        },
+        "burst": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Kubernetes API burst capacity. Omit or set to zero to use the client-go default of 10."
+        }
+      }
     },
     "nfdNamespace": {
       "type": "string",
@@ -232,6 +247,12 @@
         "startupProbe": { "type": "object" },
         "serviceAccount": { "type": "object" },
         "rbac": { "type": "object" },
+        "validatingAdmissionPolicy": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        },
         "env": { "type": "object" },
         "initContainers": { "type": "array" },
         "lifecycle": { "type": "object" },

@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package models
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -30,29 +20,51 @@ import (
 )
 
 const (
-	LabelTopologyRegion = "topology.kubernetes.io/region"
-	LabelTopologyZone   = "topology.kubernetes.io/zone"
+	LabelTopologyRegion            = "topology.kubernetes.io/region"
+	LabelTopologyZone              = "topology.kubernetes.io/zone"
+	defaultRegion                  = "none"
+	annotationAcceleratorDomain    = "accelerator.topology.test/domain"
+	annotationAcceleratorSubDomain = "accelerator.topology.test/sub-domain"
 )
 
 // Switch is a switch vertex in a simulation model YAML tree (tests/models).
 type Switch struct {
-	Name     string            `yaml:"name,omitempty"`
-	Labels   map[string]string `yaml:"labels"`
-	Switches []string          `yaml:"switches"`
-	Nodes    []string          `yaml:"-"`
+	Name        string            `yaml:"name,omitempty"`
+	Labels      map[string]string `yaml:"labels"`
+	Annotations map[string]string `yaml:"annotations"`
+	Switches    []string          `yaml:"switches"`
+	Nodes       []string          `yaml:"-"`
 }
 
 // CapacityBlock is the blocks entry shape in simulation model YAML.
 type CapacityBlock struct {
-	Switch string            `yaml:"switch"`
-	Nodes  []string          `yaml:"nodes"`
-	Labels map[string]string `yaml:"labels"`
+	Switch      string            `yaml:"switch"`
+	Nodes       []string          `yaml:"nodes"`
+	Labels      map[string]string `yaml:"labels"`
+	Annotations map[string]string `yaml:"annotations"`
+}
+
+// Node is a compute instance in a simulation model. Annotations hold
+// provider-specific test inputs and are not exported as topology labels.
+type Node struct {
+	topology.Instance
+	Annotations map[string]string `yaml:"annotations"`
+}
+
+// AcceleratorDomain returns the simulated accelerator-domain identifier.
+func (node *Node) AcceleratorDomain() string {
+	return node.Annotations[annotationAcceleratorDomain]
+}
+
+// AcceleratorSubDomain returns the simulated accelerator sub-domain identifier.
+func (node *Node) AcceleratorSubDomain() string {
+	return node.Annotations[annotationAcceleratorSubDomain]
 }
 
 type Model struct {
-	Switches       map[string]*Switch            `yaml:"switches"`
-	Nodes          map[string]*topology.Instance `yaml:"-"`
-	CapacityBlocks []CapacityBlock               `yaml:"blocks"`
+	Switches       map[string]*Switch `yaml:"switches"`
+	Nodes          map[string]*Node   `yaml:"-"`
+	CapacityBlocks []CapacityBlock    `yaml:"blocks"`
 
 	// derived
 	Instances []topology.ComputeInstances `yaml:"-"`
@@ -135,6 +147,9 @@ func (m *Model) buildSwitchMaps() (*switchMaps, error) {
 
 	for _, parent := range m.Switches {
 		for _, sw := range parent.Switches {
+			if _, exists := m.Switches[sw]; !exists {
+				return nil, fmt.Errorf("switch %q references unknown sub-switch %q", parent.Name, sw)
+			}
 			if p, ok := swmap[sw]; ok {
 				// a child switch cannot have more than one parent switch
 				return nil, fmt.Errorf("switch %q has two parent switches %q and %q", sw, parent.Name, p.Name)
@@ -181,15 +196,17 @@ func (m *Model) derive() error {
 	for hostName, node := range m.Nodes {
 		var netLayers []string
 		var labels map[string]string
+		var annotations map[string]string
 
 		if sw, ok := maps.switchByNode[hostName]; ok {
-			netLayers, labels, err = getNetworkLayers(sw, maps.parentBySwitch)
+			netLayers, labels, annotations, err = getNetworkLayers(sw, maps.parentBySwitch)
 			if err != nil {
 				return err
 			}
 		}
 
-		node.Labels = mergeLabels(labels, node.Labels)
+		node.Labels = withDefaultRegion(mergeMaps(labels, node.Labels))
+		node.Annotations = mergeMaps(annotations, node.Annotations)
 		node.NetLayers = netLayers
 		addInstanceRegion(regions, node.Labels, hostName)
 	}
@@ -217,14 +234,17 @@ func (m *Model) completeCapacityBlocks() error {
 		m.CapacityBlocks[capacityBlockIndex] = capacityBlock
 		for _, name := range capacityBlock.Nodes {
 			if m.Nodes == nil {
-				m.Nodes = make(map[string]*topology.Instance)
+				m.Nodes = make(map[string]*Node)
 			}
 			if _, ok := m.Nodes[name]; ok {
 				return fmt.Errorf("node %q belongs to more than one capacity block", name)
 			}
-			m.Nodes[name] = &topology.Instance{
-				ID:     name,
-				Labels: cloneStringMap(capacityBlock.Labels),
+			m.Nodes[name] = &Node{
+				Instance: topology.Instance{
+					ID:     name,
+					Labels: cloneStringMap(capacityBlock.Labels),
+				},
+				Annotations: cloneStringMap(capacityBlock.Annotations),
 			}
 		}
 	}
@@ -241,44 +261,44 @@ func appendUnique(values []string, value string) []string {
 	return append(values, value)
 }
 
-func setMapValue(values map[string]string, key, value string) map[string]string {
-	if values == nil {
-		values = make(map[string]string)
-	}
-	values[key] = value
-	return values
-}
-
 func cloneStringMap(values map[string]string) map[string]string {
 	if len(values) == 0 {
 		return nil
 	}
-	clone := make(map[string]string, len(values))
-	for k, v := range values {
-		clone[k] = v
-	}
-	return clone
+	return maps.Clone(values)
 }
 
-func mergeLabels(base, overlay map[string]string) map[string]string {
-	labels := cloneStringMap(base)
-	for k, v := range overlay {
-		labels = setMapValue(labels, k, v)
+// mergeMaps copies overlay into base, with overlay values taking precedence.
+func mergeMaps(base, overlay map[string]string) map[string]string {
+	if len(overlay) == 0 {
+		return base
 	}
+	if base == nil {
+		base = make(map[string]string, len(overlay))
+	}
+	maps.Copy(base, overlay)
+	return base
+}
+
+func withDefaultRegion(labels map[string]string) map[string]string {
+	if labels[LabelTopologyRegion] != "" {
+		return labels
+	}
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[LabelTopologyRegion] = defaultRegion
 	return labels
 }
 
 func addInstanceRegion(regions map[string]map[string]string, labels map[string]string, hostName string) {
 	region := labels[LabelTopologyRegion]
-	if region == "" {
-		region = "none"
-	}
 	r, ok := regions[region]
 	if !ok {
 		r = make(map[string]string)
 		regions[region] = r
 	}
-	r[getInstanceID(hostName)] = hostName
+	r[InstanceID(hostName)] = hostName
 }
 
 func (m *Model) setInstances(regions map[string]map[string]string) {
@@ -297,7 +317,7 @@ func (m *Model) setInstances(regions map[string]map[string]string) {
 	}
 }
 
-func getNetworkLayers(sw *Switch, swmap map[string]*Switch) ([]string, map[string]string, error) {
+func getNetworkLayers(sw *Switch, swmap map[string]*Switch) ([]string, map[string]string, map[string]string, error) {
 	visited := make(map[string]struct{})
 	layers := []string{}
 	path := []*Switch{}
@@ -306,7 +326,7 @@ func getNetworkLayers(sw *Switch, swmap map[string]*Switch) ([]string, map[strin
 		name := sw.Name
 		// check for circular switch topology
 		if _, ok := visited[name]; ok {
-			return nil, nil, fmt.Errorf("circular dependency detected in topology for switch %q", name)
+			return nil, nil, nil, fmt.Errorf("circular dependency detected in topology for switch %q", name)
 		}
 		visited[name] = struct{}{}
 		layers = append(layers, name)
@@ -314,10 +334,12 @@ func getNetworkLayers(sw *Switch, swmap map[string]*Switch) ([]string, map[strin
 		parent, ok := swmap[name]
 		if !ok {
 			labels := map[string]string(nil)
+			annotations := map[string]string(nil)
 			for i := len(path) - 1; i >= 0; i-- {
-				labels = mergeLabels(labels, path[i].Labels)
+				labels = mergeMaps(labels, path[i].Labels)
+				annotations = mergeMaps(annotations, path[i].Annotations)
 			}
-			return layers, labels, nil
+			return layers, labels, annotations, nil
 		}
 		sw = parent
 	}
@@ -331,12 +353,12 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 	domainMap := topology.NewDomainMap()
 
 	for hostName := range model.Nodes {
-		instance2node[getInstanceID(hostName)] = hostName
+		instance2node[InstanceID(hostName)] = hostName
 	}
 
 	// Create all the vertices for each node.
 	for hostName := range model.Nodes {
-		instanceID := getInstanceID(hostName)
+		instanceID := InstanceID(hostName)
 		nodeVertexMap[hostName] = &topology.Vertex{
 			ID:   instanceID,
 			Name: instance2node[instanceID],
@@ -351,8 +373,8 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 
 	// Initializes accelerator-network membership.
 	for hostName, instance := range model.Nodes {
-		if domain := instance.AcceleratorID(); domain != "" {
-			instanceID := getInstanceID(hostName)
+		if domain := instance.AcceleratorDomain(); domain != "" {
+			instanceID := InstanceID(hostName)
 			domainMap.AddHost(domain, instanceID, instance2node[instanceID])
 		}
 	}
@@ -392,7 +414,7 @@ func (model *Model) graphInstanceMap(computeInstances []topology.ComputeInstance
 	instances := make(map[string]topology.Instance)
 
 	for hostName, inst := range model.Nodes {
-		instanceID := getInstanceID(hostName)
+		instanceID := InstanceID(hostName)
 		if len(wanted) != 0 {
 			if _, ok := wanted[instanceID]; !ok {
 				continue
@@ -430,6 +452,7 @@ func requestedInstanceIDs(computeInstances []topology.ComputeInstances) map[stri
 	return ids
 }
 
-func getInstanceID(hostName string) string {
+// InstanceID returns the simulated instance ID for a model hostname.
+func InstanceID(hostName string) string {
 	return fmt.Sprintf("i-%s", hostName)
 }

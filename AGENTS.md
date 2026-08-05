@@ -25,7 +25,7 @@ This separation is load-bearing. If you find yourself reading the fabric in an e
 ```
 cmd/                  # Entry points: topograph, node-observer, node-data-broker, kwok-nodes
 pkg/
-  providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, cw, test
+  providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, test
   engines/            # One directory per engine: k8s, nfd, slinky, slurm
   topology/           # Canonical Graph, Vertex tree, and topology constants (DO NOT CHANGE CASUALLY)
   registry/           # Central NamedLoader wiring for providers + engines
@@ -42,6 +42,7 @@ internal/             # Shared utilities not part of the public API
 charts/topograph/     # Helm chart for all Kubernetes components; tests/ holds the helm-unittest suites + snapshots
 CHANGELOG.md          # Release history (Keep a Changelog format); update [Unreleased] for user-facing PRs
 docs/                 # Public-facing docs — overview.md, architecture.md, api.md + providers/, engines/, reference/ subdirectories
+demos/                # Interactive Kubernetes/KWOK deployment demos
 tests/models/         # YAML simulation fixtures
 config/               # Sample topograph-config.yaml
 scripts/              # Build scripts (deb, rpm, SSL, clean)

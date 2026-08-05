@@ -14,11 +14,14 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func (eng *NfdEngine) GetComputeInstances(ctx context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+func (eng *NfdEngine) ResolveComputeInstances(ctx context.Context, instances []topology.ComputeInstances, _ any) ([]topology.ComputeInstances, *httperr.Error) {
 	nodes, err := internalk8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 	eng.cachedNodes = nodes
+	if len(instances) != 0 {
+		return instances, nil
+	}
 	return internalk8s.GetComputeInstances(nodes), nil
 }

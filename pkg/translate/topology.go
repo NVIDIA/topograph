@@ -8,6 +8,7 @@ package translate
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -21,6 +22,7 @@ import (
 type Config struct {
 	Plugin     string // topology plugin (cluster-wide)
 	BlockSizes []int
+	BlockName  *BlockNameConfig
 	Topologies map[string]*TopologySpec // per-partiton topology settings
 }
 
@@ -28,8 +30,86 @@ type Config struct {
 type TopologySpec struct {
 	Plugin         string
 	BlockSizes     []int
+	BlockName      *BlockNameConfig
 	ClusterDefault bool
 	Nodes          []string
+}
+
+type BlockNameConfig struct {
+	NodeNameRegexp string `mapstructure:"nodeNameRegexp"`
+	Format         string `mapstructure:"format"`
+	compiledRegexp *regexp.Regexp
+}
+
+type blockNameFormatter struct {
+	re     *regexp.Regexp
+	format string
+}
+
+func compileBlockNameFormatter(config *BlockNameConfig) *blockNameFormatter {
+	if config == nil {
+		return nil
+	}
+	return &blockNameFormatter{
+		re:     config.compiledRegexp,
+		format: config.Format,
+	}
+}
+
+func blockDescription(id, domain string) string {
+	description := fmt.Sprintf("block %q", id)
+	if domain != "" {
+		description += fmt.Sprintf(" (domain %q)", domain)
+	}
+	return description
+}
+
+func (f *blockNameFormatter) formatBlockName(defaultName, domainName string, nodes []string) (string, error) {
+	if f == nil || len(nodes) == 0 {
+		return defaultName, nil
+	}
+
+	description := blockDescription(defaultName, domainName)
+	var blockName string
+	for _, node := range nodes {
+		match := f.re.FindStringSubmatchIndex(node)
+		if match == nil {
+			return "", fmt.Errorf("node %q in %s does not match nodeNameRegexp %q", node, description, f.re.String())
+		}
+
+		nodeBlockName := string(f.re.ExpandString(nil, f.format, node, match))
+		if nodeBlockName == "" {
+			return "", fmt.Errorf("blockName format %q produces an empty name for node %q in %s", f.format, node, description)
+		}
+		if blockName == "" {
+			blockName = nodeBlockName
+		} else if nodeBlockName != blockName {
+			return "", fmt.Errorf(
+				"nodes in %s produce different block names %q and %q",
+				description,
+				blockName,
+				nodeBlockName,
+			)
+		}
+	}
+	return blockName, nil
+}
+
+func formatBlockNames(blocks []*blockInfo, formatter *blockNameFormatter) ([]string, error) {
+	names := make([]string, len(blocks))
+	seen := make(map[string]string, len(blocks))
+	for i, block := range blocks {
+		name, err := formatter.formatBlockName(block.id, block.name, block.nodes)
+		if err != nil {
+			return nil, err
+		}
+		if previousBlock, ok := seen[name]; ok {
+			return nil, fmt.Errorf("blocks %q and %q produce duplicate block name %q", previousBlock, block.id, name)
+		}
+		seen[name] = block.id
+		names[i] = name
+	}
+	return names, nil
 }
 
 type NetworkTopology struct {
@@ -56,11 +136,23 @@ type nodeInfo struct {
 }
 
 func (cfg *Config) Validate(graph *topology.Graph) error {
+	if cfg.BlockName != nil && cfg.Plugin != topology.TopologyBlock {
+		return fmt.Errorf("blockName is only supported with plugin %q", topology.TopologyBlock)
+	}
+	if err := ValidateBlockNameConfig(cfg.BlockName); err != nil {
+		return err
+	}
 	if len(cfg.Topologies) != 0 { // per-partition topology
 		if len(cfg.Plugin) != 0 {
 			return fmt.Errorf("plugin and topologies parameters are mutually exclusive")
 		}
 		for topo, spec := range cfg.Topologies {
+			if spec.BlockName != nil && spec.Plugin != topology.TopologyBlock {
+				return fmt.Errorf("topology %q: blockName is only supported with plugin %q", topo, topology.TopologyBlock)
+			}
+			if err := ValidateBlockNameConfig(spec.BlockName); err != nil {
+				return fmt.Errorf("topology %q: %v", topo, err)
+			}
 			switch spec.Plugin {
 			case topology.TopologyTree:
 				if graph == nil || graph.Tiers == nil {
@@ -96,6 +188,28 @@ func (cfg *Config) Validate(graph *topology.Graph) error {
 	return nil
 }
 
+func ValidateBlockNameConfig(config *BlockNameConfig) error {
+	if config == nil {
+		return nil
+	}
+	if config.NodeNameRegexp == "" {
+		return fmt.Errorf("blockName.nodeNameRegexp must not be empty")
+	}
+	if config.Format == "" {
+		return fmt.Errorf("blockName.format must not be empty")
+	}
+	if config.compiledRegexp != nil && config.compiledRegexp.String() == config.NodeNameRegexp {
+		return nil
+	}
+	compiled, err := regexp.Compile(config.NodeNameRegexp)
+	if err != nil {
+		config.compiledRegexp = nil
+		return fmt.Errorf("invalid blockName.nodeNameRegexp %q: %v", config.NodeNameRegexp, err)
+	}
+	config.compiledRegexp = compiled
+	return nil
+}
+
 func NewNetworkTopology(graph *topology.Graph, cfg *Config) (*NetworkTopology, error) {
 	if err := cfg.Validate(graph); err != nil {
 		return nil, err
@@ -108,18 +222,21 @@ func NewNetworkTopology(graph *topology.Graph, cfg *Config) (*NetworkTopology, e
 		nodeInfo: make(map[string]*nodeInfo),
 	}
 
-	nt.initTree(graph)
+	if err := nt.initTree(graph); err != nil {
+		return nil, err
+	}
 	nt.initBlocks(graph)
 
 	return nt, nil
 }
 
-func (nt *NetworkTopology) initTree(graph *topology.Graph) {
+func (nt *NetworkTopology) initTree(graph *topology.Graph) error {
 	if graph == nil || graph.Tiers == nil {
-		return
+		return nil
 	}
 
 	parentMap := make(map[string][]string)
+	seen := map[string]bool{graph.Tiers.ID: true}
 	queue := []*topology.Vertex{graph.Tiers}
 	for len(queue) > 0 {
 		v := queue[0]
@@ -134,6 +251,16 @@ func (nt *NetworkTopology) initTree(graph *topology.Graph) {
 			}
 		}
 		for id, w := range v.Vertices {
+			if w == nil {
+				return fmt.Errorf("vertex %q contains nil child with key %q", v.ID, id)
+			}
+			if id == v.ID || w.ID == v.ID {
+				return fmt.Errorf("vertex %q contains a self-edge", v.ID)
+			}
+			if seen[w.ID] {
+				return fmt.Errorf("vertex %q is reachable more than once; topology must be a tree", w.ID)
+			}
+			seen[w.ID] = true
 			if len(v.ID) != 0 {
 				parentMap[w.ID] = append([]string{}, parentMap[v.ID]...)
 				parentMap[w.ID] = append(parentMap[w.ID], v.ID)
@@ -146,6 +273,7 @@ func (nt *NetworkTopology) initTree(graph *topology.Graph) {
 	for _, val := range nt.tree {
 		sort.Strings(val)
 	}
+	return nil
 }
 
 func toBlockInfos(domains topology.DomainMap) []*blockInfo {

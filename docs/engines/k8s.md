@@ -59,7 +59,7 @@ graph TB
 
 ### Relationship to `nvidia.com/gpu.clique`
 
-The GPU Operator device plugin sets `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs (e.g., GB200 NVL72). This label identifies the NVLink clique a node belongs to and can be used as a topology key for Pod placement.
+Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs (e.g., GB200 NVL72). When present, this label identifies the NVLink clique a node belongs to and can be used as a topology key for Pod placement; its presence is not guaranteed on every MNNVL cluster.
 
 Topograph treats `nvidia.com/gpu.clique` as the authoritative accelerator node label when it is already present:
 
@@ -141,7 +141,36 @@ engine:
       - example.com/rack
       - example.com/pod
     acceleratorLabel: example.com/nvl-domain
+
+# Shared by supported Kubernetes-backed providers and engines.
+kubeClient:
+  qps: 50
+  burst: 100
 ```
+
+### Kubernetes API reconciliation and rate limiting
+
+The Kubernetes engine lists the selected Nodes once, reuses that result while
+generating output, and compares each Node's existing topology labels with the
+desired labels. It skips Nodes that are already current and patches only changed
+labels, including removing stale Topograph-managed tier labels. This avoids a
+separate Node GET followed by a full Node update for every reconciliation.
+
+Client-go uses default limits of 5 QPS and burst 10. For Helm deployments,
+configure the chart-wide `kubeClient.qps` and `kubeClient.burst` values. The
+chart exposes them to Topograph as `KUBE_QPS` and `KUBE_BURST`, and the DRA
+provider and Kubernetes, NFD, and Slinky engines use the resulting shared
+deployment settings. Outside Helm, set the environment variables directly.
+
+A large first reconciliation may still patch many Nodes, so increase the shared
+values only when client-side throttling is slowing the update. Higher values
+increase Kubernetes API-server load; monitor request latency and HTTP `429`
+responses and narrow `nodeSelector` where appropriate.
+
+When the chart manages RBAC, the Topograph API server receives `get`, `list`,
+and `patch` access to Nodes for the Kubernetes engine; it no longer requires
+Node `update`. Deployments using `rbac.create: false` must grant the same
+permissions to the configured ServiceAccount.
 
 ## Exposing the Topograph API
 
@@ -263,7 +292,7 @@ This creates a `monitoring.coreos.com/v1` `ServiceMonitor` selecting the Topogra
 
 ### Pod security context
 
-The chart applies a hardened security context to all three components (API server, node-observer, node-data-broker) by default, satisfying the Kubernetes [`restricted` Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/): non-root execution (`runAsNonRoot`, UID/GID `65532`), `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, a read-only root filesystem, and all Linux capabilities dropped. The Kubernetes and Slinky engines write node labels / a ConfigMap through the API server and never write to the container filesystem, so these defaults require no additional configuration.
+The chart applies a hardened security context to all three components (API server, node-observer, node-data-broker) by default, satisfying the Kubernetes [`restricted` Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/): non-root execution (`runAsNonRoot`, UID/GID `65532`), `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, a read-only root filesystem, and all Linux capabilities dropped. The Kubernetes, NFD, and Slinky engines write Kubernetes resources through the API server and never write to the container filesystem, so these defaults require no additional configuration.
 
 Override individual keys to relax the defaults where a workload needs it; a per-key override wins over the shipped default. Two cases need it:
 
@@ -313,18 +342,34 @@ Apply alongside the chart. A bundled template is under consideration.
 
 The node-observer `ClusterRole` grants `pods [list, watch]` unconditionally, `apps/daemonsets [list, watch]` when `nodeDataBroker.enabled=true`, and `nodes [list, watch]` only when `nodeObserver.topograph.trigger.nodeSelector` is set. Set `nodeObserver.rbac.create: false` to suppress the `ClusterRole`/`ClusterRoleBinding` when managing RBAC externally.
 
+### Node Data Broker write-scoping via ValidatingAdmissionPolicy
+
+The node-data-broker's RBAC grants update permission on nodes cluster-wide. To enforce least-privilege scoping, the chart supports deploying an opt-in `ValidatingAdmissionPolicy` and its binding:
+
+```yaml
+nodeDataBroker:
+  validatingAdmissionPolicy:
+    enabled: true
+```
+
+When enabled, the policy matches node `UPDATE` operations performed by the broker's ServiceAccount and validates that the name of the node being modified matches the node name claim bound to the requester's ServiceAccount token (`authentication.kubernetes.io/node-name`).
+
+**Prerequisites:**
+1. A Kubernetes cluster running **Kubernetes 1.30+** with the **`ValidatingAdmissionPolicy` API enabled** (`admissionregistration.k8s.io/v1`).
+2. ServiceAccount tokens carrying the node-binding identity claim (e.g., via `ServiceAccountTokenPodNodeInfo`). The policy denies updates from the broker ServiceAccount if this required node-name claim is missing from the request context.
+
 ## Validation and Testing
 
 The Helm chart ships two layers of validation for operators.
 
 ### Schema-backed values validation at install time
 
-`charts/topograph/values.schema.json` is a JSON Schema that Helm enforces during `helm template` and `helm install`. Misspelled provider names, wrong engine enums, out-of-range replica counts, bad pull policies, invalid service port numbers, and malformed `serviceMonitor` / `tests` / `ingress` shapes are rejected with a clear `at '/field/path': <explanation>` error before any template rendering happens. For example, `--set provider.name=bogus` produces:
+`charts/topograph/values.schema.json` is a JSON Schema that Helm enforces during `helm template` and `helm install`. Misspelled provider names, wrong engine enums, out-of-range replica counts, bad pull policies, invalid service port numbers, and malformed `serviceMonitor` / `tests` / `ingress` shapes are rejected with a clear `at '/field/path': <explanation>` error before any template rendering happens. For example, `--set engine.name=bogus` produces:
 
 ```
 Error: values don't meet the specifications of the schema(s) in the following chart(s):
 topograph:
-- at '/provider/name': value must be one of 'aws', 'oci', 'gcp', 'cw', 'infiniband-k8s', 'lambdai', 'nebius', 'nscale', 'netq', 'test'
+- at '/engine/name': value must be one of 'graph', 'k8s', 'nfd', 'slinky', 'slurm'
 ```
 
 The schema is deliberately narrow: per-provider credential requirements are documented in prose in `docs/providers/<name>.md` rather than enforced in the schema, because credential field sets evolve with upstream provider changes.

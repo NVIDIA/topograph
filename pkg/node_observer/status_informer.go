@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-2025 NVIDIA CORPORATION
+ * Copyright 2024-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,9 @@ package node_observer
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -18,6 +21,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -25,32 +29,45 @@ import (
 	"github.com/NVIDIA/topograph/internal/k8s"
 )
 
+const topologyQueueKey = "cluster-topology"
+
+// StatusInformer watches the configured Kubernetes resources and reconciles
+// their cluster-wide topology through a single rate-limited work queue key.
+// The exported name is retained for compatibility with existing callers.
 type StatusInformer struct {
-	ctx           context.Context
-	nodeFactory   informers.SharedInformerFactory
-	podFactory    informers.SharedInformerFactory
-	apiFactory    informers.SharedInformerFactory
-	brokerFactory informers.SharedInformerFactory
-	reqFunc       httpreq.RequestFunc
-	reqExecFunc   func(httpreq.RequestFunc, bool) ([]byte, *httperr.Error)
-	retryDelay    time.Duration
-	timer         *time.Timer
-	queue         chan struct{}
-	stopCh        chan struct{}
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	nodeFactory         informers.SharedInformerFactory
+	podFactory          informers.SharedInformerFactory
+	apiFactory          informers.SharedInformerFactory
+	brokerFactory       informers.SharedInformerFactory
+	reqFunc             httpreq.RequestFunc
+	reqExecFunc         func(httpreq.RequestFunc, bool) ([]byte, *httperr.Error)
+	queue               workqueue.TypedRateLimitingInterface[string]
+	retryDelay          time.Duration
+	stopOnce            sync.Once
+	requestedGeneration atomic.Uint64
+	completedGeneration atomic.Uint64
+	attemptedGeneration uint64
+	retryNotBefore      time.Time
 
 	apiServerContainerName string
 }
 
 func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger *Trigger, apiServer *APIServer, brokerName, brokerNamespace string, retryDelay time.Duration, reqFunc httpreq.RequestFunc) (*StatusInformer, error) {
 	klog.InfoS("Configuring status informer", "trigger", trigger, "apiServer", apiServer, "brokerName", brokerName, "brokerNamespace", brokerNamespace)
+	if retryDelay <= 0 {
+		retryDelay = defaultRetryDelay
+	}
 
 	statusInformer := &StatusInformer{
-		ctx:         ctx,
-		retryDelay:  retryDelay,
 		reqFunc:     reqFunc,
 		reqExecFunc: httpreq.DoRequestWithRetries,
-		queue:       make(chan struct{}, 1),
-		stopCh:      make(chan struct{}),
+		retryDelay:  retryDelay,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.NewTypedItemExponentialFailureRateLimiter[string](retryDelay, retryDelay),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "node-observer"},
+		),
 	}
 
 	if trigger != nil && len(trigger.NodeSelector) != 0 {
@@ -90,7 +107,22 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 		)
 	}
 
+	statusInformer.ctx, statusInformer.cancel = context.WithCancel(ctx)
+	statusInformer.reqFunc = requestFuncWithContext(statusInformer.ctx, reqFunc)
 	return statusInformer, nil
+}
+
+func requestFuncWithContext(ctx context.Context, f httpreq.RequestFunc) httpreq.RequestFunc {
+	if f == nil {
+		return nil
+	}
+	return func() (*http.Request, *httperr.Error) {
+		req, err := f()
+		if req != nil {
+			req = req.WithContext(ctx)
+		}
+		return req, err
+	}
 }
 
 func newPodFactory(client kubernetes.Interface, selector *metav1.LabelSelector, namespace string) (informers.SharedInformerFactory, error) {
@@ -132,26 +164,28 @@ func (s *StatusInformer) Start() error {
 		return err
 	}
 
-	go s.run()
-
+	s.run()
 	return nil
 }
 
 func (s *StatusInformer) Stop(_ error) {
-	klog.Info("Stopping status informer")
-	if s.nodeFactory != nil {
-		s.nodeFactory.Shutdown()
-	}
-	if s.podFactory != nil {
-		s.podFactory.Shutdown()
-	}
-	if s.apiFactory != nil {
-		s.apiFactory.Shutdown()
-	}
-	if s.brokerFactory != nil {
-		s.brokerFactory.Shutdown()
-	}
-	close(s.stopCh)
+	s.stopOnce.Do(func() {
+		klog.Info("Stopping status informer")
+		s.cancel()
+		s.queue.ShutDown()
+		if s.nodeFactory != nil {
+			s.nodeFactory.Shutdown()
+		}
+		if s.podFactory != nil {
+			s.podFactory.Shutdown()
+		}
+		if s.apiFactory != nil {
+			s.apiFactory.Shutdown()
+		}
+		if s.brokerFactory != nil {
+			s.brokerFactory.Shutdown()
+		}
+	})
 }
 
 func (s *StatusInformer) startNodeInformer() error {
@@ -164,7 +198,6 @@ func (s *StatusInformer) startNodeInformer() error {
 					s.sendRequest()
 				}
 			},
-			//UpdateFunc: func(_, obj any) {} // TODO: clarify the change in node that would require topology update
 			DeleteFunc: func(obj any) {
 				switch v := obj.(type) {
 				case *corev1.Node:
@@ -182,7 +215,9 @@ func (s *StatusInformer) startNodeInformer() error {
 			return err
 		}
 		s.nodeFactory.Start(s.ctx.Done())
-		s.nodeFactory.WaitForCacheSync(s.ctx.Done())
+		if err := waitForInformerCache(s.ctx, "nodes", informer.HasSynced); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -215,14 +250,30 @@ func (s *StatusInformer) startAPIServerInformer() error {
 					s.sendRequest()
 				}
 			},
+			DeleteFunc: s.requestOnAPIServerDelete,
 		})
 		if err != nil {
 			return err
 		}
 		s.apiFactory.Start(s.ctx.Done())
-		s.apiFactory.WaitForCacheSync(s.ctx.Done())
+		if err := waitForInformerCache(s.ctx, "API server pods", informer.HasSynced); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func (s *StatusInformer) requestOnAPIServerDelete(obj any) {
+	switch pod := obj.(type) {
+	case *corev1.Pod:
+		klog.V(4).Infof("Informer deleted API server pod %s/%s", pod.Namespace, pod.Name)
+		s.sendRequest()
+	case cache.DeletedFinalStateUnknown:
+		if pod, ok := pod.Obj.(*corev1.Pod); ok {
+			klog.V(4).Infof("Informer deleted API server pod %s/%s", pod.Namespace, pod.Name)
+			s.sendRequest()
+		}
+	}
 }
 
 func (s *StatusInformer) startBrokerInformer() error {
@@ -269,7 +320,9 @@ func (s *StatusInformer) startBrokerInformer() error {
 			return err
 		}
 		s.brokerFactory.Start(s.ctx.Done())
-		s.brokerFactory.WaitForCacheSync(s.ctx.Done())
+		if err := waitForInformerCache(s.ctx, "node-data-broker DaemonSet", informer.HasSynced); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -317,42 +370,84 @@ func (s *StatusInformer) startPodInformer() error {
 			return err
 		}
 		s.podFactory.Start(s.ctx.Done())
-		s.podFactory.WaitForCacheSync(s.ctx.Done())
+		if err := waitForInformerCache(s.ctx, "trigger pods", informer.HasSynced); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (s *StatusInformer) sendRequest() {
-	select {
-	case s.queue <- struct{}{}:
-	default:
-		// Drop if already queued (prevents flooding)
+func waitForInformerCache(ctx context.Context, name string, synced cache.InformerSynced) error {
+	if cache.WaitForCacheSync(ctx.Done(), synced) {
+		return nil
 	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("failed to sync %s informer cache: %w", name, err)
+	}
+	return fmt.Errorf("failed to sync %s informer cache", name)
+}
+
+func (s *StatusInformer) sendRequest() {
+	s.requestedGeneration.Add(1)
+	s.queue.Add(topologyQueueKey)
 }
 
 func (s *StatusInformer) run() {
-	for {
-		select {
-		case <-s.stopCh:
-			return
-
-		case <-s.queue:
-			// Cancel any pending retry
-			if s.timer != nil {
-				s.timer.Stop()
-				s.timer = nil
-			}
-			s.process()
-
-		case <-func() <-chan time.Time {
-			if s.timer != nil {
-				return s.timer.C
-			}
-			return nil
-		}():
-			s.process()
-		}
+	for s.processNextWorkItem() {
 	}
+}
+
+func (s *StatusInformer) processNextWorkItem() bool {
+	key, shutdown := s.queue.Get()
+	if shutdown {
+		return false
+	}
+	defer s.queue.Done(key)
+
+	// Queue entries carry only the cluster key; generations determine their meaning:
+	//   - completed generation: obsolete delayed entry, discard
+	//   - newer than attempted: new informer event, reconcile immediately
+	//   - already attempted before retryNotBefore: early delayed entry, postpone
+	//   - otherwise: retry deadline reached, reconcile
+	generation := s.requestedGeneration.Load()
+	if generation <= s.completedGeneration.Load() {
+		// AddAfter entries cannot be cancelled. If a newer informer event has
+		// already reconciled successfully, discard the obsolete delayed item.
+		s.queue.Forget(key)
+		return true
+	}
+	if generation == s.attemptedGeneration && time.Now().Before(s.retryNotBefore) {
+		// A newer informer event resets main's retry timer. A delayed workqueue
+		// entry cannot be cancelled, so postpone an obsolete entry until the
+		// latest attempt's retry deadline instead of reconciling too early.
+		s.queue.AddAfter(key, time.Until(s.retryNotBefore))
+		return true
+	}
+
+	requeueAfter, err := s.reconcile()
+	if s.ctx.Err() != nil {
+		s.queue.Forget(key)
+		return false
+	}
+	if err != nil {
+		klog.Errorf("Topology reconciliation failed: %v", err)
+		s.attemptedGeneration = generation
+		s.retryNotBefore = time.Now().Add(s.retryDelay)
+		s.queue.AddRateLimited(key)
+		return true
+	}
+
+	s.queue.Forget(key)
+	if requeueAfter > 0 {
+		s.attemptedGeneration = generation
+		s.retryNotBefore = time.Now().Add(requeueAfter)
+		s.queue.AddAfter(key, requeueAfter)
+		return true
+	}
+	s.attemptedGeneration = generation
+	s.retryNotBefore = time.Time{}
+	s.completedGeneration.Store(generation)
+	return true
 }
 
 func shouldRequestOnAPIServerUpdate(oldPod, newPod *corev1.Pod, containerName string) bool {
@@ -451,34 +546,27 @@ func brokerDaemonSetReady(daemonSet *appsv1.DaemonSet) (bool, error) {
 	return daemonSet.Status.DesiredNumberScheduled == daemonSet.Status.NumberReady, nil
 }
 
-func (s *StatusInformer) process() {
+func (s *StatusInformer) reconcile() (time.Duration, error) {
 	brokerReady, err := s.brokerReady()
 	if err != nil {
+		// Broker errors describe the current unready state. Log the diagnostic and
+		// continue polling on the broker cadence rather than treating it as a
+		// topology-generation failure.
 		klog.Error(err)
 	}
 	if !brokerReady {
 		klog.V(2).Info("Waiting for the node-data-broker DaemonSet to become ready before topology generation")
-		if s.timer != nil {
-			s.timer.Stop()
-		}
-		s.timer = time.NewTimer(defaultBrokerRetryDelay)
-		return
+		return defaultBrokerRetryDelay, nil
 	}
 
+	if s.reqFunc == nil {
+		return 0, nil
+	}
 	if _, err := s.reqExecFunc(s.reqFunc, false); err != nil {
-		klog.Errorf("failed to send HTTP request; retrying in %s: %v", s.retryDelay, err)
-
-		// Reset retry timer
-		if s.timer != nil {
-			s.timer.Stop()
+		if s.ctx.Err() != nil {
+			return 0, nil
 		}
-		s.timer = time.NewTimer(s.retryDelay)
-		return
+		return 0, fmt.Errorf("failed to send topology generation request: %w", err)
 	}
-
-	// clear retry timer
-	if s.timer != nil {
-		s.timer.Stop()
-		s.timer = nil
-	}
+	return 0, nil
 }

@@ -29,4 +29,5 @@ func TestMainInternalWritesManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(data), "kind: List")
 	require.Contains(t, string(data), "name: i21")
+	require.Contains(t, string(data), "accelerator.topology.test/domain: nvl2")
 }

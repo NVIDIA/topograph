@@ -1,0 +1,48 @@
+provider:
+  name: dra
+  params:
+    nodeSelector:
+      kwok.x-k8s.io/node: "fake"
+engine:
+  name: slinky
+  params:
+    namespace: slurm
+    nodeSelector:
+      kwok.x-k8s.io/node: "fake"
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: worker
+    plugin: topology/block
+    blockSizes: [8, 16, 32]
+    blockName:
+      nodeNameRegexp: '^srv([0-9]{2})'
+      format: 'rack${1}'
+    useGpuCliqueLabel: true
+    topologyConfigPath: topology.conf
+    topologyConfigmapName: slurm-config-extra
+    useDynamicNodes: true
+
+kubeClient:
+  qps: 50
+  burst: 100
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  topograph:
+    trigger:
+      nodeSelector:
+        kwok.x-k8s.io/node: "fake"
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: worker
+          app.kubernetes.io/instance: slurm-worker-kwok
+
+nodeDataBroker:
+  enabled: false

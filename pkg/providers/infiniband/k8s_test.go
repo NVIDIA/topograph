@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 NVIDIA CORPORATION
+ * Copyright 2025-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -93,6 +93,11 @@ func TestParseClusterID(t *testing.T) {
         ClusterUUID                       : 00000000-0000-0000-0000-000000000000
 `,
 			clusterID: "00000000-0000-0000-0000-000000000000.0",
+		},
+		{
+			name:  "Case 4: malformed line (no colon) is skipped",
+			input: "CliqueId\n",
+			err:   "missing ClusterUUID",
 		},
 	}
 

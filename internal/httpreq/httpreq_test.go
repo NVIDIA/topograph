@@ -6,6 +6,7 @@
 package httpreq
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -113,6 +114,40 @@ func TestDoRequestWithRetries(t *testing.T) {
 			require.Equal(t, tc.status, err.Code())
 			require.Equal(t, tc.attempts, c.attempts)
 		})
+	}
+}
+
+func TestDoRequestWithRetriesStopsWhenRequestContextIsCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	requestAttempted := make(chan struct{}, 1)
+	attempts := 0
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://topograph.invalid", nil)
+	require.NoError(t, err)
+	f := func() (*http.Request, *httperr.Error) {
+		attempts++
+		requestAttempted <- struct{}{}
+		return req, httperr.NewError(http.StatusServiceUnavailable, "retry")
+	}
+
+	done := make(chan *httperr.Error, 1)
+	go func() {
+		_, err := DoRequestWithRetries(f, false)
+		done <- err
+	}()
+
+	select {
+	case <-requestAttempted:
+	case <-time.After(time.Second):
+		t.Fatal("request was not attempted")
+	}
+	cancel()
+
+	select {
+	case err := <-done:
+		require.EqualError(t, err, "retry")
+		require.Equal(t, 1, attempts)
+	case <-time.After(time.Second):
+		t.Fatal("retry did not stop after request context cancellation")
 	}
 }
 

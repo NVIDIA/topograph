@@ -19,6 +19,15 @@ engine:
   #   # Kubernetes node label as the block-domain source.
   #   useGpuCliqueLabel: true
 
+# Kubernetes client rate limits for the DRA provider and the k8s, NFD, and
+# Slinky engines. The chart passes configured values to the Topograph deployment
+# as KUBE_QPS and KUBE_BURST. Leave unset to use client-go defaults (5 QPS and
+# burst 10).
+# kubeClient:
+#   qps: 50
+#   burst: 100
+kubeClient: {}
+
 # Namespace where NFD master runs. The nfd engine creates NodeFeature and
 # NodeFeatureGroup resources here, and its Role/RoleBinding are scoped here.
 nfdNamespace: node-feature-discovery
@@ -71,11 +80,11 @@ podAnnotations: {}
 podLabels: {}
 
 # Hardened by default to satisfy the Kubernetes "restricted" Pod Security
-# Standard. The Topograph API server (Kubernetes and Slinky engines) writes
-# node labels / a ConfigMap through the API server and does not write to the
+# Standard. The Topograph API server (Kubernetes, NFD, and Slinky engines)
+# writes Kubernetes resources through the API server and does not write to the
 # container filesystem, so a read-only root filesystem and non-root execution
-# are safe. Providers that need elevated privileges override these values --
-# see `values.k8s.ib-example.yaml`, where the InfiniBand provider runs
+# are safe. Providers that need elevated privileges override these values -- see
+# `values.k8s.ib-example.yaml`, where the InfiniBand provider runs
 # `ibnetdiscover` and must set `privileged: true`.
 podSecurityContext:
   runAsNonRoot: true
@@ -309,6 +318,11 @@ nodeDataBroker:
 
   rbac:
     create: true
+
+  # Opt-in ValidatingAdmissionPolicy to scope node writes. Requires
+  # Kubernetes >= 1.30 (admissionregistration.k8s.io/v1) and ServiceAccountTokenPodNodeInfo enabled.
+  validatingAdmissionPolicy:
+    enabled: false
 
   env: {}
   initContainers: []

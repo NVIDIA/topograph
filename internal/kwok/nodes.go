@@ -58,7 +58,6 @@ func NodesFromModel(model *models.Model, capacity Capacity) ([]*corev1.Node, err
 		return nil, err
 	}
 
-	instanceInfo := newInstanceInfo(model.Instances)
 	hostNames := make([]string, 0, len(model.Nodes))
 	for hostName := range model.Nodes {
 		hostNames = append(hostNames, hostName)
@@ -69,29 +68,21 @@ func NodesFromModel(model *models.Model, capacity Capacity) ([]*corev1.Node, err
 	seenNodeNames := make(map[string]string, len(hostNames))
 	for _, hostName := range hostNames {
 		instance := model.Nodes[hostName]
-		info := instanceInfo[hostName]
-		if info.instanceID == "" {
-			return nil, fmt.Errorf("model hostname %q has no instance ID mapping", hostName)
-		}
 		nodeName := kubernetesNodeName(hostName)
 		if seenHostName, ok := seenNodeNames[nodeName]; ok {
 			return nil, fmt.Errorf("model hostnames %q and %q resolve to duplicate Kubernetes node name %q", seenHostName, hostName, nodeName)
 		}
 		seenNodeNames[nodeName] = hostName
-		if info.region == "" {
-			info.region = "none"
-		}
 
-		labels := map[string]string{
-			NodeSelectorKey: NodeSelectorValue,
-		}
+		labels := make(map[string]string, len(instance.Labels)+1)
 		maps.Copy(labels, instance.Labels)
+		labels[NodeSelectorKey] = NodeSelectorValue
 
-		annotations := map[string]string{
-			NodeSelectorKey:          NodeSelectorValue,
-			topology.KeyNodeInstance: info.instanceID,
-			topology.KeyNodeRegion:   info.region,
-		}
+		annotations := make(map[string]string, len(instance.Annotations)+3)
+		maps.Copy(annotations, instance.Annotations)
+		annotations[NodeSelectorKey] = NodeSelectorValue
+		annotations[topology.KeyNodeInstance] = models.InstanceID(hostName)
+		annotations[topology.KeyNodeRegion] = instance.Labels[models.LabelTopologyRegion]
 
 		nodes = append(nodes, &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
@@ -190,24 +181,6 @@ func setResource(resources corev1.ResourceList, name corev1.ResourceName, value 
 	}
 	resources[name] = quantity
 	return nil
-}
-
-type nodeInfo struct {
-	instanceID string
-	region     string
-}
-
-func newInstanceInfo(instances []topology.ComputeInstances) map[string]nodeInfo {
-	info := make(map[string]nodeInfo)
-	for _, ci := range instances {
-		for instanceID, hostName := range ci.Instances {
-			info[hostName] = nodeInfo{
-				instanceID: instanceID,
-				region:     ci.Region,
-			}
-		}
-	}
-	return info
 }
 
 func kubernetesNodeName(name string) string {

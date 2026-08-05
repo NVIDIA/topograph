@@ -124,8 +124,16 @@ func TestGenerateOutput(t *testing.T) {
 
 func TestGetComputeInstances(t *testing.T) {
 	eng := &GraphEngine{params: &Params{}}
-	cis, herr := eng.GetComputeInstances(context.Background(), nil)
+	cis, herr := eng.ResolveComputeInstances(context.Background(), nil, nil)
 	require.Nil(t, cis)
 	require.NotNil(t, herr)
 	require.Equal(t, http.StatusBadRequest, herr.Code())
+
+	expected := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance": "node"},
+	}}
+	cis, herr = eng.ResolveComputeInstances(context.Background(), expected, nil)
+	require.Nil(t, herr)
+	require.Equal(t, expected, cis)
 }

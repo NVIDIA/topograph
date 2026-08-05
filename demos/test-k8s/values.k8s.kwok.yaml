@@ -1,0 +1,29 @@
+provider:
+  name: test
+  params:
+    modelFileName: medium.yaml
+    generateResponseCode: 202
+    topologyResponseCode: 200
+engine:
+  name: k8s
+
+kubeClient:
+  qps: 50
+  burst: 100
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  topograph:
+    trigger:
+      nodeSelector:
+        kwok.x-k8s.io/node: "fake"
+
+nodeDataBroker:
+  enabled: false

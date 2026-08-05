@@ -46,12 +46,12 @@ switches:
 blocks:
 - switch: tor1
   nodes: [n11,n12]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 - switch: tor2
   nodes: [n21,n22]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl2
+  annotations:
+    accelerator.topology.test/domain: nvl2
 `
 
 	largeClusterModel = `
@@ -67,12 +67,12 @@ switches:
 blocks:
 - switch: tor1
   nodes: ["n[100-199]"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 - switch: tor2
   nodes: ["n[200-299]"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl2
+  annotations:
+    accelerator.topology.test/domain: nvl2
 `
 )
 
@@ -109,8 +109,8 @@ switches:
 blocks:
 - switch: tor
   nodes: [n11,n12]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 `,
 		},
 		{
@@ -147,8 +147,8 @@ switches:
 blocks:
 - switch: tor
   nodes: [n11]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 `,
 			region:    "region",
 			intervals: []interval{{11, 11}},

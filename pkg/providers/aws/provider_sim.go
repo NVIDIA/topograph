@@ -104,7 +104,7 @@ func (client *simClient) DescribeInstanceTopology(ctx context.Context, params *e
 				for j := len(node.NetLayers) - 1; j >= 0; j-- {
 					netLayers = append(netLayers, node.NetLayers[j])
 				}
-				domainID := node.Labels[topology.KeyTopologyAccelerator]
+				domainID := node.AcceleratorDomain()
 				instTopo := types.InstanceTopology{
 					InstanceId:       &instanceId,
 					AvailabilityZone: &az,

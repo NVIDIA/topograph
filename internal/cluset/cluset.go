@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package cluset
@@ -92,6 +81,62 @@ func Expand(compressed []string) []string {
 		}
 	}
 	return result
+}
+
+// MaxExpandedNodes is the maximum number of node names that ExpandWithLimit
+// may return in a single call. It guards against decompression-bomb inputs
+// (e.g. "n[0-2000000000]") from untrusted sources such as HTTP request bodies.
+// Use ExpandWithLimit at call sites where the input is attacker-controlled.
+const maxExpandedNodes = 500_000
+
+func ExpandWithLimit(compressed []string) ([]string, error) {
+	return expandWithLimit(compressed, maxExpandedNodes)
+}
+
+// expandWithLimit is like Expand but returns an error if the total number of
+// expanded node names would exceed limit. The check for ranged parts is done
+// before any allocation so a single oversized token causes no heap growth.
+func expandWithLimit(compressed []string, limit int) ([]string, error) {
+	var result []string
+
+	for _, entry := range compressed {
+		matches := expandRegexp.FindStringSubmatch(entry)
+		if matches != nil {
+			prefix, ranges := matches[1], matches[2]
+			rangesParts := strings.Split(ranges, ",")
+			for _, part := range rangesParts {
+				if strings.Contains(part, "-") {
+					bounds := strings.Split(part, "-")
+					lo, hi := atoi(bounds[0]), atoi(bounds[1])
+					width := len(bounds[0])
+					// Use hi-lo >= remaining instead of hi-lo+1 > remaining to
+					// avoid integer overflow when hi == math.MaxInt.
+					if hi >= lo && hi-lo >= limit-len(result) {
+						return nil, fmt.Errorf("expanded node list exceeds %d entries", limit)
+					}
+					// Break before i++ when i == hi to prevent i wrapping past
+					// math.MaxInt and keeping the loop condition true forever.
+					for i := lo; i <= hi; i++ {
+						result = append(result, fmt.Sprintf("%s%0*d", prefix, width, i))
+						if i == hi {
+							break
+						}
+					}
+				} else {
+					result = append(result, fmt.Sprintf("%s%s", prefix, part))
+					if len(result) > limit {
+						return nil, fmt.Errorf("expanded node list exceeds %d entries", limit)
+					}
+				}
+			}
+		} else {
+			result = append(result, entry)
+			if len(result) > limit {
+				return nil, fmt.Errorf("expanded node list exceeds %d entries", limit)
+			}
+		}
+	}
+	return result, nil
 }
 
 // ExpandList decompresses a list of compacted node names back to individual entries

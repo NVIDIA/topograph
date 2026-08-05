@@ -19,6 +19,7 @@ package slinky
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net/http"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -64,9 +66,10 @@ const (
 var execInPod = k8s.ExecInPod
 
 type SlinkyEngine struct {
-	config *rest.Config
-	client kubernetes.Interface
-	params *Params
+	config             *rest.Config
+	client             kubernetes.Interface
+	params             *Params
+	cachedClusterNodes *clusterNodes
 }
 
 type clusterNodes struct {
@@ -126,6 +129,10 @@ func Loader(_ context.Context, params engines.Config) (engines.Engine, *httperr.
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
+	if err := k8s.ConfigureClientRateLimits(config); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
@@ -143,7 +150,6 @@ func getParameters(params engines.Config) (*Params, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
 	}
-
 	// Validate config update mode
 	if len(p.ConfigUpdateMode) != 0 && p.ConfigUpdateMode != ConfigUpdateModeNone && p.ConfigUpdateMode != ConfigUpdateModeSkeletonOnly {
 		return nil, fmt.Errorf("invalid configUpdateMode: %s, must be either %s, or %s", p.ConfigUpdateMode, ConfigUpdateModeNone, ConfigUpdateModeSkeletonOnly)
@@ -190,12 +196,19 @@ func isEmptySelector(sel *metav1.LabelSelector) bool {
 	return sel == nil || (len(sel.MatchLabels) == 0 && len(sel.MatchExpressions) == 0)
 }
 
-func (eng *SlinkyEngine) GetComputeInstances(ctx context.Context, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+func (eng *SlinkyEngine) ResolveComputeInstances(ctx context.Context, instances []topology.ComputeInstances, _ any) ([]topology.ComputeInstances, *httperr.Error) {
+	if len(instances) != 0 && !eng.params.UseDynamicNodes && !eng.params.UseGPUCliqueLabel {
+		return instances, nil
+	}
+
 	clusterNodes, err := eng.getClusterNodes(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	if len(instances) != 0 {
+		return instances, nil
+	}
 	return getComputeInstances(clusterNodes.nodes, clusterNodes.nodeMap)
 }
 
@@ -213,6 +226,10 @@ func resolveSlurmNodeName(pod *corev1.Pod) string {
 // from Ready slurmd pods in the configured namespace and pod selector, using the
 // slurm.node.name label when present and falling back to pod.spec.hostname.
 func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*clusterNodes, *httperr.Error) {
+	if eng.cachedClusterNodes != nil {
+		return eng.cachedClusterNodes, nil
+	}
+
 	nodes, err := k8s.GetNodes(ctx, eng.client, eng.params.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
@@ -240,10 +257,11 @@ func (eng *SlinkyEngine) getClusterNodes(ctx context.Context) (*clusterNodes, *h
 		klog.V(4).Infof("Mapping k8s node %s to SLURM node %s", pod.Spec.NodeName, host)
 		nodeMap[pod.Spec.NodeName] = host
 	}
-	return &clusterNodes{
+	eng.cachedClusterNodes = &clusterNodes{
 		nodes:   nodes,
 		nodeMap: nodeMap,
-	}, nil
+	}
+	return eng.cachedClusterNodes, nil
 }
 
 func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]topology.ComputeInstances, *httperr.Error) {
@@ -252,7 +270,10 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 	for _, node := range nodes.Items {
 		hostName, ok := nodeMap[node.Name]
 		if !ok {
-			klog.V(4).Infof("Cannot resolve k8s node %q", node.Name)
+			klog.V(4).Infof(
+				"Cannot resolve k8s node %q: no resolvable mapping from a Ready SLURM pod; check the engine namespace, podSelector, pod readiness, and Slurm node-name metadata",
+				node.Name,
+			)
 			continue
 		}
 		instance, ok := node.Annotations[topology.KeyNodeInstance]
@@ -645,14 +666,15 @@ func (eng *SlinkyEngine) getPartitionNodes(ctx context.Context, partition string
 func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit, clusterNodes *clusterNodes) *httperr.Error {
 	// Update node annotations based on the desired topology and the current cluster state.
 	// This will trigger Slinky to reconfigure the nodes accordingly.
-	for _, node := range clusterNodes.nodes.Items {
+	for i := range clusterNodes.nodes.Items {
+		node := &clusterNodes.nodes.Items[i]
 		slurmName, ok := clusterNodes.nodeMap[node.Name]
 		if !ok {
 			klog.V(4).Infof("Skipping node %s as it does not have a corresponding SLURM name", node.Name)
 			continue
 		}
 
-		if httpErr := eng.updateNodeAnnotation(ctx, &node, slurmName, nt, topologies); httpErr != nil {
+		if httpErr := eng.updateNodeAnnotation(ctx, node, slurmName, nt, topologies); httpErr != nil {
 			return httpErr
 		}
 		klog.V(4).Infof("Successfully updated annotation for node %s (SLURM name: %s)", node.Name, slurmName)
@@ -665,48 +687,46 @@ func (eng *SlinkyEngine) performReconciliation(ctx context.Context, nt *translat
 }
 
 func (eng *SlinkyEngine) updateNodeAnnotation(ctx context.Context, node *corev1.Node, slurmName string, nt *translate.NetworkTopology, topologies []*translate.TopologyUnit) *httperr.Error {
-
-	// Get the topology desiredSpec for the node based on the desired topologies
 	desiredSpec, httpErr := nt.GetNodeTopologySpec(slurmName, topologies)
 	if httpErr != nil {
 		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get topology spec for node %s: %v", slurmName, httpErr))
 	}
 
-	//If the topology spec is empty, no topology information is available for the node from the provider.
-	//In this case, we can skip the annotation update to avoid unnecessary node reconfiguration by Slinky.
 	if desiredSpec == "" {
 		klog.V(4).Infof("Node %s (SLURM name: %s) received no topology spec from the provider, skipping annotation update", node.Name, slurmName)
 		return nil
 	}
 
-	//Get the node object again to ensure we have the latest resource version for update
-	nodeObj, err := eng.client.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
-	if err != nil {
-		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get node %s: %v", node.Name, err))
-	}
-
-	// Update the topology annotation on the node
-	if nodeObj.Annotations == nil {
-		nodeObj.Annotations = make(map[string]string)
-	}
-
-	//Get the current topology spec annotation on the node and compare with the desired spec. If they are the same, skip the update to avoid unnecessary node reconfiguration by Slinky.
-	currentSpec, exists := nodeObj.Annotations[topology.KeySlinkyTopologySpec]
-	if exists && currentSpec == desiredSpec {
+	// Use the annotation value from the already-fetched node (from the cluster List) to
+	// avoid an extra Get per node. If the annotation is already correct, skip the Patch.
+	if node.Annotations[topology.KeySlinkyTopologySpec] == desiredSpec {
 		klog.V(4).Infof("Node %s (SLURM name: %s) topology spec is up to date, skipping annotation update", node.Name, slurmName)
 		return nil
 	}
 
-	klog.Infof("Updating node %s (SLURM name: %s) topology spec annotation. Current spec: %q, New spec: %q", node.Name, slurmName, currentSpec, desiredSpec)
+	klog.Infof("Updating node %s (SLURM name: %s) topology spec annotation. Current spec: %q, New spec: %q",
+		node.Name, slurmName, node.Annotations[topology.KeySlinkyTopologySpec], desiredSpec)
 
-	//Set the new topology spec annotation on the node. This will trigger Slinky to reconfigure the node according to the new topology.
-	nodeObj.Annotations[topology.KeySlinkyTopologySpec] = desiredSpec
-
-	// Update the node object in Kubernetes
-	_, err = eng.client.CoreV1().Nodes().Update(ctx, nodeObj, metav1.UpdateOptions{})
+	patchData, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]string{
+				topology.KeySlinkyTopologySpec: desiredSpec,
+			},
+		},
+	})
 	if err != nil {
-		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to update node annotation: %v", err))
+		return httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to marshal patch for node %s: %v", node.Name, err))
 	}
+
+	_, err = eng.client.CoreV1().Nodes().Patch(ctx, node.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
+	if err != nil {
+		return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to patch node annotation: %v", err))
+	}
+
+	if node.Annotations == nil {
+		node.Annotations = make(map[string]string)
+	}
+	node.Annotations[topology.KeySlinkyTopologySpec] = desiredSpec
 
 	return nil
 }

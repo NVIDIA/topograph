@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+KUBE_CONTEXT="${KUBE_CONTEXT:-kind-topograph}"
+
+step() {
+    if (( $# != 1 )) || [[ -z "$1" ]]; then
+        echo "usage: step <command>" >&2
+        return 2
+    fi
+
+    local command="$1"
+    local reply
+
+    echo
+    printf '\033[33m$ %s\033[0m\n' "$command"
+    if read -rp "Run? [y/N] " reply; then
+        case "$reply" in
+            [yY]|[yY][eE][sS])
+                eval "$command"
+                ;;
+        esac
+    fi
+}
+
+delete_cluster() {
+    kind delete cluster -n "${KUBE_CONTEXT#kind-}"
+}

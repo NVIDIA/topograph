@@ -1,0 +1,34 @@
+# Slinky integration test using OCI-sim normalized fabric tiers.
+
+provider:
+  name: oci-sim
+  params:
+    modelFileName: large.yaml
+engine:
+  name: slinky
+  params:
+    namespace: slurm
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: worker
+    plugin: topology/tree
+    topologyConfigPath: topology.conf
+    topologyConfigmapName: slurm-config-extra
+
+image:
+  repository: topograph
+  tag: ci
+  pullPolicy: Never
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+
+nodeDataBroker:
+  enabled: false

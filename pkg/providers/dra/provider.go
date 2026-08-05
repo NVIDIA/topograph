@@ -58,6 +58,10 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
+	if err := k8s.ConfigureClientRateLimits(cfg); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
@@ -75,7 +79,6 @@ func getParameters(params map[string]any) (*Params, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
 	}
-
 	if len(p.NodeSelector) != 0 {
 		p.nodeListOpt = &metav1.ListOptions{
 			LabelSelector: labels.Set(p.NodeSelector).String(),

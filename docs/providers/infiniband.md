@@ -11,7 +11,7 @@ The choice of which to use depends on the specifics of the deployment environmen
 
 If **NetQ is deployed** in your environment, consider using the [NetQ provider](./netq.md) instead — it discovers topology via the NetQ management API rather than directly from the fabric, which avoids node access requirements and is the standard approach for Spectrum-X environments.
 
-For **Multi-Node NVLink (MNNVL) Kubernetes clusters** (e.g. GB200 NVL72), use the [DRA provider](./dra.md) instead — it reads `nvidia.com/gpu.clique` labels set by the GPU Operator's DRA driver and is the Kubernetes-native integration path for MNNVL topology.
+For **Multi-Node NVLink (MNNVL) Kubernetes clusters** (e.g. GB200 NVL72), do not substitute the [DRA provider](./dra.md) when backend-fabric locality matters. The DRA provider is limited to Slinky `topology/block` output, requires `nvidia.com/gpu.clique` to already be present on every participating node, and discovers only NVLink partition membership. It does not discover the InfiniBand or Ethernet switch fabric between partitions, so it cannot guide placement when a workload spans more than one NVLink partition. Use `infiniband-k8s` (or [NetQ](./netq.md), when available) to include that fabric hierarchy.
 
 | | `infiniband-bm` | `infiniband-k8s` |
 |---|---|---|

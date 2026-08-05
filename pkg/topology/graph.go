@@ -46,9 +46,10 @@ func RootFirstFabricTiers(ids ...string) []FabricTier {
 }
 
 type InstanceTopology struct {
-	InstanceID    string
-	FabricTiers   []FabricTier
-	AcceleratorID string
+	InstanceID          string
+	FabricTiers         []FabricTier
+	ParentAcceleratorID string
+	AcceleratorID       string
 	// Instance optionally carries enriched metadata for instance-oriented output.
 	Instance *Instance
 }

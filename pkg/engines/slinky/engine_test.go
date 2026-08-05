@@ -139,11 +139,15 @@ func TestGetParameters(t *testing.T) {
 		{
 			name: "Case 8: cluster-wide valid parameters",
 			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyNodeSelector:      nodeSelector,
-				topology.KeyPlugin:            topology.TopologyBlock,
-				topology.KeyBlockSizes:        []int{16},
+				topology.KeyNamespace:    "namespace",
+				topology.KeyPodSelector:  podSelector,
+				topology.KeyNodeSelector: nodeSelector,
+				topology.KeyPlugin:       topology.TopologyBlock,
+				topology.KeyBlockSizes:   []int{16},
+				topology.KeyBlockName: map[string]any{
+					topology.KeyNodeNameRegexp: `^([^-]+)-`,
+					topology.KeyFormat:         `${1}`,
+				},
 				topology.KeyTopoConfigPath:    "path",
 				topology.KeyTopoConfigmapName: "name",
 			},
@@ -151,6 +155,10 @@ func TestGetParameters(t *testing.T) {
 				BaseParams: slurm.BaseParams{
 					Plugin:     topology.TopologyBlock,
 					BlockSizes: []int{16},
+					BlockName: &translate.BlockNameConfig{
+						NodeNameRegexp: `^([^-]+)-`,
+						Format:         `${1}`,
+					},
 				},
 				Namespace:     "namespace",
 				PodSelector:   labelSelector,
@@ -173,7 +181,11 @@ func TestGetParameters(t *testing.T) {
 					"topo1": map[string]any{
 						"plugin":     topology.TopologyBlock,
 						"blockSizes": []int{16, 32},
-						"nodes":      []string{"node1", "node2"},
+						"blockName": map[string]any{
+							"nodeNameRegexp": `^(node)[0-9]+`,
+							"format":         `${1}`,
+						},
+						"nodes": []string{"node1", "node2"},
 					},
 					"topo2": map[string]any{
 						topology.KeyPlugin: topology.TopologyTree,
@@ -192,7 +204,11 @@ func TestGetParameters(t *testing.T) {
 						Topology: slurm.Topology{
 							Plugin:     topology.TopologyBlock,
 							BlockSizes: []int{16, 32},
-							Nodes:      []string{"node1", "node2"},
+							BlockName: &translate.BlockNameConfig{
+								NodeNameRegexp: `^(node)[0-9]+`,
+								Format:         `${1}`,
+							},
+							Nodes: []string{"node1", "node2"},
 						},
 					},
 					"topo2": {
@@ -301,6 +317,73 @@ func TestGetComputeInstances(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveComputeInstancesCachesClusterNodesWhenOutputNeedsThem(t *testing.T) {
+	const namespace = "slurm"
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name: "k8s-node",
+	}}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slurmd",
+			Namespace: namespace,
+			Labels:    map[string]string{topology.KeySlurmNodeName: "slurm-node"},
+		},
+		Spec: corev1.PodSpec{NodeName: node.Name},
+		Status: corev1.PodStatus{Conditions: []corev1.PodCondition{{
+			Type:   corev1.PodReady,
+			Status: corev1.ConditionTrue,
+		}}},
+	}
+	client := fake.NewSimpleClientset(node, pod)
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			Namespace:       namespace,
+			UseDynamicNodes: true,
+			nodeListOpt:     &metav1.ListOptions{},
+			podListOpt:      &metav1.ListOptions{},
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance": "slurm-node"},
+	}}
+
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.NotNil(t, eng.cachedClusterNodes)
+	client.ClearActions()
+
+	cached, httpErr := eng.getClusterNodes(context.Background())
+	require.Nil(t, httpErr)
+	require.Same(t, eng.cachedClusterNodes, cached)
+	require.Empty(t, client.Actions())
+}
+
+func TestResolveComputeInstancesDoesNotLoadUnusedClusterNodes(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			nodeListOpt: &metav1.ListOptions{},
+			podListOpt:  &metav1.ListOptions{},
+		},
+	}
+	instances := []topology.ComputeInstances{{
+		Region:    "region",
+		Instances: map[string]string{"instance": "slurm-node"},
+	}}
+
+	actual, httpErr := eng.ResolveComputeInstances(context.Background(), instances, nil)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, instances, actual)
+	require.Nil(t, eng.cachedClusterNodes)
+	require.Empty(t, client.Actions())
 }
 
 func TestWithGPUCliqueDomains(t *testing.T) {
@@ -1246,6 +1329,22 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 			expectError:    true,
 			errorMsg:       "failed to get config map",
 		},
+		{
+			name: "error patching node",
+			k8sClient: func(slurmNames []string, createConfigMap bool) *fake.Clientset {
+				client := fakeSuccessClient(slurmNames, createConfigMap)
+				client.PrependReactor("patch", "nodes", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.NewInternalError(fmt.Errorf("failed to patch node"))
+				})
+				return client
+			},
+			createConfigMap: true,
+			topologyFile:    "medium.yaml",
+			topologyConfig:  []string{topology.TopologyTree},
+			slurmName:       []string{"1101", "1402"},
+			expectError:     true,
+			errorMsg:        "failed to patch node annotation",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1291,6 +1390,9 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 			}
 			require.Nil(t, httpErr)
 
+			require.Equal(t, 0, countClientActions(client.Actions(), "get", "nodes"))
+			require.Equal(t, len(tc.expectTopologySpec), countClientActions(client.Actions(), "patch", "nodes"))
+
 			cm, err := client.CoreV1().ConfigMaps(params.Namespace).Get(context.Background(), params.ConfigMapName, metav1.GetOptions{})
 			require.NoError(t, err)
 			require.Equal(t, tc.expectTopologyYaml, cm.Data[params.ConfigPath])
@@ -1302,8 +1404,26 @@ func TestGenerateDynamicNodesOutput(t *testing.T) {
 				require.Equal(t, []byte("OK\n"), result)
 			}
 
+			// A second reconciliation over unchanged nodes must use the existing
+			// List result and issue no per-node Get or Patch requests.
+			client.ClearActions()
+			result, httpErr = engine.GenerateOutput(context.Background(), topo, nil)
+			require.Nil(t, httpErr)
+			require.Equal(t, []byte("OK\n"), result)
+			require.Equal(t, 0, countClientActions(client.Actions(), "get", "nodes"))
+			require.Equal(t, 0, countClientActions(client.Actions(), "patch", "nodes"))
 		})
 	}
+}
+
+func countClientActions(actions []k8stesting.Action, verb, resource string) int {
+	count := 0
+	for _, action := range actions {
+		if action.GetVerb() == verb && action.GetResource().Resource == resource {
+			count++
+		}
+	}
+	return count
 }
 
 func TestResolveTopologies(t *testing.T) {

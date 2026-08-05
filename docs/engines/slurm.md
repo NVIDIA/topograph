@@ -2,6 +2,27 @@
 
 For the SLURM engine, topograph supports [tree](https://slurm.schedmd.com/topology.conf.html#SECTION_topology/tree) and [block](https://slurm.schedmd.com/topology.conf.html#SECTION_topology/block) topology configurations.
 
+## Deriving block names from node names
+
+For `topology/block`, the optional `blockName` engine parameter derives each block name from the names of its nodes. Both `nodeNameRegexp` and `format` are required when `blockName` is set.
+
+```yaml
+engine:
+  name: slurm
+  params:
+    plugin: topology/block
+    blockSizes: [8, 16]
+    blockName:
+      nodeNameRegexp: 'd([0-9]{2})-r([0-9]{2})'
+      format: 'domain${1}_rack${2}'
+```
+
+For a block containing nodes such as `gpu-d05-r04-srv4`, this produces the name `domain05_rack04`. The expression uses Go regular-expression syntax and may match anywhere in the node name; use `^` or `$` when the site naming convention requires anchoring. The format uses Go regexp expansion syntax, including numeric captures such as `${1}` and named captures such as `${domain}`.
+
+Every node in a non-empty block must match the expression and produce the same non-empty block name. Different blocks must produce unique names. Topograph rejects topology generation when any of these conditions is not met. Empty complemented blocks have no node name to evaluate and retain their generated default name.
+
+The option can also be set on each `topologies` entry for per-partition output.
+
 ### Test Provider and Engine
 There is a special *provider* and *engine* named `test`, which supports both SLURM and Kubernetes. This configuration returns static results and is primarily used for testing purposes.
 

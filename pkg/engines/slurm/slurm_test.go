@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package slurm
@@ -20,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -245,10 +235,18 @@ func TestGetTranslateConfig(t *testing.T) {
 			params: &BaseParams{
 				Plugin:     topology.TopologyBlock,
 				BlockSizes: []int{2, 8, 32},
+				BlockName: &translate.BlockNameConfig{
+					NodeNameRegexp: `^([^-]+)-`,
+					Format:         `${1}`,
+				},
 			},
 			cfg: &translate.Config{
 				Plugin:     topology.TopologyBlock,
 				BlockSizes: []int{2, 8, 32},
+				BlockName: &translate.BlockNameConfig{
+					NodeNameRegexp: `^([^-]+)-`,
+					Format:         `${1}`,
+				},
 			},
 		},
 		{
@@ -266,6 +264,29 @@ func TestGetTranslateConfig(t *testing.T) {
 				BlockSizes: []int{2, 5},
 			},
 			err: "blockSizes[1]=5 must be a multiple of blockSizes[0]=2",
+		},
+		{
+			name: "Case 4a: too many blockSizes entries",
+			params: &BaseParams{
+				Plugin: topology.TopologyBlock,
+				BlockSizes: func() []int {
+					bs := make([]int, maxBlockSizesLen+1)
+					bs[0] = 1
+					for i := 1; i <= maxBlockSizesLen; i++ {
+						bs[i] = bs[i-1] * 2
+					}
+					return bs
+				}(),
+			},
+			err: fmt.Sprintf("blockSizes has too many entries (%d); max allowed is %d", maxBlockSizesLen+1, maxBlockSizesLen),
+		},
+		{
+			name: "Case 4b: blockSizes value exceeds maximum",
+			params: &BaseParams{
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{maxBlockSizeValue + 1},
+			},
+			err: fmt.Sprintf("blockSizes[0]=%d exceeds maximum allowed value %d", maxBlockSizeValue+1, maxBlockSizeValue),
 		},
 		{
 			name:   "Case 5: invalid partition topology",
@@ -291,7 +312,11 @@ func TestGetTranslateConfig(t *testing.T) {
 				},
 				"topo": {
 					Plugin: topology.TopologyBlock,
-					Nodes:  []string{"node[001-100]"},
+					BlockName: &translate.BlockNameConfig{
+						NodeNameRegexp: `^(node)[0-9]+`,
+						Format:         `${1}`,
+					},
+					Nodes: []string{"node[001-100]"},
 				},
 			},
 			cfg: &translate.Config{
@@ -302,7 +327,11 @@ func TestGetTranslateConfig(t *testing.T) {
 					},
 					"topo": {
 						Plugin: topology.TopologyBlock,
-						Nodes:  []string{"node[001-100]"},
+						BlockName: &translate.BlockNameConfig{
+							NodeNameRegexp: `^(node)[0-9]+`,
+							Format:         `${1}`,
+						},
+						Nodes: []string{"node[001-100]"},
 					},
 				},
 			},
@@ -343,6 +372,52 @@ func TestGetTranslateConfig(t *testing.T) {
 			},
 			err: `topology "topo": blockSizes[1]=6 must be a power-of-two multiple of blockSizes[0]=2`,
 		},
+		{
+			name: "Case 9: invalid cluster-wide node name regexp",
+			params: &BaseParams{
+				Plugin: topology.TopologyBlock,
+				BlockName: &translate.BlockNameConfig{
+					NodeNameRegexp: `[`,
+					Format:         `${1}`,
+				},
+			},
+			err: "invalid blockName.nodeNameRegexp \"[\": error parsing regexp: missing closing ]: `[`",
+		},
+		{
+			name:   "Case 10: invalid partition node name regexp",
+			params: &BaseParams{},
+			topologies: map[string]*Topology{
+				"topo": {
+					Plugin: topology.TopologyBlock,
+					BlockName: &translate.BlockNameConfig{
+						NodeNameRegexp: `[`,
+						Format:         `${1}`,
+					},
+					Nodes: []string{"node001"},
+				},
+			},
+			err: "topology \"topo\": invalid blockName.nodeNameRegexp \"[\": error parsing regexp: missing closing ]: `[`",
+		},
+		{
+			name: "Case 11: missing node name regexp",
+			params: &BaseParams{
+				Plugin: topology.TopologyBlock,
+				BlockName: &translate.BlockNameConfig{
+					Format: `${1}`,
+				},
+			},
+			err: "blockName.nodeNameRegexp must not be empty",
+		},
+		{
+			name: "Case 12: missing block name format",
+			params: &BaseParams{
+				Plugin: topology.TopologyBlock,
+				BlockName: &translate.BlockNameConfig{
+					NodeNameRegexp: `^node([0-9]+)`,
+				},
+			},
+			err: "blockName.format must not be empty",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -352,6 +427,10 @@ func TestGetTranslateConfig(t *testing.T) {
 				require.EqualError(t, err, tc.err)
 			} else {
 				require.Nil(t, err)
+				require.NoError(t, translate.ValidateBlockNameConfig(tc.cfg.BlockName))
+				for _, spec := range tc.cfg.Topologies {
+					require.NoError(t, translate.ValidateBlockNameConfig(spec.BlockName))
+				}
 				require.Equal(t, tc.cfg, cfg)
 			}
 		})

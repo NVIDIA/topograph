@@ -2,6 +2,9 @@
 {{- $providerParams := default dict .Values.provider.params }}
 {{- $hasGcpCredentials := and (eq .Values.provider.name "gcp") (or $providerParams.serviceAccountKeysSecret $providerParams.workloadIdentityFederation) }}
 {{- $isNFDEngine := eq .Values.engine.name "nfd" }}
+{{- $kubeClient := default dict .Values.kubeClient }}
+{{- $hasKubeQPS := hasKey $kubeClient "qps" }}
+{{- $hasKubeBurst := hasKey $kubeClient "burst" }}
 
 apiVersion: apps/v1
 kind: Deployment
@@ -50,8 +53,16 @@ spec:
             - /usr/local/bin/topograph
           args:
             - -v={{ .Values.verbosity }}
-          {{- if or .Values.nodeDataBroker.enabled $hasGcpCredentials $isNFDEngine .Values.env }}
+          {{- if or .Values.nodeDataBroker.enabled $hasGcpCredentials $isNFDEngine $hasKubeQPS $hasKubeBurst .Values.env }}
           env:
+            {{- if $hasKubeQPS }}
+            - name: KUBE_QPS
+              value: {{ get $kubeClient "qps" | quote }}
+            {{- end }}
+            {{- if $hasKubeBurst }}
+            - name: KUBE_BURST
+              value: {{ get $kubeClient "burst" | quote }}
+            {{- end }}
             {{- if .Values.nodeDataBroker.enabled }}
             - name: NODE_DATA_BROKER_NAME
               value: {{ include "nodeDataBroker.fullname" . }}

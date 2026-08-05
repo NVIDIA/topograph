@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package gcp
@@ -41,8 +30,8 @@ switches:
 blocks:
 - switch: tor
   nodes: ["11"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 `
 
 	clusterModel = `
@@ -56,12 +45,12 @@ switches:
 blocks:
 - switch: tor1
   nodes: ["11","12"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 - switch: tor2
   nodes: ["21","22"]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl2
+  annotations:
+    accelerator.topology.test/domain: nvl2
 `
 )
 
@@ -124,8 +113,8 @@ switches:
 blocks:
 - switch: tor
   nodes: [n11]
-  labels:
-    network.topology.nvidia.com/accelerator: nvl1
+  annotations:
+    accelerator.topology.test/domain: nvl1
 `,
 			instances: []topology.ComputeInstances{
 				{
@@ -250,4 +239,39 @@ BlockSizes=2,4
 			}
 		})
 	}
+}
+
+// TestProviderSimNodeFewerThanThreeNetLayers verifies that a model node with
+// fewer than 3 network layers (e.g. a single-level switch, giving NetLayers
+// length 1) does not cause an index-out-of-range panic in simClient.Instances.
+// The instance is included in the result without PhysicalHostTopology, which
+// generateRegionInstanceTopology already handles gracefully via a nil-check.
+func TestProviderSimNodeFewerThanThreeNetLayers(t *testing.T) {
+	const singleSwitchModel = `
+switches:
+  sw1: {}
+blocks:
+- switch: sw1
+  nodes: ["11"]
+`
+	f, err := os.CreateTemp("", "test-single-switch-*")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer func() { _ = f.Close() }()
+	_, err = f.WriteString(singleSwitchModel)
+	require.NoError(t, err)
+	require.NoError(t, f.Sync())
+
+	cfg := providers.Config{
+		Params: map[string]any{"modelFileName": f.Name()},
+	}
+	provider, httpErr := LoaderSim(context.Background(), cfg)
+	require.Nil(t, httpErr)
+
+	cis := []topology.ComputeInstances{
+		{Region: "us-central1-a", Instances: map[string]string{"11": "node11"}},
+	}
+	// Must not panic; the node has only 1 NetLayer so ResourceStatus is omitted.
+	_, httpErr = provider.GenerateTopologyConfig(context.Background(), nil, cis)
+	require.Nil(t, httpErr)
 }
