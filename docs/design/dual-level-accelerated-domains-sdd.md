@@ -113,6 +113,11 @@ Partially-configured deployments — where some hosts in a domain carry a
 empty `SubDomain` in a grouped domain are placed in a fallback sub-domain vertex
 keyed by the accelerator domain name (with a `klog.Warningf`), so the host is
 always emitted rather than silently dropped.
+
+`DomainMap` also carries a new method `InferBlockSizes() []int` that derives a
+`blockSizes` slice from the map's content without requiring explicit operator
+configuration. See [BlockSizes Configuration — Automatic inference](#automatic-inference).
+
 ### `BlockVertex`
 
 `BlockVertex` (`pkg/topology/domain.go`) augments the existing `topology.Vertex`
@@ -292,6 +297,30 @@ required by Slurm.
 
 ## BlockSizes Configuration
 
+### Automatic inference
+
+When `BlockSizes` is not configured, `complementBlocks` calls `DomainMap.InferBlockSizes`
+on the partition-local domain map to derive sizes automatically:
+
+| Domain map shape | Inferred `BlockSizes` |
+|---|---|
+| Single-level (no host carries `SubDomain`) | `[maxDomainSize]` — one base block per domain |
+| Two-level (any host carries `SubDomain`) | `[maxSubDomainSize, aggregateSize]` — one base block per sub-domain; `aggregateSize` is the smallest power-of-2 multiple of `maxSubDomainSize` that is `≥ maxDomainSize` |
+| Empty map | `nil` — complement is skipped, blocks returned unchanged |
+
+The power-of-2 rounding for `aggregateSize` matches `aggregateSlotCapacity` inside
+`buildBlockTree`, so the inferred sizes produce the same slot layout that explicit
+configuration with those values would.
+
+**Example (OCI, one fabric, two racks of 8 nodes each):** `maxSubDomainSize=8`,
+`maxDomainSize=16`; inferred `BlockSizes=[8,16]`; output is two blocks of 8 nodes
+each (one per rack) rather than one coarse block of 16.
+
+Explicit `BlockSizes` overrides inference entirely — set it when you need a specific
+packing strategy (e.g. Strategy 2 to combine small sub-domains across rack boundaries).
+
+### Strategy selection
+
 `BlockSizes[0]` (the base block size) determines how sub-domain hosts are packed into
 base blocks. Only `BlockSizes[0]` requires careful selection; intermediate entries
 (`BlockSizes[1]`, etc.) are used only for root-level padding and do not need to match
@@ -447,6 +476,11 @@ entry allocates only the minimum required base blocks, while multiple entries
 reserve the same power-of-two slot for every domain based on the largest sibling.
 The output is therefore identical to the pre-change single-level behavior.
 
+When `BlockSizes` is not configured and no host carries a `SubDomain`,
+`InferBlockSizes` returns `[maxDomainSize]` and the single-level compatibility
+path is taken. Clusters that did not previously set `BlockSizes` and do not use
+sub-domains are unaffected.
+
 ## Test Plan
 
 **Dual-level complement output (`pkg/translate/block_complement_test.go`):**
@@ -466,13 +500,21 @@ The output is therefore identical to the pre-change single-level behavior.
   reservation when the largest domain exceeds `blockSizes[last]`.
 - `TestComplementMixedLevelDomainsUseDualLevelSizing`: verifies that a tree with
   any sub-domain bypasses the single-level compatibility path.
+- `TestComplementSubDomainGranularityWithoutBlockSizes`: regression test for the
+  OCI two-rack scenario — one fabric domain, 8 nodes per rack, `BlockSizes` unset;
+  asserts two rack-level blocks rather than one coarse domain block, verifying that
+  `InferBlockSizes` restores sub-domain granularity on the unconfigured path.
 - All existing complement tests (`TestComplementMissingBaseBlock`,
   `TestComplementMissingLeafSegment`, `TestComplementKeepsSeparateAccelerators`,
   etc.) continue to pass, verifying backward compatibility for the no-`SubDomain`
   path.
 
-**`GetDomainTree` unit tests (`pkg/topology/domain_test.go`):**
+**`DomainMap` unit tests (`pkg/topology/domain_test.go`):**
 - `TestGetDomainTreeUnrackedHostFallback`: host with empty `SubDomain` in a grouped domain is placed in a fallback vertex keyed by the domain name rather than dropped.
+- `TestInferBlockSizes`: covers nil (empty map), single-level (returns `[maxDomainSize]`),
+  two-level equal sub-domains (returns `[maxSubDomainSize, aggregateSize]`), single
+  sub-domain per domain, and unequal sub-domain sizes (power-of-2 rounding of
+  `aggregateSize`).
 
 **Kubernetes label output:**
 - `TestBuildNodeLabelsWithXclrSubDomain` in `pkg/engines/k8s/labeler_test.go`

@@ -89,6 +89,53 @@ func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
 	}
 }
 
+// InferBlockSizes derives a blockSizes slice from the domain map without requiring
+// explicit operator configuration. When any host carries a SubDomain the map is
+// two-level and InferBlockSizes returns [maxSubDomainSize, aggregateSize], where
+// aggregateSize is the smallest power-of-2 multiple of maxSubDomainSize that is
+// >= maxDomainSize — matching the slot-capacity formula used by buildBlockTree. When
+// no host carries a SubDomain the map is single-level and InferBlockSizes returns
+// [maxDomainSize], giving one base block per domain. Returns nil when the map is
+// empty or all domain sizes are zero.
+func (m DomainMap) InferBlockSizes() []int {
+	maxSubDomainSize := 0
+	maxDomainSize := 0
+	hasSubDomains := false
+
+	for _, hosts := range m {
+		subSizes := make(map[string]int)
+		for _, hi := range hosts {
+			if hi.SubDomain != "" {
+				hasSubDomains = true
+				subSizes[hi.SubDomain]++
+			}
+		}
+		if n := len(hosts); n > maxDomainSize {
+			maxDomainSize = n
+		}
+		for _, size := range subSizes {
+			if size > maxSubDomainSize {
+				maxSubDomainSize = size
+			}
+		}
+	}
+
+	if maxDomainSize == 0 {
+		return nil
+	}
+	if !hasSubDomains {
+		return []int{maxDomainSize}
+	}
+	aggregateSize := maxSubDomainSize
+	for aggregateSize < maxDomainSize {
+		aggregateSize *= 2
+	}
+	if aggregateSize == maxSubDomainSize {
+		return []int{maxSubDomainSize}
+	}
+	return []int{maxSubDomainSize, aggregateSize}
+}
+
 // GetDomainTree builds a flat BlockVertex tree from the DomainMap and populates
 // ActualNodeCount and MaxChildNodeCount on every vertex.
 //

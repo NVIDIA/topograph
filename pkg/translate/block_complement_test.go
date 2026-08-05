@@ -1022,3 +1022,47 @@ func getBlockWithIBAsymmetricSpineTestSet() (*topology.Graph, map[string]string)
 
 	return &topology.Graph{Tiers: core, Domains: domains}, nil
 }
+
+// TestComplementSubDomainGranularityWithoutBlockSizes verifies the OCI two-rack scenario:
+// one fabric domain with hosts split across two sub-domains (racks), BlockSizes unset.
+// complementBlocks must infer [8,16] from the sub-domain structure and produce two
+// rack-level blocks rather than collapsing all nodes into one coarse block.
+func TestComplementSubDomainGranularityWithoutBlockSizes(t *testing.T) {
+	const domain = "fabric-1"
+	const subA = "fabric-1.rack-a"
+	const subB = "fabric-1.rack-b"
+
+	domains := topology.NewDomainMap()
+	var nodesA, nodesB []string
+	for i := 1; i <= 8; i++ {
+		name := fmt.Sprintf("NodeA%03d", i)
+		nodesA = append(nodesA, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: domain, SubDomain: subA, HostName: name, InstanceID: name})
+	}
+	for i := 1; i <= 8; i++ {
+		name := fmt.Sprintf("NodeB%03d", i)
+		nodesB = append(nodesB, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: domain, SubDomain: subB, HostName: name, InstanceID: name})
+	}
+
+	allNodes := append(append([]string(nil), nodesA...), nodesB...)
+	nt := &NetworkTopology{
+		domains: domains,
+		// toBlockInfos produces one coarse block per DomainMap key (no sub-domain expansion)
+		blocks: []*blockInfo{{id: "block001", name: domain, nodes: allNodes}},
+	}
+
+	out := nt.complementBlocks(nt.blocks, nil, false)
+
+	require.Len(t, out, 2, "expected one block per rack sub-domain")
+
+	names := []string{out[0].name, out[1].name}
+	require.ElementsMatch(t, []string{subA, subB}, names)
+
+	nodesByBlock := map[string][]string{}
+	for _, b := range out {
+		nodesByBlock[b.name] = b.nodes
+	}
+	require.ElementsMatch(t, nodesA, nodesByBlock[subA])
+	require.ElementsMatch(t, nodesB, nodesByBlock[subB])
+}

@@ -22,14 +22,28 @@ import (
 // as it builds the tree. buildBlockTree then converts the result into an
 // aggregateBlockNode tree with empty placeholder slots for absent groups or
 // domains. The flat base-block slot list is then numbered sequentially.
+//
+// When BlockSizes is not configured, blockSizes is inferred from the domain map
+// via DomainMap.InferBlockSizes: two-level maps (SubDomain present) yield
+// [maxSubDomainSize, aggregateSize] where aggregateSize is the smallest
+// power-of-2 multiple of maxSubDomainSize that is >= maxDomainSize; single-level
+// maps yield [maxDomainSize]. This preserves natural grouping granularity without
+// requiring operators to set BlockSizes explicitly.
 func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []int, combineSubdomains bool) []*blockInfo {
-	if len(blockSizes) < 1 || nt.domains == nil {
+	if nt.domains == nil {
 		return blocks
 	}
 
 	domains := domainsForBlocks(nt.domains, blocks)
 	if len(domains) == 0 {
 		return blocks
+	}
+
+	if len(blockSizes) < 1 {
+		blockSizes = domains.InferBlockSizes()
+		if len(blockSizes) == 0 {
+			return blocks
+		}
 	}
 
 	klog.Infof("Complementing %d blocks with %d domains into tree shape %v", len(blocks), len(domains), blockSizes)
