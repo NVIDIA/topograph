@@ -29,6 +29,7 @@ func TestLoader(t *testing.T) {
 				Params: map[string]any{
 					"radarApiUrl":    "https://radar.test.com",
 					"instanceApiUrl": "https://instances.test.com",
+					"placementId":    "placement-1",
 				},
 				Creds: map[string]any{
 					"org":    "org",
@@ -42,6 +43,7 @@ func TestLoader(t *testing.T) {
 			config: providers.Config{
 				Params: map[string]any{
 					"instanceApiUrl": "https://instances.test.com",
+					"placementId":    "placement-1",
 				},
 				Creds: map[string]any{
 					"org":   "org",
@@ -55,6 +57,7 @@ func TestLoader(t *testing.T) {
 			config: providers.Config{
 				Params: map[string]any{
 					"radarApiUrl": "https://radar.test.com",
+					"placementId": "placement-1",
 				},
 				Creds: map[string]any{
 					"org":   "org",
@@ -64,11 +67,26 @@ func TestLoader(t *testing.T) {
 			err: "missing 'instanceApiUrl'",
 		},
 		{
-			name: "Case 4: missing org",
+			name: "Case 4: missing placementId",
 			config: providers.Config{
 				Params: map[string]any{
 					"radarApiUrl":    "https://radar.test.com",
 					"instanceApiUrl": "https://instances.test.com",
+				},
+				Creds: map[string]any{
+					"org":   "org",
+					"token": "token",
+				},
+			},
+			err: "missing 'placementId'",
+		},
+		{
+			name: "Case 5: missing org",
+			config: providers.Config{
+				Params: map[string]any{
+					"radarApiUrl":    "https://radar.test.com",
+					"instanceApiUrl": "https://instances.test.com",
+					"placementId":    "placement-1",
 				},
 				Creds: map[string]any{
 					"token": "token",
@@ -77,11 +95,12 @@ func TestLoader(t *testing.T) {
 			err: "missing 'org'",
 		},
 		{
-			name: "Case 5: missing token",
+			name: "Case 6: missing token",
 			config: providers.Config{
 				Params: map[string]any{
 					"radarApiUrl":    "https://radar.test.com",
 					"instanceApiUrl": "https://instances.test.com",
+					"placementId":    "placement-1",
 				},
 				Creds: map[string]any{
 					"org": "org",
@@ -108,30 +127,59 @@ func TestLoader(t *testing.T) {
 	}
 }
 
-func TestInstances2NodeMap(t *testing.T) {
-	ctx := context.Background()
+const placementServersResponse = `[
+  {
+    "metadata": {
+      "id": "psrv-7f3d9d5d2a7c4e32",
+      "name": "training-workers-0",
+      "organizationId": "9a8c6370-4065-4d4a-9da0-7678df40cd9d",
+      "projectId": "e36c058a-8eba-4f5b-91f4-f6ffb983795c",
+      "creationTime": "2026-04-28T11:04:00Z",
+      "createdBy": "john.doe@example.com",
+      "provisioningStatus": "provisioned",
+      "healthStatus": "healthy"
+    },
+    "status": {
+      "regionId": "c7568e2d-f9ab-453d-9a3a-51375f78426b",
+      "reservationId": "a64f9269-36e0-4312-b8d1-52d93d569b7b",
+      "placementId": "b8ce034e-fccb-4d6c-a0e0-af3e3f346715",
+      "networkId": "61f0ad85-3001-41cb-824a-e6a047668dfe",
+      "powerState": "Running",
+      "privateIP": "10.0.0.12",
+      "publicIP": "203.0.113.12",
+      "macAddress": "fa:16:3e:7c:11:8a"
+    }
+  },
+  {
+    "metadata": {
+      "id": "psrv-950ab3259a1443da",
+      "name": "training-workers-1",
+      "organizationId": "9a8c6370-4065-4d4a-9da0-7678df40cd9d",
+      "projectId": "e36c058a-8eba-4f5b-91f4-f6ffb983795c",
+      "creationTime": "2026-04-28T11:04:02Z",
+      "createdBy": "john.doe@example.com",
+      "provisioningStatus": "provisioned",
+      "healthStatus": "healthy"
+    },
+    "status": {
+      "regionId": "c7568e2d-f9ab-453d-9a3a-51375f78426b",
+      "reservationId": "a64f9269-36e0-4312-b8d1-52d93d569b7b",
+      "placementId": "b8ce034e-fccb-4d6c-a0e0-af3e3f346715",
+      "networkId": "61f0ad85-3001-41cb-824a-e6a047668dfe",
+      "powerState": "Running",
+      "privateIP": "10.0.0.13",
+      "macAddress": "fa:16:3e:11:70:2f"
+    }
+  }
+]`
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodGet, r.Method)
-		require.Equal(t, "/v2/instances", r.URL.Path)
-		require.Equal(t, "org", r.URL.Query().Get("organizationID"))
-		require.Equal(t, "region", r.URL.Query().Get("regionID"))
-		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
-
-		w.Header().Set("Content-Type", "application/json")
-		_, err := w.Write([]byte(`[
-			{"metadata":{"id":"instance-1","name":"node-1"}},
-			{"metadata":{"id":"instance-2","name":"node-2"}},
-			{"metadata":{"id":"instance-3","name":"outside-node"}}
-		]`))
-		require.NoError(t, err)
-	}))
-	defer server.Close()
-
+func newTestProvider(t *testing.T, ctx context.Context, serverURL string) *Provider {
+	t.Helper()
 	provider, httpErr := Loader(ctx, providers.Config{
 		Params: map[string]any{
 			"radarApiUrl":    "https://radar.test.com",
-			"instanceApiUrl": server.URL,
+			"instanceApiUrl": serverURL,
+			"placementId":    "placement-1",
 		},
 		Creds: map[string]any{
 			"org":    "org",
@@ -140,34 +188,88 @@ func TestInstances2NodeMap(t *testing.T) {
 		},
 	})
 	require.Nil(t, httpErr)
+	return provider.(*Provider)
+}
 
-	i2n, err := provider.(*Provider).Instances2NodeMap(ctx, []string{"node-1", "node-2"})
+func TestInstances2NodeMap(t *testing.T) {
+	ctx := context.Background()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method)
+		require.Equal(t, "/api/v2/placements/placement-1/servers", r.URL.Path)
+		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(placementServersResponse))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	p := newTestProvider(t, ctx, server.URL)
+
+	i2n, err := p.Instances2NodeMap(ctx, []string{"training-workers-0", "training-workers-1"})
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{
-		"instance-1": "node-1",
-		"instance-2": "node-2",
+		"psrv-7f3d9d5d2a7c4e32": "training-workers-0",
+		"psrv-950ab3259a1443da": "training-workers-1",
 	}, i2n)
 
-	i2n, err = provider.(*Provider).Instances2NodeMap(ctx, nil)
+	i2n, err = p.Instances2NodeMap(ctx, nil)
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{
-		"instance-1": "node-1",
-		"instance-2": "node-2",
-		"instance-3": "outside-node",
+		"psrv-7f3d9d5d2a7c4e32": "training-workers-0",
+		"psrv-950ab3259a1443da": "training-workers-1",
 	}, i2n)
+}
 
-	provider, httpErr = Loader(ctx, providers.Config{
-		Params: map[string]any{
-			"radarApiUrl":    "https://radar.test.com",
-			"instanceApiUrl": server.URL,
-		},
-		Creds: map[string]any{
-			"org":   "org",
-			"token": "token",
-		},
-	})
-	require.Nil(t, httpErr)
+func TestPlacementServersErrors(t *testing.T) {
+	ctx := context.Background()
 
-	_, err = provider.(*Provider).Instances2NodeMap(ctx, []string{"node-1"})
-	require.EqualError(t, err, "missing 'region'")
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+	}{
+		{
+			name:       "400 invalid request",
+			statusCode: http.StatusBadRequest,
+			body:       `{"error":"invalid_request","error_description":"request body invalid","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
+		},
+		{
+			name:       "401 authentication failed",
+			statusCode: http.StatusUnauthorized,
+			body:       `{"error":"access_denied","error_description":"authentication failed","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
+		},
+		{
+			name:       "403 forbidden",
+			statusCode: http.StatusForbidden,
+			body:       `{"error":"forbidden","error_description":"user credentials do not have the required privileges","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
+		},
+		{
+			name:       "404 not found",
+			statusCode: http.StatusNotFound,
+			body:       `{"error":"not_found","error_description":"the requested resource does not exist","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
+		},
+		{
+			name:       "500 server error",
+			statusCode: http.StatusInternalServerError,
+			body:       `{"error":"server_error","error_description":"failed to token claim","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.statusCode)
+				_, err := w.Write([]byte(tt.body))
+				require.NoError(t, err)
+			}))
+			defer server.Close()
+
+			p := newTestProvider(t, ctx, server.URL)
+			_, err := p.Instances2NodeMap(ctx, nil)
+			require.ErrorContains(t, err, "failed to get placement servers")
+		})
+	}
 }
