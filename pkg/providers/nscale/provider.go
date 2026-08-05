@@ -22,8 +22,8 @@ import (
 const (
 	NAME = "nscale"
 
-	urlTopologyPath  = "/v1/topology"
-	urlInstancesPath = "/v2/instances"
+	urlTopologyPath         = "/v1/topology"
+	urlPlacementServersPath = "/api/v2/placements/%s/servers"
 )
 
 type baseProvider struct {
@@ -35,6 +35,7 @@ type baseProvider struct {
 type ProviderParams struct {
 	RadarApiUrl    string `mapstructure:"radarApiUrl"`
 	InstanceAPIUrl string `mapstructure:"instanceApiUrl"`
+	PlacementID    string `mapstructure:"placementId"`
 	TrimTiers      int    `mapstructure:"trimTiers"`
 }
 
@@ -46,7 +47,7 @@ type Credentials struct {
 
 type Client interface {
 	Topology(context.Context, string, int, int) ([]InstanceTopology, error)
-	Instances(context.Context, string) (map[string]string, error)
+	PlacementServers(context.Context, string) (map[string]string, error)
 }
 
 // nscaleClient is a topology and instance API client.
@@ -69,11 +70,11 @@ type TopologyResult struct {
 	Instances []InstanceTopology `json:"results"`
 }
 
-type instance struct {
-	Metadata instanceMetadata `json:"metadata"`
+type placementServer struct {
+	Metadata placementServerMetadata `json:"metadata"`
 }
 
-type instanceMetadata struct {
+type placementServerMetadata struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
@@ -103,32 +104,29 @@ func (c *nscaleClient) Topology(ctx context.Context, region string, pageSize, of
 	return resp.Instances, nil
 }
 
-func (c *nscaleClient) Instances(ctx context.Context, region string) (map[string]string, error) {
+func (c *nscaleClient) PlacementServers(ctx context.Context, placementID string) (map[string]string, error) {
 	headers := map[string]string{
 		"Authorization": "Bearer " + c.token,
 	}
-	query := map[string]string{
-		"organizationID": c.org,
-		"regionID":       region,
-	}
-	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, query, nil, c.instanceAPIURL, urlInstancesPath)
+	path := fmt.Sprintf(urlPlacementServersPath, placementID)
+	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, nil, nil, c.instanceAPIURL, path)
 
 	body, httpErr := httpreq.DoRequestWithRetries(f, false)
 	if httpErr != nil {
 		return nil, httpErr
 	}
 
-	instances := []instance{}
-	if err := json.Unmarshal(body, &instances); err != nil {
+	servers := []placementServer{}
+	if err := json.Unmarshal(body, &servers); err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	i2n := make(map[string]string, len(instances))
-	for _, instance := range instances {
-		if instance.Metadata.ID == "" || instance.Metadata.Name == "" {
+	i2n := make(map[string]string, len(servers))
+	for _, s := range servers {
+		if s.Metadata.ID == "" || s.Metadata.Name == "" {
 			continue
 		}
-		i2n[instance.Metadata.ID] = instance.Metadata.Name
+		i2n[s.Metadata.ID] = s.Metadata.Name
 	}
 
 	return i2n, nil
@@ -178,6 +176,9 @@ func getParams(params map[string]any) (*ProviderParams, error) {
 	if len(p.InstanceAPIUrl) == 0 {
 		return nil, fmt.Errorf("missing 'instanceApiUrl'")
 	}
+	if len(p.PlacementID) == 0 {
+		return nil, fmt.Errorf("missing 'placementId'")
+	}
 
 	return p, nil
 }
@@ -208,13 +209,13 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	if len(p.creds.Region) == 0 {
-		return nil, fmt.Errorf("missing 'region'")
+	if len(p.params.PlacementID) == 0 {
+		return nil, fmt.Errorf("missing 'placementId'")
 	}
 
-	instances, err := p.client.Instances(ctx, p.creds.Region)
+	instances, err := p.client.PlacementServers(ctx, p.params.PlacementID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instances: %v", err)
+		return nil, fmt.Errorf("failed to get placement servers: %v", err)
 	}
 	if len(nodes) == 0 {
 		return instances, nil
