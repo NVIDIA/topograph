@@ -44,6 +44,10 @@ engine:
     topologyConfigPath: topology.conf        # Key in the ConfigMap for the topology config
 ```
 
+When `blockSizes` is omitted for `topology/block`, the Slinky engine uses the
+same [automatic block-size inference](./slurm.md#automatic-block-size-inference)
+as the SLURM engine.
+
 ### Per-partition topologies
 
 When per-partition topologies are configured, each entry may declare how its node membership is resolved:

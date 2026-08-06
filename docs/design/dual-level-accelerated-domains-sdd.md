@@ -304,7 +304,7 @@ on the partition-local domain map to derive sizes automatically:
 
 | Domain map shape | Inferred `BlockSizes` |
 |---|---|
-| Single-level (no host carries `SubDomain`) | `[maxDomainSize]` — one base block per domain |
+| Single-level (no host carries `SubDomain`) | `[D, 2D, 4D, ..., 2^k*D]`, where `D` is the smallest domain size and `k=floor(log2(N))` for `N` domains |
 | Two-level (any host carries `SubDomain`) | `[maxSubDomainSize, aggregateSize]` — one base block per sub-domain; `aggregateSize` is the smallest power-of-2 multiple of `maxSubDomainSize` that is `≥ maxDomainSize` |
 | Empty map | `nil` — complement is skipped, blocks returned unchanged |
 
@@ -476,10 +476,10 @@ entry allocates only the minimum required base blocks, while multiple entries
 reserve the same power-of-two slot for every domain based on the largest sibling.
 The output is therefore identical to the pre-change single-level behavior.
 
-When `BlockSizes` is not configured and no host carries a `SubDomain`,
-`InferBlockSizes` returns `[maxDomainSize]` and the single-level compatibility
-path is taken. Clusters that did not previously set `BlockSizes` and do not use
-sub-domains are unaffected.
+When `BlockSizes` is not configured and no host carries a `SubDomain`, inference
+preserves the existing single-level hierarchy. For `N` domains, `D` is the
+smallest domain size and the result is `[D, 2D, 4D, ..., 2^k*D]`, where
+`k=floor(log2(N))`. The single-level compatibility path is then taken.
 
 ## Test Plan
 
@@ -511,10 +511,10 @@ sub-domains are unaffected.
 
 **`DomainMap` unit tests (`pkg/topology/domain_test.go`):**
 - `TestGetDomainTreeUnrackedHostFallback`: host with empty `SubDomain` in a grouped domain is placed in a fallback vertex keyed by the domain name rather than dropped.
-- `TestInferBlockSizes`: covers nil (empty map), single-level (returns `[maxDomainSize]`),
-  two-level equal sub-domains (returns `[maxSubDomainSize, aggregateSize]`), single
-  sub-domain per domain, and unequal sub-domain sizes (power-of-2 rounding of
-  `aggregateSize`).
+- `TestInferBlockSizes`: covers nil (empty map), single-level domain counts that
+  produce one or more inferred sizes, two-level equal sub-domains (returns
+  `[maxSubDomainSize, aggregateSize]`), a single sub-domain per domain, and unequal
+  sub-domain sizes (power-of-2 rounding of `aggregateSize`).
 
 **Kubernetes label output:**
 - `TestBuildNodeLabelsWithXclrSubDomain` in `pkg/engines/k8s/labeler_test.go`
