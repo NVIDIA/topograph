@@ -14,8 +14,8 @@
 #   srv1108    srv1208
 #   -------    -------
 #
-# Racks 01-06 belong to parent accelerator domain nvl-1.
-# Racks 07-12 belong to parent accelerator domain nvl-2.
+# Racks 01-06 belong to parent XCLR domain nvl-1.
+# Racks 07-12 belong to parent XCLR domain nvl-2.
 #
 # Supported block sizes: 8, 16, 32
 #

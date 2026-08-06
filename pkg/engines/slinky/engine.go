@@ -497,6 +497,7 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 
 func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, namespace string, data map[string]string) error {
 	klog.Infof("Updating topology config %s/%s", namespace, name)
+	klog.V(4).Infof("Updating topology config %s/%s with data: %s", namespace, name, data)
 
 	annotations := eng.generateConfigMapAnnotations()
 	verb := "get"
@@ -700,7 +701,7 @@ func (eng *SlinkyEngine) updateNodeAnnotation(ctx context.Context, node *corev1.
 	// Use the annotation value from the already-fetched node (from the cluster List) to
 	// avoid an extra Get per node. If the annotation is already correct, skip the Patch.
 	if node.Annotations[topology.KeySlinkyTopologySpec] == desiredSpec {
-		klog.V(4).Infof("Node %s (SLURM name: %s) topology spec is up to date, skipping annotation update", node.Name, slurmName)
+		klog.V(4).Infof("Node %s (SLURM name: %s) topology spec is up to date (spec = %s), skipping annotation update", node.Name, slurmName, desiredSpec)
 		return nil
 	}
 

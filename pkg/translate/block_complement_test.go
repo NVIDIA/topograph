@@ -8,9 +8,11 @@ package translate
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
@@ -85,9 +87,11 @@ func TestComplementMissingLeafSegment(t *testing.T) {
 	require.Equal(t, expected, buf.String())
 }
 
-// TestNoComplementWithoutTree verifies that complementBlocks is a no-op when the graph
-// has no Tiers (no switch tree). maxAcceleratorSize=3 ≤ baseBlockSize=4, so groupSize=1
-// and no structural padding is applied; the output contains no empty block slots.
+// TestNoComplementWithoutTree verifies that complementBlocks produces no empty placeholder
+// slots when the graph has no Tiers (no switch tree) and no host carries a SubDomain.
+// With blockSizes=[4,8,16] and each domain holding 3 nodes (DesiredNodeCount=4 = 1 base
+// block), the root's DesiredNodeCount=16 drives padding only at the root level, not within
+// individual domains. The per-domain output contains no empty block slots.
 func TestNoComplementWithoutTree(t *testing.T) {
 	root, _ := getBlockTestSet()
 	cfg := &Config{
@@ -135,6 +139,7 @@ func TestComplementKeepsSeparateAccelerators(t *testing.T) {
 	}
 
 	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{8, 16}},
 		domains: domains,
 		blocks: []*blockInfo{
 			{name: "B1", nodes: nodesB1},
@@ -142,12 +147,18 @@ func TestComplementKeepsSeparateAccelerators(t *testing.T) {
 		},
 	}
 
-	out := nt.complementBlocks(nt.blocks, []int{8, 16})
-	require.Len(t, out, 2)
-	require.Equal(t, "B1", out[0].name)
-	require.Len(t, out[0].nodes, 3)
-	require.Equal(t, "B2", out[1].name)
-	require.Len(t, out[1].nodes, 3)
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=B1",
+		"BlockName=block001 Nodes=Node[101-103]",
+		"# block002=B2",
+		"BlockName=block002 Nodes=Node[201-202,205]",
+		"BlockSizes=8,16",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
 }
 
 // TestComplementExcessHostsPerAccelerator verifies the split path: when a single
@@ -169,6 +180,7 @@ func TestComplementExcessHostsPerAccelerator(t *testing.T) {
 	}
 
 	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{4, 8, 16}},
 		domains: domains,
 		blocks: []*blockInfo{{
 			id:    "block001",
@@ -177,22 +189,22 @@ func TestComplementExcessHostsPerAccelerator(t *testing.T) {
 		}},
 	}
 
-	out := nt.complementBlocks(nt.blocks, []int{4, 8, 16})
-	// 3 base blocks (ceil(12/4)) padded to 4 (groupSize=4, ceil(3/4)*4=4).
-	require.Len(t, out, 4)
-	require.True(t, isEmptyBlock(out[3]), "out[3] should be the group-alignment padding block")
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
 
-	seen := make(map[string]bool)
-	for _, b := range out[:3] {
-		require.Equal(t, "B1", b.name)
-		for _, n := range b.nodes {
-			seen[n] = true
-		}
-	}
-	require.Len(t, seen, 12)
-	for _, n := range nodes {
-		require.True(t, seen[n])
-	}
+	// 3 real base blocks (ceil(12/4)) padded to 4 (groupSize=4, ceil(3/4)*4=4).
+	expected := strings.Join([]string{
+		"# block001=B1",
+		"BlockName=block001 Nodes=Node[100-103]",
+		"# block002=B1",
+		"BlockName=block002 Nodes=Node[104-107]",
+		"# block003=B1",
+		"BlockName=block003 Nodes=Node[108-111]",
+		"BlockName=block004",
+		"BlockSizes=4,8,16",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
 }
 
 // TestComplementPartitionLocalDomainsOnly verifies that complementBlocks scopes domain
@@ -201,7 +213,7 @@ func TestComplementExcessHostsPerAccelerator(t *testing.T) {
 // maxAcceleratorSize=3 ≤ baseBlockSize=4, groupSize=1 and no padding is applied.
 func TestComplementPartitionLocalDomainsOnly(t *testing.T) {
 	root, _ := getBlockWithIBTestSet()
-	nt, err := NewNetworkTopology(root, &Config{Plugin: topology.TopologyBlock})
+	nt, err := NewNetworkTopology(root, &Config{Plugin: topology.TopologyBlock, BlockSizes: []int{4, 8, 16}})
 	require.NoError(t, err)
 
 	// Partition owns B1, B3, B4 but not B2 (B2 remains in global nt.domains).
@@ -212,14 +224,24 @@ func TestComplementPartitionLocalDomainsOnly(t *testing.T) {
 		}
 		partitionBlocks = append(partitionBlocks, b)
 	}
+	nt.blocks = partitionBlocks
 
-	out := nt.complementBlocks(partitionBlocks, []int{4, 8, 16})
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
 	// 3 real domains padded to 4 to reach the 16-node lastBS boundary.
-	require.Len(t, out, 4)
-	require.Equal(t, "B1", out[0].name)
-	require.Equal(t, "B3", out[1].name)
-	require.Equal(t, "B4", out[2].name)
-	require.True(t, isEmptyBlock(out[3]))
+	expected := strings.Join([]string{
+		"# block001=B1",
+		"BlockName=block001 Nodes=Node[104-106]",
+		"# block002=B3",
+		"BlockName=block002 Nodes=Node[304-306]",
+		"# block003=B4",
+		"BlockName=block003 Nodes=Node[401-403]",
+		"BlockName=block004",
+		"BlockSizes=4,8,16",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
 }
 
 // TestDomainsForBlocksFilteredToPartitionNodes is a regression test for cross-partition
@@ -235,29 +257,354 @@ func TestDomainsForBlocksFilteredToPartitionNodes(t *testing.T) {
 
 	// Partition only owns n1, n2, n3 — n4 belongs to another partition.
 	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{2, 4}},
 		domains: domains,
-		blocks:  []*blockInfo{},
-	}
-	partitionBlocks := []*blockInfo{
-		{name: "B1", nodes: []string{"n1", "n2", "n3"}},
+		blocks:  []*blockInfo{{name: "B1", nodes: []string{"n1", "n2", "n3"}}},
 	}
 
-	out := nt.complementBlocks(partitionBlocks, []int{2, 4})
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
 	// groupSize=2 (maxAccelSize=3, 2^1×2=4≥3); B1 splits into 2 base blocks.
-	// len(packed)=2 ≠ len(input)=1 → complement applied.
-	require.Len(t, out, 2)
+	// n4 belongs to another partition and must not appear.
+	expected := strings.Join([]string{
+		"# block001=B1",
+		"BlockName=block001 Nodes=n[1-2]",
+		"# block002=B1",
+		"BlockName=block002 Nodes=n3",
+		"BlockSizes=2,4",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
 
-	seen := make(map[string]bool)
-	for _, b := range out {
-		require.Equal(t, "B1", b.name)
-		for _, n := range b.nodes {
-			seen[n] = true
+// TestComplementMultiGroupRootExpansion6x16 verifies that when total domain capacity
+// (6 × groupSize × baseBlockSize) exceeds blockSizes[last]=64, the root expands to
+// the next multiple of blockSizes[last] so that empty domain padding slots are emitted.
+// 6 domains × 16 hosts each, blockSizes=[8,64]:
+//   - groupSize = 2×8 = 16 (pow2: 2^1 × 8 ≥ 16)
+//   - total capacity = 6 × 16 = 96 > 64 → root rounds up to ceil(96/64)×64 = 128
+//   - 8 domain slots needed: 6 real + 2 empty → 8 × (16/8) = 16 base blocks, 4 empty
+func TestComplementMultiGroupRootExpansion6x16(t *testing.T) {
+	domains := topology.NewDomainMap()
+	blocks := make([]*blockInfo, 0, 6)
+	for d := 0; d < 6; d++ {
+		domain := fmt.Sprintf("D%d", d)
+		var ns []string
+		for h := 0; h < 16; h++ {
+			name := fmt.Sprintf("%s-n%02d", domain, h)
+			ns = append(ns, name)
+			domains.AddHostInfo(&topology.HostInfo{Domain: domain, HostName: name, InstanceID: name})
 		}
+		blocks = append(blocks, &blockInfo{name: domain, nodes: ns})
 	}
-	require.True(t, seen["n1"])
-	require.True(t, seen["n2"])
-	require.True(t, seen["n3"])
-	require.False(t, seen["n4"], "n4 belongs to another partition and must not appear")
+
+	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{8, 64}},
+		domains: domains,
+		blocks:  blocks,
+	}
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	// 16 base blocks (8 domain slots × 2 blocks each), 4 empty (2 empty domain slots × 2 blocks).
+	expected := strings.Join([]string{
+		"# block001=D0",
+		"BlockName=block001 Nodes=D0-n[00-07]",
+		"# block002=D0",
+		"BlockName=block002 Nodes=D0-n[08-15]",
+		"# block003=D1",
+		"BlockName=block003 Nodes=D1-n[00-07]",
+		"# block004=D1",
+		"BlockName=block004 Nodes=D1-n[08-15]",
+		"# block005=D2",
+		"BlockName=block005 Nodes=D2-n[00-07]",
+		"# block006=D2",
+		"BlockName=block006 Nodes=D2-n[08-15]",
+		"# block007=D3",
+		"BlockName=block007 Nodes=D3-n[00-07]",
+		"# block008=D3",
+		"BlockName=block008 Nodes=D3-n[08-15]",
+		"# block009=D4",
+		"BlockName=block009 Nodes=D4-n[00-07]",
+		"# block010=D4",
+		"BlockName=block010 Nodes=D4-n[08-15]",
+		"# block011=D5",
+		"BlockName=block011 Nodes=D5-n[00-07]",
+		"# block012=D5",
+		"BlockName=block012 Nodes=D5-n[08-15]",
+		"BlockName=block013",
+		"BlockName=block014",
+		"BlockName=block015",
+		"BlockName=block016",
+		"BlockSizes=8,64",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementMultiGroupRootExpansion3x72 verifies the same multi-group root expansion
+// for 3 domains × 72 hosts each, blockSizes=[18,144]:
+//   - groupSize = 4×18 = 72 (pow2: 2^2 × 18 ≥ 72)
+//   - total capacity = 3 × 72 = 216 > 144 → root rounds up to ceil(216/144)×144 = 288
+//   - 4 domain slots needed: 3 real + 1 empty → 4 × (72/18) = 16 base blocks, 4 empty
+func TestComplementMultiGroupRootExpansion3x72(t *testing.T) {
+	domains := topology.NewDomainMap()
+	blocks := make([]*blockInfo, 0, 3)
+	for d := 0; d < 3; d++ {
+		domain := fmt.Sprintf("D%d", d)
+		var ns []string
+		for h := 0; h < 72; h++ {
+			name := fmt.Sprintf("%s-n%02d", domain, h)
+			ns = append(ns, name)
+			domains.AddHostInfo(&topology.HostInfo{Domain: domain, HostName: name, InstanceID: name})
+		}
+		blocks = append(blocks, &blockInfo{name: domain, nodes: ns})
+	}
+
+	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{18, 144}},
+		domains: domains,
+		blocks:  blocks,
+	}
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	// 16 base blocks (4 domain slots × 4 blocks each), 4 empty (1 empty domain slot × 4 blocks).
+	expected := strings.Join([]string{
+		"# block001=D0",
+		"BlockName=block001 Nodes=D0-n[00-17]",
+		"# block002=D0",
+		"BlockName=block002 Nodes=D0-n[18-35]",
+		"# block003=D0",
+		"BlockName=block003 Nodes=D0-n[36-53]",
+		"# block004=D0",
+		"BlockName=block004 Nodes=D0-n[54-71]",
+		"# block005=D1",
+		"BlockName=block005 Nodes=D1-n[00-17]",
+		"# block006=D1",
+		"BlockName=block006 Nodes=D1-n[18-35]",
+		"# block007=D1",
+		"BlockName=block007 Nodes=D1-n[36-53]",
+		"# block008=D1",
+		"BlockName=block008 Nodes=D1-n[54-71]",
+		"# block009=D2",
+		"BlockName=block009 Nodes=D2-n[00-17]",
+		"# block010=D2",
+		"BlockName=block010 Nodes=D2-n[18-35]",
+		"# block011=D2",
+		"BlockName=block011 Nodes=D2-n[36-53]",
+		"# block012=D2",
+		"BlockName=block012 Nodes=D2-n[54-71]",
+		"BlockName=block013",
+		"BlockName=block014",
+		"BlockName=block015",
+		"BlockName=block016",
+		"BlockSizes=18,144",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementMixedDomainSizesLCMPadding is a regression test for the LCM padding bug
+// in toRootAggregate. Both domains are dual-level, so the capping branch in
+// toDomainAggregate sizes each domain by its own ActualNodeCount, producing non-uniform
+// child capacities. The old code set childCapacity from only the first domain; the LCM
+// step was then too coarse to land on targetCount and the loop overshot, leaving
+// result.nodeCount % rootDesired ≠ 0.
+//
+// Setup: blockSizes=[8,32], domain "a" with 64 nodes (capacity=64), domain "b" with 12
+// nodes (capacity=16). result.nodeCount before padding = 80; 80%32=16≠0.
+//
+// Old (buggy): childCapacity=64 → step=lcm(64,32)=64 → targetCount=128 → adds 64 →
+//
+//	nodeCount=144, 144%32=16≠0.
+//
+// Fixed: childCapacity=GCD(64,16)=16 → step=lcm(16,32)=32 → targetCount=96 → adds 16 →
+//
+//	nodeCount=96, 96%32=0. Total: 12 base blocks (8 from "a", 2 from "b", 2 empty).
+func TestComplementMixedDomainSizesLCMPadding(t *testing.T) {
+	domains := topology.NewDomainMap()
+	var aNodes, bNodes []string
+	for i := 0; i < 64; i++ {
+		name := fmt.Sprintf("a-n%02d", i)
+		aNodes = append(aNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a", SubDomain: "a-rack", HostName: name, InstanceID: name})
+	}
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("b-n%02d", i)
+		bNodes = append(bNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", SubDomain: "b-rack", HostName: name, InstanceID: name})
+	}
+
+	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{8, 32}},
+		domains: domains,
+		blocks: []*blockInfo{
+			{name: "a", nodes: aNodes},
+			{name: "b", nodes: bNodes},
+		},
+	}
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	// 8 real blocks from "a" + 2 real from "b" + 2 empty padding = 12 total; 96%32==0.
+	expected := strings.Join([]string{
+		"# block001=a-rack",
+		"BlockName=block001 Nodes=a-n[00-07]",
+		"# block002=a-rack",
+		"BlockName=block002 Nodes=a-n[08-15]",
+		"# block003=a-rack",
+		"BlockName=block003 Nodes=a-n[16-23]",
+		"# block004=a-rack",
+		"BlockName=block004 Nodes=a-n[24-31]",
+		"# block005=a-rack",
+		"BlockName=block005 Nodes=a-n[32-39]",
+		"# block006=a-rack",
+		"BlockName=block006 Nodes=a-n[40-47]",
+		"# block007=a-rack",
+		"BlockName=block007 Nodes=a-n[48-55]",
+		"# block008=a-rack",
+		"BlockName=block008 Nodes=a-n[56-63]",
+		"# block009=b-rack",
+		"BlockName=block009 Nodes=b-n[00-07]",
+		"# block010=b-rack",
+		"BlockName=block010 Nodes=b-n[08-11]",
+		"BlockName=block011",
+		"BlockName=block012",
+		"BlockSizes=8,32",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementSingleLevelMixedOversizedDomainsPreservesUniformSlots verifies
+// backward compatibility for single-level domains of different sizes when the
+// largest domain exceeds blockSizes[last]. Before dual-level support, every
+// domain received the same power-of-two slot derived from the largest domain.
+// With blockSizes=[8,32], domain a (64 nodes) and domain b (12 nodes) therefore
+// each occupy 8 base blocks; b has 2 live blocks followed by 6 placeholders.
+func TestComplementSingleLevelMixedOversizedDomainsPreservesUniformSlots(t *testing.T) {
+	domains := topology.NewDomainMap()
+	var aNodes, bNodes []string
+	for i := 0; i < 64; i++ {
+		name := fmt.Sprintf("a-n%02d", i)
+		aNodes = append(aNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a", HostName: name, InstanceID: name})
+	}
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("b-n%02d", i)
+		bNodes = append(bNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", HostName: name, InstanceID: name})
+	}
+
+	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{8, 32}},
+		domains: domains,
+		blocks: []*blockInfo{
+			{name: "a", nodes: aNodes},
+			{name: "b", nodes: bNodes},
+		},
+	}
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	// 8 base blocks per domain (uniform slot from the largest domain); b has 2 live + 6 empty.
+	expected := strings.Join([]string{
+		"# block001=a",
+		"BlockName=block001 Nodes=a-n[00-07]",
+		"# block002=a",
+		"BlockName=block002 Nodes=a-n[08-15]",
+		"# block003=a",
+		"BlockName=block003 Nodes=a-n[16-23]",
+		"# block004=a",
+		"BlockName=block004 Nodes=a-n[24-31]",
+		"# block005=a",
+		"BlockName=block005 Nodes=a-n[32-39]",
+		"# block006=a",
+		"BlockName=block006 Nodes=a-n[40-47]",
+		"# block007=a",
+		"BlockName=block007 Nodes=a-n[48-55]",
+		"# block008=a",
+		"BlockName=block008 Nodes=a-n[56-63]",
+		"# block009=b",
+		"BlockName=block009 Nodes=b-n[00-07]",
+		"# block010=b",
+		"BlockName=block010 Nodes=b-n[08-11]",
+		"BlockName=block011",
+		"BlockName=block012",
+		"BlockName=block013",
+		"BlockName=block014",
+		"BlockName=block015",
+		"BlockName=block016",
+		"BlockSizes=8,32",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementMixedLevelDomainsUseDualLevelSizing verifies that the legacy
+// compatibility path is not selected when even one root domain has sub-domains.
+// The single-level domain a and dual-level domain b are therefore sized
+// independently, and root padding uses their GCD capacity.
+func TestComplementMixedLevelDomainsUseDualLevelSizing(t *testing.T) {
+	domains := topology.NewDomainMap()
+	var aNodes, bNodes []string
+	for i := 0; i < 64; i++ {
+		name := fmt.Sprintf("a-n%02d", i)
+		aNodes = append(aNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "a", HostName: name, InstanceID: name})
+	}
+	for i := 0; i < 12; i++ {
+		name := fmt.Sprintf("b-n%02d", i)
+		bNodes = append(bNodes, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", SubDomain: "b-rack", HostName: name, InstanceID: name})
+	}
+
+	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{8, 32}},
+		domains: domains,
+		blocks: []*blockInfo{
+			{name: "a", nodes: aNodes},
+			{name: "b", nodes: bNodes},
+		},
+	}
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	// a: 8 blocks (oversized leaf, ceil(64/8)); b: 4 blocks (2 real + 2 empty padding); 96%32==0.
+	expected := strings.Join([]string{
+		"# block001=a",
+		"BlockName=block001 Nodes=a-n[00-07]",
+		"# block002=a",
+		"BlockName=block002 Nodes=a-n[08-15]",
+		"# block003=a",
+		"BlockName=block003 Nodes=a-n[16-23]",
+		"# block004=a",
+		"BlockName=block004 Nodes=a-n[24-31]",
+		"# block005=a",
+		"BlockName=block005 Nodes=a-n[32-39]",
+		"# block006=a",
+		"BlockName=block006 Nodes=a-n[40-47]",
+		"# block007=a",
+		"BlockName=block007 Nodes=a-n[48-55]",
+		"# block008=a",
+		"BlockName=block008 Nodes=a-n[56-63]",
+		"# block009=b-rack",
+		"BlockName=block009 Nodes=b-n[00-07]",
+		"# block010=b-rack",
+		"BlockName=block010 Nodes=b-n[08-11]",
+		"BlockName=block011",
+		"BlockName=block012",
+		"BlockSizes=8,32",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
 }
 
 // TestComplementWithMissingDomain verifies that when B2 has no entry in the domain map,
@@ -270,17 +617,25 @@ func TestComplementWithMissingDomain(t *testing.T) {
 		domains.AddHostInfo(&topology.HostInfo{Domain: "B1", HostName: n, InstanceID: n})
 	}
 	nt := &NetworkTopology{
+		config:  &Config{BlockSizes: []int{2, 4}},
 		domains: domains,
+		blocks: []*blockInfo{
+			{id: "block001", name: "B1", nodes: []string{"n1", "n2"}},
+			{id: "block002", name: "B2", nodes: []string{"n3", "n4"}}, // no domain entry
+		},
 	}
-	input := []*blockInfo{
-		{id: "block001", name: "B1", nodes: []string{"n1", "n2"}},
-		{id: "block002", name: "B2", nodes: []string{"n3", "n4"}}, // no domain entry
-	}
-	out := nt.complementBlocks(input, []int{2, 4})
-	require.Len(t, out, 2)
-	require.Equal(t, "B1", out[0].name)
-	require.Equal(t, []string{"n1", "n2"}, out[0].nodes)
-	require.True(t, isEmptyBlock(out[1]))
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=B1",
+		"BlockName=block001 Nodes=n[1-2]",
+		"BlockName=block002",
+		"BlockSizes=2,4",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
 }
 
 // TestGetBlockTopologyUnitWithMultiAcceleratorDomains verifies the YAML per-partition
@@ -399,6 +754,442 @@ func TestGetBlockTopologyUnitSingleBlockSize(t *testing.T) {
 	require.Equal(t, expected, buf.String())
 }
 
+// TestComplementUnequalDomainSubDomainCounts verifies that domains with different
+// sub-domain counts are sized independently; neither domain forces padding onto the other.
+//
+// Setup: blockSizes=[18,72,288]
+//   - domain "a": 4 sub-domains × 9 hosts = 36 hosts total
+//   - domain "b": 1 sub-domain "b.sd0" × 36 hosts
+//   - root.MaxChildNodeCount = max(36, 36) = 36
+//
+// toDomainAggregate("a", maxSiblingNodes=36, [18,72,288]):
+//   - nodeCount = aggregateSlotCapacity(36, 18) = 36; numBaseBlocks = 2
+//   - Strategy 2 (recurse per child): each of 4 sub-domains → 1 block of 9 hosts
+//   - 4 blocks > numBaseBlocks=2 (overflow); 4×18=72=blockSizes[1] → natural level
+//     alignment, no extra padding added. Domain "a" nodeCount = 72.
+//
+// toDomainAggregate("b", maxSiblingNodes=36, [18,72,288]):
+//   - nodeCount = 36; numBaseBlocks = 2
+//   - Recurses into "b.sd0" (leaf, 36 hosts) → Strategy 1 → 2 full blocks
+//   - b produces 2 blocks → domain "b" nodeCount = 36
+//
+// Root: total=108, rootDesired=288; childCapacity=GCD(72,36)=36; lcm(36,288)=288;
+// targetCount=288 → 5 empty child aggregates × 2 blocks = 10 empty blocks.
+//
+// Expected: 16 base blocks total — block001-004 from "a", block005-006 from "b.sd0",
+// block007-016 empty root padding.
+func TestComplementUnequalDomainSubDomainCounts(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for sd := 0; sd < 4; sd++ {
+		for h := 0; h < 9; h++ {
+			domains.AddHostInfo(&topology.HostInfo{Domain: "a", SubDomain: fmt.Sprintf("a.sd%d", sd), HostName: fmt.Sprintf("a-sd%d-h%d", sd, h)})
+		}
+	}
+	for h := 0; h < 36; h++ {
+		// Zero-padded so alphabetical sort matches numeric order (b-h00 < b-h09 < b-h10).
+		domains.AddHostInfo(&topology.HostInfo{Domain: "b", SubDomain: "b.sd0", HostName: fmt.Sprintf("b-h%02d", h)})
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{18, 72, 288},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=a.sd0",
+		"BlockName=block001 Nodes=a-sd0-h[0-8]",
+		"# block002=a.sd1",
+		"BlockName=block002 Nodes=a-sd1-h[0-8]",
+		"# block003=a.sd2",
+		"BlockName=block003 Nodes=a-sd2-h[0-8]",
+		"# block004=a.sd3",
+		"BlockName=block004 Nodes=a-sd3-h[0-8]",
+		"# block005=b.sd0",
+		"BlockName=block005 Nodes=b-h[00-17]",
+		"# block006=b.sd0",
+		"BlockName=block006 Nodes=b-h[18-35]",
+		"BlockName=block007",
+		"BlockName=block008",
+		"BlockName=block009",
+		"BlockName=block010",
+		"BlockName=block011",
+		"BlockName=block012",
+		"BlockName=block013",
+		"BlockName=block014",
+		"BlockName=block015",
+		"BlockName=block016",
+		"BlockSizes=18,72,288",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementOverflowRoundedToAggregateBoundary is a regression test for the P1
+// overflow alignment bug: when Strategy 2 produces more base blocks than numBaseBlocks,
+// the excess must be rounded up to the nearest blockSizes-level boundary so that the
+// next domain always starts at a clean Slurm aggregate position.
+//
+// Setup: blockSizes=[8,32]
+//   - domain "a": 5 sub-domains × 3 hosts = 15 nodes
+//     numBaseBlocks = aggregateSlotCapacity(min(32,15)=15, 8)/8 = 2
+//     5 sub-domains → 5 blocks (overflow); alignSize = blockSizes fallback → 40 nodes →
+//     aggregateSlotCapacity(40,8)/8 = 8 → round 5→8 (3 empty padding blocks added)
+//   - domain "b": 4 sub-domains × 2 hosts = 8 nodes
+//     numBaseBlocks = 2; 4 blocks (overflow); alignSize = 32 (blockSizes[1] ≥ 32) →
+//     aggregateWidth = 4 → 4 already a multiple of 4, no extra padding
+//   - Root: 8+4=12 blocks, 96%32=0, no root padding
+//
+// Without the fix, domain "a" would produce 5 blocks and domain "b" would start at
+// block 6 — inside Slurm's second 4-block (32-node) aggregate — mixing both domains.
+func TestComplementOverflowRoundedToAggregateBoundary(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for sd := range 5 {
+		for h := range 3 {
+			domains.AddHostInfo(&topology.HostInfo{
+				Domain:    "a",
+				SubDomain: fmt.Sprintf("a.sd%d", sd),
+				HostName:  fmt.Sprintf("a-sd%d-h%d", sd, h),
+			})
+		}
+	}
+	for sd := range 4 {
+		for h := range 2 {
+			domains.AddHostInfo(&topology.HostInfo{
+				Domain:    "b",
+				SubDomain: fmt.Sprintf("b.sd%d", sd),
+				HostName:  fmt.Sprintf("b-sd%d-h%d", sd, h),
+			})
+		}
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{8, 32},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=a.sd0",
+		"BlockName=block001 Nodes=a-sd0-h[0-2]",
+		"# block002=a.sd1",
+		"BlockName=block002 Nodes=a-sd1-h[0-2]",
+		"# block003=a.sd2",
+		"BlockName=block003 Nodes=a-sd2-h[0-2]",
+		"# block004=a.sd3",
+		"BlockName=block004 Nodes=a-sd3-h[0-2]",
+		"# block005=a.sd4",
+		"BlockName=block005 Nodes=a-sd4-h[0-2]",
+		"BlockName=block006",
+		"BlockName=block007",
+		"BlockName=block008",
+		"# block009=b.sd0",
+		"BlockName=block009 Nodes=b-sd0-h[0-1]",
+		"# block010=b.sd1",
+		"BlockName=block010 Nodes=b-sd1-h[0-1]",
+		"# block011=b.sd2",
+		"BlockName=block011 Nodes=b-sd2-h[0-1]",
+		"# block012=b.sd3",
+		"BlockName=block012 Nodes=b-sd3-h[0-1]",
+		"BlockSizes=8,32",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementSmallSubDomainsRecursePerChild verifies that when sub-domains are
+// smaller than a base block, Strategy 2 (recurse per child) gives each sub-domain
+// its own base block rather than merging across boundaries.
+//
+// Setup: blockSizes=[8, 32], domain "d" with 4 sub-domains of 3 hosts each (12 total).
+//   - baseBlockSize=8, Strategy 2: recurse per child → 4 separate blocks of 3 hosts
+//   - Root: 4 blocks × 8 = 32 nodes = rootDesired → no padding
+func TestComplementSmallSubDomainsRecursePerChild(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for sd := 0; sd < 4; sd++ {
+		for h := 0; h < 3; h++ {
+			domains.AddHostInfo(&topology.HostInfo{
+				Domain:    "d",
+				SubDomain: fmt.Sprintf("d.sd%d", sd),
+				HostName:  fmt.Sprintf("d-sd%d-h%d", sd, h),
+			})
+		}
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{8, 32},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=d.sd0",
+		"BlockName=block001 Nodes=d-sd0-h[0-2]",
+		"# block002=d.sd1",
+		"BlockName=block002 Nodes=d-sd1-h[0-2]",
+		"# block003=d.sd2",
+		"BlockName=block003 Nodes=d-sd2-h[0-2]",
+		"# block004=d.sd3",
+		"BlockName=block004 Nodes=d-sd3-h[0-2]",
+		"BlockSizes=8,32",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementOddSubDomainCount verifies that an odd number of sub-domains each
+// smaller than a base block all receive their own block with no spurious padding.
+//
+// Setup: blockSizes=[8], domain "d" with 5 sub-domains of 3 hosts each (15 total).
+//   - Strategy 2 (recurse per child): 5 sub-domains → 5 separate blocks of 3 hosts
+//   - Root: 5×8=40, rootDesired=8, 40%8=0 → no padding
+func TestComplementOddSubDomainCount(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for sd := range 5 {
+		for h := range 3 {
+			domains.AddHostInfo(&topology.HostInfo{
+				Domain:    "d",
+				SubDomain: fmt.Sprintf("d.sd%d", sd),
+				HostName:  fmt.Sprintf("d-sd%d-h%d", sd, h),
+			})
+		}
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{8},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=d.sd0",
+		"BlockName=block001 Nodes=d-sd0-h[0-2]",
+		"# block002=d.sd1",
+		"BlockName=block002 Nodes=d-sd1-h[0-2]",
+		"# block003=d.sd2",
+		"BlockName=block003 Nodes=d-sd2-h[0-2]",
+		"# block004=d.sd3",
+		"BlockName=block004 Nodes=d-sd3-h[0-2]",
+		"# block005=d.sd4",
+		"BlockName=block005 Nodes=d-sd4-h[0-2]",
+		"BlockSizes=8",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementFormatterProducesPerSubDomainBlocks verifies that a blockName formatter
+// derives consistent block names when sub-domains are smaller than a base block.
+// Each sub-domain keeps its own base block so the formatter sees a homogeneous host list.
+//
+// Setup: 1 domain "d", 4 sub-domains (r1–r4) × 2 hosts each, blockSizes=[8,16].
+//   - Strategy 2 (recurse per child): 4 separate blocks, one per sub-domain
+//   - Each block's hosts share the same sub-domain prefix → formatter succeeds
+//   - Block IDs become "r1"…"r4" as derived by the formatter
+func TestComplementFormatterProducesPerSubDomainBlocks(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for _, rack := range []string{"r1", "r2", "r3", "r4"} {
+		for h := 0; h < 2; h++ {
+			name := fmt.Sprintf("%s-h%d", rack, h)
+			domains.AddHostInfo(&topology.HostInfo{
+				Domain:     "d",
+				SubDomain:  rack,
+				HostName:   name,
+				InstanceID: name,
+			})
+		}
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{8, 16},
+		BlockName: &BlockNameConfig{
+			NodeNameRegexp: `^(r[0-9]+)-`,
+			Format:         "${1}",
+			compiledRegexp: regexp.MustCompile(`^(r[0-9]+)-`),
+		},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false), "formatBlockNames must not error when Strategy 2 is skipped")
+
+	expected := strings.Join([]string{
+		"# r1=r1",
+		"BlockName=r1 Nodes=r1-h[0-1]",
+		"# r2=r2",
+		"BlockName=r2 Nodes=r2-h[0-1]",
+		"# r3=r3",
+		"BlockName=r3 Nodes=r3-h[0-1]",
+		"# r4=r4",
+		"BlockName=r4 Nodes=r4-h[0-1]",
+		"BlockSizes=8,16",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementSingleLevelOversizedDomain verifies that a single-level domain whose
+// node count exceeds blockSizes[last] produces exactly ceil(ActualNodeCount/blockSizes[0])
+// base blocks with no empty placeholder. Setup: 1 domain, 5 hosts, BlockSizes=[2]
+// (lastBlockSize=2 < maxSiblingNodes=5) → 3 blocks.
+func TestComplementSingleLevelOversizedDomain(t *testing.T) {
+	domains := topology.NewDomainMap()
+	for i := 0; i < 5; i++ {
+		domains.AddHostInfo(&topology.HostInfo{
+			Domain:   "d",
+			HostName: fmt.Sprintf("h%d", i),
+		})
+	}
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{2},
+	}
+	graph := &topology.Graph{Domains: domains}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=d",
+		"BlockName=block001 Nodes=h[0-1]",
+		"# block002=d",
+		"BlockName=block002 Nodes=h[2-3]",
+		"# block003=d",
+		"BlockName=block003 Nodes=h4",
+		"BlockSizes=2",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
+// TestComplementDualLevel validates dual-level block tree construction using the
+// dual-level simulation model. Two accelerator domains (domain-01, domain-02) each
+// contain sub-domains identified by SubDomain (rack-1-01 … rack-1-16 and
+// rack-2-01 … rack-2-16). rack-1-03 and rack-1-13 have no nodes; rack-2-11 is absent.
+//
+// With BlockSizes=[9,144]:
+//
+//   - Group level (depth 2): max ActualNodeCount = 9 → DesiredNodeCount = 9 per group.
+//     Each group leaf emits exactly 1 base block (groupSize = 9/9 = 1).
+//
+//   - Domain level (depth 1): max ActualNodeCount = 131 (domain-02) → DesiredNodeCount = 144.
+//     domain-01 has 14 active groups → 14 real + 2 empty = 16 slots (blocks 001–016).
+//     domain-02 has 15 active groups → 15 real + 1 empty = 16 slots (blocks 017–032).
+//
+//   - Root (depth 0): DesiredNodeCount = 144; 2 domain children total 288 > 144 → no padding.
+//
+//   - Total output: 32 blocks (16 per domain) followed by BlockSizes=9,144.
+func TestComplementDualLevel(t *testing.T) {
+	model, err := models.NewModelFromFile("dual-xclr-irregular.yaml")
+	require.NoError(t, err)
+
+	graph, _ := model.ToGraph(nil)
+	require.NotNil(t, graph.Domains)
+
+	cfg := &Config{
+		Plugin:     topology.TopologyBlock,
+		BlockSizes: []int{9, 144},
+	}
+	nt, err := NewNetworkTopology(graph, cfg)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	expected := strings.Join([]string{
+		"# block001=rack-1-01",
+		"BlockName=block001 Nodes=node[0001-0009]",
+		"# block002=rack-1-02",
+		"BlockName=block002 Nodes=node[0010-0018]",
+		"# block003=rack-1-04",
+		"BlockName=block003 Nodes=node[0028-0030,0032,0034-0036]",
+		"# block004=rack-1-05",
+		"BlockName=block004 Nodes=node[0037-0045]",
+		"# block005=rack-1-06",
+		"BlockName=block005 Nodes=node[0046-0054]",
+		"# block006=rack-1-07",
+		"BlockName=block006 Nodes=node[0055-0063]",
+		"# block007=rack-1-08",
+		"BlockName=block007 Nodes=node[0064-0072]",
+		"# block008=rack-1-09",
+		"BlockName=block008 Nodes=node[0073-0081]",
+		"# block009=rack-1-10",
+		"BlockName=block009 Nodes=node[0082-0090]",
+		"# block010=rack-1-11",
+		"BlockName=block010 Nodes=node[0091-0099]",
+		"# block011=rack-1-12",
+		"BlockName=block011 Nodes=node[0100-0108]",
+		"# block012=rack-1-14",
+		"BlockName=block012 Nodes=node[0118-0126]",
+		"# block013=rack-1-15",
+		"BlockName=block013 Nodes=node[0127-0135]",
+		"# block014=rack-1-16",
+		"BlockName=block014 Nodes=node[0136-0144]",
+		"BlockName=block015",
+		"BlockName=block016",
+		"# block017=rack-2-01",
+		"BlockName=block017 Nodes=node[0145-0153]",
+		"# block018=rack-2-02",
+		"BlockName=block018 Nodes=node[0154-0162]",
+		"# block019=rack-2-03",
+		"BlockName=block019 Nodes=node[0163-0171]",
+		"# block020=rack-2-04",
+		"BlockName=block020 Nodes=node[0172-0180]",
+		"# block021=rack-2-05",
+		"BlockName=block021 Nodes=node[0181-0189]",
+		"# block022=rack-2-06",
+		"BlockName=block022 Nodes=node[0190-0198]",
+		"# block023=rack-2-07",
+		"BlockName=block023 Nodes=node[0199-0207]",
+		"# block024=rack-2-08",
+		"BlockName=block024 Nodes=node[0208-0216]",
+		"# block025=rack-2-09",
+		"BlockName=block025 Nodes=node[0217-0225]",
+		"# block026=rack-2-10",
+		"BlockName=block026 Nodes=node[0226-0234]",
+		"# block027=rack-2-12",
+		"BlockName=block027 Nodes=node[0244-0252]",
+		"# block028=rack-2-13",
+		"BlockName=block028 Nodes=node[0253-0261]",
+		"# block029=rack-2-14",
+		"BlockName=block029 Nodes=node[0262-0270]",
+		"# block030=rack-2-15",
+		"BlockName=block030 Nodes=node[0271-0275]",
+		"# block031=rack-2-16",
+		"BlockName=block031 Nodes=node[0280-0288]",
+		"BlockName=block032",
+		"BlockSizes=9,144",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
+}
+
 // getBlockWithIBAsymmetricSpineTestSet models two spines with four leaf switches on the
 // left spine and three on the right, each leaf switch hosting one accelerator domain.
 func getBlockWithIBAsymmetricSpineTestSet() (*topology.Graph, map[string]string) {
@@ -433,4 +1224,49 @@ func getBlockWithIBAsymmetricSpineTestSet() (*topology.Graph, map[string]string)
 	})
 
 	return &topology.Graph{Tiers: core, Domains: domains}, nil
+}
+
+// TestComplementSubDomainGranularityWithoutBlockSizes verifies the OCI two-rack scenario:
+// one fabric domain with hosts split across two sub-domains (racks), BlockSizes unset.
+// complementBlocks must infer [8,16] from the sub-domain structure and produce two
+// rack-level blocks rather than collapsing all nodes into one coarse block.
+func TestComplementSubDomainGranularityWithoutBlockSizes(t *testing.T) {
+	const domain = "fabric-1"
+	const subA = "fabric-1.rack-a"
+	const subB = "fabric-1.rack-b"
+
+	domains := topology.NewDomainMap()
+	var nodesA, nodesB []string
+	for i := 1; i <= 8; i++ {
+		name := fmt.Sprintf("NodeA%03d", i)
+		nodesA = append(nodesA, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: domain, SubDomain: subA, HostName: name, InstanceID: name})
+	}
+	for i := 1; i <= 8; i++ {
+		name := fmt.Sprintf("NodeB%03d", i)
+		nodesB = append(nodesB, name)
+		domains.AddHostInfo(&topology.HostInfo{Domain: domain, SubDomain: subB, HostName: name, InstanceID: name})
+	}
+
+	allNodes := append(append([]string(nil), nodesA...), nodesB...)
+	nt := &NetworkTopology{
+		config:  &Config{}, // BlockSizes intentionally unset — must be inferred from sub-domain structure
+		domains: domains,
+		// toBlockInfos produces one coarse block per DomainMap key (no sub-domain expansion)
+		blocks: []*blockInfo{{id: "block001", name: domain, nodes: allNodes}},
+	}
+
+	var buf bytes.Buffer
+	require.Nil(t, nt.toBlockTopology(&buf, false))
+
+	// BlockSizes=[8,16] inferred from sub-domain structure; one block per rack sub-domain.
+	expected := strings.Join([]string{
+		"# block001=fabric-1.rack-a",
+		"BlockName=block001 Nodes=NodeA[001-008]",
+		"# block002=fabric-1.rack-b",
+		"BlockName=block002 Nodes=NodeB[001-008]",
+		"BlockSizes=8,16",
+		"",
+	}, "\n")
+	require.Equal(t, expected, buf.String())
 }

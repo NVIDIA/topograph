@@ -8,7 +8,8 @@ It creates:
 
 - one `NodeFeature` per topology node, carrying Topograph topology as
   `spec.features.attributes.topograph.network.elements`
-- one `NodeFeatureGroup` per distinct fabric tier or accelerator domain value
+- one `NodeFeatureGroup` per distinct fabric tier, XCLR domain, or XCLR
+  sub-domain value
 
 NFD master evaluates those features and writes matching nodes to
 `NodeFeatureGroup.status.nodes`.
@@ -121,7 +122,8 @@ spec:
           nodename: node-a
       topograph.network:
         elements:
-          accelerator: nvl3
+          xclr-domain: nvl3
+          xclr-sub-domain: nvl3.rack01
           fabric-tier-0: leaf-12
           fabric-tier-1: spine-2
           fabric-tier-2: core-1
@@ -158,10 +160,11 @@ membership even when an NFD worker does not run on the node, as with simulated
 KWOK nodes. Topograph does not write `status.nodes`; NFD owns status updates.
 
 If a Kubernetes node already has `nvidia.com/gpu.clique`, the engine uses that
-label's value as the authoritative accelerator attribute instead of the value
+label's value as the authoritative `xclr-domain` attribute instead of the value
 derived from the provider graph. The matching `NodeFeatureGroup` records
-`nvidia.com/gpu.clique` as its source label key. All fabric-tier attributes
-are still published.
+`nvidia.com/gpu.clique` as its source label key. The provider-supplied `xclr-sub-domain` is suppressed alongside `xclr-domain`
+(matching the `k8s` engine behaviour); all fabric-tier attributes are still
+published.
 
 ## Caveats
 

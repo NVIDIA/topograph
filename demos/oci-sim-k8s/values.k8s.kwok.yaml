@@ -1,0 +1,27 @@
+provider:
+  name: oci-sim
+  params:
+    modelFileName: dual-xclr-regular.yaml
+engine:
+  name: k8s
+
+kubeClient:
+  qps: 50
+  burst: 100
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  topograph:
+    trigger:
+      nodeSelector:
+        kwok.x-k8s.io/node: "fake"
+
+nodeDataBroker:
+  enabled: false

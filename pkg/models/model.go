@@ -375,7 +375,12 @@ func (model *Model) ToGraph(instances []topology.ComputeInstances) (*topology.Gr
 	for hostName, instance := range model.Nodes {
 		if domain := instance.AcceleratorDomain(); domain != "" {
 			instanceID := InstanceID(hostName)
-			domainMap.AddHost(domain, instanceID, instance2node[instanceID])
+			domainMap.AddHostInfo(&topology.HostInfo{
+				Domain:     domain,
+				InstanceID: instanceID,
+				HostName:   instance2node[instanceID],
+				SubDomain:  instance.AcceleratorSubDomain(),
+			})
 		}
 	}
 

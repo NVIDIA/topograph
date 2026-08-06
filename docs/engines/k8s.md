@@ -5,22 +5,31 @@ Topograph is a tool designed to enhance scheduling decisions in Kubernetes clust
 ## Overview
 
 Topograph maps network-fabric locality as a variable-depth label family and
-accelerator-network locality as a single label:
+accelerator-network locality as a two-level label hierarchy:
 
 * `network.topology.nvidia.com/tier-N` identifies fabric switch tiers.
-* `network.topology.nvidia.com/accelerator` identifies the accelerator domain.
+* `xclr.topology.nvidia.com/domain` identifies the accelerator domain.
+* `xclr.topology.nvidia.com/sub-domain` identifies an optional accelerator
+  sub-domain within that domain.
 
 Fabric tier 0 is closest to the compute node, and tier numbers increase
 outwards. Topograph writes only the fabric tiers enabled by the label
 configuration. If a node already has `nvidia.com/gpu.clique`, the accelerator
-label remains unset and the GPU Operator label is authoritative.
+domain label remains unset and the GPU Operator label is authoritative.
+The accelerator sub-domain label is also omitted because it is only valid
+alongside the XCLR domain label.
 
-The names of these node labels are configurable via the [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
+The fabric and accelerator-domain label names are configurable via the
+[Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
+The accelerator sub-domain key is fixed.
 
-For example, if a node belongs to NVLink domain `nvl1` and connects to switch `s1`, which connects to switch `s2`, and then to switch `s3`, Topograph will apply the following labels to the node:
+For example, if a node belongs to NVLink domain `nvl1`, sub-domain
+`nvl1.rack01`, and connects to switch `s1`, which connects to switch `s2`, and
+then to switch `s3`, Topograph will apply the following labels to the node:
 
 ```
-  network.topology.nvidia.com/accelerator: nvl1
+  xclr.topology.nvidia.com/domain: nvl1
+  xclr.topology.nvidia.com/sub-domain: nvl1.rack01
   network.topology.nvidia.com/tier-0: s1
   network.topology.nvidia.com/tier-1: s2
   network.topology.nvidia.com/tier-2: s3
@@ -63,7 +72,7 @@ Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with Multi
 
 Topograph treats `nvidia.com/gpu.clique` as the authoritative accelerator node label when it is already present:
 
-- On **MNNVL systems**: if `nvidia.com/gpu.clique` exists on a node, the k8s engine does not write the accelerator label for that node. It still writes every configured fabric tier.
+- On **MNNVL systems**: if `nvidia.com/gpu.clique` exists on a node, the k8s engine does not write the accelerator domain or sub-domain labels for that node. It still writes every configured fabric tier.
 - On **non-MNNVL systems** (e.g., DGX B200, B300): `nvidia.com/gpu.clique` is not set (see the [node labels reference](../reference/node-labels.md) for the Fabric Manager init and `GPU_FABRIC_STATE_COMPLETED` details). Topograph writes the configured accelerator label when the selected provider supplies an accelerator domain.
 
 In addition to NVLink domain membership, Topograph provides the full IB switch hierarchy as numbered fabric tiers, giving schedulers both dimensions simultaneously.
@@ -135,7 +144,8 @@ provider:
 engine:
   name: k8s
   params:
-    # Optional closest-first fabric keys and single accelerator key.
+    # Optional closest-first fabric keys and accelerator-domain key.
+    # The sub-domain key remains xclr.topology.nvidia.com/sub-domain.
     # Additional fabric tiers are omitted when the array is configured.
     fabricLabels:
       - example.com/rack

@@ -46,10 +46,10 @@ func RootFirstFabricTiers(ids ...string) []FabricTier {
 }
 
 type InstanceTopology struct {
-	InstanceID          string
-	FabricTiers         []FabricTier
-	ParentAcceleratorID string
-	AcceleratorID       string
+	InstanceID      string
+	FabricTiers     []FabricTier
+	XclrDomainID    string // accelerator domain ID
+	XclrSubDomainID string // optional accelerator sub-domain ID
 	// Instance optionally carries enriched metadata for instance-oriented output.
 	Instance *Instance
 }
@@ -65,8 +65,11 @@ func (inst *InstanceTopology) String() string {
 			}
 		}
 	}
-	if inst.AcceleratorID != "" {
-		fmt.Fprintf(&buf, " Accelerator:%s", inst.AcceleratorID)
+	if inst.XclrDomainID != "" {
+		fmt.Fprintf(&buf, " XclrDomain:%s", inst.XclrDomainID)
+		if inst.XclrSubDomainID != "" {
+			fmt.Fprintf(&buf, " XclrSubDomain:%s", inst.XclrSubDomainID)
+		}
 	}
 
 	return buf.String()
@@ -117,8 +120,13 @@ func (c *ClusterTopology) ToGraph(provider string, cis []ComputeInstances, trimT
 			ID:   inst.InstanceID,
 		}
 
-		if inst.AcceleratorID != "" {
-			domainMap.AddHost(inst.AcceleratorID, inst.InstanceID, nodeName)
+		if inst.XclrDomainID != "" {
+			domainMap.AddHostInfo(&HostInfo{
+				Domain:     inst.XclrDomainID,
+				SubDomain:  inst.XclrSubDomainID,
+				InstanceID: inst.InstanceID,
+				HostName:   nodeName,
+			})
 		}
 		if inst.Instance != nil {
 			instances[inst.InstanceID] = inst.toInstance(trimTiers)
@@ -271,12 +279,18 @@ func (inst *InstanceTopology) toInstance(trimTiers int) Instance {
 		instance.ID = inst.InstanceID
 	}
 	instance.NetworkLayers = inst.networkLayers(trimTiers)
-	if instance.AcceleratorID() == "" && inst.AcceleratorID != "" {
+	if instance.AcceleratorID() == "" && inst.XclrDomainID != "" {
 		if instance.Labels == nil {
 			instance.Labels = make(map[string]string)
 		}
-		instance.Labels[KeyTopologyAccelerator] = inst.AcceleratorID
+		instance.Labels[KeyTopologyXclrDomain] = inst.XclrDomainID
 	}
+	if instance.Labels[KeyTopologyXclrDomain] != "" &&
+		instance.Labels[KeyTopologyXclrSubDomain] == "" &&
+		inst.XclrSubDomainID != "" {
+		instance.Labels[KeyTopologyXclrSubDomain] = inst.XclrSubDomainID
+	}
+
 	return instance
 }
 

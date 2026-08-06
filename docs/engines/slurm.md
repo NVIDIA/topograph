@@ -2,6 +2,63 @@
 
 For the SLURM engine, topograph supports [tree](https://slurm.schedmd.com/topology.conf.html#SECTION_topology/tree) and [block](https://slurm.schedmd.com/topology.conf.html#SECTION_topology/block) topology configurations.
 
+## Automatic block-size inference
+
+When `blockSizes` is not configured, Topograph derives it from the discovered
+accelerator domains.
+
+For single-level topology, let `D` be the smallest discovered accelerator-domain
+size and `N` be the number of discovered domains. Topograph emits a doubling
+sequence through the largest power-of-two group that fits within `N` domains:
+
+```text
+blockSizes = [D, 2D, 4D, ..., 2^k * D]
+k = floor(log2(N))
+```
+
+This can produce more than one block size as the cluster grows:
+
+| Smallest domain (`D`) | Domain count (`N`) | Inferred `blockSizes` |
+|---:|---:|---|
+| 8 | 1 | `[8]` |
+| 8 | 2 | `[8, 16]` |
+| 8 | 3 | `[8, 16]` |
+| 8 | 4 | `[8, 16, 32]` |
+| 8 | 8 | `[8, 16, 32, 64]` |
+
+For topology containing accelerator sub-domains, Topograph:
+
+1. Finds the largest sub-domain size, `maxSubDomainSize`.
+2. Finds the largest total accelerator-domain size, `maxDomainSize`.
+3. Starting with `maxSubDomainSize`, repeatedly doubles it until it is at least
+   `maxDomainSize`.
+
+The resulting aggregate size is:
+
+```text
+aggregateSize = maxSubDomainSize * 2^n
+```
+
+where `n` is the smallest non-negative integer for which
+`aggregateSize >= maxDomainSize`. The inferred result is:
+
+```text
+blockSizes = [maxSubDomainSize, aggregateSize]
+```
+
+If `aggregateSize` equals `maxSubDomainSize`, only one value is emitted.
+
+| Largest sub-domain | Largest domain | Inferred `blockSizes` |
+|---:|---:|---|
+| 8 | 8 | `[8]` |
+| 8 | 12 | `[8, 16]` |
+| 8 | 16 | `[8, 16]` |
+| 9 | 135 | `[9, 144]` |
+
+The inferred sizes are used both to construct the complemented block tree and
+to emit the final `BlockSizes` value. Explicitly configured `blockSizes` always
+take precedence over inference.
+
 ## Deriving block names from node names
 
 For `topology/block`, the optional `blockName` engine parameter derives each block name from the names of its nodes. Both `nodeNameRegexp` and `format` are required when `blockName` is set.

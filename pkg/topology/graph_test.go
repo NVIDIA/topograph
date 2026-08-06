@@ -14,14 +14,14 @@ import (
 var (
 	instances = []*InstanceTopology{
 		{
-			InstanceID:    "i-001",
-			FabricTiers:   ClosestFirstFabricTiers("nn-11111111", "nn-55555555", "nn-77777777"),
-			AcceleratorID: "acc-111111",
+			InstanceID:   "i-001",
+			FabricTiers:  ClosestFirstFabricTiers("nn-11111111", "nn-55555555", "nn-77777777"),
+			XclrDomainID: "acc-111111",
 		},
 		{
-			InstanceID:    "i-002",
-			FabricTiers:   ClosestFirstFabricTiers("nn-22222222", "nn-55555555", "nn-77777777"),
-			AcceleratorID: "acc-222222",
+			InstanceID:   "i-002",
+			FabricTiers:  ClosestFirstFabricTiers("nn-22222222", "nn-55555555", "nn-77777777"),
+			XclrDomainID: "acc-222222",
 		},
 		{
 			InstanceID:  "i-003",
@@ -57,7 +57,7 @@ func TestToGraphNoNorm(t *testing.T) {
 	}
 	require.Equal(t, len(instances), topo.Len())
 
-	inst0 := "Instance:i-001 Fabric-Tier-0:nn-11111111 Fabric-Tier-1:nn-55555555 Fabric-Tier-2:nn-77777777 Accelerator:acc-111111"
+	inst0 := "Instance:i-001 Fabric-Tier-0:nn-11111111 Fabric-Tier-1:nn-55555555 Fabric-Tier-2:nn-77777777 XclrDomain:acc-111111"
 	require.Equal(t, inst0, topo.Instances[0].String())
 
 	inst2 := "Instance:i-003 Fabric-Tier-0:nn-33333333 Fabric-Tier-1:nn-66666666 Fabric-Tier-2:nn-77777777"
@@ -164,7 +164,7 @@ func TestToGraphNorm(t *testing.T) {
 	graph := topo.ToGraph("test", []ComputeInstances{{Instances: i2n}}, 0, true)
 	require.Equal(t, expected, graph)
 
-	inst0 := "Instance:i-001 Fabric-Tier-0:nn-11111111 (switch.1.1) Fabric-Tier-1:nn-55555555 (switch.2.1) Fabric-Tier-2:nn-77777777 (switch.3.1) Accelerator:acc-111111"
+	inst0 := "Instance:i-001 Fabric-Tier-0:nn-11111111 (switch.1.1) Fabric-Tier-1:nn-55555555 (switch.2.1) Fabric-Tier-2:nn-77777777 (switch.3.1) XclrDomain:acc-111111"
 	require.Equal(t, inst0, topo.Instances[0].String())
 
 	inst2 := "Instance:i-003 Fabric-Tier-0:nn-33333333 (switch.1.3) Fabric-Tier-1:nn-66666666 (switch.2.2) Fabric-Tier-2:nn-77777777 (switch.3.1)"
@@ -174,9 +174,10 @@ func TestToGraphNorm(t *testing.T) {
 func TestToGraphIncludesInstanceData(t *testing.T) {
 	topo := NewClusterTopology()
 	topo.Append(&InstanceTopology{
-		InstanceID:    "i-001",
-		FabricTiers:   ClosestFirstFabricTiers("leaf-1", "spine-1", "core-1"),
-		AcceleratorID: "nvl-1",
+		InstanceID:      "i-001",
+		FabricTiers:     ClosestFirstFabricTiers("leaf-1", "spine-1", "core-1"),
+		XclrDomainID:    "nvl-1",
+		XclrSubDomainID: "nvl-1.rack-1",
 		Instance: &Instance{
 			ID:            "i-001",
 			NetworkLayers: []string{"leaf-1", "spine-1", "core-1"},
@@ -196,11 +197,59 @@ func TestToGraphIncludesInstanceData(t *testing.T) {
 			ID:            "i-001",
 			NetworkLayers: []string{"leaf-1", "spine-1"},
 			Labels: map[string]string{
-				KeyNvidiaGPUProduct:    "H100",
-				KeyTopologyAccelerator: "nvl-1",
+				KeyNvidiaGPUProduct:      "H100",
+				KeyTopologyXclrDomain:    "nvl-1",
+				KeyTopologyXclrSubDomain: "nvl-1.rack-1",
 			},
 		},
 	}, graph.Instances)
+}
+
+func TestToInstancePreservesExplicitXclrSubDomainLabel(t *testing.T) {
+	inst := &InstanceTopology{
+		InstanceID:      "i-001",
+		XclrSubDomainID: "discovered-sub-domain",
+		Instance: &Instance{
+			Labels: map[string]string{
+				KeyTopologyXclrDomain:    "explicit-domain",
+				KeyTopologyXclrSubDomain: "explicit-sub-domain",
+			},
+		},
+	}
+
+	instance := inst.toInstance(0)
+
+	require.Equal(t, "explicit-sub-domain", instance.Labels[KeyTopologyXclrSubDomain])
+}
+
+func TestToInstanceOmitsXclrSubDomainWithoutDomainLabel(t *testing.T) {
+	inst := &InstanceTopology{
+		InstanceID:      "i-001",
+		XclrSubDomainID: "discovered-sub-domain",
+		Instance:        &Instance{},
+	}
+
+	instance := inst.toInstance(0)
+
+	require.NotContains(t, instance.Labels, KeyTopologyXclrSubDomain)
+}
+
+func TestToInstanceOmitsXclrSubDomainWhenGPUCliqueSupersedesDomain(t *testing.T) {
+	inst := &InstanceTopology{
+		InstanceID:      "i-001",
+		XclrDomainID:    "discovered-domain",
+		XclrSubDomainID: "discovered-sub-domain",
+		Instance: &Instance{
+			Labels: map[string]string{
+				KeyNvidiaGPUClique: "gpu-clique",
+			},
+		},
+	}
+
+	instance := inst.toInstance(0)
+
+	require.NotContains(t, instance.Labels, KeyTopologyXclrDomain)
+	require.NotContains(t, instance.Labels, KeyTopologyXclrSubDomain)
 }
 
 func TestTrimTiers(t *testing.T) {
@@ -268,9 +317,9 @@ func TestTrimTiers(t *testing.T) {
 func TestToGraphSupportsVariableTierCount(t *testing.T) {
 	topo := NewClusterTopology()
 	topo.Append(&InstanceTopology{
-		InstanceID:    "instance-1",
-		FabricTiers:   ClosestFirstFabricTiers("fabric-0", "fabric-1", "fabric-2", "fabric-3"),
-		AcceleratorID: "accelerator",
+		InstanceID:   "instance-1",
+		FabricTiers:  ClosestFirstFabricTiers("fabric-0", "fabric-1", "fabric-2", "fabric-3"),
+		XclrDomainID: "accelerator",
 	})
 
 	graph := topo.ToGraph("test", []ComputeInstances{{
@@ -332,4 +381,105 @@ func TestToGraphMergesMixedDepthPathsAtSharedRoot(t *testing.T) {
 func TestTrimTiersTreatsNegativeAsZero(t *testing.T) {
 	inst := &InstanceTopology{FabricTiers: ClosestFirstFabricTiers("fabric-0", "fabric-1")}
 	require.Equal(t, inst.FabricTiers, trimmedTiers(inst, -1))
+}
+
+// TestToGraphXclrSubDomainIDCreatesDualLevelDomain verifies that instances
+// with XclrSubDomainID set land in a DomainMap entry keyed by XclrDomainID,
+// with SubDomain populated from XclrSubDomainID. The XclrSubDomainID values
+// must not appear as top-level domain keys.
+func TestToGraphXclrSubDomainIDCreatesDualLevelDomain(t *testing.T) {
+	topo := NewClusterTopology()
+	topo.Append(&InstanceTopology{
+		InstanceID:      "i-001",
+		FabricTiers:     ClosestFirstFabricTiers("leaf-1", "spine-1"),
+		XclrDomainID:    "nvl-domain-01",
+		XclrSubDomainID: "rack-01",
+	})
+	topo.Append(&InstanceTopology{
+		InstanceID:      "i-002",
+		FabricTiers:     ClosestFirstFabricTiers("leaf-2", "spine-1"),
+		XclrDomainID:    "nvl-domain-01",
+		XclrSubDomainID: "rack-02",
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{"i-001": "node1", "i-002": "node2"},
+	}}, 0, false)
+
+	domain := graph.Domains["nvl-domain-01"]
+	require.NotNil(t, domain, "accelerator domain nvl-domain-01 must be present")
+	require.Len(t, domain, 2)
+
+	hi1 := domain["node1"]
+	require.NotNil(t, hi1)
+	require.Equal(t, "nvl-domain-01", hi1.Domain)
+	require.Equal(t, "rack-01", hi1.SubDomain)
+	require.Equal(t, "i-001", hi1.InstanceID)
+
+	hi2 := domain["node2"]
+	require.NotNil(t, hi2)
+	require.Equal(t, "nvl-domain-01", hi2.Domain)
+	require.Equal(t, "rack-02", hi2.SubDomain)
+	require.Equal(t, "i-002", hi2.InstanceID)
+
+	// Sub-domain names must not appear as independent top-level domain keys.
+	require.Nil(t, graph.Domains["rack-01"])
+	require.Nil(t, graph.Domains["rack-02"])
+}
+
+// TestToGraphMixedXclrDomainTypes verifies that a ClusterTopology containing
+// both single-level (XclrDomainID only) and dual-level (XclrDomainID plus
+// XclrSubDomainID) instances produces the correct DomainMap entries for each type.
+func TestToGraphMixedXclrDomainTypes(t *testing.T) {
+	topo := NewClusterTopology()
+	// Dual-level: goes into nvl-domain-01 with SubDomain = rack-01.
+	topo.Append(&InstanceTopology{
+		InstanceID:      "i-001",
+		FabricTiers:     ClosestFirstFabricTiers("leaf-1"),
+		XclrDomainID:    "nvl-domain-01",
+		XclrSubDomainID: "rack-01",
+	})
+	// Single-level: goes into acc-standalone with no SubDomain.
+	topo.Append(&InstanceTopology{
+		InstanceID:   "i-002",
+		FabricTiers:  ClosestFirstFabricTiers("leaf-2"),
+		XclrDomainID: "acc-standalone",
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{"i-001": "node1", "i-002": "node2"},
+	}}, 0, false)
+
+	// Dual-level host: SubDomain populated.
+	hi1 := graph.Domains["nvl-domain-01"]["node1"]
+	require.NotNil(t, hi1)
+	require.Equal(t, "rack-01", hi1.SubDomain)
+
+	// Single-level host: SubDomain empty.
+	hi2 := graph.Domains["acc-standalone"]["node2"]
+	require.NotNil(t, hi2)
+	require.Equal(t, "", hi2.SubDomain)
+}
+
+// TestToGraphXclrDomainIDWithoutSubDomain verifies that when XclrDomainID is set
+// but XclrSubDomainID is empty, the host is placed directly in the domain and
+// SubDomain is empty.
+func TestToGraphXclrDomainIDWithoutSubDomain(t *testing.T) {
+	topo := NewClusterTopology()
+	topo.Append(&InstanceTopology{
+		InstanceID:   "i-001",
+		FabricTiers:  ClosestFirstFabricTiers("leaf-1"),
+		XclrDomainID: "nvl-domain-01",
+	})
+
+	graph := topo.ToGraph("test", []ComputeInstances{{
+		Instances: map[string]string{"i-001": "node1"},
+	}}, 0, false)
+
+	domain := graph.Domains["nvl-domain-01"]
+	require.NotNil(t, domain, "accelerator domain must be present without XclrSubDomainID")
+	hi := domain["node1"]
+	require.NotNil(t, hi)
+	require.Equal(t, "nvl-domain-01", hi.Domain)
+	require.Equal(t, "", hi.SubDomain)
 }

@@ -189,7 +189,8 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 			return bInfos[i].indx < bInfos[j].indx
 		})
 
-		bInfos = nt.complementBlocks(bInfos, topoSpec.BlockSizes)
+		var effectiveBlockSizes []int
+		bInfos, effectiveBlockSizes = nt.complementBlocks(bInfos, topoSpec.BlockSizes)
 		for indx, bInfo := range bInfos {
 			bInfo.id = fmt.Sprintf("block%d", indx+1)
 		}
@@ -215,7 +216,7 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 		}
 
 		tu.Block = &BlockTopo{
-			BlockSizes: getBlockSizes(bInfos, topoSpec.BlockSizes),
+			BlockSizes: getBlockSizes(bInfos, effectiveBlockSizes),
 			Blocks:     blocks,
 			parents:    parents,
 		}

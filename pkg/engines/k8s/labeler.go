@@ -18,23 +18,25 @@ import (
 )
 
 type TopologyLabelKeys struct {
-	Fabric      []string
-	Accelerator string
+	Fabric        []string
+	XclrDomain    string
+	XclrSubDomain string
 }
 
 // NewTopologyLabelKeys creates an independent copy of the configured
-// closest-first fabric label keys and accelerator label key.
-func NewTopologyLabelKeys(fabric []string, accelerator string) *TopologyLabelKeys {
-	if accelerator == "" {
-		accelerator = topology.KeyTopologyAccelerator
+// closest-first fabric label keys and XCLR label keys.
+func NewTopologyLabelKeys(fabric []string, xclrDomain string) *TopologyLabelKeys {
+	if xclrDomain == "" {
+		xclrDomain = topology.KeyTopologyXclrDomain
 	}
 	return &TopologyLabelKeys{
-		Fabric:      slices.Clone(fabric),
-		Accelerator: accelerator,
+		Fabric:        slices.Clone(fabric),
+		XclrDomain:    xclrDomain,
+		XclrSubDomain: topology.KeyTopologyXclrSubDomain,
 	}
 }
 
-// Validate checks that configured keys are valid and unique across both label
+// Validate checks that configured keys are valid and unique across all label
 // families.
 func (keys *TopologyLabelKeys) Validate() error {
 	seen := make(map[string]string)
@@ -53,7 +55,10 @@ func (keys *TopologyLabelKeys) Validate() error {
 			return err
 		}
 	}
-	return validate("acceleratorLabel", keys.Accelerator)
+	if err := validate("acceleratorLabel", keys.XclrDomain); err != nil {
+		return err
+	}
+	return validate("xclrSubDomainLabel", keys.XclrSubDomain)
 }
 
 // FabricKey returns the fabric key for tier. Defaults are used when no custom
@@ -68,9 +73,14 @@ func (keys *TopologyLabelKeys) FabricKey(tier int) string {
 	return ""
 }
 
-// AcceleratorKey returns the configured accelerator label key.
-func (keys *TopologyLabelKeys) AcceleratorKey() string {
-	return keys.Accelerator
+// XclrDomainKey returns the configured XCLR domain label key.
+func (keys *TopologyLabelKeys) XclrDomainKey() string {
+	return keys.XclrDomain
+}
+
+// XclrSubDomainKey returns the XCLR sub-domain label key.
+func (keys *TopologyLabelKeys) XclrSubDomainKey() string {
+	return keys.XclrSubDomain
 }
 
 // map nodename:[label name: label value]
@@ -139,11 +149,12 @@ func (l *topologyLabeler) BuildNodeLabels(graph *topology.Graph) (NodeLabelMap, 
 	return nodeMap, nil
 }
 
-// getDomainLabels adds one accelerator label for each node in each domain.
+// getDomainLabels adds accelerator domain and optional sub-domain labels.
 func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap NodeLabelMap) error {
-	labelKey := l.keys.AcceleratorKey()
+	domainKey := l.keys.XclrDomainKey()
+	subDomainKey := l.keys.XclrSubDomainKey()
 	for domainName, domain := range domains {
-		for nodeName := range domain {
+		for nodeName, hostInfo := range domain {
 			if nodeName == "" {
 				continue
 			}
@@ -152,10 +163,13 @@ func (l *topologyLabeler) getDomainLabels(domains topology.DomainMap, nodeMap No
 				labels = make(map[string]string)
 				nodeMap[nodeName] = labels
 			}
-			if val, ok := labels[labelKey]; ok {
+			if val, ok := labels[domainKey]; ok {
 				return fmt.Errorf("multiple accelerator labels %s, %s for node %s", val, domainName, nodeName)
 			}
-			labels[labelKey] = l.checkLabel(domainName)
+			labels[domainKey] = l.checkLabel(domainName)
+			if hostInfo != nil && hostInfo.SubDomain != "" {
+				labels[subDomainKey] = l.checkLabel(hostInfo.SubDomain)
+			}
 		}
 	}
 	return nil

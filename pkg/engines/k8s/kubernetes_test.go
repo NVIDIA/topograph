@@ -381,7 +381,8 @@ func TestMergeNodeLabels(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						topology.KeyNvidiaGPUClique:        "cluster-a.0",
-						topology.KeyTopologyAccelerator:    "old-domain",
+						topology.KeyTopologyXclrDomain:     "old-domain",
+						topology.KeyTopologyXclrSubDomain:  "old-sub-domain",
 						topology.FabricTierKey(0):          "old-leaf",
 						topology.FabricTierKey(3):          "stale-fabric",
 						"network.topology.nvidia.com/core": "legacy-core",
@@ -390,9 +391,10 @@ func TestMergeNodeLabels(t *testing.T) {
 				},
 			},
 			in: map[string]string{
-				topology.KeyTopologyAccelerator: "api-domain",
-				topology.FabricTierKey(0):       "new-leaf",
-				topology.FabricTierKey(1):       "new-spine",
+				topology.KeyTopologyXclrDomain:    "api-domain",
+				topology.KeyTopologyXclrSubDomain: "new-sub-domain",
+				topology.FabricTierKey(0):         "new-leaf",
+				topology.FabricTierKey(1):         "new-spine",
 			},
 			out: map[string]string{
 				topology.KeyNvidiaGPUClique:        "cluster-a.0",
@@ -446,11 +448,24 @@ func TestMergeNodeLabels(t *testing.T) {
 			name: "Case 7: apply accelerator label when GPU clique is absent",
 			node: &corev1.Node{},
 			in: map[string]string{
-				topology.KeyTopologyAccelerator: "api-domain",
+				topology.KeyTopologyXclrDomain:    "api-domain",
+				topology.KeyTopologyXclrSubDomain: "api-sub-domain",
 			},
 			out: map[string]string{
-				topology.KeyTopologyAccelerator: "api-domain",
+				topology.KeyTopologyXclrDomain:    "api-domain",
+				topology.KeyTopologyXclrSubDomain: "api-sub-domain",
 			},
+		},
+		{
+			name: "Case 8: remove stale accelerator sub-domain label",
+			node: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						topology.KeyTopologyXclrSubDomain: "stale-sub-domain",
+					},
+				},
+			},
+			out: map[string]string{},
 		},
 	}
 

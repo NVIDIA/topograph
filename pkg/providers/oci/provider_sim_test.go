@@ -219,24 +219,24 @@ BlockSizes=2,4
 }
 
 func TestSimClientGetComputeHostRackAdditionalData(t *testing.T) {
-	model, err := models.NewModelFromFile("dual-accelerator.yaml")
+	model, err := models.NewModelFromFile("dual-xclr-regular.yaml")
 	require.NoError(t, err)
 
 	client := &simClient{model: model}
 	testCases := []struct {
-		instanceID   string
-		parentDomain string
-		rack         string
+		instanceID string
+		domain     string
+		rack       string
 	}{
 		{
-			instanceID:   "srv1101",
-			parentDomain: "nvl-1",
-			rack:         "rack01",
+			instanceID: "srv1101",
+			domain:     "nvl-1",
+			rack:       "rack01",
 		},
 		{
-			instanceID:   "srv6201",
-			parentDomain: "nvl-2",
-			rack:         "rack12",
+			instanceID: "srv6201",
+			domain:     "nvl-2",
+			rack:       "rack12",
 		},
 	}
 
@@ -254,8 +254,23 @@ func TestSimClientGetComputeHostRackAdditionalData(t *testing.T) {
 
 			instanceTopology, err := convertComputeHost(&resp.ComputeHost)
 			require.NoError(t, err)
-			require.Equal(t, tc.parentDomain, instanceTopology.ParentAcceleratorID)
-			require.Equal(t, tc.parentDomain+"."+tc.rack, instanceTopology.AcceleratorID)
+			require.Equal(t, tc.domain, instanceTopology.XclrDomainID)
+			require.Equal(t, tc.domain+"."+tc.rack, instanceTopology.XclrSubDomainID)
 		})
 	}
+}
+
+func TestConvertComputeHostNoRack(t *testing.T) {
+	host := core.ComputeHost{
+		InstanceId:        ptr.String("srv-norack"),
+		LocalBlockId:      ptr.String("local-1"),
+		NetworkBlockId:    ptr.String("net-1"),
+		HpcIslandId:       ptr.String("island-1"),
+		GpuMemoryFabricId: ptr.String("nvl-1"),
+		// AdditionalData intentionally omitted — no rack metadata
+	}
+	instanceTopology, err := convertComputeHost(&host)
+	require.NoError(t, err)
+	require.Equal(t, "nvl-1", instanceTopology.XclrDomainID)
+	require.Empty(t, instanceTopology.XclrSubDomainID)
 }

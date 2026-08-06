@@ -30,7 +30,7 @@ for attempt in $(seq 1 "$wait_attempts"); do
             .metadata.labels["network.topology.nvidia.com/tier-0"] == "sw12" and
             .metadata.labels["network.topology.nvidia.com/tier-1"] == "sw21" and
             .metadata.labels["network.topology.nvidia.com/tier-2"] == "sw3" and
-            .metadata.labels["network.topology.nvidia.com/accelerator"] == $accelerator
+            .metadata.labels["xclr.topology.nvidia.com/domain"] == $accelerator
         ' >/dev/null; then
         exit 0
     fi

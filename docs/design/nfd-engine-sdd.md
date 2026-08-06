@@ -9,7 +9,7 @@ Implemented.
 Add an experimental `nfd` engine that converts Topograph's canonical
 `topology.Graph` into Node Feature Discovery (NFD) `NodeFeatureGroup` objects.
 The engine creates one group for each distinct topology label value, such as one
-group for each distinct fabric-tier or accelerator value.
+group for each distinct fabric tier, XCLR domain, or XCLR sub-domain value.
 
 This should not replace the current `k8s` engine. The `k8s` engine writes node
 labels that can be consumed by native Kubernetes affinity and topology-aware
@@ -18,9 +18,10 @@ NFD CRs for consumers that already watch NFD.
 
 ## Background
 
-Topograph already maps topology into four Kubernetes label dimensions:
+Topograph maps topology into Kubernetes label dimensions including:
 
-- `network.topology.nvidia.com/accelerator`
+- `xclr.topology.nvidia.com/domain`
+- `xclr.topology.nvidia.com/sub-domain`
 - `network.topology.nvidia.com/tier-0`
 - `network.topology.nvidia.com/tier-1`
 - `network.topology.nvidia.com/tier-2`
@@ -71,7 +72,8 @@ spec:
           nodename: node-a
       topograph.network:
         elements:
-          accelerator: nvl3
+          xclr-domain: nvl3
+          xclr-sub-domain: nvl3.rack01
           fabric-tier-0: leaf-12
           fabric-tier-1: spine-2
           fabric-tier-2: core-1
@@ -127,7 +129,8 @@ returns an error if `NFD_NAMESPACE` is unset or blank.
 - Add `pkg/engines/nfd` with the standard `NamedLoader`.
 - Register it in `pkg/registry/registry.go`.
 - Factor the current `k8s` label projection into a shared helper so both engines
-  produce identical values at every discovered fabric tier and accelerator domain.
+  produce identical values at every discovered fabric tier, XCLR domain, and
+  XCLR sub-domain.
 - Use the dynamic Kubernetes client or generated NFD client types, depending on
   whether the project wants to pin an NFD API dependency.
 - Update Helm RBAC to allow create, update, patch, list, watch, and delete for
@@ -190,7 +193,8 @@ overhead.
 Assumptions:
 
 - 10,000 `NodeFeature` objects, one per node.
-- One topology attribute for every discovered fabric tier and accelerator domain.
+- One topology attribute for every discovered fabric tier, XCLR domain, and
+  XCLR sub-domain.
 - Each node appears in one `NodeFeatureGroup.status.nodes` list per topology
   dimension, so status contains about 40,000 node references total.
 - Average node names and topology values are short, roughly 10-30 characters.
@@ -220,12 +224,14 @@ small patches to reduce write amplification.
 
 ## Test Plan
 
-- Unit-test graph-to-group generation across variable fabric tiers and accelerator domains.
+- Unit-test graph-to-group generation across variable fabric tiers, XCLR
+  domains, and XCLR sub-domains.
 - Verify long and invalid topology values produce stable CR names.
 - Verify stale Topograph-managed groups are removed when `cleanup` is enabled.
 - Verify an empty generated object set returns an error and preserves existing
   objects when `cleanup` is enabled.
-- Verify nodes with `nvidia.com/gpu.clique` follow the same accelerator behavior
-  as the `k8s` engine.
+- Verify nodes with `nvidia.com/gpu.clique` replace the provider XCLR domain
+  with the clique value and suppress the provider XCLR sub-domain, matching the
+  `k8s` engine's `skipXclrLabelsWhenGPUCliqueExists` behavior.
 - Add a fake dynamic-client test that applies generated `NodeFeature` and
   `NodeFeatureGroup` objects without requiring a live NFD deployment.
