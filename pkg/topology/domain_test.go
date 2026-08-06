@@ -80,7 +80,7 @@ func TestDomainMapAddHost(t *testing.T) {
 	}, domainMap)
 }
 
-func TestInferBlockSizes(t *testing.T) {
+func TestInferTwoLevelBlockSizes(t *testing.T) {
 	addHosts := func(dm DomainMap, domain, subDomain string, count int) {
 		key := domain
 		if subDomain != "" {
@@ -96,27 +96,27 @@ func TestInferBlockSizes(t *testing.T) {
 	}
 
 	t.Run("empty map returns nil", func(t *testing.T) {
-		require.Nil(t, NewDomainMap().InferBlockSizes())
+		require.Nil(t, NewDomainMap().InferTwoLevelBlockSizes())
 	})
 
-	t.Run("single-level returns maxDomainSize", func(t *testing.T) {
+	t.Run("single-level returns nil", func(t *testing.T) {
 		dm := NewDomainMap()
 		addHosts(dm, "d1", "", 8)
 		addHosts(dm, "d2", "", 6)
-		require.Equal(t, []int{8}, dm.InferBlockSizes())
+		require.Nil(t, dm.InferTwoLevelBlockSizes())
 	})
 
-	t.Run("two-level returns maxSubDomainSize and maxDomainSize", func(t *testing.T) {
+	t.Run("two-level returns maxSubDomainSize and aggregateSize", func(t *testing.T) {
 		dm := NewDomainMap()
 		addHosts(dm, "fabric-1", "fabric-1.rack-a", 8)
 		addHosts(dm, "fabric-1", "fabric-1.rack-b", 8)
-		require.Equal(t, []int{8, 16}, dm.InferBlockSizes())
+		require.Equal(t, []int{8, 16}, dm.InferTwoLevelBlockSizes())
 	})
 
 	t.Run("two-level single sub-domain collapses to one size", func(t *testing.T) {
 		dm := NewDomainMap()
 		addHosts(dm, "fabric-1", "fabric-1.rack-a", 8)
-		require.Equal(t, []int{8}, dm.InferBlockSizes())
+		require.Equal(t, []int{8}, dm.InferTwoLevelBlockSizes())
 	})
 
 	t.Run("two-level unequal sub-domains rounds aggregate to power-of-2 multiple", func(t *testing.T) {
@@ -124,6 +124,6 @@ func TestInferBlockSizes(t *testing.T) {
 		dm := NewDomainMap()
 		addHosts(dm, "fabric-1", "fabric-1.rack-a", 8)
 		addHosts(dm, "fabric-1", "fabric-1.rack-b", 4)
-		require.Equal(t, []int{8, 16}, dm.InferBlockSizes())
+		require.Equal(t, []int{8, 16}, dm.InferTwoLevelBlockSizes())
 	})
 }

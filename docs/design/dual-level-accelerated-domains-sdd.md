@@ -114,7 +114,7 @@ empty `SubDomain` in a grouped domain are placed in a fallback sub-domain vertex
 keyed by the accelerator domain name (with a `klog.Warningf`), so the host is
 always emitted rather than silently dropped.
 
-`DomainMap` also carries a new method `InferBlockSizes() []int` that derives a
+`DomainMap` also carries a new method `InferTwoLevelBlockSizes() []int` that derives a
 `blockSizes` slice from the map's content without requiring explicit operator
 configuration. See [BlockSizes Configuration — Automatic inference](#automatic-inference).
 
@@ -217,30 +217,36 @@ all domains.
 For dual-level and mixed trees, `toDomainAggregate` computes `numBaseBlocks`
 differently for leaf and interior nodes:
 
-**Leaf nodes** (`src.Hosts != nil`, single-level domain):
+**Leaf nodes** (`src.Hosts != nil`, single-level domain in a mixed tree):
 
 | Condition | Formula |
 |---|---|
 | `blockSizes[last] ≥ maxSiblingNodes` (normal) | `aggregateSlotCapacity(maxSiblingNodes, blockSizes[0]) / blockSizes[0]` |
 | `blockSizes[last] < maxSiblingNodes` (oversized) | `⌈ActualNodeCount / blockSizes[0]⌉` |
 
-The oversized case uses ceiling division rather than power-of-2 rounding. Power-of-2
-rounding is only needed for interior nodes (to keep sub-domain slots uniform); applying
-it to a leaf in the dual-level path produces spurious empty placeholder blocks.
+The oversized case uses ceiling division so the slot does not grow with spurious empty
+placeholder blocks beyond the actual host count.
 
 **Interior nodes** (`src.Hosts == nil`, two-level domain):
 
-| Condition | `nodeCount` |
-|---|---|
-| `blockSizes[last] ≥ maxSiblingNodes` (normal) | `aggregateSlotCapacity(maxSiblingNodes, blockSizes[0])` |
-| `blockSizes[last] < maxSiblingNodes` (oversized) | `aggregateSlotCapacity(src.ActualNodeCount, blockSizes[0])` |
+```
+nodeCount    = aggregateSlotCapacity(min(blockSizes[last], maxSiblingNodes), blockSizes[0])
+numBaseBlocks = nodeCount / blockSizes[0]
+```
 
-`numBaseBlocks = nodeCount / blockSizes[0]`.
+`min()` gives siblings a uniform slot sized to the largest sibling, capped at
+`blockSizes[last]` so under-configured block-size lists do not inflate domain slots
+beyond the configured hierarchy boundary.
+
+`numBaseBlocks` is a lower bound. When sub-domain recursion produces more base blocks
+than `numBaseBlocks`, the count is rounded up to the nearest aggregate boundary
+(the smallest `blockSizes[k]` ≥ actual node count, or `aggregateSlotCapacity` if
+none fits) so the domain slot always ends on a valid Slurm aggregate position.
 
 `maxSiblingNodes` is the `MaxChildNodeCount` of the caller's vertex (the largest
 `ActualNodeCount` among the siblings being processed), ensuring uniform slot widths.
 
-#### Three conversion strategies
+#### Two conversion strategies
 
 **Strategy 1 — leaf vertex** (`src.Hosts != nil`):
 ```
@@ -249,24 +255,12 @@ blocks = splitIntoBaseBlocks(src.ID, sortedHosts, blockSizes[0])
 pad with newEmptyBaseBlock until len(blocks) == numBaseBlocks
 ```
 
-**Strategy 2 — small sub-domains** (`src.MaxChildNodeCount < blockSizes[0]`):
-Sub-domain hosts are accumulated in sorted order using a greedy lookahead flush: before
-appending each child's hosts, the pending set is flushed into a new base block if adding
-the child would exceed `blockSizes[0]`. Each flushed block is named with the `"+"`
-delimited sub-domains that contributed to it. Any remaining hosts form a partial base
-block. Result is padded to `numBaseBlocks`.
-
-This strategy fills each block as densely as possible. When a `blockName` formatter is
-configured, Strategy 2 is automatically skipped — combining hosts from different
-sub-domains into one block makes per-sub-domain name derivation ambiguous. Strategy 3
-is used instead. To keep each sub-domain in its own block without a formatter, set
-`BlockSizes[0]` equal to the sub-domain node count so that Strategy 3 fires.
-
-**Strategy 3 — larger sub-domains** (`src.MaxChildNodeCount ≥ blockSizes[0]`):
+**Strategy 2 — interior vertex** (`src.Hosts == nil`):
 `toDomainAggregate` is called recursively on each sub-domain child using
-`src.MaxChildNodeCount` as `maxSiblingNodes`. The resulting base blocks are
-flattened into the current aggregate, and the list is padded to `numBaseBlocks`
-with empty base blocks.
+`src.MaxChildNodeCount` as `maxSiblingNodes` so all siblings are sized uniformly.
+The resulting base blocks are flattened into the parent aggregate and padded to
+`numBaseBlocks` with empty base blocks. If the children overflow `numBaseBlocks`,
+the count is rounded up to the nearest aggregate boundary as described above.
 
 Children are always visited in ascending alphabetical order for determinism.
 
@@ -299,14 +293,14 @@ required by Slurm.
 
 ### Automatic inference
 
-When `BlockSizes` is not configured, `complementBlocks` calls `DomainMap.InferBlockSizes`
-on the partition-local domain map to derive sizes automatically:
+When `BlockSizes` is not configured, `complementBlocks` calls
+`DomainMap.InferTwoLevelBlockSizes` on the partition-local domain map to derive
+sizes automatically:
 
-| Domain map shape | Inferred `BlockSizes` |
+| Domain map shape | Result |
 |---|---|
-| Single-level (no host carries `SubDomain`) | `[D, 2D, 4D, ..., 2^k*D]`, where `D` is the smallest domain size and `k=floor(log2(N))` for `N` domains |
-| Two-level (any host carries `SubDomain`) | `[maxSubDomainSize, aggregateSize]` — one base block per sub-domain; `aggregateSize` is the smallest power-of-2 multiple of `maxSubDomainSize` that is `≥ maxDomainSize` |
-| Empty map | `nil` — complement is skipped, blocks returned unchanged |
+| Two-level (any host carries `SubDomain`) | `[maxSubDomainSize, aggregateSize]` where `aggregateSize` is the smallest power-of-2 multiple of `maxSubDomainSize` that is `≥ maxDomainSize` |
+| Single-level (no host carries `SubDomain`) or empty map | `nil` — `complementBlocks` returns the blocks unchanged; `toBlockTopology` then calls `getBlockSizes` to derive `[D, 2D, 4D, ..., 2^k*D]` from the live block list, where `D` is the smallest domain size and `k=floor(log2(N))` for `N` blocks |
 
 The power-of-2 rounding for `aggregateSize` matches `aggregateSlotCapacity` inside
 `buildBlockTree`, so the inferred sizes produce the same slot layout that explicit
@@ -316,34 +310,17 @@ configuration with those values would.
 `maxDomainSize=16`; inferred `BlockSizes=[8,16]`; output is two blocks of 8 nodes
 each (one per rack) rather than one coarse block of 16.
 
-Explicit `BlockSizes` overrides inference entirely — set it when you need a specific
-packing strategy (e.g. Strategy 2 to combine small sub-domains across rack boundaries).
+Explicit `BlockSizes` overrides inference entirely.
 
 ### Strategy selection
 
-`BlockSizes[0]` (the base block size) determines how sub-domain hosts are packed into
-base blocks. Only `BlockSizes[0]` requires careful selection; intermediate entries
-(`BlockSizes[1]`, etc.) are used only for root-level padding and do not need to match
-any particular topology level.
+Each sub-domain is always assigned its own base block slot (Strategy 2). Slots are
+padded with empty host placeholders when the sub-domain does not fill the full block.
+This preserves sub-domain boundary granularity so that schedulers can target
+per-sub-domain block positions.
 
-The tree builder selects one of two strategies based on how the sub-domain actual host
-count (`MaxChildNodeCount`) compares to `BlockSizes[0]`:
-
-**Strategy 2 — combine sub-domain hosts** (when `MaxChildNodeCount < BlockSizes[0]`):
-Hosts from multiple sub-domains are accumulated using a greedy lookahead flush: a new base
-block is flushed before appending the next sub-domain whenever doing so would exceed
-`BlockSizes[0]`. This fills each block as densely as possible. When a `blockName` formatter
-is configured, Strategy 2 is automatically skipped (Strategy 3 is used instead) to avoid
-combining hosts from different sub-domains into one block, which makes per-sub-domain name
-derivation ambiguous. To keep each sub-domain in its own block without a formatter, set
-`BlockSizes[0]` equal to the sub-domain node count so that Strategy 3 fires.
-
-**Strategy 3 — one slot per sub-domain** (when `MaxChildNodeCount ≥ BlockSizes[0]`):
-Each sub-domain is assigned its own base block slot; slots are padded with empty host
-placeholders when the sub-domain does not fill the full block. This preserves sub-domain
-boundary granularity in the output — callers that rely on per-sub-domain block positions
-for scheduling can use this strategy by setting `BlockSizes[0]` equal to or smaller than
-`MaxChildNodeCount`.
+`BlockSizes[0]` controls the slot width: set it equal to the sub-domain node count
+so each sub-domain fills exactly one base block with no empty host slots wasted.
 
 **Example cluster:** 2 accelerator domains, each with 4 racks of 9 hosts = 36 hosts per
 domain, 72 hosts total.
@@ -352,55 +329,39 @@ domain, 72 hosts total.
 
 **`BlockSizes[0]=9` — rack exactly fills one base block:**
 
-Every rack produces exactly 1 full base block. No host slots are wasted.
-Domain slot capacity = `aggregateSlotCapacity(36, 9) = 36` → 4 base blocks per domain.
-Root pads 2 domain slots to 288 with 6 empty domain aggregates.
+Every rack produces 1 full base block. No host slots are wasted.
+Domain slot capacity = `aggregateSlotCapacity(min(blockSizes[last], 36), 9)` → 4 base
+blocks per domain (when `blockSizes[last] ≥ 36`).
 
 ```
 block001 Nodes=node[a0-a8]    ← rack-0 of domain-a (full)
 block002 Nodes=node[a9-a17]   ← rack-1 of domain-a (full)
 block003 Nodes=node[a18-a26]  ← rack-2 of domain-a (full)
 block004 Nodes=node[a27-a35]  ← rack-3 of domain-a (full)
-... same for domain-b, then 24 empty root-padding blocks ...
-BlockSizes=9,288
+... same for domain-b, then root-padding blocks ...
+BlockSizes=9,<aggregateSize>
 ```
 
 ---
 
-**`BlockSizes[0]=18`, rack has 9 hosts — Strategy 2 fires (`9 < 18`)**:
+**`BlockSizes[0]=18`, rack has 9 hosts:**
 
-Sub-domain hosts are combined across rack boundaries using the greedy lookahead flush.
-rack-0 (9): pending=0, no flush. pending=9. rack-1 (9): 9+9=18 ≤ 18, no flush. pending=18.
-rack-2 (9): 18+9=27 > 18 → flush "rack-0+rack-1" (18 hosts). pending=9.
-rack-3 (9): 9+9=18 ≤ 18, no flush. pending=18. End → flush "rack-2+rack-3" (18 hosts).
-All 4 racks' 36 hosts pack into 2 full 18-node base blocks.
-
-```
-block001 Nodes=node[a0-a17]   ← combined racks 0+1 of domain-a (18 real, full)
-block002 Nodes=node[a18-a35]  ← combined racks 2+3 of domain-a (18 real, full)
-... same for domain-b, then 28 empty root-padding blocks ...
-BlockSizes=18,288
-```
-
----
-
-**`BlockSizes[0]=18`, rack has 12 hosts — Strategy 2 fires (`12 < 18`)**:
-
-Strategy 2 fires, but the greedy lookahead sees that each pair of racks would overflow
-(12 + 12 = 24 > 18), so every rack still flushes into its own base block with 6 empty slots.
-Sub-domain boundary is preserved in the output, same as if Strategy 3 had been used.
+Each rack gets its own 18-slot base block (9 real + 9 empty host placeholders).
+Domain slot capacity = `aggregateSlotCapacity(min(blockSizes[last], 36), 18)`.
+With 4 racks producing 4 blocks and `numBaseBlocks=2`, the overflow is rounded to the
+next `blockSizes[1]`-aligned boundary so the domain ends on a valid aggregate position.
 
 ```
-block001 Nodes=node[a0-a11]   ← rack-0 of domain-a (12 real + 6 empty host slots)
-block002 Nodes=node[a12-a23]  ← rack-1 of domain-a (12 real + 6 empty host slots)
-block003 Nodes=node[a24-a35]  ← rack-2 of domain-a (12 real + 6 empty host slots)
-block004 Nodes=node[a36-a47]  ← rack-3 of domain-a (12 real + 6 empty host slots)
-... same for domain-b, then 24 empty root-padding blocks ...
-BlockSizes=18,288
+block001 Nodes=node[a0-a8]    ← rack-0 of domain-a (9 real + 9 empty host slots)
+block002 Nodes=node[a9-a17]   ← rack-1 of domain-a (9 real + 9 empty host slots)
+block003 Nodes=node[a18-a26]  ← rack-2 of domain-a (9 real + 9 empty host slots)
+block004 Nodes=node[a27-a35]  ← rack-3 of domain-a (9 real + 9 empty host slots)
+... same for domain-b, then root-padding blocks ...
+BlockSizes=18,<aggregateSize>
 ```
 
-To eliminate the per-slot waste, set `BlockSizes[0]=12` so each rack fills exactly one base
-block and Strategy 3 fires (`12 ≥ 12`).
+To eliminate the per-slot waste, set `BlockSizes[0]=9` so each rack fills exactly one base
+block.
 
 ## Example
 
@@ -411,16 +372,14 @@ nodes. Accelerator domain 1 has 14 active sub-domains; accelerator domain 2 has
 **`GetDomainTree` populates:**
 - `MaxChildNodeCount` on domain-01 = 9 (max sub-domain host count within domain-01)
 - `MaxChildNodeCount` on domain-02 = 9
-- `MaxChildNodeCount` on root = 131 (max domain `ActualNodeCount`; domain-02 has
-  15 × 9 = 135? actually domain-02's `ActualNodeCount` = placed hosts)
+- `MaxChildNodeCount` on root = max `ActualNodeCount` across all domains
 
-**`toRootAggregate` for each domain:**
+**`toRootAggregate` for each domain (Strategy 2 — interior):**
 - `maxSiblingNodes = root.MaxChildNodeCount`
-- `nodeCount = aggregateSlotCapacity(maxSiblingNodes, 9)` = 144 (9 × 16 ≥ max)
+- `nodeCount = aggregateSlotCapacity(min(144, maxSiblingNodes), 9)` = 144
 - `numBaseBlocks = 144 / 9 = 16`
-- Strategy 3 (MaxChildNodeCount=9 ≥ blockSizes[0]=9): recurse into each sub-domain
-  - Each sub-domain: `nodeCount = aggregateSlotCapacity(9, 9) = 9`, `numBaseBlocks = 1`
-  - Strategy 1 (leaf): each sub-domain → 1 base block
+- Recurse into each sub-domain child:
+  - Each sub-domain (Strategy 1 — leaf): `aggregateSlotCapacity(9, 9) = 9` → 1 base block
 - domain-01: 14 real sub-domain blocks + 2 empty = 16 base blocks
 - domain-02: 15 real sub-domain blocks + 1 empty = 16 base blocks
 
@@ -476,10 +435,12 @@ entry allocates only the minimum required base blocks, while multiple entries
 reserve the same power-of-two slot for every domain based on the largest sibling.
 The output is therefore identical to the pre-change single-level behavior.
 
-When `BlockSizes` is not configured and no host carries a `SubDomain`, inference
-preserves the existing single-level hierarchy. For `N` domains, `D` is the
-smallest domain size and the result is `[D, 2D, 4D, ..., 2^k*D]`, where
-`k=floor(log2(N))`. The single-level compatibility path is then taken.
+When `BlockSizes` is not configured and no host carries a `SubDomain`,
+`InferTwoLevelBlockSizes` returns `nil`. `complementBlocks` returns the blocks
+unchanged, and `toBlockTopology` calls `getBlockSizes` to derive
+`[D, 2D, 4D, ..., 2^k*D]` from the live block list (where `D` is the smallest
+domain size and `k=floor(log2(N))` for `N` blocks). The single-level
+compatibility path is then taken.
 
 ## Test Plan
 
@@ -488,33 +449,35 @@ smallest domain size and the result is `[D, 2D, 4D, ..., 2^k*D]`, where
   (`tests/models/dual-xclr-irregular.yaml`) with `BlockSizes=[9,144]` to assert
   32 blocks — 16 per accelerator domain — with correct placeholder entries for
   absent sub-domains.
+- `TestComplementOverflowRoundedToAggregateBoundary`: regression test for the
+  overflow-alignment fix — `BlockSizes=[8,32]`, domain "a" with 5 × 3-node
+  sub-domains (actual 5 blocks, rounded to 8) and domain "b" with 4 × 2-node
+  sub-domains (4 blocks, already aligned). Verifies no domain "b" node appears
+  in the first 8 block positions.
+- `TestComplementUnequalDomainSubDomainCounts`: verifies that overflow landing
+  exactly on a `blockSizes[1]` boundary is accepted as-is (domain "a": 4 sub-domains
+  each produce 1 block = 72 nodes = `blockSizes[1]`, no extra padding).
 - `TestComplementMultiGroupRootExpansion6x16`, `TestComplementMultiGroupRootExpansion3x72`:
-  verify over-full root padding — when the total real-child capacity exceeds
-  `blockSizes[last]` but is not yet a multiple of it, empty domain slots are
-  appended to reach the next multiple boundary.
-- `TestComplementSingleLevelOversizedDomain`: regression test for the power-of-2
-  over-allocation fix — 1 domain, 5 hosts, `BlockSizes=[2]` (`lastBlockSize < maxSiblingNodes`)
-  asserts exactly 3 blocks with no spurious empty placeholder.
+  verify LCM-based root padding when the total real-child capacity is not yet a
+  multiple of `blockSizes[last]`.
+- `TestComplementSingleLevelOversizedDomain`: 1 domain, 5 hosts, `BlockSizes=[2]`
+  — asserts exactly 3 blocks with no spurious empty placeholder (oversized-leaf path).
 - `TestComplementSingleLevelMixedOversizedDomainsPreservesUniformSlots`: verifies
-  that differently sized single-level domains retain the legacy uniform slot
-  reservation when the largest domain exceeds `blockSizes[last]`.
+  that differently sized single-level domains retain uniform slot reservation when the
+  largest domain exceeds `blockSizes[last]`.
 - `TestComplementMixedLevelDomainsUseDualLevelSizing`: verifies that a tree with
   any sub-domain bypasses the single-level compatibility path.
-- `TestComplementSubDomainGranularityWithoutBlockSizes`: regression test for the
-  OCI two-rack scenario — one fabric domain, 8 nodes per rack, `BlockSizes` unset;
-  asserts two rack-level blocks rather than one coarse domain block, verifying that
-  `InferBlockSizes` restores sub-domain granularity on the unconfigured path.
 - All existing complement tests (`TestComplementMissingBaseBlock`,
   `TestComplementMissingLeafSegment`, `TestComplementKeepsSeparateAccelerators`,
   etc.) continue to pass, verifying backward compatibility for the no-`SubDomain`
   path.
 
 **`DomainMap` unit tests (`pkg/topology/domain_test.go`):**
-- `TestGetDomainTreeUnrackedHostFallback`: host with empty `SubDomain` in a grouped domain is placed in a fallback vertex keyed by the domain name rather than dropped.
-- `TestInferBlockSizes`: covers nil (empty map), single-level domain counts that
-  produce one or more inferred sizes, two-level equal sub-domains (returns
-  `[maxSubDomainSize, aggregateSize]`), a single sub-domain per domain, and unequal
-  sub-domain sizes (power-of-2 rounding of `aggregateSize`).
+- `TestGetDomainTreeUnrackedHostFallback`: host with empty `SubDomain` in a grouped
+  domain is placed in a fallback vertex keyed by the domain name rather than dropped.
+- `TestInferTwoLevelBlockSizes`: covers nil (empty or single-level map), two-level
+  equal sub-domains (returns `[maxSubDomainSize, aggregateSize]`), a single sub-domain
+  per domain, and unequal sub-domain sizes (power-of-2 rounding of `aggregateSize`).
 
 **Kubernetes label output:**
 - `TestBuildNodeLabelsWithXclrSubDomain` in `pkg/engines/k8s/labeler_test.go`

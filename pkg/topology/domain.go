@@ -89,17 +89,16 @@ func (m DomainMap) AddHostInfo(hostInfo *HostInfo) {
 	}
 }
 
-// InferBlockSizes derives a blockSizes slice from the domain map without requiring
-// explicit operator configuration. When any host carries a SubDomain the map is
-// two-level and InferBlockSizes returns [maxSubDomainSize, aggregateSize], where
-// aggregateSize is the smallest power-of-2 multiple of maxSubDomainSize that is
-// >= maxDomainSize — matching the slot-capacity formula used by buildBlockTree. When
-// no host carries a SubDomain the map is single-level and InferBlockSizes returns
-// [maxDomainSize], giving one base block per domain. Returns nil when the map is
-// empty or all domain sizes are zero.
-func (m DomainMap) InferBlockSizes() []int {
-	maxSubDomainSize := 0
+// InferTwoLevelBlockSizes derives a blockSizes slice for two-level domain maps
+// (i.e. at least one host carries a SubDomain). It returns
+// [maxSubDomainSize, aggregateSize], where aggregateSize is the smallest
+// power-of-2 multiple of maxSubDomainSize that is >= maxDomainSize — matching
+// the slot-capacity formula used by buildBlockTree. Returns nil for single-level
+// maps (no SubDomain present) and for empty maps, so callers fall back to
+// getBlockSizes for those cases.
+func (m DomainMap) InferTwoLevelBlockSizes() []int {
 	maxDomainSize := 0
+	maxSubDomainSize := 0
 	hasSubDomains := false
 
 	for _, hosts := range m {
@@ -120,11 +119,8 @@ func (m DomainMap) InferBlockSizes() []int {
 		}
 	}
 
-	if maxDomainSize == 0 {
-		return nil
-	}
 	if !hasSubDomains {
-		return []int{maxDomainSize}
+		return nil
 	}
 	aggregateSize := maxSubDomainSize
 	for aggregateSize < maxDomainSize {

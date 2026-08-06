@@ -10,7 +10,6 @@ import (
 	"maps"
 	"slices"
 	"sort"
-	"strings"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"k8s.io/klog/v2"
@@ -48,7 +47,7 @@ func (*baseBlockNode) blockTreeNode() {}
 
 func (n *baseBlockNode) levelIdentifier() string { return n.domain }
 
-// aggregateBlockNode groups base blocks or other aggregates. An domain with
+// aggregateBlockNode groups base blocks or other aggregates. A domain with
 // multiple base blocks is represented as an aggregate of baseBlockNode children.
 type aggregateBlockNode struct {
 	id        string
@@ -224,14 +223,14 @@ func newEmptyBaseBlock(baseBlockSize int) *baseBlockNode {
 	return &baseBlockNode{leaves: leaves}
 }
 
-func buildBlockTree(domains topology.DomainMap, blockSizes []int, combineSubdomains bool) *aggregateBlockNode {
+func buildBlockTree(domains topology.DomainMap, blockSizes []int) *aggregateBlockNode {
 	if len(blockSizes) == 0 || blockSizes[0] <= 0 {
 		klog.V(4).Infof("buildBlockTree: skipping — invalid blockSizes %v", blockSizes)
 		return nil
 	}
 	klog.V(4).Infof("buildBlockTree: building tree for %d domain(s) with blockSizes=%v", len(domains), blockSizes)
 	root := domains.GetDomainTree()
-	result := toRootAggregate(root, blockSizes, combineSubdomains)
+	result := toRootAggregate(root, blockSizes)
 	if result == nil {
 		klog.V(4).Infof("buildBlockTree: result is empty (no domains or no hosts)")
 	} else {
@@ -295,7 +294,7 @@ func toSingleLevelDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int
 // slot capacity is determined by the maximum actualNodeCount among the vertex's
 // siblings (maxSiblingNodes).
 //
-// Slot capacity differs by node type and whether the domain exceeds blockSizes[last]:
+// Slot capacity differs by node type:
 //
 //	Leaf (src.Hosts != nil):
 //	  Normal  (lastBlockSize ≥ maxSiblingNodes): numBaseBlocks = aggregateSlotCapacity(maxSiblingNodes, blockSizes[0]) / blockSizes[0]
@@ -303,29 +302,28 @@ func toSingleLevelDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int
 //	  (Power-of-2 rounding is skipped for oversized leaves to avoid spurious empty blocks.)
 //
 //	Interior (src.Hosts == nil):
-//	  Normal:   nodeCount = aggregateSlotCapacity(maxSiblingNodes, blockSizes[0])
-//	  Oversized: nodeCount = aggregateSlotCapacity(src.ActualNodeCount, blockSizes[0])
+//	  nodeCount    = aggregateSlotCapacity(min(lastBlockSize, maxSiblingNodes), blockSizes[0])
 //	  numBaseBlocks = nodeCount / blockSizes[0]
 //
-// Base blocks are filled by one of three strategies:
+//	  min() caps the slot at lastBlockSize when maxSiblingNodes exceeds it (under-configured
+//	  blockSizes), avoiding inflated slots. When maxSiblingNodes ≤ lastBlockSize the result
+//	  equals aggregateSlotCapacity(maxSiblingNodes, blockSizes[0]).
+//
+//	  numBaseBlocks is a minimum: if recurseChildrenIntoAggregate produces more slots due
+//	  to many small sub-domains, the count is rounded to the nearest natural blockSizes
+//	  level to guarantee the domain ends on a valid aggregate boundary (see
+//	  recurseChildrenIntoAggregate).
+//
+// Base blocks are filled by one of two strategies:
 //
 //  1. Leaf (src.Hosts != nil): split hosts with splitIntoBaseBlocks and pad
 //     to numBaseBlocks with empty base blocks (using the leaf slot formula above).
 //
-//  2. Interior, children smaller than a full base block (MaxChildNodeCount < blockSizes[0]):
-//     pack hosts from multiple sub-domains together into shared base blocks to reduce
-//     empty slots. Before appending each child's hosts, the pending set is flushed into
-//     a new base block if adding the child would exceed baseBlockSize. This greedy
-//     lookahead fills each block as densely as possible. Skipped when a blockName
-//     formatter is configured — combining hosts across sub-domain boundaries makes
-//     per-sub-domain name derivation ambiguous; Strategy 3 is used instead.
-//
-//  3. Interior, children fill at least a full base block (MaxChildNodeCount ≥ blockSizes[0]):
-//     call toDomainAggregate recursively per child using src.MaxChildNodeCount (the
-//     parent's max child node count) as maxSiblingNodes so all siblings are sized
+//  2. Interior: call toDomainAggregate recursively per child using src.MaxChildNodeCount
+//     (the parent's max child node count) as maxSiblingNodes so all siblings are sized
 //     uniformly, flatten the resulting base blocks into this aggregate, and pad
 //     to numBaseBlocks.
-func toDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int, blockSizes []int, combineSubdomains bool) *aggregateBlockNode {
+func toDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int, blockSizes []int) *aggregateBlockNode {
 	if src == nil || len(blockSizes) == 0 {
 		return nil
 	}
@@ -333,12 +331,10 @@ func toDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int, blockSize
 	lastBlockSize := blockSizes[len(blockSizes)-1]
 
 	// Strategy 1: leaf vertex — split hosts directly into base blocks.
-	// Slot sizing for leaves differs from interior nodes:
-	//   - Normal case (lastBlockSize >= maxSiblingNodes): use aggregateSlotCapacity(maxSiblingNodes)
-	//     so all sibling domains get a uniform slot width.
-	//   - Oversized case (lastBlockSize < maxSiblingNodes): use ceil(ActualNodeCount/baseBlockSize).
-	//     Power-of-2 rounding is only needed for interior nodes where sub-domain slot uniformity
-	//     requires it; applying it to leaves produces spurious empty placeholder blocks.
+	// Normal case (lastBlockSize >= maxSiblingNodes): all sibling domains get the same
+	// power-of-2 slot width via aggregateSlotCapacity(maxSiblingNodes).
+	// Oversized case (lastBlockSize < maxSiblingNodes): use ceil(ActualNodeCount/baseBlockSize)
+	// to avoid inflating the slot with spurious empty placeholder blocks.
 	if src.Hosts != nil {
 		var numBaseBlocks int
 		if lastBlockSize < maxSiblingNodes {
@@ -350,28 +346,13 @@ func toDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int, blockSize
 		return packHostsIntoAggregate(src.ID, hostsSorted(src.Hosts), numBaseBlocks, baseBlockSize)
 	}
 
-	// For interior nodes, power-of-2 rounding via aggregateSlotCapacity ensures uniform
-	// slot widths across sub-domains.
-	// When the max sibling count exceeds lastBlockSize the slot is capped to the domain's
-	// own ActualNodeCount to avoid inflating every sibling's slot when blockSizes is
-	// under-configured.
-	var nodeCount int
-	if lastBlockSize < maxSiblingNodes {
-		nodeCount = aggregateSlotCapacity(src.ActualNodeCount, baseBlockSize)
-	} else {
-		nodeCount = aggregateSlotCapacity(maxSiblingNodes, baseBlockSize)
-	}
+	// Strategy 2: interior vertex — recurse into each sub-domain child.
+	// min(lastBlockSize, maxSiblingNodes) gives each sibling a uniform slot sized to
+	// the largest sibling, capped at lastBlockSize so under-configured blockSizes do
+	// not inflate every domain's slot beyond the configured hierarchy boundary.
+	nodeCount := aggregateSlotCapacity(min(lastBlockSize, maxSiblingNodes), baseBlockSize)
 	numBaseBlocks := max(nodeCount/baseBlockSize, 1)
-
-	// Strategy 2: children smaller than a full base block — combine their hosts greedily.
-	// Skipped when a blockName formatter is configured (combineSubdomains=false) because
-	// mixing hosts from different sub-domains makes per-sub-domain name derivation ambiguous.
-	if combineSubdomains && src.MaxChildNodeCount > 0 && src.MaxChildNodeCount < baseBlockSize {
-		return combineChildHostsIntoAggregate(src, numBaseBlocks, baseBlockSize)
-	}
-
-	// Strategy 3: children are at least base-block sized — recurse per child.
-	return recurseChildrenIntoAggregate(src, numBaseBlocks, blockSizes, combineSubdomains)
+	return recurseChildrenIntoAggregate(src, numBaseBlocks, blockSizes)
 }
 
 // toRootAggregate builds the root-level aggregateBlockNode by calling toDomainAggregate on
@@ -383,7 +364,7 @@ func toDomainAggregate(src *topology.BlockVertex, maxSiblingNodes int, blockSize
 // toDomainAggregate. Empty root-padding aggregates use the GCD of the resulting
 // child capacities so padding can reach a valid root boundary even when child
 // capacities differ.
-func toRootAggregate(root *topology.BlockVertex, blockSizes []int, combineSubdomains bool) *aggregateBlockNode {
+func toRootAggregate(root *topology.BlockVertex, blockSizes []int) *aggregateBlockNode {
 	if root == nil || len(blockSizes) == 0 || blockSizes[0] <= 0 {
 		return nil
 	}
@@ -399,7 +380,7 @@ func toRootAggregate(root *topology.BlockVertex, blockSizes []int, combineSubdom
 		if singleLevel {
 			domainAgg = toSingleLevelDomainAggregate(domain, root.MaxChildNodeCount, blockSizes)
 		} else {
-			domainAgg = toDomainAggregate(domain, root.MaxChildNodeCount, blockSizes, combineSubdomains)
+			domainAgg = toDomainAggregate(domain, root.MaxChildNodeCount, blockSizes)
 		}
 		if domainAgg == nil {
 			continue
@@ -443,7 +424,7 @@ func aggregateSlotCapacity(maxSiblingNodes, baseBlockSize int) int {
 
 // packHostsIntoAggregate splits sortedHosts into baseBlockSize-wide base blocks,
 // pads the list to numBaseBlocks with empty base blocks, and wraps the result in an
-// aggregateBlockNode. It is the common leaf-packing routine shared by strategies 1 and 2.
+// aggregateBlockNode. It is the leaf-packing routine used by strategy 1.
 func packHostsIntoAggregate(id string, sortedHosts []*topology.HostInfo, numBaseBlocks, baseBlockSize int) *aggregateBlockNode {
 	blocks := splitIntoBaseBlocks(id, sortedHosts, baseBlockSize)
 	for len(blocks) < numBaseBlocks {
@@ -457,75 +438,24 @@ func packHostsIntoAggregate(id string, sortedHosts []*topology.HostInfo, numBase
 	return agg
 }
 
-// combineChildHostsIntoAggregate implements strategy 2: it iterates over children
-// sorted by name, accumulates their hosts along with the sub-domain names, and flushes
-// a base block before appending the next child whenever doing so would exceed
-// baseBlockSize. Each flushed block is named with the "+" delimited sub-domains that
-// contributed to it. Any remaining hosts at the end form a partial base block. The
-// result is padded to numBaseBlocks with empty base blocks.
-func combineChildHostsIntoAggregate(src *topology.BlockVertex, numBaseBlocks, baseBlockSize int) *aggregateBlockNode {
-	var blocks []*baseBlockNode
-	var pendingHosts []*topology.HostInfo
-	var pendingNames []string
-
-	for _, sdName := range slices.Sorted(maps.Keys(src.Children)) {
-		child := src.ChildAt(sdName)
-
-		// Collect and sort this child's hosts for deterministic ordering.
-		childHosts := make([]*topology.HostInfo, 0, len(child.Hosts))
-		for _, h := range child.Hosts {
-			childHosts = append(childHosts, h)
-		}
-		sortHostsByName(childHosts)
-
-		// Flush pending hosts into a base block when adding this child would exceed baseBlockSize.
-		if len(pendingHosts) > 0 && len(pendingHosts)+len(childHosts) > baseBlockSize {
-			blockName := strings.Join(pendingNames, "+")
-			bb := newBaseBlock(blockName, pendingHosts, baseBlockSize)
-			bb.domain = blockName
-			blocks = append(blocks, bb)
-
-			//reset the pending hosts and names for the next block
-			pendingHosts, pendingNames = nil, nil
-		}
-
-		pendingHosts = append(pendingHosts, childHosts...)
-		pendingNames = append(pendingNames, sdName)
-	}
-
-	//Add the last partial block if any hosts remain
-	if len(pendingHosts) > 0 {
-		blockName := strings.Join(pendingNames, "+")
-		bb := newBaseBlock(blockName, pendingHosts, baseBlockSize)
-		bb.domain = blockName
-		blocks = append(blocks, bb)
-	}
-
-	//Pad the list of blocks to numBaseBlocks with empty base blocks
-	for len(blocks) < numBaseBlocks {
-		blocks = append(blocks, newEmptyBaseBlock(baseBlockSize))
-	}
-
-	//Wrap all base blocks into an aggregate block node and return.
-	agg := &aggregateBlockNode{id: src.ID}
-	for _, b := range blocks {
-		agg.children = append(agg.children, b)
-		agg.nodeCount += baseBlockSize
-	}
-	return agg
-}
-
-// recurseChildrenIntoAggregate implements strategy 3: it calls toDomainAggregate on
+// recurseChildrenIntoAggregate implements strategy 2: it calls toDomainAggregate on
 // each child of src using src.MaxChildNodeCount as the sibling-max, collects all
 // base blocks produced by those recursive calls (via collectBaseBlockSlots), and pads
-// the flat result to numBaseBlocks with empty base blocks.
-func recurseChildrenIntoAggregate(src *topology.BlockVertex, numBaseBlocks int, blockSizes []int, combineSubdomains bool) *aggregateBlockNode {
+// the flat result to at least numBaseBlocks with empty base blocks.
+//
+// numBaseBlocks is a lower bound only. When many small sub-domains collectively produce
+// more base blocks than numBaseBlocks and blockSizes has more than one entry, the excess
+// is rounded up to the nearest aggregate boundary so the domain slot does not end
+// mid-aggregate. The boundary is the smallest blockSizes[k] (k ≥ 1) that can hold the
+// actual node count; if none fits, aggregateSlotCapacity is used as a fallback. With a
+// single blockSizes entry there is no higher aggregate level, so no rounding is applied.
+func recurseChildrenIntoAggregate(src *topology.BlockVertex, numBaseBlocks int, blockSizes []int) *aggregateBlockNode {
 	baseBlockSize := blockSizes[0]
 	childMax := src.MaxChildNodeCount
 	agg := &aggregateBlockNode{id: src.ID}
 	for _, name := range slices.Sorted(maps.Keys(src.Children)) {
 		child := src.ChildAt(name)
-		childAgg := toDomainAggregate(child, childMax, blockSizes, combineSubdomains)
+		childAgg := toDomainAggregate(child, childMax, blockSizes)
 		if childAgg == nil {
 			continue
 		}
@@ -534,6 +464,24 @@ func recurseChildrenIntoAggregate(src *topology.BlockVertex, numBaseBlocks int, 
 			agg.nodeCount += baseBlockSize
 		}
 	}
+	// If children overflowed the pre-computed slot and there are multiple blockSizes
+	// levels, round up to the nearest aggregate boundary to prevent the next domain
+	// from starting mid-aggregate. Find the smallest blockSizes[k] (k>=1) that fits
+	// the actual node count; if none fits, use aggregateSlotCapacity as fallback.
+	// With a single blockSizes entry there is no higher aggregate level, so no rounding
+	// is needed.
+	if actual := agg.nodeCount / baseBlockSize; actual > numBaseBlocks && len(blockSizes) >= 2 {
+		actualNodes := actual * baseBlockSize
+		alignSize := actualNodes
+		for _, bs := range blockSizes[1:] {
+			if bs >= actualNodes {
+				alignSize = bs
+				break
+			}
+		}
+		aggregateWidth := aggregateSlotCapacity(alignSize, baseBlockSize) / baseBlockSize
+		numBaseBlocks = ((actual + aggregateWidth - 1) / aggregateWidth) * aggregateWidth
+	}
 	for agg.nodeCount/baseBlockSize < numBaseBlocks {
 		agg.children = append(agg.children, newEmptyBaseBlock(baseBlockSize))
 		agg.nodeCount += baseBlockSize
@@ -541,8 +489,13 @@ func recurseChildrenIntoAggregate(src *topology.BlockVertex, numBaseBlocks int, 
 	return agg
 }
 
-// blockTreeGCD returns the greatest common divisor of two positive integers.
+// blockTreeGCD returns the greatest common divisor of two non-negative integers.
+// Returns b when a is zero (standard GCD identity), so callers receive a safe
+// non-zero result when only one argument is zero.
 func blockTreeGCD(a, b int) int {
+	if a == 0 {
+		return b
+	}
 	for b != 0 {
 		a, b = b, a%b
 	}

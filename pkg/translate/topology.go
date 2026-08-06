@@ -210,13 +210,6 @@ func ValidateBlockNameConfig(config *BlockNameConfig) error {
 	return nil
 }
 
-// resolveCombineSubdomains returns false when a blockName formatter is configured —
-// combining hosts from different sub-domains into one base block makes per-sub-domain
-// name derivation ambiguous. Returns true otherwise.
-func resolveCombineSubdomains(blockName *BlockNameConfig) bool {
-	return blockName == nil || blockName.NodeNameRegexp == ""
-}
-
 func NewNetworkTopology(graph *topology.Graph, cfg *Config) (*NetworkTopology, error) {
 	if err := cfg.Validate(graph); err != nil {
 		return nil, err

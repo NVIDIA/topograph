@@ -23,35 +23,35 @@ import (
 // aggregateBlockNode tree with empty placeholder slots for absent groups or
 // domains. The flat base-block slot list is then numbered sequentially.
 //
-// When BlockSizes is not configured, blockSizes is inferred from the domain map
-// via DomainMap.InferBlockSizes: two-level maps (SubDomain present) yield
-// [maxSubDomainSize, aggregateSize] where aggregateSize is the smallest
-// power-of-2 multiple of maxSubDomainSize that is >= maxDomainSize; single-level
-// maps yield [maxDomainSize]. This preserves natural grouping granularity without
-// requiring operators to set BlockSizes explicitly.
-func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []int, combineSubdomains bool) []*blockInfo {
+// When BlockSizes is not configured, DomainMap.InferTwoLevelBlockSizes is tried
+// first: for two-level maps (SubDomain present) it yields [maxSubDomainSize,
+// aggregateSize] where aggregateSize is the smallest power-of-2 multiple of
+// maxSubDomainSize that is >= maxDomainSize. Single-level maps return nil and
+// fall through to getBlockSizes, which derives a doubling sequence from the
+// live block list.
+func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []int) ([]*blockInfo, []int) {
 	if nt.domains == nil {
-		return blocks
+		return blocks, blockSizes
 	}
 
 	domains := domainsForBlocks(nt.domains, blocks)
 	if len(domains) == 0 {
-		return blocks
+		return blocks, blockSizes
 	}
 
 	if len(blockSizes) < 1 {
-		blockSizes = domains.InferBlockSizes()
+		blockSizes = domains.InferTwoLevelBlockSizes()
 		if len(blockSizes) == 0 {
-			return blocks
+			return blocks, blockSizes
 		}
 	}
 
 	klog.Infof("Complementing %d blocks with %d domains into tree shape %v", len(blocks), len(domains), blockSizes)
 	byName := blocksByName(blocks)
 
-	actualTree := buildBlockTree(domains, blockSizes, combineSubdomains)
+	actualTree := buildBlockTree(domains, blockSizes)
 	if actualTree == nil {
-		return blocks
+		return blocks, blockSizes
 	}
 	allSlots := collectBaseBlockSlots(actualTree)
 
@@ -59,7 +59,7 @@ func (nt *NetworkTopology) complementBlocks(blocks []*blockInfo, blockSizes []in
 	for i, bb := range allSlots {
 		out = append(out, baseBlockToBlockInfo(bb, byName, i+1))
 	}
-	return out
+	return out, blockSizes
 }
 
 // domainsForBlocks returns a subset of the cluster domain map containing only the

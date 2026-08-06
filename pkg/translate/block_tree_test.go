@@ -47,6 +47,9 @@ func TestBlockTreeGCD(t *testing.T) {
 	require.Equal(t, 1, blockTreeGCD(3, 7))
 	require.Equal(t, 9, blockTreeGCD(9, 144))
 	require.Equal(t, 6, blockTreeGCD(6, 6))
+	require.Equal(t, 8, blockTreeGCD(0, 8)) // a==0: identity returns b
+	require.Equal(t, 8, blockTreeGCD(8, 0)) // b==0: loop exits immediately
+	require.Equal(t, 0, blockTreeGCD(0, 0)) // both zero: returns 0
 }
 
 // TestComplementPaddingBoundedForNonDivisorBlockSizes verifies that buildBlockTree
@@ -62,7 +65,7 @@ func TestComplementPaddingBoundedForNonDivisorBlockSizes(t *testing.T) {
 		domains: domains,
 		blocks:  []*blockInfo{{name: "d1", nodes: []string{"h1", "h2", "h3"}}},
 	}
-	out := nt.complementBlocks(nt.blocks, []int{3, 7}, true)
+	out, _ := nt.complementBlocks(nt.blocks, []int{3, 7})
 	// lcm(3, 7) = 21 nodes; 21 / 3 per block = 7 base blocks (1 real + 6 empty)
 	require.Len(t, out, 7)
 	require.Equal(t, "d1", out[0].name)
