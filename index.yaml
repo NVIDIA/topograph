@@ -16,6 +16,48 @@ entries:
       org.opencontainers.image.title: Topograph
       org.opencontainers.image.vendor: NVIDIA
     apiVersion: v2
+    appVersion: v1.0.0-rc.1
+    created: "2026-08-07T00:47:11.341410634-04:00"
+    description: Discovers the physical network topology of a cluster and exposes
+      it to schedulers.
+    digest: 0848f11da473c60e4ce597a911a70b036a57c305c0a9f33225e318601ec02349
+    home: https://github.com/NVIDIA/topograph
+    icon: https://raw.githubusercontent.com/NVIDIA/topograph/main/docs/assets/topograph-logo.png
+    keywords:
+    - topograph
+    - topology
+    - kubernetes
+    - slurm
+    - slinky
+    - infiniband
+    - gpu
+    - scheduling
+    kubeVersion: '>=1.27.0-0'
+    maintainers:
+    - name: NVIDIA CORPORATION
+      url: https://www.nvidia.com
+    name: topograph
+    sources:
+    - https://github.com/NVIDIA/topograph
+    type: application
+    urls:
+    - https://NVIDIA.github.io/topograph/topograph-1.0.0-rc.1.tgz
+    version: 1.0.0-rc.1
+  - annotations:
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://github.com/NVIDIA/topograph/blob/main/docs/overview.md
+        - name: Chart Source
+          url: https://github.com/NVIDIA/topograph/tree/main/charts/topograph
+      org.opencontainers.image.description: Discovers the physical network topology
+        of a cluster and exposes it to schedulers.
+      org.opencontainers.image.documentation: https://github.com/NVIDIA/topograph/blob/main/docs/overview.md
+      org.opencontainers.image.licenses: Apache-2.0
+      org.opencontainers.image.source: https://github.com/NVIDIA/topograph
+      org.opencontainers.image.title: Topograph
+      org.opencontainers.image.vendor: NVIDIA
+    apiVersion: v2
     appVersion: v0.6.0-alpha.1
     created: "2026-07-24T13:06:30.961446616-04:00"
     description: Discovers the physical network topology of a cluster and exposes
@@ -130,4 +172,4 @@ entries:
     urls:
     - https://NVIDIA.github.io/topograph/topograph-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-24T13:06:30.960095931-04:00"
+generated: "2026-08-07T00:47:11.340037229-04:00"
