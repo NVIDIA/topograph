@@ -1,6 +1,7 @@
 {{- if .Values.nodeDataBroker.enabled }}
 {{- $providerParams := default dict .Values.provider.params }}
 {{- $useGpuCliqueLabel := and (eq .Values.provider.name "infiniband-k8s") (eq (lower (toString (get $providerParams "useGpuCliqueLabel"))) "true") }}
+{{- $lldpInterfaces := and (eq .Values.provider.name "lldp-k8s") (get $providerParams "interfaces") }}
 {{- $configMapMounts := default list .Values.nodeDataBroker.configMapMounts }}
 apiVersion: apps/v1
 kind: DaemonSet
@@ -43,6 +44,9 @@ spec:
             - --port={{ .Values.nodeDataBroker.port }}
             {{- if $useGpuCliqueLabel }}
             - --set=useGpuCliqueLabel=true
+            {{- end }}
+            {{- if $lldpInterfaces }}
+            - --set=interfaces={{ join "," $lldpInterfaces }}
             {{- end }}
             {{- range .Values.nodeDataBroker.extraArgs }}
             - --set={{ . }}

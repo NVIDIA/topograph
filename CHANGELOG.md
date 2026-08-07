@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- LLDP leaf-locality providers for bare-metal (`lldp-bm`) and Kubernetes (`lldp-k8s`) deployments. They group nodes by directly connected switch chassis ID, support interface filtering, and reject ambiguous multi-switch attachments.
 - Helm `kubeClient.qps` and `kubeClient.burst` values for tuning the DRA provider and the Kubernetes, NFD, and Slinky engine clients through deployment-level `KUBE_QPS` and `KUBE_BURST` settings.
 - The Kubernetes engine now publishes `xclr.topology.nvidia.com/sub-domain` when a provider supplies `InstanceTopology.XclrSubDomainID`.
 - The NFD engine now publishes separate `xclr-domain` and `xclr-sub-domain` attributes and groups.
