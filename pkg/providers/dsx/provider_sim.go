@@ -1,6 +1,17 @@
 /*
- * Copyright 2026, NVIDIA CORPORATION
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2026, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package dsx
@@ -34,25 +45,16 @@ func (client *simClient) GetTopology(ctx context.Context, _ string, nodeIDs []st
 		return nil, providers.ErrAPIError
 	}
 
-	// For simulation, generate topology from model
-	response := &TopologyResponse{
-		Switches: make(map[string]SwitchInfo),
-	}
-
 	want := make(map[string]struct{})
 	for _, nodeID := range nodeIDs {
 		want[nodeID] = struct{}{}
 	}
 
-	//Iterate over the switches from the model and add them to the switch map
+	// Build the ordered list of single-key entries matching the API wire format.
+	var switches []map[string]SwitchAdjacency
 	for _, sw := range client.model.Switches {
-		swInfo := SwitchInfo{
-			Switches: make([]string, 0),
-			Nodes:    make([]NodeInfo, 0),
-		}
-
+		adj := SwitchAdjacency{}
 		if len(sw.Nodes) > 0 {
-			//If it is a leaf switch, add the nodes to the switch info
 			for _, nodeName := range sw.Nodes {
 				if _, exists := want[nodeName]; !exists {
 					continue
@@ -61,17 +63,18 @@ func (client *simClient) GetTopology(ctx context.Context, _ string, nodeIDs []st
 				if !exists {
 					continue
 				}
-				swInfo.Nodes = append(swInfo.Nodes, NodeInfo{NodeID: nodeName, AcceleratedNetworkID: node.AcceleratorDomain()})
+				adj.Nodes = append(adj.Nodes, NodeInfo{NodeID: nodeName, AcceleratedNetworkID: node.AcceleratorDomain()})
 			}
 		} else {
-			//If it is not a leaf switch, add the child switches to the switch info
-			swInfo.Switches = append(swInfo.Switches, sw.Switches...)
+			adj.Switches = append(adj.Switches, sw.Switches...)
 		}
-		response.Switches[sw.Name] = swInfo
+		if len(adj.Nodes) == 0 && len(adj.Switches) == 0 {
+			continue
+		}
+		switches = append(switches, map[string]SwitchAdjacency{sw.Name: adj})
 	}
 
-	//Return the response
-	return response, nil
+	return &TopologyResponse{Switches: switches}, nil
 }
 
 func NamedLoaderSim() (string, providers.Loader) {
