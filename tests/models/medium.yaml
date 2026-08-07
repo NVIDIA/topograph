@@ -11,7 +11,7 @@
 #  -------    -------    -------    -------
 #   nvl1       nvl2       nvl3       nvl4
 #
-# Metadata:
+# Labels:
 # sw3: topology.kubernetes.io/region:us-west
 # sw21: topology.kubernetes.io/zone:zone1
 # sw22: topology.kubernetes.io/zone:zone2

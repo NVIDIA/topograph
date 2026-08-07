@@ -18,13 +18,15 @@ NFD CRs for consumers that already watch NFD.
 
 ## Background
 
-Topograph maps topology into Kubernetes label dimensions including:
+Topograph maps topology into optional XCLR dimensions and a variable-depth
+fabric label family:
 
 - `xclr.topology.nvidia.com/domain`
 - `xclr.topology.nvidia.com/sub-domain`
-- `network.topology.nvidia.com/tier-0`
-- `network.topology.nvidia.com/tier-1`
-- `network.topology.nvidia.com/tier-2`
+- `network.topology.nvidia.com/tier-N`
+
+Fabric tier 0 is closest to the node and higher tiers progress outward. There
+is no fixed number of fabric tiers or total topology dimensions.
 
 NFD `NodeFeatureGroup` is an alpha NFD API. NFD master watches
 `NodeFeatureGroup` objects, evaluates their feature-group rules, and writes the
@@ -186,9 +188,10 @@ Two NFD-side extensions could make this model more practical:
 
 ## etcd Size Estimate
 
-For a 10,000-node cluster, the rough live custom-resource payload is likely in
-the 10-30 MiB range before etcd MVCC history, compaction effects, and filesystem
-overhead.
+For a 10,000-node cluster, the live custom-resource payload depends on the
+number of topology dimensions and the number of distinct values within each
+dimension. Let `D` be the average number of published dimensions per node: all
+discovered fabric tiers plus any XCLR domain and sub-domain.
 
 Assumptions:
 
@@ -196,7 +199,7 @@ Assumptions:
 - One topology attribute for every discovered fabric tier, XCLR domain, and
   XCLR sub-domain.
 - Each node appears in one `NodeFeatureGroup.status.nodes` list per topology
-  dimension, so status contains about 40,000 node references total.
+  dimension, so status contains about `10,000 × D` node references total.
 - Average node names and topology values are short, roughly 10-30 characters.
 - Updates avoid large `managedFields` payloads and unnecessary annotations.
 
@@ -204,23 +207,24 @@ Estimated live payload:
 
 | Object data | Count | Per-item estimate | Total |
 |---|---:|---:|---:|
-| `NodeFeature` objects | 10,000 | 0.7-1.5 KiB | 7-15 MiB |
-| `NodeFeatureGroup` specs and metadata | ~1,500-2,000 groups | 0.8-1.5 KiB | 1-3 MiB |
-| `NodeFeatureGroup.status.nodes` entries | 40,000 memberships | 25-50 B | 1-2 MiB |
+| `NodeFeature` objects | 10,000 | 0.7-1.5 KiB for a few dimensions | Roughly 7-15 MiB, increasing with `D` |
+| `NodeFeatureGroup` specs and metadata | One group per distinct value in each dimension | 0.8-1.5 KiB | Depends on topology fanout and `D` |
+| `NodeFeatureGroup.status.nodes` entries | `10,000 × D` memberships | 25-50 B | Roughly `0.24-0.48 × D` MiB |
 
-The group count depends on topology fanout, but the status membership count is
-mostly stable: each node appears once per published topology dimension. A single
-large group, such as one core switch containing all 10,000 nodes, would carry a
-large status list of roughly 250-500 KiB with short node names. That is probably
-workable, but it gets closer to Kubernetes object-size limits if node names are
-long or status later grows more fields.
+The group count depends on topology fanout and depth. The status membership
+count is predictable once `D` is known because each node appears once per
+published topology dimension. A single large group, such as one outer-tier
+switch containing all 10,000 nodes, would carry a large status list of roughly
+250-500 KiB with short node names. That is probably workable, but it gets closer
+to Kubernetes object-size limits if node names are long or status later grows
+more fields.
 
 The practical storage budget should be higher than the live payload estimate.
 During topology refreshes, etcd keeps old revisions until compaction and
 database defragmentation. If Topograph updates every `NodeFeature` and
 `NodeFeatureGroup` on every run, temporary and on-disk usage can grow well above
-the live 10-30 MiB payload. The implementation should skip no-op updates and use
-small patches to reduce write amplification.
+the live payload. The implementation should skip no-op updates and use small
+patches to reduce write amplification.
 
 ## Test Plan
 
