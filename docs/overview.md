@@ -39,6 +39,7 @@ Currently supported providers:
 - [Nebius](./providers/nebius.md)
 - [Nscale](./providers/nscale.md)
 - [Lambda](./providers/lambdai.md)
+- [DSX](./providers/dsx.md)
 - [NetQ](./providers/netq.md)
 - [DRA](./providers/dra.md) — provides Slinky block topology from pre-existing `nvidia.com/gpu.clique` labels; it does not discover the backend switch fabric
 - [InfiniBand (bare-metal)](./providers/infiniband.md#infiniband-bm-bare-metal)
@@ -58,6 +59,7 @@ Currently supported engines:
 | Scenario | Recommended provider |
 |---|---|
 | Cloud cluster (AWS, GCP, OCI, Nebius, Nscale, Lambda) | Use the matching CSP provider |
+| DSX cluster | [DSX](./providers/dsx.md) |
 | Spectrum-X fabric | [NetQ](./providers/netq.md) |
 | Multi-Node NVLink (MNNVL), including cross-partition fabric locality | [NetQ](./providers/netq.md) or [InfiniBand (Kubernetes)](./providers/infiniband.md#infiniband-k8s-kubernetes) |
 | MNNVL with Slinky, workloads contained within one NVLink partition, and `nvidia.com/gpu.clique` present | [DRA](./providers/dra.md) |
