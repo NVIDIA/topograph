@@ -214,7 +214,7 @@ Ranges are accepted in:
 
 After YAML parsing, Topograph completes the model before simulation uses it:
 
-- Capacity block node ranges are expanded.
+- Compact ranges in Capacity block node ranges are expanded.
 - Block `switch` references attach block nodes to switches.
 - Switch names are copied from their map keys.
 - Nodes are created from `blocks[].nodes`.

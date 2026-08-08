@@ -14,6 +14,12 @@ It creates:
 NFD master evaluates those features and writes matching nodes to
 `NodeFeatureGroup.status.nodes`.
 
+Fabric topology is variable-depth. The engine publishes `fabric-tier-N` for
+every discovered tier, where tier 0 is closest to the node and higher tiers
+progress outward; there is no fixed number of fabric attributes or groups.
+XCLR domain and optional sub-domain attributes are published separately when
+the provider supplies them.
+
 ## When to Use
 
 Use `engine: nfd` only when a downstream component already consumes NFD
@@ -102,7 +108,7 @@ default limiter. Outside Helm, set the environment variables directly.
 
 ## Generated Objects
 
-For a node on `leaf-12`, the engine writes a `NodeFeature` like:
+For a node on a three-tier fabric, the engine writes a `NodeFeature` like:
 
 ```yaml
 apiVersion: nfd.k8s-sigs.io/v1alpha1

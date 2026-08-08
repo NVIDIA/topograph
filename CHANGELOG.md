@@ -270,7 +270,7 @@ Initial release.
 ### Added
 
 - Core **Topograph API server** with `/v1/generate` and asynchronous topology retrieval.
-- **Providers**: AWS, GCP, OCI, Nebius, InfiniBand (bare-metal and Kubernetes), and DRA).
+- **Providers**: AWS, GCP, OCI, Nebius, InfiniBand (bare-metal and Kubernetes), and DRA.
 - **Engines**: Kubernetes (node labels), Slurm (`topology.conf`), and Slinky (ConfigMap).
 - **Kubernetes components**: node-observer Deployment and node-data-broker DaemonSet (Helm subcharts).
 - **Helm chart** for deploying Topograph on Kubernetes.
