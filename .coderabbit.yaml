@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+reviews:
+  profile: "assertive"
+  review_details: true
+  high_level_summary_in_walkthrough: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+    drafts: false
+    base_branches:
+      - ".*"
+
+  tools:
+    golangci-lint:
+      enabled: true
+      config_file: ".golangci.yml"
+    ast-grep:
+      essential_rules: true
+    opengrep:
+      enabled: true
+    osvScanner:
+      enabled: true
+    gitleaks:
+      enabled: true
+    shellcheck:
+      enabled: true
+    yamllint:
+      enabled: true
+
+  path_instructions:
+    - path: "{cmd,pkg,internal}/**/*.go"
+      instructions: |
+        Focus on correctness, robustness, and failure paths:
+        - Check error handling and propagation, including whether callers
+          receive enough context to diagnose failures.
+        - Verify context propagation, cancellation, timeouts, resource cleanup,
+          and goroutine lifecycle.
+        - Look for races, deadlocks, unsafe shared state, leaks, and partial
+          updates that can leave state inconsistent.
+        - Check nil, empty, malformed, duplicate, boundary, and partial inputs.
+        - Verify deterministic and idempotent behavior where operations may be
+          retried or repeated.
+        - Preserve public contracts and the architectural boundaries documented
+          in AGENTS.md.
+        - Flag behavior changes that lack meaningful regression coverage.
+
+    - path: "charts/topograph/**"
+      instructions: |
+        - Check RBAC least privilege and Kubernetes API compatibility.
+        - ingress.enabled and gatewayAPI.enabled must remain mutually exclusive.
+        - HTTPRoute must contain only portable Gateway API v1 fields.
+        - Flag changes where values, schema, templates, NOTES, tests,
+          snapshots, documentation, or changelog become inconsistent.
+
+    - path: "**/*_test.go"
+      instructions: |
+        Flag missing negative, cancellation, concurrency, malformed-input,
+        boundary, and regression cases. Check that assertions would fail if
+        the behavior under test were broken.
