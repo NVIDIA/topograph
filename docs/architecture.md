@@ -18,7 +18,7 @@ The API Server receives topology generation requests and returns results asynchr
 
 ### 2. Node Observer
 
-The Node Observer is used in Kubernetes deployments. It is a controller that monitors configured node and pod changes, and it also watches the Topograph API pod. Relevant events enqueue one cluster-wide topology key in a rate-limited work queue, coalescing bursts into idempotent reconciliation. When the node-data-broker is enabled, reconciliation waits for the broker DaemonSet's ready replica count to match its desired count. The controller then asks the API Server to generate a new topology configuration and requeues failed requests.
+The Node Observer is used in Kubernetes deployments. It is a controller that monitors configured node and pod changes, and it also watches the Topograph API pod. When the node-data-broker is enabled, it additionally watches the broker DaemonSet's lifecycle, desired replica count, and readiness. Relevant events enqueue one cluster-wide topology key in a rate-limited work queue, coalescing bursts into idempotent reconciliation. Reconciliation waits for the broker DaemonSet's ready replica count to match its desired count before asking the API Server to generate a new topology configuration, and it requeues failed requests.
 
 ### 3. Node Data Broker
 

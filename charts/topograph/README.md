@@ -78,6 +78,10 @@ rbac:
 ```
 
 Set `rbac.create=false` only when ClusterRoles and ClusterRoleBindings are managed outside the chart.
+The same requirement applies independently to `nodeObserver.serviceAccount` and
+`nodeDataBroker.serviceAccount`: when `create=false`, `name` must identify the
+existing account. To intentionally bind permissions to the namespace's default
+ServiceAccount, set `name: default` explicitly.
 
 ### Values validation
 

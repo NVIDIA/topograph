@@ -72,7 +72,7 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: {{ include "topograph.rbacName" . }}
-  apiGroup: ""
+  apiGroup: rbac.authorization.k8s.io
 {{- if eq .Values.engine.name "nfd" }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -98,6 +98,6 @@ subjects:
 roleRef:
   kind: Role
   name: {{ include "topograph.rbacName" . }}
-  apiGroup: ""
+  apiGroup: rbac.authorization.k8s.io
 {{- end }}
 {{- end }}

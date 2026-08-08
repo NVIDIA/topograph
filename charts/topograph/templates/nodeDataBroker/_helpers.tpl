@@ -42,7 +42,7 @@ Create the name of the service account to use
 {{- if .Values.nodeDataBroker.serviceAccount.create }}
 {{- default (include "nodeDataBroker.fullname" .) .Values.nodeDataBroker.serviceAccount.name }}
 {{- else }}
-{{- default "default" .Values.nodeDataBroker.serviceAccount.name }}
+{{- required "nodeDataBroker.serviceAccount.name must be set when nodeDataBroker.serviceAccount.create=false" .Values.nodeDataBroker.serviceAccount.name }}
 {{- end }}
 {{- end }}
 

@@ -1,17 +1,6 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2024-2026 NVIDIA CORPORATION
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package aws
@@ -86,8 +75,14 @@ func TestGetCredentialsProvider(t *testing.T) {
 			},
 		},
 		{
-			name:            "Case 6: default credential chain",
+			name:            "Case 6: nil credentials use default credential chain",
+			creds:           nil,
 			useDefaultChain: true,
+		},
+		{
+			name:  "Case 7: empty explicit credentials",
+			creds: map[string]any{},
+			err:   "credentials error: explicit AWS credentials are empty",
 		},
 	}
 
@@ -114,7 +109,7 @@ func TestGetCredentialsProvider(t *testing.T) {
 	}
 }
 
-func TestGenerateTopologyConfigReturnsUnauthorizedWhenCredentialsUnavailable(t *testing.T) {
+func TestGenerateTopologyConfigReturnsBadGatewayWhenCredentialsUnavailable(t *testing.T) {
 	ec2Client := &recordingEC2Client{}
 	provider := New(func(_ string, pageSize *int) (*Client, error) {
 		return &Client{
@@ -136,7 +131,7 @@ func TestGenerateTopologyConfigReturnsUnauthorizedWhenCredentialsUnavailable(t *
 	})
 
 	require.NotNil(t, httpErr)
-	require.Equal(t, http.StatusUnauthorized, httpErr.Code())
+	require.Equal(t, http.StatusBadGateway, httpErr.Code())
 	require.ErrorContains(t, httpErr, "failed to retrieve AWS credentials: credentials unavailable")
 	require.Zero(t, ec2Client.calls.Load())
 }

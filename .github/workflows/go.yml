@@ -13,6 +13,8 @@ jobs:
     runs-on: linux-amd64-cpu8
     steps:
     - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
 
     - name: Set up Go
       uses: actions/setup-go@v6
@@ -38,6 +40,8 @@ jobs:
     runs-on: linux-amd64-cpu8
     steps:
     - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
 
     - name: Set up Go
       uses: actions/setup-go@v6
@@ -59,6 +63,8 @@ jobs:
     runs-on: linux-amd64-cpu8
     steps:
     - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
 
     - name: Set up Go
       uses: actions/setup-go@v6
@@ -74,6 +80,8 @@ jobs:
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
 
     - name: Set up Go
       uses: actions/setup-go@v6

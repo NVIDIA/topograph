@@ -42,7 +42,7 @@ Create the name of the service account to use
 {{- if .Values.nodeObserver.serviceAccount.create }}
 {{- default (include "nodeObserver.fullname" .) .Values.nodeObserver.serviceAccount.name }}
 {{- else }}
-{{- default "default" .Values.nodeObserver.serviceAccount.name }}
+{{- required "nodeObserver.serviceAccount.name must be set when nodeObserver.serviceAccount.create=false" .Values.nodeObserver.serviceAccount.name }}
 {{- end }}
 {{- end }}
 

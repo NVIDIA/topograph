@@ -10,8 +10,12 @@ KUBE_CONTEXT="${KUBE_CONTEXT:-kind-topograph}"
 CONTROL_PLANE_LABEL="node-role.kubernetes.io/control-plane"
 
 control_plane_node=$(kubectl --context "$KUBE_CONTEXT" get nodes -l "$CONTROL_PLANE_LABEL" -o jsonpath='{.items[0].metadata.name}')
+if [[ -z "$control_plane_node" ]]; then
+  echo "No control-plane node found in context: $KUBE_CONTEXT" >&2
+  exit 1
+fi
 
-kubectl --context "$KUBE_CONTEXT" label node "$control_plane_node" nfd-enabled=true
+kubectl --context "$KUBE_CONTEXT" label node "$control_plane_node" nfd-enabled=true --overwrite
 
 helm repo add --force-update nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts
 

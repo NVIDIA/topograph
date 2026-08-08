@@ -211,7 +211,7 @@ renders default values.yaml:
     metadata:
       name: chart-ci-topograph-node-data-broker
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-data-broker
     subjects:
@@ -358,7 +358,7 @@ renders default values.yaml:
     metadata:
       name: chart-ci-topograph-node-observer
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-observer
     subjects:
@@ -416,7 +416,7 @@ renders default values.yaml:
     metadata:
       name: chart-ci-topograph
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph
     subjects:
@@ -781,7 +781,7 @@ renders values.k8s.gateway-api-example.yaml:
     metadata:
       name: chart-ci-topograph-node-data-broker
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-data-broker
     subjects:
@@ -928,7 +928,7 @@ renders values.k8s.gateway-api-example.yaml:
     metadata:
       name: chart-ci-topograph-node-observer
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-observer
     subjects:
@@ -986,7 +986,7 @@ renders values.k8s.gateway-api-example.yaml:
     metadata:
       name: chart-ci-topograph
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph
     subjects:
@@ -1349,7 +1349,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
     metadata:
       name: chart-ci-topograph-node-data-broker
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-data-broker
     subjects:
@@ -1508,7 +1508,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
     metadata:
       name: chart-ci-topograph-node-observer
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-observer
     subjects:
@@ -1566,7 +1566,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
     metadata:
       name: chart-ci-topograph
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph
     subjects:
@@ -1919,7 +1919,7 @@ renders values.k8s.gcp-service-account-example.yaml:
     metadata:
       name: chart-ci-topograph-node-data-broker
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-data-broker
     subjects:
@@ -2076,7 +2076,7 @@ renders values.k8s.gcp-service-account-example.yaml:
     metadata:
       name: chart-ci-topograph-node-observer
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-observer
     subjects:
@@ -2134,7 +2134,7 @@ renders values.k8s.gcp-service-account-example.yaml:
     metadata:
       name: chart-ci-topograph
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph
     subjects:
@@ -2489,7 +2489,7 @@ renders values.k8s.ib-example.yaml:
     metadata:
       name: chart-ci-topograph-node-data-broker
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-data-broker
     subjects:
@@ -2646,7 +2646,7 @@ renders values.k8s.ib-example.yaml:
     metadata:
       name: chart-ci-topograph-node-observer
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-observer
     subjects:
@@ -2710,7 +2710,7 @@ renders values.k8s.ib-example.yaml:
     metadata:
       name: chart-ci-topograph
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph
     subjects:
@@ -3057,7 +3057,7 @@ renders values.slinky.block-example.yaml:
     metadata:
       name: chart-ci-topograph-node-data-broker
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-data-broker
     subjects:
@@ -3224,7 +3224,7 @@ renders values.slinky.block-example.yaml:
     metadata:
       name: chart-ci-topograph-node-observer
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-observer
     subjects:
@@ -3290,7 +3290,7 @@ renders values.slinky.block-example.yaml:
     metadata:
       name: chart-ci-topograph
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph
     subjects:
@@ -3637,7 +3637,7 @@ renders values.slinky.partition-example.yaml:
     metadata:
       name: chart-ci-topograph-node-data-broker
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-data-broker
     subjects:
@@ -3821,7 +3821,7 @@ renders values.slinky.partition-example.yaml:
     metadata:
       name: chart-ci-topograph-node-observer
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-observer
     subjects:
@@ -3887,7 +3887,7 @@ renders values.slinky.partition-example.yaml:
     metadata:
       name: chart-ci-topograph
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph
     subjects:
@@ -4234,7 +4234,7 @@ renders values.slinky.tree-example.yaml:
     metadata:
       name: chart-ci-topograph-node-data-broker
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-data-broker
     subjects:
@@ -4393,7 +4393,7 @@ renders values.slinky.tree-example.yaml:
     metadata:
       name: chart-ci-topograph-node-observer
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph-node-observer
     subjects:
@@ -4459,7 +4459,7 @@ renders values.slinky.tree-example.yaml:
     metadata:
       name: chart-ci-topograph
     roleRef:
-      apiGroup: ""
+      apiGroup: rbac.authorization.k8s.io
       kind: ClusterRole
       name: chart-ci-topograph
     subjects:
