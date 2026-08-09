@@ -352,6 +352,12 @@ Apply alongside the chart. A bundled template is under consideration.
 
 The node-observer `ClusterRole` grants `pods [list, watch]` unconditionally, `apps/daemonsets [list, watch]` when `nodeDataBroker.enabled=true`, and `nodes [list, watch]` only when `nodeObserver.topograph.trigger.nodeSelector` is set. Set `nodeObserver.rbac.create: false` to suppress the `ClusterRole`/`ClusterRoleBinding` when managing RBAC externally.
 
+When reusing an existing ServiceAccount for Topograph, node-observer, or
+node-data-broker, set the component's `serviceAccount.create` value to `false`
+and provide `serviceAccount.name`. The chart rejects an empty name rather than
+silently binding cluster-scoped permissions to the namespace's default
+ServiceAccount. To use that account intentionally, set `name: default`.
+
 ### Node Data Broker write-scoping via ValidatingAdmissionPolicy
 
 The node-data-broker's RBAC grants update permission on nodes cluster-wide. To enforce least-privilege scoping, the chart supports deploying an opt-in `ValidatingAdmissionPolicy` and its binding:

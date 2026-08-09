@@ -497,7 +497,7 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 
 func (eng *SlinkyEngine) UpdateTopologyConfigmap(ctx context.Context, name, namespace string, data map[string]string) error {
 	klog.Infof("Updating topology config %s/%s", namespace, name)
-	klog.V(4).Infof("Updating topology config %s/%s with data: %s", namespace, name, data)
+	klog.V(4).Infof("Updating topology config %s/%s with data: %v", namespace, name, data)
 
 	annotations := eng.generateConfigMapAnnotations()
 	verb := "get"

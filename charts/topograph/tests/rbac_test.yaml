@@ -15,6 +15,10 @@ tests:
       - isKind:
           of: ClusterRoleBinding
         documentIndex: 1
+      - equal:
+          path: roleRef.apiGroup
+          value: rbac.authorization.k8s.io
+        documentIndex: 1
 
   - it: still renders for an existing service account
     set:
@@ -40,6 +44,15 @@ tests:
           path: subjects[0].name
           value: existing-topograph-sa
         documentIndex: 1
+
+  - it: rejects a missing existing service account name
+    set:
+      serviceAccount:
+        create: false
+        name: ""
+    asserts:
+      - failedTemplate:
+          errorMessage: "serviceAccount.name must be set when serviceAccount.create=false"
 
   - it: is omitted entirely when rbac.create is false
     set:
@@ -265,6 +278,10 @@ tests:
       - equal:
           path: roleRef.kind
           value: Role
+        documentIndex: 3
+      - equal:
+          path: roleRef.apiGroup
+          value: rbac.authorization.k8s.io
         documentIndex: 3
       - equal:
           path: subjects[0].namespace

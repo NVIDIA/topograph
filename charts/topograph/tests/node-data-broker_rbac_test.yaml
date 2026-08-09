@@ -42,8 +42,23 @@ tests:
           path: roleRef.name
           value: chart-ci-topograph-node-data-broker
       - equal:
+          path: roleRef.apiGroup
+          value: rbac.authorization.k8s.io
+      - equal:
           path: subjects[0].name
           value: existing-node-data-broker-sa
+
+  - it: rejects a missing existing service account name
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      nodeDataBroker:
+        serviceAccount:
+          create: false
+          name: ""
+    asserts:
+      - failedTemplate:
+          errorMessage: "nodeDataBroker.serviceAccount.name must be set when nodeDataBroker.serviceAccount.create=false"
 
   - it: is omitted when rbac.create is false
     templates:

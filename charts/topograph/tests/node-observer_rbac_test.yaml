@@ -72,6 +72,9 @@ tests:
           path: roleRef.name
           value: chart-ci-topograph-node-observer
       - equal:
+          path: roleRef.apiGroup
+          value: rbac.authorization.k8s.io
+      - equal:
           path: subjects[0].name
           value: chart-ci-topograph-node-observer
 
@@ -91,6 +94,18 @@ tests:
       - equal:
           path: subjects[0].name
           value: existing-node-observer-sa
+
+  - it: rejects a missing existing service account name
+    templates:
+      - templates/nodeObserver/rbac.yaml
+    set:
+      nodeObserver:
+        serviceAccount:
+          create: false
+          name: ""
+    asserts:
+      - failedTemplate:
+          errorMessage: "nodeObserver.serviceAccount.name must be set when nodeObserver.serviceAccount.create=false"
 
   - it: is omitted when rbac.create is false
     templates:

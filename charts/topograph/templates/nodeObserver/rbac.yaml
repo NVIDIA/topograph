@@ -30,5 +30,5 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: {{ include "nodeObserver.rbacName" . }}
-  apiGroup: ""
+  apiGroup: rbac.authorization.k8s.io
 {{- end }}

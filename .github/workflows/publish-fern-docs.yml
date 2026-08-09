@@ -68,6 +68,7 @@ jobs:
         with:
           ref: main
           fetch-tags: true
+          persist-credentials: false
 
       - name: Install yq
         run: |
