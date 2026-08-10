@@ -42,9 +42,9 @@ const (
 
 	// Topograph default node labels. Fabric tier zero is closest to the compute
 	// node.
-	KeyFabricTierPrefix      = "network.topology.nvidia.com/tier-"
-	KeyTopologyXclrDomain    = "xclr.topology.nvidia.com/domain"
-	KeyTopologyXclrSubDomain = "xclr.topology.nvidia.com/sub-domain"
+	KeyFabricTierPrefix      = "fabric.topograph.run/tier-"
+	KeyTopologyXclrDomain    = "accelerator.topograph.run/domain"
+	KeyTopologyXclrSubDomain = "accelerator.topograph.run/sub-domain"
 
 	// ConfigMap annotation keys for metadata tracking
 	KeyConfigMapEngine            = "topograph.nvidia.com/engine"

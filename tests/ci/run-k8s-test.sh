@@ -27,10 +27,10 @@ fi
 for attempt in $(seq 1 "$wait_attempts"); do
     if kubectl --context "$kube_context" get node "$test_node" -o json |
         jq -e --arg accelerator "$expected_accelerator" '
-            .metadata.labels["network.topology.nvidia.com/tier-0"] == "sw12" and
-            .metadata.labels["network.topology.nvidia.com/tier-1"] == "sw21" and
-            .metadata.labels["network.topology.nvidia.com/tier-2"] == "sw3" and
-            .metadata.labels["xclr.topology.nvidia.com/domain"] == $accelerator
+            .metadata.labels["fabric.topograph.run/tier-0"] == "sw12" and
+            .metadata.labels["fabric.topograph.run/tier-1"] == "sw21" and
+            .metadata.labels["fabric.topograph.run/tier-2"] == "sw3" and
+            .metadata.labels["accelerator.topograph.run/domain"] == $accelerator
         ' >/dev/null; then
         exit 0
     fi

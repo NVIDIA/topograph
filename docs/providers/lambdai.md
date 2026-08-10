@@ -239,7 +239,7 @@ With the `k8s` engine you do not pass `nodes` explicitly. Instead, the node-data
 | `.spec.providerID` — `lambda://<instance-id>` | `topograph.nvidia.com/instance` — `<instance-id>` (matches the API `id` 1:1) |
 | `topology.kubernetes.io/region` label — e.g. `stg-sjc01-cl03` | `topograph.nvidia.com/region` |
 
-The Kubernetes engine then discovers nodes from these annotations, the provider queries the Lambda API once per region, and the engine writes `network.topology.nvidia.com/*` labels. The Node Observer re-triggers generation when nodes change.
+The Kubernetes engine then discovers nodes from these annotations, the provider queries the Lambda API once per region, and the engine writes `fabric.topograph.run/*` labels. The Node Observer re-triggers generation when nodes change.
 
 Requirements:
 
@@ -267,7 +267,7 @@ helm install topograph oci://ghcr.io/nvidia/topograph/topograph \
   --set "nodeDataBroker.tolerations[0].operator=Exists"
 
 # After a few seconds, topology labels appear on nodes:
-kubectl get nodes --show-labels | grep network.topology.nvidia
+kubectl get nodes --show-labels | grep fabric.topograph.run
 ```
 
 Only fabric `tier-N` labels appear until the API returns `nvlink` data (see the note above); the accelerator label follows once it does.

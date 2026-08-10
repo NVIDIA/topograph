@@ -380,13 +380,13 @@ func TestMergeNodeLabels(t *testing.T) {
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						topology.KeyNvidiaGPUClique:        "cluster-a.0",
-						topology.KeyTopologyXclrDomain:     "old-domain",
-						topology.KeyTopologyXclrSubDomain:  "old-sub-domain",
-						topology.FabricTierKey(0):          "old-leaf",
-						topology.FabricTierKey(3):          "stale-fabric",
-						"network.topology.nvidia.com/core": "legacy-core",
-						"workload.example/label":           "keep",
+						topology.KeyNvidiaGPUClique:       "cluster-a.0",
+						topology.KeyTopologyXclrDomain:    "old-domain",
+						topology.KeyTopologyXclrSubDomain: "old-sub-domain",
+						topology.FabricTierKey(0):         "old-leaf",
+						topology.FabricTierKey(3):         "stale-fabric",
+						"fabric.topograph.run/core":       "legacy-core",
+						"workload.example/label":          "keep",
 					},
 				},
 			},
@@ -397,11 +397,11 @@ func TestMergeNodeLabels(t *testing.T) {
 				topology.FabricTierKey(1):         "new-spine",
 			},
 			out: map[string]string{
-				topology.KeyNvidiaGPUClique:        "cluster-a.0",
-				topology.FabricTierKey(0):          "new-leaf",
-				topology.FabricTierKey(1):          "new-spine",
-				"network.topology.nvidia.com/core": "legacy-core",
-				"workload.example/label":           "keep",
+				topology.KeyNvidiaGPUClique: "cluster-a.0",
+				topology.FabricTierKey(0):   "new-leaf",
+				topology.FabricTierKey(1):   "new-spine",
+				"fabric.topograph.run/core": "legacy-core",
+				"workload.example/label":    "keep",
 			},
 		},
 		{

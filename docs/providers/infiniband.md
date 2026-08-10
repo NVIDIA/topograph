@@ -27,7 +27,7 @@ Both variants are presently single-region only (multi-region requests return a `
 Both variants produce the same topology representation, and are in turn consumed by whichever engine you configure:
 
 - **Slurm engine** (`engine: slurm`) — writes a `topology.conf` file describing the switch tree, used by the Slurm topology plugin for topology-aware scheduling
-- **Kubernetes engine** (`engine: k8s`) — applies `network.topology.nvidia.com/` labels to nodes reflecting their position in the switch hierarchy and (where applicable) their NVLink domain
+- **Kubernetes engine** (`engine: k8s`) — applies `fabric.topograph.run/` labels to nodes reflecting their position in the switch hierarchy and (where applicable) their NVLink domain
 - **NFD engine** (`engine: nfd`) — publishes topology as Node Feature Discovery `NodeFeature` and `NodeFeatureGroup` custom resources
 - **Slinky engine** (`engine: slinky`) — writes topology data to a Kubernetes ConfigMap for Slurm-on-Kubernetes deployments
 
@@ -172,7 +172,7 @@ Example request payload with `nodeSelector`:
 After topology generation, inspect the node labels applied by Topograph:
 
 ```bash
-kubectl get nodes -o json | jq '.items[].metadata.labels | with_entries(select(.key | startswith("network.topology.nvidia.com")))'
+kubectl get nodes -o json | jq '.items[].metadata.labels | with_entries(select(.key | startswith("fabric.topograph.run")))'
 ```
 
 See the [Kubernetes engine documentation](../engines/k8s.md) for details on the label schema.

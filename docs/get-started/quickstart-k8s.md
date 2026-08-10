@@ -68,7 +68,7 @@ Engine-specific install flag:
 Nothing else is required — the `k8s` engine labels nodes directly from the default chart deployment. A few seconds after install, topology labels appear on cluster nodes:
 
 ```bash
-kubectl get nodes --show-labels | grep network.topology.nvidia
+kubectl get nodes --show-labels | grep fabric.topograph.run
 ```
 
 If labels are missing, inspect the Topograph logs:
