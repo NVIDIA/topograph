@@ -7,9 +7,9 @@ Topograph is a tool designed to enhance scheduling decisions in Kubernetes clust
 Topograph maps network-fabric locality as a variable-depth label family and
 accelerator-network locality as a two-level label hierarchy:
 
-* `network.topology.nvidia.com/tier-N` identifies fabric switch tiers.
-* `xclr.topology.nvidia.com/domain` identifies the accelerator domain.
-* `xclr.topology.nvidia.com/sub-domain` identifies an optional accelerator
+* `fabric.topograph.run/tier-N` identifies fabric switch tiers.
+* `accelerator.topograph.run/domain` identifies the accelerator domain.
+* `accelerator.topograph.run/sub-domain` identifies an optional accelerator
   sub-domain within that domain.
 
 Fabric tier 0 is closest to the compute node, and tier numbers increase
@@ -28,11 +28,11 @@ For example, if a node belongs to NVLink domain `nvl1`, sub-domain
 then to switch `s3`, Topograph will apply the following labels to the node:
 
 ```
-  xclr.topology.nvidia.com/domain: nvl1
-  xclr.topology.nvidia.com/sub-domain: nvl1.rack01
-  network.topology.nvidia.com/tier-0: s1
-  network.topology.nvidia.com/tier-1: s2
-  network.topology.nvidia.com/tier-2: s3
+  accelerator.topograph.run/domain: nvl1
+  accelerator.topograph.run/sub-domain: nvl1.rack01
+  fabric.topograph.run/tier-0: s1
+  fabric.topograph.run/tier-1: s2
+  fabric.topograph.run/tier-2: s3
 ```
 
 <p align="center"><img src="../assets/topograph-k8s.png" width="600" alt="Design" /></p>
@@ -54,7 +54,7 @@ graph TB
     subgraph topo_scope["Topograph — inter-node scope"]
         fabric["Physical Network Fabric\n(NVLink domains · IB/Ethernet switches)"]
         topograph["Topograph\n(queries CSP/fabric APIs)"]
-        labels["Kubernetes Node Labels\n(network.topology.nvidia.com/*)"]
+        labels["Kubernetes Node Labels\n(fabric.topograph.run/*)"]
         scheduler["Topology-Aware Scheduler\n(KAI Scheduler · Kueue TAS)"]
         fabric --> topograph --> labels --> scheduler
     end
@@ -101,7 +101,7 @@ closer network proximity.
                     operator: In
                     values:
                       - myapp
-              topologyKey: network.topology.nvidia.com/tier-1
+              topologyKey: fabric.topograph.run/tier-1
           - weight: 90
             podAffinityTerm:
               labelSelector:
@@ -110,15 +110,15 @@ closer network proximity.
                     operator: In
                     values:
                       - myapp
-              topologyKey: network.topology.nvidia.com/tier-0
+              topologyKey: fabric.topograph.run/tier-0
 ```
-Pods are prioritized to be placed on nodes sharing the label `network.topology.nvidia.com/tier-0`.
+Pods are prioritized to be placed on nodes sharing the label `fabric.topograph.run/tier-0`.
 These nodes are connected to the same network switch, ensuring the lowest latency for communication.
 
-Nodes with the label `network.topology.nvidia.com/tier-1` are next in priority.
+Nodes with the label `fabric.topograph.run/tier-1` are next in priority.
 Pods on these nodes will still be relatively close, but with slightly higher latency.
 
-In the three-tier network, all nodes will share the same `network.topology.nvidia.com/tier-2` label,
+In the three-tier network, all nodes will share the same `fabric.topograph.run/tier-2` label,
 so it doesn’t need to be included in pod affinity settings.
 
 Since the default Kubernetes scheduler places one pod at a time, the placement may vary depending on where
@@ -145,7 +145,7 @@ engine:
   name: k8s
   params:
     # Optional closest-first fabric keys and accelerator-domain key.
-    # The sub-domain key remains xclr.topology.nvidia.com/sub-domain.
+    # The sub-domain key remains accelerator.topograph.run/sub-domain.
     # Additional fabric tiers are omitted when the array is configured.
     fabricLabels:
       - example.com/rack

@@ -21,9 +21,9 @@ NFD CRs for consumers that already watch NFD.
 Topograph maps topology into optional XCLR dimensions and a variable-depth
 fabric label family:
 
-- `xclr.topology.nvidia.com/domain`
-- `xclr.topology.nvidia.com/sub-domain`
-- `network.topology.nvidia.com/tier-N`
+- `accelerator.topograph.run/domain`
+- `accelerator.topograph.run/sub-domain`
+- `fabric.topograph.run/tier-N`
 
 Fabric tier 0 is closest to the node and higher tiers progress outward. There
 is no fixed number of fabric tiers or total topology dimensions.
@@ -92,7 +92,7 @@ metadata:
     app.kubernetes.io/managed-by: topograph
     topograph.nvidia.com/group-type: fabric-tier-0
   annotations:
-    topograph.nvidia.com/label-key: network.topology.nvidia.com/tier-0
+    topograph.nvidia.com/label-key: fabric.topograph.run/tier-0
     topograph.nvidia.com/label-value: leaf-12
 spec:
   featureGroupRules:
@@ -156,7 +156,7 @@ label name is the same on every node, but the label value differs from one switc
 to another.
 
 The current Kubernetes label model handles this naturally: pod affinity can use
-`topologyKey: network.topology.nvidia.com/tier-0`, and Kubernetes compares values
+`topologyKey: fabric.topograph.run/tier-0`, and Kubernetes compares values
 on candidate nodes. `NodeFeatureGroup` exposes precomputed groups instead, so
 the consumer needs extra logic to choose among them.
 

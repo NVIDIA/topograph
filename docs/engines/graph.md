@@ -22,8 +22,8 @@ Each instance entry contains:
       "network_layers": ["leaf-a", "spine-a"],
       "labels": {
         "nvidia.com/gpu.product": "H100",
-        "xclr.topology.nvidia.com/domain": "nvl-1",
-        "xclr.topology.nvidia.com/sub-domain": "nvl-1.rack-1"
+        "accelerator.topograph.run/domain": "nvl-1",
+        "accelerator.topograph.run/sub-domain": "nvl-1.rack-1"
       }
     }
   ]

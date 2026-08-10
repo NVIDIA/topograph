@@ -31,7 +31,7 @@ The NetQ provider reports what the fabric actually looks like right now, not wha
 The NetQ provider produces the same topology representation as the InfiniBand providers, consumed by whichever engine you configure:
 
 - **Slurm engine** (`engine: slurm`) — writes a `topology.conf` file for Slurm topology-aware scheduling
-- **Kubernetes engine** (`engine: k8s`) — applies `network.topology.nvidia.com/` labels to nodes
+- **Kubernetes engine** (`engine: k8s`) — applies `fabric.topograph.run/` labels to nodes
 - **NFD engine** (`engine: nfd`) — publishes topology as Node Feature Discovery `NodeFeature` and `NodeFeatureGroup` custom resources
 - **Slinky engine** (`engine: slinky`) — writes topology data to a Kubernetes ConfigMap
 
