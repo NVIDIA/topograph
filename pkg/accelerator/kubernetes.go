@@ -10,12 +10,78 @@ import (
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	internalK8s "github.com/NVIDIA/topograph/internal/k8s"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+// BaseKubernetesNodeAnnotations returns the identity annotations shared by
+// Kubernetes providers whose instance ID and region are node-local.
+func BaseKubernetesNodeAnnotations(hostName string) map[string]string {
+	return map[string]string{
+		topology.KeyNodeInstance: hostName,
+		topology.KeyNodeRegion:   "local",
+	}
+}
+
+// TargetsFromKubernetesNodes resolves selected Nodes through the canonical
+// region/instance mapping and attaches their metadata for discovery.
+func TargetsFromKubernetesNodes(nodes *corev1.NodeList, instances []topology.ComputeInstances) []Target {
+	instancesByRegion := make(map[string]map[string]string, len(instances))
+	for _, regionalInstances := range instances {
+		instancesByRegion[regionalInstances.Region] = regionalInstances.Instances
+	}
+
+	targets := make([]Target, 0, len(nodes.Items))
+	for _, node := range nodes.Items {
+		instanceID := strings.TrimSpace(node.Annotations[topology.KeyNodeInstance])
+		if instanceID == "" {
+			klog.Warningf("missing or empty %q annotation in node %s", topology.KeyNodeInstance, node.Name)
+			continue
+		}
+		region := strings.TrimSpace(node.Annotations[topology.KeyNodeRegion])
+		if region == "" {
+			klog.Warningf("missing or empty %q annotation in node %s", topology.KeyNodeRegion, node.Name)
+			continue
+		}
+		regionalInstances, ok := instancesByRegion[region]
+		if !ok {
+			continue
+		}
+		hostName, ok := regionalInstances[instanceID]
+		if !ok {
+			continue
+		}
+
+		targets = append(targets, Target{
+			InstanceID:  instanceID,
+			HostName:    hostName,
+			Labels:      node.Labels,
+			Annotations: node.Annotations,
+		})
+	}
+	return targets
+}
+
+// DiscoverKubernetesDomains runs a configured metadata discoverer against
+// selected Nodes and converts its result into the canonical domain map.
+func DiscoverKubernetesDomains(
+	ctx context.Context,
+	discoverer Discoverer,
+	nodes *corev1.NodeList,
+	instances []topology.ComputeInstances,
+) (topology.DomainMap, error) {
+	targets := TargetsFromKubernetesNodes(nodes, instances)
+	assignments, err := discoverer.Discover(ctx, targets)
+	if err != nil {
+		return nil, err
+	}
+	return DomainMapFromAssignments(assignments, targets), nil
+}
 
 // NewKubernetesNodeDiscoverer returns the node-local discoverer used by the
 // node-data-broker. Sources that read existing Kubernetes metadata require no

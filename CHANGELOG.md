@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- The DRA provider now accepts the shared `provider.params.accelerator` Kubernetes-label configuration used by `infiniband-k8s`, allowing a custom Node label to supply accelerator domains while preserving `nvidia.com/gpu.clique` as the default when the section is omitted.
 - Pluggable accelerator-domain discovery for InfiniBand providers, independently selectable from fabric discovery with `nvidia-smi`, an explicitly configured Kubernetes Node label, or no accelerator source. Discovery is disabled when `accelerator` is omitted or empty; a non-empty section must set `source` explicitly. Helm defaults the `nvidia-smi` workload location to the `gpu-operator` namespace and `nvidia-device-plugin-daemonset` DaemonSet when those values are omitted.
 - Helm `kubeClient.qps` and `kubeClient.burst` values for tuning the DRA provider and the Kubernetes, NFD, and Slinky engine clients through deployment-level `KUBE_QPS` and `KUBE_BURST` settings.
 - The Kubernetes engine now publishes `accelerator.topograph.run/sub-domain` when a provider supplies `InstanceTopology.XclrSubDomainID`.
@@ -70,6 +71,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- **BREAKING:** Removed the exported Go constant `topology.KeyNvidiaGPUClique`. The GPU Operator's `nvidia.com/gpu.clique` label is now a DRA provider default rather than part of the canonical topology API; configure label-backed accelerator discovery through `provider.params.accelerator.kubernetesLabel.key`.
 - Periodic node annotation refreshes, including the `--refresh-interval` broker flag and `nodeDataBroker.refreshInterval` Helm value. The broker now applies annotations once at startup.
 
 ### Security

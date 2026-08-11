@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestIsPodReady(t *testing.T) {
@@ -77,6 +78,43 @@ func TestIsPodReady(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.ready, IsPodReady(tc.pod))
+		})
+	}
+}
+
+func TestNodeListOptions(t *testing.T) {
+	tests := []struct {
+		name   string
+		params map[string]any
+		want   *metav1.ListOptions
+		err    string
+	}{
+		{name: "no parameters"},
+		{
+			name:   "other provider parameters are ignored",
+			params: map[string]any{"accelerator": map[string]any{"source": "none"}},
+		},
+		{
+			name:   "node selector",
+			params: map[string]any{"nodeSelector": map[string]string{"key": "value"}},
+			want:   &metav1.ListOptions{LabelSelector: "key=value"},
+		},
+		{
+			name:   "invalid node selector",
+			params: map[string]any{"nodeSelector": 0.1},
+			err:    "could not decode configuration",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := NodeListOptions(test.params)
+			if test.err != "" {
+				require.ErrorContains(t, err, test.err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
 		})
 	}
 }

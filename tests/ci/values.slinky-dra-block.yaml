@@ -3,6 +3,10 @@
 provider:
   name: dra
   params:
+    accelerator:
+      source: kubernetes-label
+      kubernetesLabel:
+        key: nvidia.com/gpu.clique
     nodeSelector:
       kwok.x-k8s.io/node: "fake"
 

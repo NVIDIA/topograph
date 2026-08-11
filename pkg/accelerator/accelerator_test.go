@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
@@ -206,6 +208,68 @@ func TestKubernetesDiscoverer(t *testing.T) {
 			require.Equal(t, test.assignments, assignments)
 		})
 	}
+}
+
+func TestDiscoverKubernetesDomainsUsesCanonicalIdentity(t *testing.T) {
+	nodes := &corev1.NodeList{Items: []corev1.Node{
+		{ObjectMeta: metav1.ObjectMeta{
+			Name:   "kubernetes-node-1",
+			Labels: map[string]string{testKubernetesLabel: "domain-1"},
+			Annotations: map[string]string{
+				topology.KeyNodeInstance: "instance-1",
+				topology.KeyNodeRegion:   "region-1",
+			},
+		}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "missing-annotations"}},
+		{ObjectMeta: metav1.ObjectMeta{
+			Name:   "unrequested-node",
+			Labels: map[string]string{testKubernetesLabel: "domain-2"},
+			Annotations: map[string]string{
+				topology.KeyNodeInstance: "instance-2",
+				topology.KeyNodeRegion:   "region-2",
+			},
+		}},
+	}}
+	instances := []topology.ComputeInstances{{
+		Region:    "region-1",
+		Instances: map[string]string{"instance-1": "scheduler-node-1"},
+	}}
+	discoverer, err := NewKubernetesDiscoverer(KubernetesLabelSection(testKubernetesLabel))
+	require.NoError(t, err)
+
+	domains, err := DiscoverKubernetesDomains(context.Background(), discoverer, nodes, instances)
+	require.NoError(t, err)
+	expected := topology.NewDomainMap()
+	expected.AddHost("domain-1", "instance-1", "scheduler-node-1")
+	require.Equal(t, expected, domains)
+}
+
+func TestTargetsAndDomainMapFromComputeInstances(t *testing.T) {
+	targets := TargetsFromComputeInstances([]topology.ComputeInstances{{
+		Region: "region-1",
+		Instances: map[string]string{
+			"instance-1": "node-1",
+			"instance-2": "node-2",
+		},
+	}})
+	require.ElementsMatch(t, []Target{
+		{InstanceID: "instance-1", HostName: "node-1"},
+		{InstanceID: "instance-2", HostName: "node-2"},
+	}, targets)
+
+	domains := DomainMapFromAssignments(Assignments{
+		"instance-1": {DomainID: "domain-1", SubDomainID: "sub-domain-1"},
+	}, targets)
+	require.Equal(t, topology.DomainMap{
+		"domain-1": {
+			"node-1": {
+				Domain:     "domain-1",
+				SubDomain:  "sub-domain-1",
+				InstanceID: "instance-1",
+				HostName:   "node-1",
+			},
+		},
+	}, domains)
 }
 
 type fakeCommandRunner struct {

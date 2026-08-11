@@ -9,6 +9,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/NVIDIA/topograph/pkg/accelerator"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -16,44 +17,46 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func TestGetParameters(t *testing.T) {
-	testCases := []struct {
-		name   string
-		params map[string]any
-		ret    *Params
-		err    string
+func TestNewAcceleratorDiscoverer(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   map[string]any
+		labelKey string
+		err      string
 	}{
+		{name: "legacy default", labelKey: defaultDomainLabel},
 		{
-			name:   "Case 1: no params",
-			params: nil,
-			ret:    &Params{},
+			name: "configured label",
+			params: map[string]any{"accelerator": map[string]any{
+				"source":          accelerator.SourceKubernetesLabel,
+				"kubernetesLabel": map[string]any{"key": "example.com/domain"},
+			}},
+			labelKey: "example.com/domain",
 		},
 		{
-			name:   "Case 2: bad params",
-			params: map[string]any{"nodeSelector": .1},
-			err:    "could not decode configuration: 1 error(s) decoding:\n\n* 'nodeSelector' expected a map, got 'float64'",
-		},
-		{
-			name:   "Case 3: valid input",
-			params: map[string]any{"nodeSelector": map[string]string{"key": "val"}},
-			ret: &Params{
-				NodeSelector: map[string]string{"key": "val"},
-				nodeListOpt: &metav1.ListOptions{
-					LabelSelector: "key=val",
-				},
-			},
+			name:   "unsupported source",
+			params: map[string]any{"accelerator": map[string]any{"source": accelerator.SourceNone}},
+			err:    `dra provider supports only accelerator source "kubernetes-label"`,
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			p, err := getParameters(tc.params)
-			if len(tc.err) != 0 {
-				require.ErrorContains(t, err, tc.err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.ret, p)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			discoverer, labelKey, err := newAcceleratorDiscoverer(test.params)
+			if test.err != "" {
+				require.EqualError(t, err, test.err)
+				return
 			}
+			require.NoError(t, err)
+			require.Equal(t, test.labelKey, labelKey)
+			assignments, err := discoverer.Discover(context.Background(), []accelerator.Target{{
+				InstanceID: "instance-1",
+				Labels:     map[string]string{test.labelKey: "domain-1"},
+			}})
+			require.NoError(t, err)
+			require.Equal(t, accelerator.Assignments{
+				"instance-1": {DomainID: "domain-1"},
+			}, assignments)
 		})
 	}
 }
@@ -62,7 +65,7 @@ func TestGenerateTopologyConfigUsesAnnotatedInstanceID(t *testing.T) {
 	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
 		Name: "k8s-node-1",
 		Labels: map[string]string{
-			DomainLabel: "clique-1",
+			defaultDomainLabel: "clique-1",
 		},
 		Annotations: map[string]string{
 			topology.KeyNodeInstance: "instance-123",
@@ -70,8 +73,9 @@ func TestGenerateTopologyConfigUsesAnnotatedInstanceID(t *testing.T) {
 		},
 	}}
 	provider := &Provider{
-		client: fake.NewSimpleClientset(node),
-		params: &Params{},
+		client:           fake.NewSimpleClientset(node),
+		accelerator:      mustAcceleratorDiscoverer(t, defaultDomainLabel),
+		acceleratorLabel: defaultDomainLabel,
 	}
 	instances := []topology.ComputeInstances{{
 		Region: "local",
@@ -86,4 +90,11 @@ func TestGenerateTopologyConfigUsesAnnotatedInstanceID(t *testing.T) {
 	expectedDomains := topology.NewDomainMap()
 	expectedDomains.AddHost("clique-1", "instance-123", "scheduler-node-1")
 	require.Equal(t, expectedDomains, graph.Domains)
+}
+
+func mustAcceleratorDiscoverer(t *testing.T, labelKey string) accelerator.Discoverer {
+	t.Helper()
+	discoverer, err := accelerator.NewKubernetesDiscoverer(accelerator.KubernetesLabelSection(labelKey))
+	require.NoError(t, err)
+	return discoverer
 }

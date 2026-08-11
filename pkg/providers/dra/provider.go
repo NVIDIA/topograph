@@ -11,14 +11,12 @@ import (
 	"net/http"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
-	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/k8s"
+	"github.com/NVIDIA/topograph/pkg/accelerator"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -26,21 +24,15 @@ import (
 const (
 	NAME = "dra"
 
-	DomainLabel = topology.KeyNvidiaGPUClique
+	defaultDomainLabel = "nvidia.com/gpu.clique"
 )
 
 type Provider struct {
-	config *rest.Config
-	client kubernetes.Interface
-	params *Params
-}
-
-type Params struct {
-	// NodeSelector (optional) specifies nodes participating in the topology
-	NodeSelector map[string]string `mapstructure:"nodeSelector"`
-
-	// derived fields
-	nodeListOpt *metav1.ListOptions
+	config           *rest.Config
+	client           kubernetes.Interface
+	nodeListOpt      *metav1.ListOptions
+	accelerator      accelerator.Discoverer
+	acceleratorLabel string
 }
 
 func NamedLoader() (string, providers.Loader) {
@@ -48,7 +40,11 @@ func NamedLoader() (string, providers.Loader) {
 }
 
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
-	p, err := getParameters(config.Params)
+	nodeListOpt, err := k8s.NodeListOptions(config.Params)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+	acceleratorDiscoverer, acceleratorLabel, err := newAcceleratorDiscoverer(config.Params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
@@ -68,66 +64,48 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	}
 
 	return &Provider{
-		config: cfg,
-		client: client,
-		params: p,
+		config:           cfg,
+		client:           client,
+		nodeListOpt:      nodeListOpt,
+		accelerator:      acceleratorDiscoverer,
+		acceleratorLabel: acceleratorLabel,
 	}, nil
 }
 
-func getParameters(params map[string]any) (*Params, error) {
-	p := &Params{}
-	if err := config.Decode(params, p); err != nil {
-		return nil, err
+func newAcceleratorDiscoverer(params map[string]any) (accelerator.Discoverer, string, error) {
+	section := accelerator.SectionFromProviderParams(params)
+	if !section.Present() {
+		section = accelerator.KubernetesLabelSection(defaultDomainLabel)
 	}
-	if len(p.NodeSelector) != 0 {
-		p.nodeListOpt = &metav1.ListOptions{
-			LabelSelector: labels.Set(p.NodeSelector).String(),
-		}
+	acceleratorConfig, err := accelerator.ParseConfig(section)
+	if err != nil {
+		return nil, "", err
 	}
-
-	return p, nil
+	if acceleratorConfig.Source != accelerator.SourceKubernetesLabel {
+		return nil, "", fmt.Errorf("dra provider supports only accelerator source %q", accelerator.SourceKubernetesLabel)
+	}
+	acceleratorDiscoverer, err := accelerator.NewKubernetesDiscovererFromConfig(acceleratorConfig)
+	if err != nil {
+		return nil, "", err
+	}
+	return acceleratorDiscoverer, acceleratorConfig.KubernetesLabel.Key, nil
 }
 
 func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
-	regIndices := make(map[string]int) // map[region : index]
-	for i, ci := range instances {
-		regIndices[ci.Region] = i
-	}
-
-	nodes, err := k8s.GetNodes(ctx, p.client, p.params.nodeListOpt)
+	nodes, err := k8s.GetNodes(ctx, p.client, p.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	domainMap := topology.NewDomainMap()
-	for _, node := range nodes.Items {
-		clusterID, ok := node.Labels[DomainLabel]
-		if !ok {
-			continue
-		}
-
-		region := node.Annotations[topology.KeyNodeRegion]
-		indx, ok := regIndices[region]
-		if !ok {
-			continue
-		}
-
-		i2n := instances[indx].Instances
-		instanceID, ok := node.Annotations[topology.KeyNodeInstance]
-		if !ok || instanceID == "" {
-			klog.Warningf("missing or empty %q annotation in node %s", topology.KeyNodeInstance, node.Name)
-			continue
-		}
-
-		if host, ok := i2n[instanceID]; ok {
-			domainMap.AddHost(clusterID, instanceID, host)
-		}
+	domainMap, err := accelerator.DiscoverKubernetesDomains(ctx, p.accelerator, nodes, instances)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to discover accelerator domains: %v", err))
 	}
 
 	if len(domainMap) == 0 {
 		return nil, httperr.NewError(http.StatusBadGateway,
 			fmt.Sprintf("no matching nodes found; check label %q and annotations %q and %q",
-				DomainLabel, topology.KeyNodeRegion, topology.KeyNodeInstance))
+				p.acceleratorLabel, topology.KeyNodeRegion, topology.KeyNodeInstance))
 	}
 
 	return &topology.Graph{
@@ -135,11 +113,6 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, instances
 	}, nil
 }
 
-func GetNodeAnnotations(ctx context.Context, hostname string) (map[string]string, error) {
-	annotations := map[string]string{
-		topology.KeyNodeInstance: hostname,
-		topology.KeyNodeRegion:   "local",
-	}
-
-	return annotations, nil
+func GetNodeAnnotations(_ context.Context, hostname string) (map[string]string, error) {
+	return accelerator.BaseKubernetesNodeAnnotations(hostname), nil
 }

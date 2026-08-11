@@ -121,3 +121,25 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "provider.params.accelerator.kubernetesLabel.key must be set for source kubernetes-label"
+
+  - it: rejects a DRA label accelerator source without a key
+    set:
+      provider:
+        name: dra
+        params:
+          accelerator:
+            source: kubernetes-label
+    asserts:
+      - failedTemplate:
+          errorMessage: "provider.params.accelerator.kubernetesLabel.key must be set for source kubernetes-label"
+
+  - it: rejects a non-label accelerator source for DRA
+    set:
+      provider:
+        name: dra
+        params:
+          accelerator:
+            source: none
+    asserts:
+      - failedTemplate:
+          errorMessage: "provider.params.accelerator.source must be kubernetes-label for the dra provider"

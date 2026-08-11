@@ -21,8 +21,27 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
 
+	internalconfig "github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+type nodeSelectorConfig struct {
+	NodeSelector map[string]string `mapstructure:"nodeSelector"`
+}
+
+// NodeListOptions decodes a provider's optional nodeSelector into Kubernetes
+// list options. Other provider parameters are intentionally ignored.
+func NodeListOptions(params map[string]any) (*metav1.ListOptions, error) {
+	config := nodeSelectorConfig{}
+	if err := internalconfig.Decode(params, &config); err != nil {
+		return nil, err
+	}
+	if len(config.NodeSelector) == 0 {
+		return nil, nil
+	}
+
+	return &metav1.ListOptions{LabelSelector: labels.Set(config.NodeSelector).String()}, nil
+}
 
 func GetNodes(ctx context.Context, client kubernetes.Interface, opt *metav1.ListOptions) (*corev1.NodeList, error) {
 	if opt == nil {

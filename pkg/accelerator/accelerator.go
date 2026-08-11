@@ -50,6 +50,25 @@ type Section struct {
 	present bool
 }
 
+// KubernetesLabelSection returns an accelerator section configured to read
+// domain IDs from the supplied Kubernetes Node label.
+func KubernetesLabelSection(key string) Section {
+	return Section{
+		value: map[string]any{
+			"source": SourceKubernetesLabel,
+			"kubernetesLabel": map[string]any{
+				"key": key,
+			},
+		},
+		present: true,
+	}
+}
+
+// Present reports whether the accelerator section was explicitly supplied.
+func (s Section) Present() bool {
+	return s.present
+}
+
 // SectionFromProviderParams extracts the accelerator section without parsing
 // source-specific fields in the provider.
 func SectionFromProviderParams(providerParams map[string]any) Section {
@@ -162,6 +181,37 @@ type Discoverer interface {
 	Discover(context.Context, []Target) (Assignments, error)
 }
 
+// TargetsFromComputeInstances converts the canonical request identity mapping
+// into accelerator discovery targets.
+func TargetsFromComputeInstances(instances []topology.ComputeInstances) []Target {
+	targets := make([]Target, 0)
+	for _, regionalInstances := range instances {
+		for instanceID, hostName := range regionalInstances.Instances {
+			targets = append(targets, Target{InstanceID: instanceID, HostName: hostName})
+		}
+	}
+	return targets
+}
+
+// DomainMapFromAssignments converts discovered accelerator assignments into
+// the canonical topology domain map using the target identity mapping.
+func DomainMapFromAssignments(assignments Assignments, targets []Target) topology.DomainMap {
+	domainMap := topology.NewDomainMap()
+	for _, target := range targets {
+		assignment, ok := assignments[target.InstanceID]
+		if !ok {
+			continue
+		}
+		domainMap.AddHostInfo(&topology.HostInfo{
+			Domain:     assignment.DomainID,
+			SubDomain:  assignment.SubDomainID,
+			InstanceID: target.InstanceID,
+			HostName:   target.HostName,
+		})
+	}
+	return domainMap
+}
+
 type metadataDiscoverer struct {
 	key   string
 	value func(Target, string) string
@@ -174,7 +224,15 @@ func NewKubernetesDiscoverer(section Section) (Discoverer, error) {
 	if err != nil {
 		return nil, err
 	}
+	return NewKubernetesDiscovererFromConfig(config)
+}
 
+// NewKubernetesDiscovererFromConfig returns a discoverer that resolves
+// accelerator domains from Kubernetes Node metadata using validated config.
+func NewKubernetesDiscovererFromConfig(config Config) (Discoverer, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
 	switch config.Source {
 	case SourceNvidiaSMI:
 		return &metadataDiscoverer{

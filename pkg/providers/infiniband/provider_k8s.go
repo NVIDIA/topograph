@@ -11,11 +11,9 @@ import (
 	"net/http"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/accelerator"
@@ -28,16 +26,8 @@ const NAME_K8S = "infiniband-k8s"
 type ProviderK8S struct {
 	config      *rest.Config
 	client      *kubernetes.Clientset
-	params      *Params
-	accelerator accelerator.Discoverer
-}
-
-type Params struct {
-	// NodeSelector (optional) specifies nodes participating in the topology
-	NodeSelector map[string]string `mapstructure:"nodeSelector"`
-
-	// derived fields
 	nodeListOpt *metav1.ListOptions
+	accelerator accelerator.Discoverer
 }
 
 func NamedLoaderK8S() (string, providers.Loader) {
@@ -45,7 +35,7 @@ func NamedLoaderK8S() (string, providers.Loader) {
 }
 
 func LoaderK8S(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
-	p, err := getParameters(config.Params)
+	nodeListOpt, err := k8s.NodeListOptions(config.Params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
@@ -69,24 +59,9 @@ func LoaderK8S(ctx context.Context, config providers.Config) (providers.Provider
 	return &ProviderK8S{
 		config:      cfg,
 		client:      client,
-		params:      p,
+		nodeListOpt: nodeListOpt,
 		accelerator: acceleratorDiscoverer,
 	}, nil
-}
-
-func getParameters(params map[string]any) (*Params, error) {
-	p := &Params{}
-	if err := config.Decode(params, p); err != nil {
-		return nil, err
-	}
-
-	if len(p.NodeSelector) != 0 {
-		p.nodeListOpt = &metav1.ListOptions{
-			LabelSelector: labels.Set(p.NodeSelector).String(),
-		}
-	}
-
-	return p, nil
 }
 
 func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
@@ -94,25 +69,15 @@ func (p *ProviderK8S) GenerateTopologyConfig(ctx context.Context, _ *int, cis []
 		return nil, httperr.NewError(http.StatusBadRequest, "on-prem does not support multi-region topology requests")
 	}
 
-	nodes, err := k8s.GetNodes(ctx, p.client, p.params.nodeListOpt)
+	nodes, err := k8s.GetNodes(ctx, p.client, p.nodeListOpt)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	targets := make([]accelerator.Target, 0, len(nodes.Items))
-	for _, node := range nodes.Items {
-		targets = append(targets, accelerator.Target{
-			InstanceID:  node.Name,
-			HostName:    node.Name,
-			Labels:      node.Labels,
-			Annotations: node.Annotations,
-		})
-	}
-	assignments, err := p.accelerator.Discover(ctx, targets)
+	domainMap, err := accelerator.DiscoverKubernetesDomains(ctx, p.accelerator, nodes, cis)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to discover accelerator domains: %v", err))
 	}
-	domainMap := domainMapFromAssignments(assignments, targets)
 
 	ibnetdiscover := NewIBNetDiscoverK8S(p.config, p.client)
 	treeRoot, err := getIbTree(ctx, cis, ibnetdiscover)
