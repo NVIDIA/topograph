@@ -53,6 +53,50 @@ Create the name of the RBAC resources.
 {{- include "nodeDataBroker.fullname" . }}
 {{- end }}
 
+{{/* Resolve the configured accelerator source. */}}
+{{- define "nodeDataBroker.acceleratorSource" -}}
+{{- $providerParams := default dict .Values.provider.params -}}
+{{- $acceleratorValue := get $providerParams "accelerator" -}}
+{{- $accelerator := default dict $acceleratorValue -}}
+{{- $source := "none" -}}
+{{- if hasKey $providerParams "accelerator" -}}
+{{- if and (kindIs "map" $acceleratorValue) (eq (len $acceleratorValue) 0) -}}
+{{- $source = "none" -}}
+{{- else -}}
+{{- $source = get $accelerator "source" -}}
+{{- if empty $source -}}
+{{- fail "provider.params.accelerator.source must be set when provider.params.accelerator is present" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- lower (toString $source) -}}
+{{- end }}
+
+{{/*
+Render the provider configuration used by node-data-broker. The broker needs
+the GPU Operator workload location when nvidia-smi discovery is enabled, so
+materialize its defaults in the generated configuration while preserving
+explicit overrides.
+*/}}
+{{- define "nodeDataBroker.providerConfig" -}}
+{{- $provider := deepCopy .Values.provider -}}
+{{- if eq (include "nodeDataBroker.acceleratorSource" .) "nvidia-smi" -}}
+{{- $params := default dict (get $provider "params") -}}
+{{- $accelerator := default dict (get $params "accelerator") -}}
+{{- $nvidiaSmi := default dict (get $accelerator "nvidiaSmi") -}}
+{{- if empty (trim (toString (get $nvidiaSmi "gpuOperatorNamespace"))) -}}
+{{- $_ := set $nvidiaSmi "gpuOperatorNamespace" "gpu-operator" -}}
+{{- end -}}
+{{- if empty (trim (toString (get $nvidiaSmi "devicePluginDaemonSet"))) -}}
+{{- $_ := set $nvidiaSmi "devicePluginDaemonSet" "nvidia-device-plugin-daemonset" -}}
+{{- end -}}
+{{- $_ := set $accelerator "nvidiaSmi" $nvidiaSmi -}}
+{{- $_ := set $params "accelerator" $accelerator -}}
+{{- $_ := set $provider "params" $params -}}
+{{- end -}}
+{{- toYaml $provider -}}
+{{- end }}
+
 {{/*
 Create the name of a generated ConfigMap mount.
 */}}

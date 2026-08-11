@@ -6,28 +6,18 @@
 package infiniband
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/k8s"
+	"github.com/NVIDIA/topograph/pkg/accelerator"
 	"github.com/NVIDIA/topograph/pkg/topology"
-)
-
-const (
-	gpuOperatorNamespaceArg  = "gpu-operator-namespace"
-	devicePluginDaemonSetArg = "device-plugin-daemonset"
-	useGPUCliqueLabelArg     = "useGpuCliqueLabel"
-
-	defaultGpuOperatorNamespace  = "gpu-operator"
-	defaultDevicePluginDaemonSet = "nvidia-device-plugin-daemonset"
 )
 
 type IBNetDiscoverK8S struct {
@@ -57,95 +47,23 @@ func (h *IBNetDiscoverK8S) Run(ctx context.Context, node string) (*bytes.Buffer,
 	return k8s.ExecInPod(ctx, h.client, h.config, pods.Items[0].Name, dataBrokerNamespace, []string{"ibnetdiscover"})
 }
 
-func GetGpuClusterID(ctx context.Context, client kubernetes.Interface, config *rest.Config, hostname string, overrides map[string]string) (string, error) {
-	ds, namespace := getDevicePluginInfo(overrides)
-
-	pods, err := k8s.GetDaemonSetPods(ctx, client, ds, namespace, hostname)
-	if err != nil {
-		return "", err
-	}
-
-	switch len(pods.Items) {
-	case 0:
-		klog.Infof("no %s on %s node", ds, hostname)
-		return "", nil
-	case 1:
-		cmd := []string{"sh", "-c", cmdClusterID}
-		buf, err := k8s.ExecInPod(ctx, client, config, pods.Items[0].Name, namespace, cmd)
-		if err != nil {
-			return "", err
-		}
-		return parseClusterID(buf.String())
-	default:
-		return "", fmt.Errorf("expected 1 %s pod, got %d", ds, len(pods.Items))
-	}
-}
-
-func getDevicePluginInfo(overrides map[string]string) (daemonset string, namespace string) {
-	var ok bool
-	if daemonset, ok = overrides[devicePluginDaemonSetArg]; !ok {
-		daemonset = defaultDevicePluginDaemonSet
-	}
-	if namespace, ok = overrides[gpuOperatorNamespaceArg]; !ok {
-		namespace = defaultGpuOperatorNamespace
-	}
-
-	return
-}
-
-func parseClusterID(txt string) (string, error) {
-	klog.V(4).Infof("ClusterID output: %q", txt)
-	var cliqueId, clusterUUID string
-	scanner := bufio.NewScanner(strings.NewReader(txt))
-	for scanner.Scan() {
-		line := scanner.Text()
-		arr := strings.Split(line, ":")
-		if len(arr) < 2 {
-			continue
-		}
-		switch strings.TrimSpace(arr[0]) {
-		case "CliqueId":
-			cliqueId = strings.TrimSpace(arr[1])
-		case "ClusterUUID":
-			clusterUUID = strings.TrimSpace(arr[1])
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("failed to scan %q: %v", txt, err)
-	}
-
-	if len(clusterUUID) == 0 {
-		return "", fmt.Errorf("missing ClusterUUID")
-	}
-
-	if len(cliqueId) == 0 {
-		return "", fmt.Errorf("missing CliqueId")
-	}
-
-	klog.V(4).InfoS("Cluster ID", "clusterUUID", clusterUUID, "cliqueId", cliqueId)
-	return clusterUUID + "." + cliqueId, nil
-}
-
-func GetNodeAnnotations(ctx context.Context, client kubernetes.Interface, config *rest.Config, hostname string, overrides map[string]string) (map[string]string, error) {
+func GetNodeAnnotations(ctx context.Context, client kubernetes.Interface, config *rest.Config, hostname string, section accelerator.Section) (map[string]string, error) {
 	annotations := map[string]string{
 		topology.KeyNodeInstance: hostname,
 		topology.KeyNodeRegion:   "local",
 	}
 
-	if useGPUCliqueLabel(overrides) {
-		return annotations, nil
+	discoverer, err := accelerator.NewKubernetesNodeDiscoverer(section, client, config)
+	if err != nil {
+		return nil, err
 	}
 
-	if clusterID, err := GetGpuClusterID(ctx, client, config, hostname, overrides); err != nil {
-		klog.Warningf("No clusterID for node %s: %v", hostname, err)
-	} else if clusterID != "" {
-		annotations[topology.KeyGpuClusterID] = clusterID
+	assignments, err := discoverer.Discover(ctx, []accelerator.Target{{InstanceID: hostname, HostName: hostname}})
+	if err != nil {
+		klog.Warningf("No accelerator domain for node %s: %v", hostname, err)
+	} else if assignment, ok := assignments[hostname]; ok {
+		annotations[topology.KeyGpuClusterID] = assignment.DomainID
 	}
 
 	return annotations, nil
-}
-
-func useGPUCliqueLabel(overrides map[string]string) bool {
-	return strings.EqualFold(strings.TrimSpace(overrides[useGPUCliqueLabelArg]), "true")
 }

@@ -18,6 +18,8 @@ Topograph discovers the physical network topology of a cluster (NVLink domains, 
 
 Providers differ by environment. The canonical `topology.Graph` is stable. Engines only translate — they do not discover.
 
+Within a provider, network-fabric and accelerator-domain discovery may be composed independently through `pkg/accelerator`; the provider remains responsible for combining both dimensions into the canonical graph.
+
 This separation is load-bearing. If you find yourself reading the fabric in an engine, or emitting scheduler-specific output from a provider, stop and reconsider.
 
 ### Repository map
@@ -25,6 +27,7 @@ This separation is load-bearing. If you find yourself reading the fabric in an e
 ```
 cmd/                  # Entry points: topograph, node-observer, node-data-broker, kwok-nodes
 pkg/
+  accelerator/        # Pluggable accelerator-domain discovery composed by providers
   providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, test
   engines/            # One directory per engine: k8s, nfd, slinky, slurm
   topology/           # Canonical Graph, Vertex tree, and topology constants (DO NOT CHANGE CASUALLY)

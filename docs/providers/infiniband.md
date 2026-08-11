@@ -17,7 +17,7 @@ For **Multi-Node NVLink (MNNVL) Kubernetes clusters** (e.g. GB200 NVL72), do not
 |---|---|---|
 | **Auth** | None | In-cluster service account |
 | **Node access** | `pdsh` (SSH-based) | Kubernetes pod exec |
-| **NVLink clique source** | `nvidia-smi` via pdsh | Node annotations (set by node-data-broker), or a configured Kubernetes node label |
+| **Accelerator-domain source** | Configurable: `nvidia-smi` via pdsh, or none | Configurable: `nvidia-smi`, Kubernetes Node label, or none |
 | **Target environment** | Bare-metal / Slurm | Kubernetes |
 
 Both variants are presently single-region only (multi-region requests return a `400 Bad Request` error). No CSP credentials are required.
@@ -41,17 +41,17 @@ See the engine documentation (`docs/engines/`) for details on each output format
 
 - `pdsh` must be installed on the node running Topograph and able to reach at least one node per IB fabric segment — Topograph discovers the full fabric from a single entry point per segment, so every node does not need to be reachable via pdsh
 - `ibnetdiscover` must be available on cluster nodes (invoked via `pdsh` with `sudo`) — part of the standard `infiniband-diags` package (`dnf install infiniband-diags` / `apt install infiniband-diags`), expected to already be present on any properly configured IB system
-- NVIDIA GPU driver required on nodes with NVLink-connected GPUs — used to collect NVLink clique IDs via `nvidia-smi`. Nodes without NVLink are included in the IB switch tree but excluded from block topology.
+- NVIDIA GPU driver required on nodes with NVLink-connected GPUs when `accelerator.source: nvidia-smi` is configured. Nodes without accelerator-domain data are still included in the IB switch tree.
 
 ### How It Works
 
 1. Runs `sudo ibnetdiscover` via `pdsh` on one node per IB fabric segment to map the full switch tree
-2. On NVIDIA GPU nodes: runs `nvidia-smi -q | grep "ClusterUUID\|CliqueId" | sort -u` via `pdsh` across all nodes to collect NVLink clique IDs. The resulting `accelerator` label value is `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems.
+2. When the `accelerator` section selects `nvidia-smi`, runs `nvidia-smi --query-gpu=fabric.clusterUuid,fabric.cliqueId --format=csv,noheader` via `pdsh` across all nodes to collect NVLink partition IDs. Identical rows returned for multiple GPUs are merged, unavailable (`N/A`) fields are rejected, and the CSV pair is normalized to `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems.
 3. Combines the switch tree and any NVLink clique data into the topology graph
 
 ### Configuration
 
-No credentials or parameters are required. Set `provider: infiniband-bm` in your Topograph config:
+No credentials are required. Set `provider: infiniband-bm` in your Topograph config:
 
 ```yaml
 http:
@@ -60,6 +60,18 @@ http:
 
 provider: infiniband-bm
 engine: slurm
+```
+
+Accelerator discovery is independent of InfiniBand fabric discovery and is
+disabled when the `accelerator` section is omitted or empty. Bare-metal
+deployments support `nvidia-smi` or `none`:
+
+```yaml
+provider:
+  name: infiniband-bm
+  params:
+    accelerator:
+      source: none
 ```
 
 ### Verifying the Output
@@ -79,14 +91,14 @@ For the Slurm engine, verify the generated `topology.conf` reflects the expected
 
 ### Prerequisites
 
-- Topograph deployed via Helm — the node-data-broker DaemonSet (a component of the main Topograph chart, enabled by default) collects NVLink clique IDs from each node and stores them as Kubernetes node annotations (`topograph.nvidia.com/cluster-id`). If `useGpuCliqueLabel` is enabled, Topograph reads `nvidia.com/gpu.clique` directly instead and the node-data-broker skips NVLink clique collection.
+- Topograph deployed via Helm — when `accelerator.source` is `nvidia-smi`, the node-data-broker DaemonSet collects NVLink partition IDs from each node and stores them as Kubernetes node annotations (`topograph.nvidia.com/cluster-id`). With `kubernetes-label` or `none`, the broker skips that collection.
 - The default **`ghcr.io/nvidia/topograph`** image includes **`ibnetdiscover`** (Alpine `rdma-core`). No separate InfiniBand image is required. IB deployments typically run the broker **privileged** and mount host **`/sys/class`** so `ibnetdiscover` can reach IB devices — see [`values.k8s.ib-example.yaml`](../../charts/topograph/values.k8s.ib-example.yaml).
 - NVIDIA GPU Operator — standard on NVIDIA GPU Kubernetes clusters; manages the device plugin DaemonSet used to read NVLink clique IDs. Required only for NVLink domain discovery; on clusters without NVLink-connected GPUs this does not apply and the provider will still discover the IB switch tree.
 
 ### How It Works
 
 1. Runs `ibnetdiscover` by exec-ing into a node-data-broker pod on each node to map the switch tree
-2. On NVIDIA GPU nodes: reads NVLink clique IDs from the `topograph.nvidia.com/cluster-id` node annotations set by the node-data-broker. If `useGpuCliqueLabel` is enabled, it reads `nvidia.com/gpu.clique` directly instead. The accelerator ID is `ClusterUUID.CliqueId` — the same format as `nvidia.com/gpu.clique` set by the GPU Operator device plugin on MNNVL systems. When the k8s engine sees `nvidia.com/gpu.clique` already present on a node, it does not write the duplicate accelerator label for that node.
+2. When `provider.params.accelerator` is non-empty, resolves accelerator domains independently using its `source`: `nvidia-smi` reads the broker-written `topograph.nvidia.com/cluster-id` annotation, `kubernetes-label` reads a configured Node label, and `none` explicitly disables accelerator discovery. Omitting the section or using an empty object also disables it. NVL partition IDs use `ClusterUUID.CliqueId`, the same format as `nvidia.com/gpu.clique`.
 3. Combines the switch tree and any NVLink clique data into the topology graph
 
 ### Configuration
@@ -106,31 +118,53 @@ engine: k8s
 
 ### Parameters
 
-The following optional parameter can be passed in the topology request payload:
+#### Topology request parameters
+
+The following optional parameters can be passed in the topology request payload:
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `nodeSelector` | `map[string]string` | — | Label selector to filter which nodes participate in topology discovery |
-| `useGpuCliqueLabel` | `bool` | `false` | Use `nvidia.com/gpu.clique` as the accelerator-domain ID source instead of the `topograph.nvidia.com/cluster-id` annotation. |
+| `accelerator` | `object` | — | Enables and configures accelerator-domain discovery. When omitted or empty, no accelerator domains are discovered. |
+| `accelerator.source` | `string` | — | Required when the `accelerator` section is non-empty. Accelerator-domain source: `nvidia-smi`, `kubernetes-label`, or `none`. |
+| `accelerator.kubernetesLabel.key` | `string` | — | Required for the `kubernetes-label` source. Kubernetes Node label read as the accelerator-domain ID; no default is assumed. |
 
-With Helm, configure `useGpuCliqueLabel` under `provider.params`. The chart also passes it to the node-data-broker container so it skips NVLink clique collection instead of exec-ing into the GPU Operator device-plugin DaemonSet to run `nvidia-smi`:
+For a manual request, keep `accelerator.source` consistent with the source configured for the deployed node-data-broker. In particular, `source: nvidia-smi` reads the broker-written `topograph.nvidia.com/cluster-id` annotation; it does not execute `nvidia-smi` or change the broker's GPU Operator workload target.
+
+#### Helm node-data-broker settings
+
+The following settings select the GPU Operator workload used by the node-data-broker when `provider.params.accelerator.source` is `nvidia-smi`. They are deployment settings and cannot be changed by a topology request:
+
+| Helm value | Type | Default | Description |
+|---|---|---|---|
+| `provider.params.accelerator.nvidiaSmi.gpuOperatorNamespace` | `string` | `gpu-operator` | Namespace containing the GPU Operator device-plugin DaemonSet. |
+| `provider.params.accelerator.nvidiaSmi.devicePluginDaemonSet` | `string` | `nvidia-device-plugin-daemonset` | Device-plugin DaemonSet used for `nvidia-smi` execution. |
+
+With Helm, configure the accelerator source under `provider.params`. The chart writes the provider configuration to both the node-data-broker and node-observer ConfigMaps, keeping chart-generated topology requests aligned with broker collection. When the source is `nvidia-smi`, omitted `gpuOperatorNamespace` and `devicePluginDaemonSet` values are rendered as `gpu-operator` and `nvidia-device-plugin-daemonset`, respectively. The chart also drops the broker's GPU Operator pod-exec permissions when the source is not `nvidia-smi`:
 
 ```yaml
 provider:
   name: infiniband-k8s
   params:
-    useGpuCliqueLabel: true
+    accelerator:
+      source: kubernetes-label
+      kubernetesLabel:
+        key: nvidia.com/gpu.clique
 engine:
   name: k8s
 ```
 
-When `useGpuCliqueLabel` is not set, the node-data-broker uses the GPU Operator device-plugin DaemonSet as before. To override the GPU Operator namespace or device plugin DaemonSet name (defaults: `gpu-operator` and `nvidia-device-plugin-daemonset`), set these via `nodeDataBroker.extraArgs` in your Helm values — they are node-data-broker arguments, not provider request parameters:
+To use a non-default GPU Operator namespace or device-plugin DaemonSet:
 
 ```yaml
-nodeDataBroker:
-  extraArgs:
-    - gpu-operator-namespace=my-namespace
-    - device-plugin-daemonset=my-daemonset
+provider:
+  name: infiniband-k8s
+  params:
+    accelerator:
+      source: nvidia-smi
+      nvidiaSmi:
+        gpuOperatorNamespace: my-namespace
+        devicePluginDaemonSet: my-daemonset
 ```
 
 The node-data-broker applies node annotations once when its pod starts. Restart the broker pod to re-apply them after relevant node or provider metadata changes.

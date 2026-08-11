@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -24,8 +23,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/yaml"
 
 	"github.com/NVIDIA/topograph/internal/version"
+	"github.com/NVIDIA/topograph/pkg/accelerator"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
 	"github.com/NVIDIA/topograph/pkg/providers/dra"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
@@ -33,31 +34,32 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const (
-	defaultPort       = 8080
+	defaultConfigPath = "/etc/topograph/node-data-broker-config.yaml"
 	readHeaderTimeout = 5 * time.Second
 	shutdownTimeout   = 5 * time.Second
 )
 
 type nodeBroker struct {
-	clientset kubernetes.Interface
-	config    *rest.Config
-	provider  string
-	sets      []string
-	nodeName  string
+	clientset  kubernetes.Interface
+	restConfig *rest.Config
+	config     nodeDataBrokerConfig
+	nodeName   string
+}
+
+type nodeDataBrokerConfig struct {
+	Provider    topology.Provider `yaml:"provider"`
+	HealthzPort int               `yaml:"healthzPort"`
 }
 
 func main() {
-	var provider string
 	var ver bool
-	var sets []string
-	var port int
-	pflag.StringVar(&provider, "provider", "", "API provider")
+	var configPath string
 	pflag.BoolVar(&ver, "version", false, "show the version")
-	pflag.StringArrayVar(&sets, "set", []string{}, "extra key=value parameters")
-	pflag.IntVar(&port, "port", defaultPort, "port for the health HTTP server")
+	pflag.StringVarP(&configPath, "config", "c", defaultConfigPath, "config file")
 
 	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -69,13 +71,36 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := mainInternal(provider, sets, port); err != nil {
+	config, err := newNodeDataBrokerConfig(configPath)
+	if err != nil {
+		klog.Error(err.Error())
+		os.Exit(1)
+	}
+	if err := mainInternal(config); err != nil {
 		klog.Error(err.Error())
 		os.Exit(1)
 	}
 }
 
-func mainInternal(provider string, sets []string, port int) error {
+func newNodeDataBrokerConfig(path string) (nodeDataBrokerConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nodeDataBrokerConfig{}, fmt.Errorf("failed to read node-data-broker config %q: %w", path, err)
+	}
+	var config nodeDataBrokerConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nodeDataBrokerConfig{}, fmt.Errorf("failed to decode node-data-broker config %q: %w", path, err)
+	}
+	if config.Provider.Name == "" {
+		return nodeDataBrokerConfig{}, fmt.Errorf("must specify provider.name")
+	}
+	if config.HealthzPort <= 0 {
+		return nodeDataBrokerConfig{}, fmt.Errorf("must specify a positive healthzPort")
+	}
+	return config, nil
+}
+
+func mainInternal(brokerConfig nodeDataBrokerConfig) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -85,11 +110,10 @@ func mainInternal(provider string, sets []string, port int) error {
 	}
 
 	broker := &nodeBroker{
-		clientset: clientset,
-		config:    config,
-		provider:  provider,
-		sets:      sets,
-		nodeName:  os.Getenv("NODE_NAME"),
+		clientset:  clientset,
+		restConfig: config,
+		config:     brokerConfig,
+		nodeName:   os.Getenv("NODE_NAME"),
 	}
 
 	if err := broker.apply(ctx); err != nil {
@@ -98,7 +122,7 @@ func mainInternal(provider string, sets []string, port int) error {
 
 	// Keep the DaemonSet pod Running by serving a health endpoint until the pod
 	// is terminated.
-	return serveHealth(ctx, port)
+	return serveHealth(ctx, brokerConfig.HealthzPort)
 }
 
 func newInClusterClientset() (kubernetes.Interface, *rest.Config, error) {
@@ -116,18 +140,13 @@ func newInClusterClientset() (kubernetes.Interface, *rest.Config, error) {
 }
 
 func (b *nodeBroker) apply(ctx context.Context) error {
-	klog.InfoS("Applying node annotations", "provider", b.provider, "extras", b.sets)
+	klog.InfoS("Applying node annotations", "provider", b.config.Provider.Name)
 
-	extras, err := getExtras(b.sets)
+	annotations, err := b.getAnnotations(ctx)
 	if err != nil {
 		return err
 	}
-
-	annotations, err := getAnnotations(ctx, b.clientset, b.config, b.provider, b.nodeName, extras)
-	if err != nil {
-		return err
-	}
-	klog.Infof("adding annotations %v in node %s for provider %s", annotations, b.nodeName, b.provider)
+	klog.Infof("adding annotations %v in node %s for provider %s", annotations, b.nodeName, b.config.Provider.Name)
 
 	node, err := b.clientset.CoreV1().Nodes().Get(ctx, b.nodeName, metav1.GetOptions{})
 	if err != nil {
@@ -182,26 +201,8 @@ func healthHandler() http.Handler {
 	return mux
 }
 
-func getExtras(sets []string) (map[string]string, error) {
-	extras := make(map[string]string)
-	for _, kv := range sets {
-		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) == 2 {
-			key, val := parts[0], parts[1]
-			if len(key) == 0 || len(val) == 0 {
-				return nil, fmt.Errorf("invalid value %q for '--set': key/value cannot be empty", kv)
-			}
-			extras[key] = val
-		} else {
-			return nil, fmt.Errorf("invalid value %q for '--set': expected format '<key>=<value>'", kv)
-		}
-	}
-
-	return extras, nil
-}
-
-func getAnnotations(ctx context.Context, client kubernetes.Interface, config *rest.Config, provider, nodeName string, extras map[string]string) (map[string]string, error) {
-	switch provider {
+func (b *nodeBroker) getAnnotations(ctx context.Context) (map[string]string, error) {
+	switch b.config.Provider.Name {
 	case aws.NAME:
 		return aws.GetNodeAnnotations(ctx)
 	case gcp.NAME:
@@ -211,15 +212,16 @@ func getAnnotations(ctx context.Context, client kubernetes.Interface, config *re
 	case nebius.NAME:
 		return nebius.GetNodeAnnotations(ctx)
 	case dra.NAME:
-		return dra.GetNodeAnnotations(ctx, nodeName)
+		return dra.GetNodeAnnotations(ctx, b.nodeName)
 	case infiniband.NAME_K8S:
-		return infiniband.GetNodeAnnotations(ctx, client, config, nodeName, extras)
+		section := accelerator.SectionFromProviderParams(b.config.Provider.Params)
+		return infiniband.GetNodeAnnotations(ctx, b.clientset, b.restConfig, b.nodeName, section)
 	case lambdai.NAME:
-		return lambdai.GetNodeAnnotations(ctx, client, nodeName)
+		return lambdai.GetNodeAnnotations(ctx, b.clientset, b.nodeName)
 	case "":
 		return nil, fmt.Errorf("must set provider")
 	default:
-		return nil, fmt.Errorf("unsupported provider %q", provider)
+		return nil, fmt.Errorf("unsupported provider %q", b.config.Provider.Name)
 	}
 }
 

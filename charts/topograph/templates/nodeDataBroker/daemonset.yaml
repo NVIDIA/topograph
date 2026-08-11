@@ -1,6 +1,4 @@
 {{- if .Values.nodeDataBroker.enabled }}
-{{- $providerParams := default dict .Values.provider.params }}
-{{- $useGpuCliqueLabel := and (eq .Values.provider.name "infiniband-k8s") (eq (lower (toString (get $providerParams "useGpuCliqueLabel"))) "true") }}
 {{- $configMapMounts := default list .Values.nodeDataBroker.configMapMounts }}
 apiVersion: apps/v1
 kind: DaemonSet
@@ -15,6 +13,8 @@ spec:
       {{- include "nodeDataBroker.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/nodeDataBroker/configmap.yaml") . | sha256sum }}
       labels:
         {{- include "nodeDataBroker.labels" . | nindent 8 }}
     spec:
@@ -38,15 +38,9 @@ spec:
           command:
             - /usr/local/bin/node-data-broker
           args:
-            - --provider={{ .Values.provider.name }}
+            - -c
+            - /etc/topograph/node-data-broker-config.yaml
             - -v={{ .Values.verbosity }}
-            - --port={{ .Values.nodeDataBroker.port }}
-            {{- if $useGpuCliqueLabel }}
-            - --set=useGpuCliqueLabel=true
-            {{- end }}
-            {{- range .Values.nodeDataBroker.extraArgs }}
-            - --set={{ . }}
-            {{- end }}
           env:
             - name: NODE_NAME
               valueFrom:
@@ -85,8 +79,10 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.nodeDataBroker.resources | nindent 12 }}
-          {{- if or $configMapMounts .Values.nodeDataBroker.volumeMounts }}
           volumeMounts:
+            - name: config-volume
+              mountPath: /etc/topograph
+              readOnly: true
             {{- range $configMapMounts }}
             - name: {{ include "nodeDataBroker.configMapMountVolumeName" (dict "name" .name) }}
               mountPath: {{ required "nodeDataBroker.configMapMounts[].mountPath is required" .mountPath | quote }}
@@ -98,9 +94,11 @@ spec:
             {{- with .Values.nodeDataBroker.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- end }}
-      {{- if or $configMapMounts .Values.nodeDataBroker.volumes }}
       volumes:
+        - name: config-volume
+          configMap:
+            defaultMode: 420
+            name: {{ include "nodeDataBroker.fullname" . }}
         {{- range $configMapMounts }}
         - name: {{ include "nodeDataBroker.configMapMountVolumeName" (dict "name" .name) }}
           configMap:
@@ -109,7 +107,6 @@ spec:
         {{- with .Values.nodeDataBroker.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- end }}
       {{- with .Values.nodeDataBroker.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

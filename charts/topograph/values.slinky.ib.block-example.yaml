@@ -12,10 +12,12 @@ provider:
     # so Topograph only discovers nodes that Slinky can schedule.
     nodeSelector:
       slurmCluster: my-cluster
-    # Reads accelerator/block domain IDs from the GPU Operator's
-    # nvidia.com/gpu.clique node label instead of Topograph's
-    # topograph.nvidia.com/cluster-id annotation.
-    useGpuCliqueLabel: true
+    # Accelerator-domain discovery is independent of InfiniBand fabric
+    # discovery. This source reads the GPU Operator's gpu.clique label.
+    accelerator:
+      source: kubernetes-label
+      kubernetesLabel:
+        key: nvidia.com/gpu.clique
 engine:
   # Writes generated Slurm topology data into a Slinky ConfigMap.
   name: slinky
@@ -38,7 +40,7 @@ engine:
     # be larger power-of-two multiples of the previous size.
     blockSizes: [4]
     # For block topology, use nvidia.com/gpu.clique as the block-domain
-    # source. Keep this aligned with provider.params.useGpuCliqueLabel.
+    # source. Keep this aligned with provider.params.accelerator.
     useGpuCliqueLabel: true
     # Key inside the target ConfigMap that Slinky mounts as topology.conf.
     topologyConfigPath: topology.conf

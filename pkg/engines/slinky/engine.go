@@ -154,7 +154,6 @@ func getParameters(params engines.Config) (*Params, error) {
 	if len(p.ConfigUpdateMode) != 0 && p.ConfigUpdateMode != ConfigUpdateModeNone && p.ConfigUpdateMode != ConfigUpdateModeSkeletonOnly {
 		return nil, fmt.Errorf("invalid configUpdateMode: %s, must be either %s, or %s", p.ConfigUpdateMode, ConfigUpdateModeNone, ConfigUpdateModeSkeletonOnly)
 	}
-
 	sel, err := metav1.LabelSelectorAsSelector(&p.PodSelector)
 	if err != nil {
 		return nil, err

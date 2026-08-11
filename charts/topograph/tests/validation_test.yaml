@@ -76,3 +76,37 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "env.KUBE_BURST is managed by the chart; configure kubeClient.burst instead"
+
+  - it: rejects an unsupported InfiniBand accelerator source
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator:
+            source: invalid
+    asserts:
+      - failedTemplate:
+          errorMessage: 'unsupported provider.params.accelerator.source "invalid"'
+
+  - it: rejects a non-empty InfiniBand accelerator section without source
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator:
+            kubernetesLabel:
+              key: nvidia.com/gpu.clique
+    asserts:
+      - failedTemplate:
+          errorMessage: "provider.params.accelerator.source must be set when provider.params.accelerator is present"
+
+  - it: rejects the Kubernetes label accelerator source without a key
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator:
+            source: kubernetes-label
+    asserts:
+      - failedTemplate:
+          errorMessage: "provider.params.accelerator.kubernetesLabel.key must be set for source kubernetes-label"

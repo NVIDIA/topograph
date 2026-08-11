@@ -6,10 +6,21 @@ provider:
   # name: "aws", "oci", "gcp", "nebius", "nscale", "lambdai", "netq", "infiniband-k8s", "dra" or "test".
   name: test
   # params:
-  #   # For infiniband-k8s, use an existing Kubernetes node label as the
-  #   # accelerator-domain source instead of running nvidia-smi through the
-  #   # GPU Operator device-plugin DaemonSet.
-  #   useGpuCliqueLabel: true
+  #   accelerator:
+  #     # Accelerator-domain discovery is independent of fabric discovery.
+  #     # Sources supported by infiniband-k8s: nvidia-smi,
+  #     # kubernetes-label, and none. Omitting the accelerator section disables
+  #     # accelerator discovery; an empty accelerator section is equivalent to
+  #     # source: none. A non-empty section must set source explicitly.
+  #     source: kubernetes-label
+  #     kubernetesLabel:
+  #       # Required for the kubernetes-label source; there is no default key.
+  #       key: nvidia.com/gpu.clique
+  #     nvidiaSmi:
+  #       # Optional; defaults used by the Helm-managed node-data-broker are
+  #       # shown below.
+  #       gpuOperatorNamespace: gpu-operator
+  #       devicePluginDaemonSet: nvidia-device-plugin-daemonset
 
 engine:
   # name: "k8s", "nfd", "slinky", "slurm" or "graph"
@@ -306,9 +317,6 @@ nodeDataBroker:
 
   # Port serving the /healthz endpoint after node annotations are applied.
   port: 8080
-
-  extraArgs: []
-  # - key=val
 
   startupProbe:
     failureThreshold: 30

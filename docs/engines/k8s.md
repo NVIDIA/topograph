@@ -77,7 +77,7 @@ Topograph treats `nvidia.com/gpu.clique` as the authoritative accelerator node l
 
 In addition to NVLink domain membership, Topograph provides the full IB switch hierarchy as numbered fabric tiers, giving schedulers both dimensions simultaneously.
 
-For `infiniband-k8s`, operators can set `provider.params.useGpuCliqueLabel: true` so the provider reads the GPU Operator's existing clique label instead of collecting the same value through a `nvidia-smi` exec in the GPU Operator device-plugin DaemonSet.
+For `infiniband-k8s`, operators can set `provider.params.accelerator.source: kubernetes-label` with `kubernetesLabel.key: nvidia.com/gpu.clique` so the provider reads the existing label instead of collecting the same value through a `nvidia-smi` exec in the GPU Operator device-plugin DaemonSet.
 
 ## Use of Topograph
 

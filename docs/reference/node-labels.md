@@ -40,8 +40,8 @@ types:
 | `nebius` | No | Yes |
 | `nscale` | Yes | Yes |
 | `netq` | Yes (NMX `DomainUUID`) | Yes (Spectrum-X switch hierarchy) |
-| `infiniband-bm` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
-| `infiniband-k8s` | Yes (`ClusterUUID.CliqueId`) | Yes (IB switch hierarchy) |
+| `infiniband-bm` | Optional (`ClusterUUID.CliqueId` when configured) | Yes (IB switch hierarchy) |
+| `infiniband-k8s` | Optional (`ClusterUUID.CliqueId` when configured) | Yes (IB switch hierarchy) |
 
 The OCI API provider can publish both accelerator hierarchy levels when
 `additionalData.locationDetails.rack` is available. Other providers currently
@@ -51,7 +51,7 @@ The DRA provider is intentionally omitted: its supported use is with the Slinky
 engine, where it converts existing `nvidia.com/gpu.clique` labels into Slurm
 `topology/block` domains rather than writing Kubernetes topology labels.
 
-**Relationship to `nvidia.com/gpu.clique`**: Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs; it is not guaranteed to be present on every MNNVL cluster. The k8s engine treats that label as authoritative when present and does not write Topograph's configured accelerator domain or sub-domain labels for that node, regardless of whether the selected provider also returned accelerator topology from API data. For Slinky block topology, setting `engine.params.useGpuCliqueLabel: true` makes the Slinky engine build `topology/block` domains from `nvidia.com/gpu.clique` instead of provider accelerator-domain data. For `infiniband-k8s`, setting `provider.params.useGpuCliqueLabel: true` also makes the provider read that existing node label instead of collecting the same value through `nvidia-smi`. The `netq` provider uses a `DomainUUID` from the NMX management API — a different identifier that refers to the same physical domain but cannot be compared as a string.
+**Relationship to `nvidia.com/gpu.clique`**: Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs; it is not guaranteed to be present on every MNNVL cluster. The k8s engine treats that label as authoritative when present and does not write Topograph's configured accelerator domain or sub-domain labels for that node, regardless of whether the selected provider also returned accelerator topology from API data. For Slinky block topology, setting `engine.params.useGpuCliqueLabel: true` makes the Slinky engine build `topology/block` domains from `nvidia.com/gpu.clique` instead of provider accelerator-domain data. For `infiniband-k8s`, setting `provider.params.accelerator.source: kubernetes-label` with `kubernetesLabel.key: nvidia.com/gpu.clique` selects the same label without collecting a duplicate value through `nvidia-smi`. The `netq` provider uses a `DomainUUID` from the NMX management API — a different identifier that refers to the same physical domain but cannot be compared as a string.
 
 [NVIDIA Fabric Manager](https://docs.nvidia.com/datacenter/tesla/fabric-manager-user-guide/) runs at node init on MNNVL-capable hardware, discovers the NVLink fabric across GPUs, and registers each GPU with [NVML](https://docs.nvidia.com/deploy/nvml-api/) (NVIDIA Management Library — a C API that exposes per-GPU state). The GPU Operator's IMEX labeler writes `nvidia.com/gpu.clique` only once NVML reports the node's fabric state as `GPU_FABRIC_STATE_COMPLETED` — meaning Fabric Manager finished initialization successfully and the node is part of an NVLink domain.
 

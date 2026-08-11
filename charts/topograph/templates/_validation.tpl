@@ -20,6 +20,40 @@
   {{- fail "env.KUBE_BURST is managed by the chart; configure kubeClient.burst instead" }}
 {{- end }}
 
+{{- if or (eq .Values.provider.name "infiniband-k8s") (eq .Values.provider.name "infiniband-bm") }}
+{{- $params := default dict .Values.provider.params }}
+{{- $acceleratorValue := get $params "accelerator" }}
+{{- $accelerator := default dict $acceleratorValue }}
+{{- $source := "none" }}
+{{- if hasKey $params "accelerator" }}
+{{- if and (kindIs "map" $acceleratorValue) (eq (len $acceleratorValue) 0) }}
+{{- $source = "none" }}
+{{- else }}
+{{- $source = lower (toString (get $accelerator "source")) }}
+{{- if eq $source "" }}
+  {{- fail "provider.params.accelerator.source must be set when provider.params.accelerator is present" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- if not (has $source (list "nvidia-smi" "kubernetes-label" "none")) }}
+  {{- fail (printf "unsupported provider.params.accelerator.source %q" $source) }}
+{{- end }}
+
+{{- if and (eq .Values.provider.name "infiniband-k8s") (eq $source "kubernetes-label") }}
+{{- $kubernetesLabel := default dict (get $accelerator "kubernetesLabel") }}
+{{- $key := trim (toString (get $kubernetesLabel "key")) }}
+{{- if eq $key "" }}
+  {{- fail "provider.params.accelerator.kubernetesLabel.key must be set for source kubernetes-label" }}
+{{- end }}
+{{- end }}
+
+{{- if and (eq .Values.provider.name "infiniband-bm") (eq $source "kubernetes-label") }}
+  {{- fail "provider.params.accelerator.source kubernetes-label is not supported by infiniband-bm" }}
+{{- end }}
+
+{{- end }}
+
 {{- if eq .Values.provider.name "gcp" }}
 {{- $params := default dict .Values.provider.params }}
 
