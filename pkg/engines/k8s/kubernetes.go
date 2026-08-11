@@ -65,7 +65,12 @@ func (eng *K8sEngine) AddNodeLabels(ctx context.Context, nodeName string, labels
 		return nil
 	}
 
-	desiredLabels := mergeNodeLabels(node.Labels, labels, eng.params.labelKeys)
+	desiredLabels := mergeNodeLabels(
+		node.Labels,
+		labels,
+		eng.params.labelKeys,
+		eng.params.AcceleratorDomainSourceLabel,
+	)
 	if maps.Equal(node.Labels, desiredLabels) {
 		return nil
 	}
@@ -156,21 +161,48 @@ func nodeLabelPatch(current, desired map[string]string) ([]byte, error) {
 	})
 }
 
-func mergeNodeLabels(current, labels map[string]string, keys *TopologyLabelKeys) map[string]string {
+// mergeNodeLabels builds the complete desired label set for a Node. It retains
+// labels owned by other controllers, removes stale Topograph-managed labels,
+// and then applies the labels generated from the current topology graph. A
+// configured accelerator-domain source label remains externally owned and is
+// preserved unchanged.
+func mergeNodeLabels(current, labels map[string]string, keys *TopologyLabelKeys, acceleratorDomainSourceLabel string) map[string]string {
 	desired := maps.Clone(current)
 	if desired == nil {
 		desired = make(map[string]string)
 	}
 
-	labels = skipXclrLabelsWhenGPUCliqueExists(desired, labels, keys)
-	removeManagedTopologyLabels(desired, keys)
+	labels = skipAcceleratorLabelsWhenSourceExists(desired, labels, keys, acceleratorDomainSourceLabel)
+	removeManagedTopologyLabels(desired, keys, acceleratorDomainSourceLabel)
 	maps.Copy(desired, labels)
 	return desired
 }
 
-func removeManagedTopologyLabels(labels map[string]string, keys *TopologyLabelKeys) {
+// skipAcceleratorLabelsWhenSourceExists removes provider-derived accelerator
+// output when the Node already carries a non-empty configured source label.
+// The source value is authoritative for the accelerator domain, and the
+// provider sub-domain must be suppressed because it may not belong to that
+// replacement domain. Nodes without a usable source value retain the generated
+// provider domain and sub-domain labels.
+func skipAcceleratorLabelsWhenSourceExists(currentLabels, labels map[string]string, keys *TopologyLabelKeys, acceleratorDomainSourceLabel string) map[string]string {
+	if acceleratorDomainSourceLabel == "" || strings.TrimSpace(currentLabels[acceleratorDomainSourceLabel]) == "" {
+		return labels
+	}
+
+	filtered := maps.Clone(labels)
+	delete(filtered, keys.XclrDomainKey())
+	delete(filtered, keys.XclrSubDomainKey())
+
+	return filtered
+}
+
+// removeManagedTopologyLabels clears every current label that the k8s engine
+// may own so labels omitted from the latest topology are reconciled away. The
+// configured accelerator-domain source label is excluded because the engine
+// consumes that existing Node metadata but must never manage or overwrite it.
+func removeManagedTopologyLabels(labels map[string]string, keys *TopologyLabelKeys, acceleratorDomainSourceLabel string) {
 	for key := range labels {
-		if key == topology.KeyNvidiaGPUClique {
+		if acceleratorDomainSourceLabel != "" && key == acceleratorDomainSourceLabel {
 			continue
 		}
 		if isManagedLevelLabel(key, keys) {
@@ -179,6 +211,10 @@ func removeManagedTopologyLabels(labels map[string]string, keys *TopologyLabelKe
 	}
 }
 
+// isManagedLevelLabel reports whether key is a default or configured topology
+// output key owned by the k8s engine. Numbered default fabric keys are matched
+// by shape so stale tiers are removed even when they are absent from the
+// current graph or configured key list.
 func isManagedLevelLabel(key string, keys *TopologyLabelKeys) bool {
 	if key == topology.KeyTopologyXclrDomain || key == topology.KeyTopologyXclrSubDomain {
 		return true
@@ -190,26 +226,12 @@ func isManagedLevelLabel(key string, keys *TopologyLabelKeys) bool {
 		}
 	}
 	for _, prefix := range []string{topology.KeyFabricTierPrefix} {
-		if strings.HasPrefix(key, prefix) {
-			level, err := strconv.Atoi(strings.TrimPrefix(key, prefix))
+		if levelValue, ok := strings.CutPrefix(key, prefix); ok {
+			level, err := strconv.Atoi(levelValue)
 			if err == nil && level >= 0 {
 				return true
 			}
 		}
 	}
 	return false
-}
-
-func skipXclrLabelsWhenGPUCliqueExists(currentLabels, labels map[string]string, keys *TopologyLabelKeys) map[string]string {
-	xclrDomainLabel := keys.XclrDomainKey()
-	xclrSubDomainLabel := keys.XclrSubDomainKey()
-	if strings.TrimSpace(currentLabels[topology.KeyNvidiaGPUClique]) == "" {
-		return labels
-	}
-
-	filtered := maps.Clone(labels)
-	delete(filtered, xclrDomainLabel)
-	delete(filtered, xclrSubDomainLabel)
-
-	return filtered
 }

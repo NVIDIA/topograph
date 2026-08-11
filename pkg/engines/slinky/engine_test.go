@@ -39,6 +39,8 @@ import (
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
 
+const testAcceleratorDomainSourceLabel = "example.com/accelerator-domain"
+
 func TestGetParameters(t *testing.T) {
 	podSelector := map[string]any{
 		"matchLabels": map[string]string{"key": "value"},
@@ -223,22 +225,33 @@ func TestGetParameters(t *testing.T) {
 			},
 		},
 		{
-			name: "Case 10: use GPU clique label",
+			name: "Case 10: accelerator domain source label",
 			params: map[string]any{
-				topology.KeyNamespace:         "namespace",
-				topology.KeyPodSelector:       podSelector,
-				topology.KeyTopoConfigPath:    "path",
-				topology.KeyTopoConfigmapName: "name",
-				"useGpuCliqueLabel":           true,
+				topology.KeyNamespace:          "namespace",
+				topology.KeyPodSelector:        podSelector,
+				topology.KeyTopoConfigPath:     "path",
+				topology.KeyTopoConfigmapName:  "name",
+				"acceleratorDomainSourceLabel": testAcceleratorDomainSourceLabel,
 			},
 			ret: &Params{
-				Namespace:         "namespace",
-				PodSelector:       labelSelector,
-				ConfigPath:        "path",
-				ConfigMapName:     "name",
-				UseGPUCliqueLabel: true,
-				podListOpt:        &metav1.ListOptions{LabelSelector: "key=value"},
+				Namespace:                    "namespace",
+				PodSelector:                  labelSelector,
+				ConfigPath:                   "path",
+				ConfigMapName:                "name",
+				AcceleratorDomainSourceLabel: testAcceleratorDomainSourceLabel,
+				podListOpt:                   &metav1.ListOptions{LabelSelector: "key=value"},
 			},
+		},
+		{
+			name: "Case 11: reject invalid accelerator domain source label",
+			params: map[string]any{
+				topology.KeyNamespace:          "namespace",
+				topology.KeyPodSelector:        podSelector,
+				topology.KeyTopoConfigPath:     "path",
+				topology.KeyTopoConfigmapName:  "name",
+				"acceleratorDomainSourceLabel": "not a label",
+			},
+			err: `acceleratorDomainSourceLabel "not a label" is not a valid Kubernetes label key`,
 		},
 	}
 
@@ -364,13 +377,17 @@ func TestResolveComputeInstancesCachesClusterNodesWhenOutputNeedsThem(t *testing
 	require.Empty(t, client.Actions())
 }
 
-func TestResolveComputeInstancesDoesNotLoadUnusedClusterNodes(t *testing.T) {
+func TestResolveComputeInstancesDoesNotLoadNodesForSourceLabelAlone(t *testing.T) {
 	client := fake.NewSimpleClientset()
+	client.PrependReactor("list", "nodes", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("unexpected Node list")
+	})
 	eng := &SlinkyEngine{
 		client: client,
 		params: &Params{
-			nodeListOpt: &metav1.ListOptions{},
-			podListOpt:  &metav1.ListOptions{},
+			AcceleratorDomainSourceLabel: testAcceleratorDomainSourceLabel,
+			nodeListOpt:                  &metav1.ListOptions{},
+			podListOpt:                   &metav1.ListOptions{},
 		},
 	}
 	instances := []topology.ComputeInstances{{
@@ -386,7 +403,7 @@ func TestResolveComputeInstancesDoesNotLoadUnusedClusterNodes(t *testing.T) {
 	require.Empty(t, client.Actions())
 }
 
-func TestWithGPUCliqueDomains(t *testing.T) {
+func TestWithLabelBackedDomains(t *testing.T) {
 	ctx := context.Background()
 	client := fake.NewSimpleClientset()
 
@@ -394,28 +411,28 @@ func TestWithGPUCliqueDomains(t *testing.T) {
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "k8s-node-0",
-				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-a"},
+				Labels:      map[string]string{testAcceleratorDomainSourceLabel: "clique-a"},
 				Annotations: map[string]string{topology.KeyNodeInstance: "instance-0"},
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "k8s-node-1",
-				Labels:      map[string]string{topology.KeyNvidiaGPUClique: " clique-b "},
+				Labels:      map[string]string{testAcceleratorDomainSourceLabel: " clique-b "},
 				Annotations: map[string]string{topology.KeyNodeInstance: "instance-1"},
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "k8s-node-no-instance",
-				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-c"},
+				Labels:      map[string]string{testAcceleratorDomainSourceLabel: "clique-c"},
 				Annotations: map[string]string{},
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "k8s-node-no-pod",
-				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-d"},
+				Labels:      map[string]string{testAcceleratorDomainSourceLabel: "clique-d"},
 				Annotations: map[string]string{topology.KeyNodeInstance: "instance-3"},
 			},
 		},
@@ -450,7 +467,7 @@ func TestWithGPUCliqueDomains(t *testing.T) {
 
 	clusterNodes, httpErr := eng.getClusterNodes(ctx)
 	require.Nil(t, httpErr)
-	got, httpErr := withGPUCliqueDomains(graph, clusterNodes)
+	got, httpErr := withLabelBackedDomains(graph, clusterNodes, testAcceleratorDomainSourceLabel)
 	require.Nil(t, httpErr)
 	require.NotSame(t, graph, got)
 	require.Same(t, graph.Tiers, got.Tiers)
@@ -462,7 +479,7 @@ func TestWithGPUCliqueDomains(t *testing.T) {
 	require.Equal(t, existingDomains, graph.Domains)
 }
 
-func TestWithGPUCliqueDomainsNoMatchingNodes(t *testing.T) {
+func TestWithLabelBackedDomainsNoMatchingNodes(t *testing.T) {
 	ctx := context.Background()
 	client := fake.NewSimpleClientset()
 
@@ -487,15 +504,15 @@ func TestWithGPUCliqueDomainsNoMatchingNodes(t *testing.T) {
 
 	clusterNodes, httpErr := eng.getClusterNodes(ctx)
 	require.Nil(t, httpErr)
-	got, httpErr := withGPUCliqueDomains(&topology.Graph{}, clusterNodes)
+	got, httpErr := withLabelBackedDomains(&topology.Graph{}, clusterNodes, testAcceleratorDomainSourceLabel)
 	require.Nil(t, got)
-	require.ErrorContains(t, httpErr, "useGpuCliqueLabel=true but no matching nodes found")
-	// The node maps to a SLURM node but has no clique label.
+	require.ErrorContains(t, httpErr, `acceleratorDomainSourceLabel="example.com/accelerator-domain" produced no usable label-backed domains`)
+	// The node maps to a SLURM node but has no configured source label.
 	require.ErrorContains(t, httpErr, "Scanned 1 node(s)")
-	require.ErrorContains(t, httpErr, fmt.Sprintf("1 missing the %q label", topology.KeyNvidiaGPUClique))
+	require.ErrorContains(t, httpErr, fmt.Sprintf("1 missing the %q label", testAcceleratorDomainSourceLabel))
 }
 
-func TestWithGPUCliqueDomainsNoSelectedNodes(t *testing.T) {
+func TestWithLabelBackedDomainsNoSelectedNodes(t *testing.T) {
 	// No Kubernetes nodes selected at all (e.g. a too-narrow nodeSelector) must
 	// produce a distinct, actionable error rather than the generic no-match one.
 	clusterNodes := &clusterNodes{
@@ -503,28 +520,38 @@ func TestWithGPUCliqueDomainsNoSelectedNodes(t *testing.T) {
 		nodeMap: map[string]string{},
 	}
 
-	got, httpErr := withGPUCliqueDomains(&topology.Graph{}, clusterNodes)
+	got, httpErr := withLabelBackedDomains(&topology.Graph{}, clusterNodes, testAcceleratorDomainSourceLabel)
 	require.Nil(t, got)
 	require.NotNil(t, httpErr)
 	require.ErrorContains(t, httpErr, "no selected Kubernetes nodes found; check engine nodeSelector")
 }
 
-func TestWithGPUCliqueDomainsMissingBrokerAnnotation(t *testing.T) {
+func TestWithLabelBackedDomainsMissingBrokerAnnotation(t *testing.T) {
 	ctx := context.Background()
 	client := fake.NewSimpleClientset()
 
-	// Node has the GPU clique label but is missing the node-data-broker-written
-	// instance annotation - the exact scenario that produces the error in the field.
-	_, err := client.CoreV1().Nodes().Create(ctx, &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "k8s-node-0",
-			Labels: map[string]string{topology.KeyNvidiaGPUClique: "clique-a"},
-		},
-	}, metav1.CreateOptions{})
-	require.NoError(t, err)
+	// Each Node has the configured source label but an unusable
+	// node-data-broker-written instance annotation.
+	for index, annotations := range []map[string]string{
+		nil,
+		{topology.KeyNodeInstance: ""},
+		{topology.KeyNodeInstance: " \t "},
+	} {
+		nodeName := fmt.Sprintf("k8s-node-%d", index)
+		_, err := client.CoreV1().Nodes().Create(ctx, &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        nodeName,
+				Labels:      map[string]string{testAcceleratorDomainSourceLabel: "clique-a"},
+				Annotations: annotations,
+			},
+		}, metav1.CreateOptions{})
+		require.NoError(t, err)
 
-	_, err = client.CoreV1().Pods("test-ns").Create(ctx, makeReadySlurmdPod("pod-0", "k8s-node-0", "slurm-0"), metav1.CreateOptions{})
-	require.NoError(t, err)
+		_, err = client.CoreV1().Pods("test-ns").Create(ctx,
+			makeReadySlurmdPod(fmt.Sprintf("pod-%d", index), nodeName, fmt.Sprintf("slurm-%d", index)),
+			metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
 
 	eng := &SlinkyEngine{
 		client: client,
@@ -536,13 +563,13 @@ func TestWithGPUCliqueDomainsMissingBrokerAnnotation(t *testing.T) {
 
 	clusterNodes, httpErr := eng.getClusterNodes(ctx)
 	require.Nil(t, httpErr)
-	got, httpErr := withGPUCliqueDomains(&topology.Graph{}, clusterNodes)
+	got, httpErr := withLabelBackedDomains(&topology.Graph{}, clusterNodes, testAcceleratorDomainSourceLabel)
 	require.Nil(t, got)
-	require.ErrorContains(t, httpErr, fmt.Sprintf("1 with the label but missing the %q annotation", topology.KeyNodeInstance))
-	require.ErrorContains(t, httpErr, "nodes missing annotation: k8s-node-0")
+	require.ErrorContains(t, httpErr, fmt.Sprintf("3 with the label but a missing/empty %q annotation", topology.KeyNodeInstance))
+	require.ErrorContains(t, httpErr, "nodes missing annotation: k8s-node-0, k8s-node-1, k8s-node-2")
 }
 
-func TestGenerateOutputUsesGPUCliqueDomains(t *testing.T) {
+func TestGenerateOutputUsesConfiguredAcceleratorDomainSource(t *testing.T) {
 	ctx := context.Background()
 	client := fake.NewSimpleClientset()
 
@@ -550,14 +577,14 @@ func TestGenerateOutputUsesGPUCliqueDomains(t *testing.T) {
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "k8s-node-0",
-				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-a"},
+				Labels:      map[string]string{testAcceleratorDomainSourceLabel: "clique-a"},
 				Annotations: map[string]string{topology.KeyNodeInstance: "instance-0"},
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "k8s-node-1",
-				Labels:      map[string]string{topology.KeyNvidiaGPUClique: "clique-b"},
+				Labels:      map[string]string{testAcceleratorDomainSourceLabel: "clique-b"},
 				Annotations: map[string]string{topology.KeyNodeInstance: "instance-1"},
 			},
 		},
@@ -575,8 +602,18 @@ func TestGenerateOutputUsesGPUCliqueDomains(t *testing.T) {
 	}
 
 	providerDomains := topology.NewDomainMap()
-	providerDomains.AddHost("provider-domain", "instance-0", "alpha")
-	providerDomains.AddHost("provider-domain", "instance-1", "beta")
+	providerDomains.AddHostInfo(&topology.HostInfo{
+		Domain:     "provider-domain",
+		SubDomain:  "provider-sub-domain-a",
+		InstanceID: "instance-0",
+		HostName:   "alpha",
+	})
+	providerDomains.AddHostInfo(&topology.HostInfo{
+		Domain:     "provider-domain",
+		SubDomain:  "provider-sub-domain-b",
+		InstanceID: "instance-1",
+		HostName:   "beta",
+	})
 
 	eng := &SlinkyEngine{
 		client: client,
@@ -585,11 +622,11 @@ func TestGenerateOutputUsesGPUCliqueDomains(t *testing.T) {
 				Plugin:     topology.TopologyBlock,
 				BlockSizes: []int{1},
 			},
-			Namespace:         "test-ns",
-			ConfigMapName:     "slurm-config",
-			ConfigPath:        "topology.conf",
-			UseGPUCliqueLabel: true,
-			podListOpt:        &metav1.ListOptions{LabelSelector: "app=slinky"},
+			Namespace:                    "test-ns",
+			ConfigMapName:                "slurm-config",
+			ConfigPath:                   "topology.conf",
+			AcceleratorDomainSourceLabel: testAcceleratorDomainSourceLabel,
+			podListOpt:                   &metav1.ListOptions{LabelSelector: "app=slinky"},
 		},
 	}
 
@@ -605,6 +642,105 @@ BlockName=block001 Nodes=alpha
 BlockName=block002 Nodes=beta
 BlockSizes=1
 `, cm.Data["topology.conf"])
+}
+
+func TestGenerateOutputUsesProviderDomainsWhenSourceIsOmitted(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+	for _, resource := range []string{"nodes", "pods"} {
+		client.PrependReactor("list", resource, func(k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("unexpected Kubernetes list")
+		})
+	}
+	providerDomains := topology.NewDomainMap()
+	providerDomains.AddHost("provider-domain-a", "instance-0", "alpha")
+	providerDomains.AddHost("provider-domain-b", "instance-1", "beta")
+
+	eng := &SlinkyEngine{
+		client: client,
+		params: &Params{
+			BaseParams: slurm.BaseParams{
+				Plugin:     topology.TopologyBlock,
+				BlockSizes: []int{1},
+			},
+			Namespace:     "test-ns",
+			ConfigMapName: "slurm-config",
+			ConfigPath:    "topology.conf",
+		},
+	}
+
+	result, httpErr := eng.GenerateOutput(ctx, &topology.Graph{Domains: providerDomains}, nil)
+	require.Nil(t, httpErr)
+	require.Equal(t, []byte("OK\n"), result)
+
+	cm, err := client.CoreV1().ConfigMaps("test-ns").Get(ctx, "slurm-config", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, `# block001=provider-domain-a
+BlockName=block001 Nodes=alpha
+# block002=provider-domain-b
+BlockName=block002 Nodes=beta
+BlockSizes=1
+`, cm.Data["topology.conf"])
+	require.Zero(t, countClientActions(client.Actions(), "list", "nodes"))
+	require.Zero(t, countClientActions(client.Actions(), "list", "pods"))
+}
+
+func TestGenerateOutputDoesNotLoadNodesForNonBlockTopology(t *testing.T) {
+	testCases := []struct {
+		name       string
+		baseParams slurm.BaseParams
+		topologies map[string]*Topology
+	}{
+		{
+			name:       "tree",
+			baseParams: slurm.BaseParams{Plugin: topology.TopologyTree},
+		},
+		{
+			name: "flat",
+			topologies: map[string]*Topology{
+				"default": {
+					Topology: slurm.Topology{
+						Plugin:  topology.TopologyFlat,
+						Default: true,
+					},
+				},
+			},
+		},
+	}
+
+	model, err := models.NewModelFromFile("small-tree.yaml")
+	require.NoError(t, err)
+	instanceToNode := make(map[string]string, len(model.Nodes))
+	for hostName := range model.Nodes {
+		instanceToNode[fmt.Sprintf("i-%s", hostName)] = hostName
+	}
+	graph, _ := model.ToGraph([]topology.ComputeInstances{{Instances: instanceToNode}})
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset()
+			for _, resource := range []string{"nodes", "pods"} {
+				client.PrependReactor("list", resource, func(k8stesting.Action) (bool, runtime.Object, error) {
+					return true, nil, fmt.Errorf("unexpected Kubernetes list")
+				})
+			}
+			eng := &SlinkyEngine{
+				client: client,
+				params: &Params{
+					BaseParams:                   tc.baseParams,
+					Topologies:                   tc.topologies,
+					AcceleratorDomainSourceLabel: testAcceleratorDomainSourceLabel,
+					ConfigUpdateMode:             ConfigUpdateModeNone,
+				},
+			}
+
+			result, httpErr := eng.GenerateOutput(context.Background(), graph, nil)
+
+			require.Nil(t, httpErr)
+			require.Equal(t, []byte("OK\n"), result)
+			require.Empty(t, client.Actions())
+		})
+	}
 }
 
 func TestUsesBlockTopology(t *testing.T) {

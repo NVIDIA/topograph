@@ -279,7 +279,7 @@ func (inst *InstanceTopology) toInstance(trimTiers int) Instance {
 		instance.ID = inst.InstanceID
 	}
 	instance.NetworkLayers = inst.networkLayers(trimTiers)
-	if instance.AcceleratorID() == "" && inst.XclrDomainID != "" {
+	if instance.Labels[KeyTopologyXclrDomain] == "" && inst.XclrDomainID != "" {
 		if instance.Labels == nil {
 			instance.Labels = make(map[string]string)
 		}

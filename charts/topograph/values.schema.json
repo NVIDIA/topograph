@@ -49,7 +49,14 @@
         },
         "params": {
           "type": "object",
-          "description": "Engine-specific parameters. The k8s engine accepts a closest-first fabricLabels array and a singular acceleratorLabel for the accelerator domain; accelerator sub-domains use the fixed accelerator.topograph.run/sub-domain key. Omitted values use the default label keys; when fabricLabels is provided, additional fabric tiers are omitted. For slinky, useGpuCliqueLabel=true reads nvidia.com/gpu.clique as the topology/block domain source."
+          "description": "Engine-specific parameters. The k8s engine accepts a closest-first fabricLabels array and a singular acceleratorLabel for the accelerator domain; accelerator sub-domains use the fixed accelerator.topograph.run/sub-domain key. Omitted values use the default label keys; when fabricLabels is provided, additional fabric tiers are omitted. The k8s, nfd, and slinky engines accept acceleratorDomainSourceLabel to select an existing Kubernetes Node label as the authoritative accelerator-domain source. There is no default. The k8s engine does not allow acceleratorLabel and acceleratorDomainSourceLabel to be set together.",
+          "properties": {
+            "acceleratorDomainSourceLabel": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional Kubernetes Node label key used as the authoritative accelerator-domain source by the k8s, nfd, and slinky engines. Nodes without a non-empty value retain provider domains with k8s and nfd. Slinky excludes them from label-backed block domains and fails if no usable domains remain."
+            }
+          }
         }
       },
       "required": ["name"]

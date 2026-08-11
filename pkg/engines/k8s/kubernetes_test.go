@@ -347,11 +347,12 @@ func countKubernetesActions(actions []k8stesting.Action, verb, resource string) 
 
 func TestMergeNodeLabels(t *testing.T) {
 	testCases := []struct {
-		name             string
-		acceleratorLabel string
-		node             *corev1.Node
-		in               map[string]string
-		out              map[string]string
+		name                         string
+		acceleratorLabel             string
+		acceleratorDomainSourceLabel string
+		node                         *corev1.Node
+		in                           map[string]string
+		out                          map[string]string
 	}{
 		{
 			name: "Case 1: no labels",
@@ -376,11 +377,12 @@ func TestMergeNodeLabels(t *testing.T) {
 			out: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4"},
 		},
 		{
-			name: "Case 4: skip accelerator when GPU clique exists",
+			name:                         "Case 4: source label overrides provider accelerator domain",
+			acceleratorDomainSourceLabel: "example.com/accelerator-domain",
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						topology.KeyNvidiaGPUClique:       "cluster-a.0",
+						"example.com/accelerator-domain":  "source-domain",
 						topology.KeyTopologyXclrDomain:    "old-domain",
 						topology.KeyTopologyXclrSubDomain: "old-sub-domain",
 						topology.FabricTierKey(0):         "old-leaf",
@@ -397,56 +399,51 @@ func TestMergeNodeLabels(t *testing.T) {
 				topology.FabricTierKey(1):         "new-spine",
 			},
 			out: map[string]string{
-				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				topology.FabricTierKey(0):   "new-leaf",
-				topology.FabricTierKey(1):   "new-spine",
-				"fabric.topograph.run/core": "legacy-core",
-				"workload.example/label":    "keep",
+				"example.com/accelerator-domain": "source-domain",
+				topology.FabricTierKey(0):        "new-leaf",
+				topology.FabricTierKey(1):        "new-spine",
+				"fabric.topograph.run/core":      "legacy-core",
+				"workload.example/label":         "keep",
 			},
 		},
 		{
-			name:             "Case 5: do not overwrite GPU clique when it is the configured accelerator label",
-			acceleratorLabel: topology.KeyNvidiaGPUClique,
+			name: "Case 5: omitted source label uses provider accelerator domain",
 			node: &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						topology.KeyNvidiaGPUClique: "cluster-a.0",
+						"example.com/accelerator-domain": "unconfigured-source-domain",
 					},
 				},
 			},
 			in: map[string]string{
-				topology.KeyNvidiaGPUClique: "api-domain",
-				topology.FabricTierKey(0):   "new-leaf",
+				topology.KeyTopologyXclrDomain:    "provider-domain",
+				topology.KeyTopologyXclrSubDomain: "provider-sub-domain",
 			},
 			out: map[string]string{
-				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				topology.FabricTierKey(0):   "new-leaf",
+				"example.com/accelerator-domain":  "unconfigured-source-domain",
+				topology.KeyTopologyXclrDomain:    "provider-domain",
+				topology.KeyTopologyXclrSubDomain: "provider-sub-domain",
 			},
 		},
 		{
-			name:             "Case 6: custom accelerator label still protects GPU clique",
+			name:             "Case 6: customized accelerator output without source label",
 			acceleratorLabel: "custom.example/accelerator",
-			node: &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						topology.KeyNvidiaGPUClique: "cluster-a.0",
-					},
-				},
-			},
+			node:             &corev1.Node{},
 			in: map[string]string{
 				"custom.example/accelerator": "api-domain",
 				topology.FabricTierKey(0):    "new-leaf",
 				topology.FabricTierKey(1):    "new-spine",
 			},
 			out: map[string]string{
-				topology.KeyNvidiaGPUClique: "cluster-a.0",
-				topology.FabricTierKey(0):   "new-leaf",
-				topology.FabricTierKey(1):   "new-spine",
+				"custom.example/accelerator": "api-domain",
+				topology.FabricTierKey(0):    "new-leaf",
+				topology.FabricTierKey(1):    "new-spine",
 			},
 		},
 		{
-			name: "Case 7: apply accelerator label when GPU clique is absent",
-			node: &corev1.Node{},
+			name:                         "Case 7: configured source missing uses provider accelerator domain",
+			acceleratorDomainSourceLabel: "example.com/accelerator-domain",
+			node:                         &corev1.Node{},
 			in: map[string]string{
 				topology.KeyTopologyXclrDomain:    "api-domain",
 				topology.KeyTopologyXclrSubDomain: "api-sub-domain",
@@ -475,7 +472,12 @@ func TestMergeNodeLabels(t *testing.T) {
 			if tc.acceleratorLabel != "" {
 				keys = NewTopologyLabelKeys(nil, tc.acceleratorLabel)
 			}
-			tc.node.Labels = mergeNodeLabels(tc.node.Labels, tc.in, keys)
+			tc.node.Labels = mergeNodeLabels(
+				tc.node.Labels,
+				tc.in,
+				keys,
+				tc.acceleratorDomainSourceLabel,
+			)
 			require.Equal(t, tc.out, tc.node.Labels)
 		})
 	}

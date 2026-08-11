@@ -44,7 +44,7 @@ engine:
         clusterDefault: true
     topologyConfigPath: topology.conf
     topologyConfigmapName: slurm-config
-    # useGpuCliqueLabel: true
+    # acceleratorDomainSourceLabel: example.com/accelerator-domain
     useDynamicNodes: true
     configUpdateMode: skeleton-only
 

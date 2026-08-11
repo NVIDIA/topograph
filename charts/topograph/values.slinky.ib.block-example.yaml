@@ -39,9 +39,10 @@ engine:
     # Base block size for topology/block. Additional entries, if used, must
     # be larger power-of-two multiples of the previous size.
     blockSizes: [4]
-    # For block topology, use nvidia.com/gpu.clique as the block-domain
-    # source. Keep this aligned with provider.params.accelerator.
-    useGpuCliqueLabel: true
+    # For block topology, use this existing Node label as the authoritative
+    # block-domain source. This engine setting is independent of provider
+    # discovery, even when both happen to select the same label.
+    acceleratorDomainSourceLabel: nvidia.com/gpu.clique
     # Key inside the target ConfigMap that Slinky mounts as topology.conf.
     topologyConfigPath: topology.conf
     # Target Slinky ConfigMap updated by Topograph with generated topology

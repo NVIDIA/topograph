@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 NVIDIA CORPORATION
+ * Copyright 2025-2026 NVIDIA CORPORATION
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -77,6 +77,36 @@ func TestIsPodReady(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.ready, IsPodReady(tc.pod))
+		})
+	}
+}
+
+func TestValidateLabelKey(t *testing.T) {
+	testCases := []struct {
+		name string
+		key  string
+		err  string
+	}{
+		{name: "valid", key: "example.com/accelerator-domain"},
+		{
+			name: "empty",
+			err:  `acceleratorDomainSourceLabel "" is not a valid Kubernetes label key`,
+		},
+		{
+			name: "invalid",
+			key:  "not a label",
+			err:  `acceleratorDomainSourceLabel "not a label" is not a valid Kubernetes label key`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateLabelKey("acceleratorDomainSourceLabel", tc.key)
+			if tc.err == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.err)
 		})
 	}
 }

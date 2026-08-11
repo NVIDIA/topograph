@@ -19,7 +19,7 @@ engine:
         app.kubernetes.io/component: compute
     plugin: topology/block
     blockSizes: [4]
-    # useGpuCliqueLabel: true
+    # acceleratorDomainSourceLabel: example.com/accelerator-domain
     topologyConfigPath: topology.conf
     topologyConfigmapName: slurm-config
     useDynamicNodes: false

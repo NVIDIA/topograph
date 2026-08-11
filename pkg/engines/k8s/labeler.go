@@ -10,10 +10,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"slices"
-	"strings"
 
-	"k8s.io/apimachinery/pkg/util/validation"
-
+	internalk8s "github.com/NVIDIA/topograph/internal/k8s"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -41,8 +39,8 @@ func NewTopologyLabelKeys(fabric []string, xclrDomain string) *TopologyLabelKeys
 func (keys *TopologyLabelKeys) Validate() error {
 	seen := make(map[string]string)
 	validate := func(location, key string) error {
-		if errs := validation.IsQualifiedName(key); len(errs) != 0 {
-			return fmt.Errorf("%s %q is not a valid Kubernetes label key: %s", location, key, strings.Join(errs, "; "))
+		if err := internalk8s.ValidateLabelKey(location, key); err != nil {
+			return err
 		}
 		if previous, ok := seen[key]; ok {
 			return fmt.Errorf("topology label key %q is configured for both %s and %s", key, previous, location)

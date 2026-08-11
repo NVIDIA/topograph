@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -48,6 +49,16 @@ func IsPodReady(pod *corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+// ValidateLabelKey validates a required Kubernetes label key and identifies
+// its configuration location in any returned error.
+func ValidateLabelKey(location, key string) error {
+	if errs := validation.IsQualifiedName(key); len(errs) != 0 {
+		return fmt.Errorf("%s %q is not a valid Kubernetes label key: %s",
+			location, key, strings.Join(errs, "; "))
+	}
+	return nil
 }
 
 func GetDaemonSetPods(ctx context.Context, client kubernetes.Interface, name, namespace, nodename string) (*corev1.PodList, error) {

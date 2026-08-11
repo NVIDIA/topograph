@@ -82,6 +82,20 @@ func TestGetParametersDefaults(t *testing.T) {
 	params, err := getParameters(nil)
 	require.NoError(t, err)
 	require.True(t, params.Cleanup)
+	require.Empty(t, params.AcceleratorDomainSourceLabel)
+}
+
+func TestGetParametersAcceleratorDomainSourceLabel(t *testing.T) {
+	params, err := getParameters(map[string]any{
+		"acceleratorDomainSourceLabel": "example.com/accelerator-domain",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "example.com/accelerator-domain", params.AcceleratorDomainSourceLabel)
+
+	_, err = getParameters(map[string]any{
+		"acceleratorDomainSourceLabel": "not a label",
+	})
+	require.ErrorContains(t, err, `acceleratorDomainSourceLabel "not a label" is not a valid Kubernetes label key`)
 }
 
 func TestResolveComputeInstancesCachesNodesWhenInstancesAreSupplied(t *testing.T) {
@@ -113,7 +127,7 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{
 			Name: "node-b",
 			Labels: map[string]string{
-				topology.KeyNvidiaGPUClique: "cluster.0",
+				"example.com/accelerator-domain": "cluster.0",
 			},
 		}},
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-c"}},
@@ -128,8 +142,11 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 	eng := &NfdEngine{
 		client:        client,
 		dynamicClient: dynamicClient,
-		params:        &Params{Cleanup: true},
-		namespace:     testNFDNamespace,
+		params: &Params{
+			Cleanup:                      true,
+			AcceleratorDomainSourceLabel: "example.com/accelerator-domain",
+		},
+		namespace: testNFDNamespace,
 	}
 
 	out, httpErr := eng.GenerateOutput(context.Background(), testGraph(), nil)
@@ -144,18 +161,18 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 	nodeA := findNodeFeature(t, features.Items, "node-a")
 	require.Equal(t, map[string]string{nfdNodeName: "node-a"}, attributeElements(t, nodeA, nfdSystemName))
 	require.Equal(t, map[string]string{
-		topologyTypeXclrDomain:    "nvl-a",
-		topologyTypeXclrSubDomain: "nvl-a.rack-1",
-		topologyTypeFabric + "0":  "leaf-1",
-		topologyTypeFabric + "1":  "spine-1",
+		topologyTypeAcceleratorDomain:    "nvl-a",
+		topologyTypeAcceleratorSubDomain: "nvl-a.rack-1",
+		topologyTypeFabric + "0":         "leaf-1",
+		topologyTypeFabric + "1":         "spine-1",
 	}, attributeElements(t, nodeA, nfdFeatureSet))
 
 	nodeB := findNodeFeature(t, features.Items, "node-b")
 	require.Equal(t, map[string]string{nfdNodeName: "node-b"}, attributeElements(t, nodeB, nfdSystemName))
 	require.Equal(t, map[string]string{
-		topologyTypeXclrDomain:   "cluster.0",
-		topologyTypeFabric + "0": "leaf-1",
-		topologyTypeFabric + "1": "spine-1",
+		topologyTypeAcceleratorDomain: "cluster.0",
+		topologyTypeFabric + "0":      "leaf-1",
+		topologyTypeFabric + "1":      "spine-1",
 	}, attributeElements(t, nodeB, nfdFeatureSet))
 
 	groups, err := dynamicClient.Resource(nodeFeatureGroupGVR).Namespace(testNFDNamespace).List(context.Background(), metav1.ListOptions{})
@@ -165,12 +182,12 @@ func TestGenerateOutputCreatesNodeFeaturesAndGroups(t *testing.T) {
 
 	leafGroup := findGroup(t, groups.Items, topologyTypeFabric+"0", "leaf-1")
 	require.Equal(t, []interface{}{"leaf-1"}, groupRuleValues(t, leafGroup, topologyTypeFabric+"0"))
-	cliqueGroup := findGroup(t, groups.Items, topologyTypeXclrDomain, "cluster.0")
-	require.Equal(t, topology.KeyNvidiaGPUClique, cliqueGroup.GetAnnotations()[annotationTopologyLabelKey])
-	require.Equal(t, []interface{}{"cluster.0"}, groupRuleValues(t, cliqueGroup, topologyTypeXclrDomain))
-	subDomainGroup := findGroup(t, groups.Items, topologyTypeXclrSubDomain, "nvl-a.rack-1")
+	cliqueGroup := findGroup(t, groups.Items, topologyTypeAcceleratorDomain, "cluster.0")
+	require.Equal(t, "example.com/accelerator-domain", cliqueGroup.GetAnnotations()[annotationTopologyLabelKey])
+	require.Equal(t, []interface{}{"cluster.0"}, groupRuleValues(t, cliqueGroup, topologyTypeAcceleratorDomain))
+	subDomainGroup := findGroup(t, groups.Items, topologyTypeAcceleratorSubDomain, "nvl-a.rack-1")
 	require.Equal(t, topology.KeyTopologyXclrSubDomain, subDomainGroup.GetAnnotations()[annotationTopologyLabelKey])
-	require.Equal(t, []interface{}{"nvl-a.rack-1"}, groupRuleValues(t, subDomainGroup, topologyTypeXclrSubDomain))
+	require.Equal(t, []interface{}{"nvl-a.rack-1"}, groupRuleValues(t, subDomainGroup, topologyTypeAcceleratorSubDomain))
 }
 
 func TestGenerateOutputCleansStaleObjects(t *testing.T) {
@@ -318,11 +335,11 @@ func TestBuildNFDObjectsRejectsInvalidNFDNodeNameLabelValue(t *testing.T) {
 		},
 	}
 
-	_, _, err := buildNFDObjects(nodeLabels, nil)
+	_, _, err := buildNFDObjects(nodeLabels, nil, "")
 	require.ErrorContains(t, err, "cannot be used as")
 }
 
-func TestBuildNFDObjectsSuppressesSubDomainWhenGPUCliqueExists(t *testing.T) {
+func TestBuildNFDObjectsUsesConfiguredAcceleratorDomainSource(t *testing.T) {
 	nodeLabels := k8sengine.NodeLabelMap{
 		"node-a": {
 			topology.KeyTopologyXclrDomain:    "provider-domain-a",
@@ -332,44 +349,85 @@ func TestBuildNFDObjectsSuppressesSubDomainWhenGPUCliqueExists(t *testing.T) {
 		"node-b": {
 			topology.KeyTopologyXclrDomain: "provider-domain-b",
 		},
+		"node-c": {
+			topology.KeyTopologyXclrDomain: "source-domain-a",
+		},
 	}
 
-	features, groups, err := buildNFDObjects(nodeLabels, map[string]string{"node-a": "gpu-clique-a"})
+	features, groups, err := buildNFDObjects(
+		nodeLabels,
+		map[string]string{"node-a": "source-domain-a"},
+		"example.com/accelerator-domain",
+	)
 
 	require.NoError(t, err)
-	require.Len(t, features, 2)
+	require.Len(t, features, 3)
 	nodeAElements := attributeElements(t, *features[0], nfdFeatureSet)
-	require.Equal(t, "gpu-clique-a", nodeAElements[topologyTypeXclrDomain])
-	require.Empty(t, nodeAElements[topologyTypeXclrSubDomain], "sub-domain must be suppressed when GPU clique is present")
-	require.Equal(t, "provider-domain-b", attributeElements(t, *features[1], nfdFeatureSet)[topologyTypeXclrDomain])
-	require.Len(t, groups, 3, "xclr-domain×2 + fabric-tier-0×1; no xclr-sub-domain group when clique suppresses it")
-	xclrDomainValues := make(map[string]struct{})
-	xclrSubDomainValues := make(map[string]struct{})
+	require.Equal(t, "source-domain-a", nodeAElements[topologyTypeAcceleratorDomain])
+	require.Empty(t, nodeAElements[topologyTypeAcceleratorSubDomain], "sub-domain must be suppressed when a source-label value replaces the provider domain")
+	require.Equal(t, "provider-domain-b", attributeElements(t, *features[1], nfdFeatureSet)[topologyTypeAcceleratorDomain])
+	require.Equal(t, "source-domain-a", attributeElements(t, *features[2], nfdFeatureSet)[topologyTypeAcceleratorDomain])
+	require.Len(t, groups, 3, "accelerator-domain×2 + fabric-tier-0×1; no accelerator-sub-domain group when the source label suppresses it")
+	acceleratorDomainValues := make(map[string]struct{})
+	acceleratorSubDomainValues := make(map[string]struct{})
+	acceleratorDomainSourceKey := ""
 	for _, group := range groups {
 		switch group.GetLabels()[labelGroupType] {
-		case topologyTypeXclrDomain:
-			xclrDomainValues[group.GetAnnotations()[annotationTopologyValue]] = struct{}{}
-		case topologyTypeXclrSubDomain:
-			xclrSubDomainValues[group.GetAnnotations()[annotationTopologyValue]] = struct{}{}
+		case topologyTypeAcceleratorDomain:
+			value := group.GetAnnotations()[annotationTopologyValue]
+			acceleratorDomainValues[value] = struct{}{}
+			if value == "source-domain-a" {
+				acceleratorDomainSourceKey = group.GetAnnotations()[annotationTopologyLabelKey]
+			}
+		case topologyTypeAcceleratorSubDomain:
+			acceleratorSubDomainValues[group.GetAnnotations()[annotationTopologyValue]] = struct{}{}
 		}
 	}
 	require.Equal(t, map[string]struct{}{
-		"gpu-clique-a":      {},
+		"source-domain-a":   {},
 		"provider-domain-b": {},
-	}, xclrDomainValues)
-	require.Empty(t, xclrSubDomainValues, "no xclr-sub-domain NodeFeatureGroup must be created for a clique node")
+	}, acceleratorDomainValues)
+	require.Equal(t, "example.com/accelerator-domain", acceleratorDomainSourceKey)
+	require.Empty(t, acceleratorSubDomainValues, "no accelerator-sub-domain NodeFeatureGroup must be created for a source-label node")
 }
 
-func TestTopologyKindUsesFabricTierAndXclrLabels(t *testing.T) {
+func TestBuildNFDObjectsUsesProviderAcceleratorDomainWhenSourceIsOmitted(t *testing.T) {
+	nodeLabels := k8sengine.NodeLabelMap{
+		"node-a": {
+			topology.KeyTopologyXclrDomain:    "provider-domain-a",
+			topology.KeyTopologyXclrSubDomain: "provider-sub-domain-a",
+		},
+	}
+	nodes := &corev1.NodeList{Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{
+		Name: "node-a",
+		Labels: map[string]string{
+			"nvidia.com/gpu.clique": "legacy-clique-domain",
+		},
+	}}}}
+
+	features, _, err := buildNFDObjects(
+		nodeLabels,
+		acceleratorDomainSourceValues(nodes, ""),
+		"",
+	)
+
+	require.NoError(t, err)
+	require.Len(t, features, 1)
+	elements := attributeElements(t, *features[0], nfdFeatureSet)
+	require.Equal(t, "provider-domain-a", elements[topologyTypeAcceleratorDomain])
+	require.Equal(t, "provider-sub-domain-a", elements[topologyTypeAcceleratorSubDomain])
+}
+
+func TestTopologyKindUsesFabricTierAndAcceleratorLabels(t *testing.T) {
 	kind, ok := topologyKind(topology.FabricTierKey(2))
 	require.True(t, ok)
 	require.Equal(t, topologyTypeFabric+"2", kind)
 	kind, ok = topologyKind(topology.KeyTopologyXclrDomain)
 	require.True(t, ok)
-	require.Equal(t, topologyTypeXclrDomain, kind)
+	require.Equal(t, topologyTypeAcceleratorDomain, kind)
 	kind, ok = topologyKind(topology.KeyTopologyXclrSubDomain)
 	require.True(t, ok)
-	require.Equal(t, topologyTypeXclrSubDomain, kind)
+	require.Equal(t, topologyTypeAcceleratorSubDomain, kind)
 }
 
 func testGraph() *topology.Graph {
