@@ -26,7 +26,7 @@ The Node Data Broker is also used when Topograph is deployed in a Kubernetes clu
 
 ### 4. Provider
 
-The Provider interfaces with CSPs or on-premises tools to retrieve topology-related data from the cluster and converts it into an internal representation.
+The Provider interfaces with CSPs or on-premises tools to retrieve topology-related data from the cluster and converts it into an internal representation. Providers may compose network-fabric discovery with an independent accelerator-domain source; for example, the InfiniBand provider can combine `ibnetdiscover` with `nvidia-smi`, a Kubernetes Node label, or no accelerator source.
 
 ### 5. Engine
 

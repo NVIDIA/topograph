@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Pluggable accelerator-domain discovery for InfiniBand providers, independently selectable from fabric discovery with `nvidia-smi`, an explicitly configured Kubernetes Node label, or no accelerator source. Discovery is disabled when `accelerator` is omitted or empty; a non-empty section must set `source` explicitly. Helm defaults the `nvidia-smi` workload location to the `gpu-operator` namespace and `nvidia-device-plugin-daemonset` DaemonSet when those values are omitted.
 - Helm `kubeClient.qps` and `kubeClient.burst` values for tuning the DRA provider and the Kubernetes, NFD, and Slinky engine clients through deployment-level `KUBE_QPS` and `KUBE_BURST` settings.
 - The Kubernetes engine now publishes `accelerator.topograph.run/sub-domain` when a provider supplies `InstanceTopology.XclrSubDomainID`.
 - The NFD engine now publishes separate `xclr-domain` and `xclr-sub-domain` attributes and groups.
@@ -26,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- InfiniBand providers now query NVL partition IDs with the `nvidia-smi` CSV query interface, merge identical per-GPU rows, reject unavailable (`N/A`) fields, and normalize the result to `ClusterUUID.CliqueId`.
 - **BREAKING:** The default Kubernetes topology labels now use the vendor-neutral Topograph domains `fabric.topograph.run/tier-N`, `accelerator.topograph.run/domain`, and `accelerator.topograph.run/sub-domain`. Consumers must update topology keys, selectors, allowlists, and scheduling policies to use the new labels.
 - The node-observer now processes its existing topology-generation triggers through a client-go rate-limiting work queue, coalescing event bursts into a single cluster-wide reconciliation while preserving existing trigger and retry behavior.
 - Simulation models now define accelerator topology through inherited `switches[].annotations` and `blocks[].annotations` using `accelerator.topology.test/domain` and optional `accelerator.topology.test/sub-domain`.

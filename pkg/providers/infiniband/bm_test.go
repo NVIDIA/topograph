@@ -11,113 +11,48 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/NVIDIA/topograph/pkg/accelerator"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func TestPopulateDomainsFromPdshOutput(t *testing.T) {
-	nvOutput := `node-10:         CliqueId                          : 4000000004
-	node-10:         ClusterUUID                       : 50000000-0000-0000-0000-000000000005
-	node-07:         CliqueId                          : 4000000005
-	node-07:         ClusterUUID                       : 50000000-0000-0000-0000-000000000004
-	node-11:         CliqueId                          : 50000000-0000-0000-0000-000000000003
-	node-11:         CliqueId                          : N/A
-	node-11:         ClusterUUID                       : 4000000003
-	node-11:         ClusterUUID                       : N/A
-	node-08:         CliqueId                          : 4000000005
-	node-08:         ClusterUUID                       : 50000000-0000-0000-0000-000000000004
-	node-09:         CliqueId                          : 4000000005
-	node-09:         ClusterUUID                       : 50000000-0000-0000-0000-000000000005
-`
-	domainMap := topology.DomainMap{
-		"50000000-0000-0000-0000-000000000004.4000000005": map[string]*topology.HostInfo{"node-07": {Domain: "50000000-0000-0000-0000-000000000004.4000000005", HostName: "node-07", InstanceID: "node-07"}, "node-08": {Domain: "50000000-0000-0000-0000-000000000004.4000000005", HostName: "node-08", InstanceID: "node-08"}},
-		"50000000-0000-0000-0000-000000000005.4000000004": map[string]*topology.HostInfo{"node-10": {Domain: "50000000-0000-0000-0000-000000000005.4000000004", HostName: "node-10", InstanceID: "node-10"}},
-		"50000000-0000-0000-0000-000000000005.4000000005": map[string]*topology.HostInfo{"node-09": {Domain: "50000000-0000-0000-0000-000000000005.4000000005", HostName: "node-09", InstanceID: "node-09"}},
-	}
+func TestParsePdshNvidiaSMIOutput(t *testing.T) {
+	output := bytes.NewBufferString(`node-1: uuid-1, 7
+node-1: uuid-1, 7
+malformed
+node-2: uuid-2, 8
+`)
 
-	testCases := []struct {
-		name     string
-		nvOutput string
-		domains  topology.DomainMap
-		err      string
-	}{
-		{
-			name:     "Case 1: missing CliqueId",
-			nvOutput: `	node-10:         ClusterUUID                       : 50000000-0000-0000-0000-000000000005`,
-			err:      `missing CliqueId for node "node-10"`,
-		},
-		{
-			name: "Case 2: missing ClusterUUID",
-			nvOutput: `node-10:         CliqueId                          : 4000000004
-	node-10:         ClusterUUID                       : 50000000-0000-0000-0000-000000000005
-	node-07:         CliqueId                          : 4000000005
-`,
-			err: `missing ClusterUUID for node "node-07"`,
-		},
-		{
-			name:     "Case 3: valid input",
-			nvOutput: nvOutput,
-			domains:  domainMap,
-		},
-		{
-			name:     "Case 4: malformed line (missing second colon) is skipped gracefully",
-			nvOutput: "node1:CliqueId\n",
-			domains:  topology.NewDomainMap(),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			domains, err := populateDomainsFromPdshOutput(bytes.NewBufferString(tc.nvOutput))
-			if len(tc.err) != 0 {
-				require.EqualError(t, err, tc.err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.domains, domains)
-			}
-		})
-	}
+	outputs, err := parsePdshNvidiaSMIOutput(output)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"node-1": "uuid-1, 7\nuuid-1, 7\n",
+		"node-2": "uuid-2, 8\n",
+	}, outputs)
 }
 
-func TestSetID(t *testing.T) {
-	clusters := map[string]*Cluster{
-		"node1": {node: "node1"},
-		"node2": {node: "node2"},
-		"node3": {node: "node3"},
-	}
-	invalid := make(map[string]bool)
+func TestAcceleratorTargetsAndDomainMap(t *testing.T) {
+	targets := acceleratorTargets([]topology.ComputeInstances{{
+		Instances: map[string]string{
+			"instance-1": "node-1",
+			"instance-2": "node-2",
+		},
+	}})
+	require.ElementsMatch(t, []accelerator.Target{
+		{InstanceID: "instance-1", HostName: "node-1"},
+		{InstanceID: "instance-2", HostName: "node-2"},
+	}, targets)
 
-	input := []struct {
-		nodename string
-		idname   string
-		val      string
-	}{
-		{nodename: "node1", idname: "ID", val: "ID1"},
-		{nodename: "node1", idname: "UUID", val: "UUID1"},
-		{nodename: "node2", idname: "ID", val: "ID2"},
-		{nodename: "node2", idname: "UUID", val: "UUID2"},
-		{nodename: "node2", idname: "ID", val: "N/A"},
-		{nodename: "node2", idname: "UUID", val: "N/A"},
-		{nodename: "node3", idname: "ID", val: "ID3"},
-		{nodename: "node3", idname: "UUID", val: "UUID3"},
-	}
-
-	for _, i := range input {
-		cluster := clusters[i.nodename]
-		switch i.idname {
-		case "ID":
-			setID(i.nodename, i.idname, &cluster.cliqueID, i.val, invalid)
-		case "UUID":
-			setID(i.nodename, i.idname, &cluster.UUID, i.val, invalid)
-		}
-	}
-
-	resClusters := map[string]*Cluster{
-		"node1": {node: "node1", UUID: "UUID1", cliqueID: "ID1"},
-		"node2": {node: "node2", UUID: "UUID2", cliqueID: "ID2"},
-		"node3": {node: "node3", UUID: "UUID3", cliqueID: "ID3"},
-	}
-	resInvalid := map[string]bool{"node2": true}
-
-	require.Equal(t, resClusters, clusters)
-	require.Equal(t, resInvalid, invalid)
+	domainMap := domainMapFromAssignments(accelerator.Assignments{
+		"instance-1": {DomainID: "domain-1", SubDomainID: "partition-1"},
+	}, targets)
+	require.Equal(t, topology.DomainMap{
+		"domain-1": {
+			"node-1": {
+				Domain:     "domain-1",
+				SubDomain:  "partition-1",
+				InstanceID: "instance-1",
+				HostName:   "node-1",
+			},
+		},
+	}, domainMap)
 }

@@ -10,22 +10,32 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/internal/httperr"
+	"github.com/NVIDIA/topograph/pkg/accelerator"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 const NAME_BM = "infiniband-bm"
 
-type ProviderBM struct{}
+type ProviderBM struct {
+	accelerator accelerator.Discoverer
+}
 
 func NamedLoaderBM() (string, providers.Loader) {
 	return NAME_BM, LoaderBM
 }
 
-func LoaderBM(_ context.Context, _ providers.Config) (providers.Provider, *httperr.Error) {
-	return &ProviderBM{}, nil
+func LoaderBM(_ context.Context, providerConfig providers.Config) (providers.Provider, *httperr.Error) {
+	discoverer, err := accelerator.NewCommandDiscoverer(
+		accelerator.SectionFromProviderParams(providerConfig.Params),
+		pdshNvidiaSMIRunner{},
+	)
+	if err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
+	}
+
+	return &ProviderBM{accelerator: discoverer}, nil
 }
 
 func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
@@ -33,17 +43,12 @@ func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []t
 		return nil, httperr.NewError(http.StatusBadRequest, "on-prem does not support multi-region topology requests")
 	}
 
-	nodes := topology.GetNodeNameList(cis)
-
-	output, err := exec.Pdsh(ctx, cmdClusterID, nodes)
+	targets := acceleratorTargets(cis)
+	assignments, err := p.accelerator.Discover(ctx, targets)
 	if err != nil {
-		return nil, httperr.NewError(http.StatusInternalServerError, err.Error())
+		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to discover accelerator domains: %v", err))
 	}
-
-	domainMap, err := populateDomainsFromPdshOutput(output)
-	if err != nil {
-		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to populate NVL domains: %v", err))
-	}
+	domainMap := domainMapFromAssignments(assignments, targets)
 
 	treeRoot, err := getIbTree(ctx, cis, &IBNetDiscoverBM{})
 	if err != nil {

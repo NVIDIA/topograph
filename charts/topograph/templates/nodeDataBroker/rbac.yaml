@@ -1,6 +1,5 @@
 {{- if and .Values.nodeDataBroker.enabled .Values.nodeDataBroker.rbac.create }}
-{{- $providerParams := default dict .Values.provider.params }}
-{{- $useGpuCliqueLabel := and (eq .Values.provider.name "infiniband-k8s") (eq (lower (toString (get $providerParams "useGpuCliqueLabel"))) "true") }}
+{{- $acceleratorSource := include "nodeDataBroker.acceleratorSource" . }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -9,7 +8,7 @@ rules:
 - apiGroups: [""]
   resources: [nodes]
   verbs: [get,update]
-{{- if and (eq .Values.provider.name "infiniband-k8s") (not $useGpuCliqueLabel) }}
+{{- if and (eq .Values.provider.name "infiniband-k8s") (eq $acceleratorSource "nvidia-smi") }}
 - apiGroups: [apps]
   resources: [daemonsets]
   verbs: [get]

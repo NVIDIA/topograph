@@ -1,0 +1,14 @@
+{{- if .Values.nodeDataBroker.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nodeDataBroker.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nodeDataBroker.labels" . | nindent 4 }}
+data:
+  node-data-broker-config.yaml: |-
+    provider:
+      {{- include "nodeDataBroker.providerConfig" . | nindent 6 }}
+    healthzPort: {{ .Values.nodeDataBroker.port }}
+{{- end }}

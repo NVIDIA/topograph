@@ -1,0 +1,104 @@
+suite: node-data-broker configmap
+templates:
+  - templates/nodeDataBroker/configmap.yaml
+release:
+  name: chart-ci
+  namespace: topograph
+tests:
+  - it: renders provider configuration and the health port
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator:
+            source: nvidia-smi
+            nvidiaSmi:
+              gpuOperatorNamespace: custom-gpu-operator
+              devicePluginDaemonSet: custom-device-plugin
+      nodeDataBroker:
+        port: 18080
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: chart-ci-topograph-node-data-broker
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "name: infiniband-k8s"
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "source: nvidia-smi"
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "gpuOperatorNamespace: custom-gpu-operator"
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "devicePluginDaemonSet: custom-device-plugin"
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "healthzPort: 18080"
+
+  - it: defaults the nvidia-smi workload location
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator:
+            source: nvidia-smi
+    asserts:
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "gpuOperatorNamespace: gpu-operator"
+      - matchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "devicePluginDaemonSet: nvidia-device-plugin-daemonset"
+
+  - it: does not render nvidia-smi defaults when accelerator is omitted
+    set:
+      provider:
+        name: infiniband-k8s
+    asserts:
+      - notMatchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "gpuOperatorNamespace:"
+      - notMatchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "devicePluginDaemonSet:"
+
+  - it: does not render nvidia-smi defaults for an empty accelerator section
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator: {}
+    asserts:
+      - notMatchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "gpuOperatorNamespace:"
+      - notMatchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "devicePluginDaemonSet:"
+
+  - it: does not render nvidia-smi defaults for the none source
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator:
+            source: none
+    asserts:
+      - notMatchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "gpuOperatorNamespace:"
+      - notMatchRegex:
+          path: data["node-data-broker-config.yaml"]
+          pattern: "devicePluginDaemonSet:"
+
+  - it: is omitted when node-data-broker is disabled
+    set:
+      nodeDataBroker:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

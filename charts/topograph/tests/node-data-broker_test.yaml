@@ -77,7 +77,7 @@ tests:
           path: spec.template.spec.serviceAccountName
           value: existing-node-data-broker-sa
 
-  - it: passes the provider and NODE_NAME to the container
+  - it: mounts its config and passes its path with NODE_NAME
     templates:
       - templates/nodeDataBroker/daemonset.yaml
     set:
@@ -103,7 +103,26 @@ tests:
     asserts:
       - contains:
           path: spec.template.spec.containers[0].args
-          content: --provider=infiniband-k8s
+          content: -c
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: /etc/topograph/node-data-broker-config.yaml
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config-volume
+            mountPath: /etc/topograph
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: config-volume
+            configMap:
+              defaultMode: 420
+              name: chart-ci-topograph-node-data-broker
+      - matchRegex:
+          path: spec.template.metadata.annotations.checksum/config
+          pattern: "^[a-f0-9]{64}$"
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -139,25 +158,6 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].livenessProbe.httpGet.path
           value: /healthz
-
-  - it: forwards the GPU clique label flag and extra args
-    templates:
-      - templates/nodeDataBroker/daemonset.yaml
-    set:
-      provider:
-        name: infiniband-k8s
-        params:
-          useGpuCliqueLabel: true
-      nodeDataBroker:
-        extraArgs:
-          - foo=bar
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --set=useGpuCliqueLabel=true
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --set=foo=bar
 
   - it: is omitted when the component is disabled
     templates:

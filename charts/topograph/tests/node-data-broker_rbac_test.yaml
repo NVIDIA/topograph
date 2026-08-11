@@ -71,12 +71,15 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: grants pods/exec for infiniband-k8s nvidia-smi discovery
+  - it: grants pods/exec for explicitly configured infiniband-k8s nvidia-smi discovery
     templates:
       - templates/nodeDataBroker/rbac.yaml
     set:
       provider:
         name: infiniband-k8s
+        params:
+          accelerator:
+            source: nvidia-smi
     documentIndex: 0
     asserts:
       - contains:
@@ -110,16 +113,117 @@ tests:
             resources: [pods/exec]
             verbs: [create]
 
-  - it: drops pods/exec when reusing the GPU clique label
+  - it: drops nvidia-smi permissions when the accelerator section is absent
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      provider:
+        name: infiniband-k8s
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: drops nvidia-smi permissions when using the Kubernetes label accelerator source
     templates:
       - templates/nodeDataBroker/rbac.yaml
     set:
       provider:
         name: infiniband-k8s
         params:
-          useGpuCliqueLabel: true
+          accelerator:
+            source: kubernetes-label
+            kubernetesLabel:
+              key: nvidia.com/gpu.clique
     documentIndex: 0
     asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: drops nvidia-smi permissions when accelerator discovery is explicitly disabled
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator:
+            source: none
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+
+  - it: drops nvidia-smi permissions for an empty accelerator section
+    templates:
+      - templates/nodeDataBroker/rbac.yaml
+    set:
+      provider:
+        name: infiniband-k8s
+        params:
+          accelerator: {}
+    documentIndex: 0
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
       - notContains:
           path: rules
           content:

@@ -17,10 +17,6 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-const (
-	cmdClusterID = `nvidia-smi -q | grep "ClusterUUID\|CliqueId" | sort -u`
-)
-
 type IBNetDiscover interface {
 	Run(context.Context, string) (*bytes.Buffer, error)
 }

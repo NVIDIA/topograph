@@ -1,7 +1,10 @@
 provider:
   name: infiniband-k8s
   params:
-    useGpuCliqueLabel: true
+    accelerator:
+      source: kubernetes-label
+      kubernetesLabel:
+        key: nvidia.com/gpu.clique
 engine:
   name: k8s
 
