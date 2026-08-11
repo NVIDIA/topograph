@@ -39,11 +39,11 @@ const (
 	nfdSystemName = "system.name"
 	nfdNodeName   = "nodename"
 
-	nfdNodeFeatureKind        = "NodeFeature"
-	nfdNodeFeatureGroupKind   = "NodeFeatureGroup"
-	topologyTypeFabric        = "fabric-tier-"
-	topologyTypeXclrDomain    = "xclr-domain"
-	topologyTypeXclrSubDomain = "xclr-sub-domain"
+	nfdNodeFeatureKind               = "NodeFeature"
+	nfdNodeFeatureGroupKind          = "NodeFeatureGroup"
+	topologyTypeFabric               = "fabric-tier-"
+	topologyTypeAcceleratorDomain    = "accelerator-domain"
+	topologyTypeAcceleratorSubDomain = "accelerator-sub-domain"
 
 	labelNFDNodeName = "nfd.node.kubernetes.io/node-name"
 	labelManagedBy   = "app.kubernetes.io/managed-by"
@@ -74,7 +74,11 @@ var (
 
 // buildNFDObjects converts node topology labels into per-node features and
 // groups for each distinct topology value.
-func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[string]string) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
+func buildNFDObjects(
+	nodeLabels k8sengine.NodeLabelMap,
+	acceleratorDomainSourceValues map[string]string,
+	acceleratorDomainSourceLabel string,
+) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	groupValues := make(map[string]map[string]string)
 	nodeFeatures := make([]*unstructured.Unstructured, 0, len(nodeLabels))
 
@@ -85,14 +89,14 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 		}
 
 		labels := nodeLabels[nodeName]
-		gpuCliqueValue := strings.TrimSpace(gpuCliqueValues[nodeName])
+		acceleratorDomainSourceValue := strings.TrimSpace(acceleratorDomainSourceValues[nodeName])
 		elements := make(map[string]string, len(labels))
 		for _, labelKey := range slices.Sorted(maps.Keys(labels)) {
 			kind, ok := topologyKind(labelKey)
 			if !ok {
 				continue
 			}
-			if (kind == topologyTypeXclrDomain || kind == topologyTypeXclrSubDomain) && gpuCliqueValue != "" {
+			if (kind == topologyTypeAcceleratorDomain || kind == topologyTypeAcceleratorSubDomain) && acceleratorDomainSourceValue != "" {
 				continue
 			}
 			value := strings.TrimSpace(labels[labelKey])
@@ -104,15 +108,19 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 			if _, ok := groupValues[kind]; !ok {
 				groupValues[kind] = make(map[string]string)
 			}
+			if kind == topologyTypeAcceleratorDomain && acceleratorDomainSourceLabel != "" &&
+				groupValues[kind][value] == acceleratorDomainSourceLabel {
+				continue
+			}
 			groupValues[kind][value] = labelKey
 		}
-		if gpuCliqueValue != "" {
-			kind := topologyTypeXclrDomain
-			elements[kind] = gpuCliqueValue
+		if acceleratorDomainSourceValue != "" {
+			kind := topologyTypeAcceleratorDomain
+			elements[kind] = acceleratorDomainSourceValue
 			if _, ok := groupValues[kind]; !ok {
 				groupValues[kind] = make(map[string]string)
 			}
-			groupValues[kind][gpuCliqueValue] = topology.KeyNvidiaGPUClique
+			groupValues[kind][acceleratorDomainSourceValue] = acceleratorDomainSourceLabel
 		}
 		if len(elements) == 0 {
 			continue
@@ -142,10 +150,10 @@ func buildNFDObjects(nodeLabels k8sengine.NodeLabelMap, gpuCliqueValues map[stri
 
 func topologyKind(labelKey string) (string, bool) {
 	if labelKey == topology.KeyTopologyXclrDomain {
-		return topologyTypeXclrDomain, true
+		return topologyTypeAcceleratorDomain, true
 	}
 	if labelKey == topology.KeyTopologyXclrSubDomain {
-		return topologyTypeXclrSubDomain, true
+		return topologyTypeAcceleratorSubDomain, true
 	}
 	if level, ok := strings.CutPrefix(labelKey, topology.KeyFabricTierPrefix); ok {
 		if _, err := strconv.Atoi(level); err == nil {

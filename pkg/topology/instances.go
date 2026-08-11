@@ -23,17 +23,6 @@ type Instance struct {
 	NetLayers     []string          `yaml:"-" json:"-"`
 }
 
-func (inst Instance) AcceleratorID() string {
-	return AcceleratorID(inst.Labels)
-}
-
-func AcceleratorID(labels map[string]string) string {
-	if accelerator := labels[KeyTopologyXclrDomain]; accelerator != "" {
-		return accelerator
-	}
-	return labels[KeyNvidiaGPUClique]
-}
-
 func FabricTierKey(tier int) string {
 	return KeyFabricTierPrefix + strconv.Itoa(tier)
 }

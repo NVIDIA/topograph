@@ -10,7 +10,7 @@ Scheduler, gang-scheduling plugins, topology-aware bin-packers) and
 observability tools to reason about network locality. The
 [Slinky engine](../engines/slinky.md) does not write these labels; it writes
 Slurm topology configuration to a ConfigMap and can consume the existing
-`nvidia.com/gpu.clique` label for `topology/block`.
+label selected by `acceleratorDomainSourceLabel` for `topology/block`.
 
 ### Default label keys
 
@@ -21,7 +21,7 @@ are written.
 
 | Label key | Topology type | Semantics |
 |---|---|---|
-| `accelerator.topograph.run/domain` | Accelerator | Accelerator-interconnect locality. If `nvidia.com/gpu.clique` exists, the k8s engine leaves this label unset for that node. |
+| `accelerator.topograph.run/domain` | Accelerator | Accelerator-interconnect locality. Omitted for a node when a configured `acceleratorDomainSourceLabel` supplies the authoritative value. |
 | `accelerator.topograph.run/sub-domain` | Accelerator | Optional locality nested within the accelerator domain. Written only when `accelerator.topograph.run/domain` is also present. |
 | `fabric.topograph.run/tier-N` | Fabric | Switch-fabric locality at tier `N`. Tier 0 is the switch closest to the node; each higher tier is the next switch tier outward. There is no fixed maximum depth. |
 
@@ -51,7 +51,21 @@ The DRA provider is intentionally omitted: its supported use is with the Slinky
 engine, where it converts existing `nvidia.com/gpu.clique` labels into Slurm
 `topology/block` domains rather than writing Kubernetes topology labels.
 
-**Relationship to `nvidia.com/gpu.clique`**: Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with Multi-Node NVLink (MNNVL) GPUs; it is not guaranteed to be present on every MNNVL cluster. The k8s engine treats that label as authoritative when present and does not write Topograph's configured accelerator domain or sub-domain labels for that node, regardless of whether the selected provider also returned accelerator topology from API data. For Slinky block topology, setting `engine.params.useGpuCliqueLabel: true` makes the Slinky engine build `topology/block` domains from `nvidia.com/gpu.clique` instead of provider accelerator-domain data. For `infiniband-k8s`, setting `provider.params.accelerator.source: kubernetes-label` with `kubernetesLabel.key: nvidia.com/gpu.clique` selects the same label without collecting a duplicate value through `nvidia-smi`. The `netq` provider uses a `DomainUUID` from the NMX management API — a different identifier that refers to the same physical domain but cannot be compared as a string.
+**Existing accelerator-domain source labels**: The k8s, NFD, and Slinky engines
+can explicitly select any valid Kubernetes Node label key with
+`engine.params.acceleratorDomainSourceLabel`. A non-empty value is authoritative
+for that node and suppresses the provider accelerator sub-domain. When the
+parameter is omitted, engines use provider-supplied accelerator domains and do
+not give any Kubernetes label special treatment. This engine setting is
+independent of `provider.params.accelerator.kubernetesLabel.key`, which controls
+provider discovery.
+
+Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with
+Multi-Node NVLink (MNNVL) GPUs; operators may select it explicitly as either an
+engine source label or an `infiniband-k8s` provider discovery label. The `netq`
+provider instead uses a `DomainUUID` from the NMX management API—a different
+identifier that refers to the same physical domain but cannot be compared as a
+string.
 
 [NVIDIA Fabric Manager](https://docs.nvidia.com/datacenter/tesla/fabric-manager-user-guide/) runs at node init on MNNVL-capable hardware, discovers the NVLink fabric across GPUs, and registers each GPU with [NVML](https://docs.nvidia.com/deploy/nvml-api/) (NVIDIA Management Library — a C API that exposes per-GPU state). The GPU Operator's IMEX labeler writes `nvidia.com/gpu.clique` only once NVML reports the node's fabric state as `GPU_FABRIC_STATE_COMPLETED` — meaning Fabric Manager finished initialization successfully and the node is part of an NVLink domain.
 
@@ -59,7 +73,14 @@ On non-MNNVL systems (e.g., DGX B200, B300), the GPU fabric never reaches `GPU_F
 
 ### Choosing between the accelerator label and `nvidia.com/gpu.clique` for scheduling
 
-Workload schedulers consuming topology labels may need to choose between Topograph's `accelerator.topograph.run/domain` and the NVIDIA GPU Operator's `nvidia.com/gpu.clique`. The k8s engine automatically avoids writing the XCLR domain and sub-domain labels on nodes where `nvidia.com/gpu.clique` is already present, so schedulers can use `gpu.clique` for those nodes and fall back to the XCLR labels where it is absent:
+Workload schedulers consuming topology labels may need to choose between
+Topograph's `accelerator.topograph.run/domain` and the NVIDIA GPU Operator's
+`nvidia.com/gpu.clique`. To make the GPU Operator label authoritative, configure
+`engine.params.acceleratorDomainSourceLabel: nvidia.com/gpu.clique`. The k8s
+engine then preserves that source label and omits its managed accelerator domain
+and sub-domain labels on nodes where the source has a non-empty value. Without
+that configuration, Topograph publishes provider-derived accelerator labels
+normally:
 
 - **MNNVL hardware + Fabric Manager completed + NVL Partition granularity desired:** use `nvidia.com/gpu.clique`. On the AWS provider this is finer granularity than the accelerator label (which carries the CapacityBlockId, i.e., the NVL Domain). On InfiniBand and Lambda AI providers the two labels carry the same value.
 - **MNNVL but Fabric Manager not yet completed, or non-MNNVL hardware:** `nvidia.com/gpu.clique` is absent. Use `accelerator.topograph.run/domain`.
@@ -89,8 +110,12 @@ provided, only explicitly listed tiers are labeled; additional tiers are
 omitted. `acceleratorLabel` defaults to
 `accelerator.topograph.run/domain`. Every configured key must be a valid
 Kubernetes label key. The accelerator sub-domain key is fixed at
-`accelerator.topograph.run/sub-domain`. Label values always come from provider
-discovery.
+`accelerator.topograph.run/sub-domain`. Fabric and managed accelerator label
+values normally come from provider discovery. When
+`acceleratorDomainSourceLabel` is configured and a node has a non-empty value,
+the k8s engine preserves that existing source label as authoritative and omits
+its managed accelerator domain and sub-domain labels for the node. Nodes
+without a usable source value retain the provider-derived labels.
 
 ### Relationship to upstream standardization (KEP-4962)
 

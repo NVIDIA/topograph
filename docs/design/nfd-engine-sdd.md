@@ -9,7 +9,7 @@ Implemented.
 Add an experimental `nfd` engine that converts Topograph's canonical
 `topology.Graph` into Node Feature Discovery (NFD) `NodeFeatureGroup` objects.
 The engine creates one group for each distinct topology label value, such as one
-group for each distinct fabric tier, XCLR domain, or XCLR sub-domain value.
+group for each distinct fabric tier, accelerator domain, or accelerator sub-domain value.
 
 This should not replace the current `k8s` engine. The `k8s` engine writes node
 labels that can be consumed by native Kubernetes affinity and topology-aware
@@ -18,7 +18,7 @@ NFD CRs for consumers that already watch NFD.
 
 ## Background
 
-Topograph maps topology into optional XCLR dimensions and a variable-depth
+Topograph maps topology into optional accelerator dimensions and a variable-depth
 fabric label family:
 
 - `accelerator.topograph.run/domain`
@@ -74,8 +74,8 @@ spec:
           nodename: node-a
       topograph.network:
         elements:
-          xclr-domain: nvl3
-          xclr-sub-domain: nvl3.rack01
+          accelerator-domain: nvl3
+          accelerator-sub-domain: nvl3.rack01
           fabric-tier-0: leaf-12
           fabric-tier-1: spine-2
           fabric-tier-2: core-1
@@ -119,6 +119,11 @@ Initial parameters:
   graph. An empty generated object set is rejected while cleanup is enabled so
   a transient empty provider result cannot delete the entire published
   topology.
+- `acceleratorDomainSourceLabel`: optional Kubernetes Node label key. A
+  non-empty value replaces the provider accelerator domain for that node,
+  suppresses the provider accelerator sub-domain, and is recorded as the source
+  key on the corresponding `NodeFeatureGroup`. Nodes without a usable source
+  value retain provider-derived accelerator attributes.
 
 The NFD master namespace is deployment-scoped rather than request-scoped. Helm
 configures it through the top-level `nfdNamespace` value and passes it to the
@@ -131,8 +136,8 @@ returns an error if `NFD_NAMESPACE` is unset or blank.
 - Add `pkg/engines/nfd` with the standard `NamedLoader`.
 - Register it in `pkg/registry/registry.go`.
 - Factor the current `k8s` label projection into a shared helper so both engines
-  produce identical values at every discovered fabric tier, XCLR domain, and
-  XCLR sub-domain.
+  produce identical values at every discovered fabric tier, accelerator domain,
+  and accelerator sub-domain.
 - Use the dynamic Kubernetes client or generated NFD client types, depending on
   whether the project wants to pin an NFD API dependency.
 - Update Helm RBAC to allow create, update, patch, list, watch, and delete for
@@ -191,13 +196,13 @@ Two NFD-side extensions could make this model more practical:
 For a 10,000-node cluster, the live custom-resource payload depends on the
 number of topology dimensions and the number of distinct values within each
 dimension. Let `D` be the average number of published dimensions per node: all
-discovered fabric tiers plus any XCLR domain and sub-domain.
+discovered fabric tiers plus any accelerator domain and sub-domain.
 
 Assumptions:
 
 - 10,000 `NodeFeature` objects, one per node.
-- One topology attribute for every discovered fabric tier, XCLR domain, and
-  XCLR sub-domain.
+- One topology attribute for every discovered fabric tier, accelerator domain,
+  and accelerator sub-domain.
 - Each node appears in one `NodeFeatureGroup.status.nodes` list per topology
   dimension, so status contains about `10,000 × D` node references total.
 - Average node names and topology values are short, roughly 10-30 characters.
@@ -228,14 +233,14 @@ patches to reduce write amplification.
 
 ## Test Plan
 
-- Unit-test graph-to-group generation across variable fabric tiers, XCLR
-  domains, and XCLR sub-domains.
+- Unit-test graph-to-group generation across variable fabric tiers, accelerator
+  domains, and accelerator sub-domains.
 - Verify long and invalid topology values produce stable CR names.
 - Verify stale Topograph-managed groups are removed when `cleanup` is enabled.
 - Verify an empty generated object set returns an error and preserves existing
   objects when `cleanup` is enabled.
-- Verify nodes with `nvidia.com/gpu.clique` replace the provider XCLR domain
-  with the clique value and suppress the provider XCLR sub-domain, matching the
-  `k8s` engine's `skipXclrLabelsWhenGPUCliqueExists` behavior.
+- Verify nodes with a configured custom accelerator-domain source label replace
+  the provider accelerator domain and suppress the provider accelerator
+  sub-domain, while nodes without the label retain provider values.
 - Add a fake dynamic-client test that applies generated `NodeFeature` and
   `NodeFeatureGroup` objects without requiring a live NFD deployment.

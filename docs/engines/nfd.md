@@ -8,8 +8,8 @@ It creates:
 
 - one `NodeFeature` per topology node, carrying Topograph topology as
   `spec.features.attributes.topograph.network.elements`
-- one `NodeFeatureGroup` per distinct fabric tier, XCLR domain, or XCLR
-  sub-domain value
+- one `NodeFeatureGroup` per distinct fabric tier, accelerator domain, or
+  accelerator sub-domain value
 
 NFD master evaluates those features and writes matching nodes to
 `NodeFeatureGroup.status.nodes`.
@@ -17,7 +17,7 @@ NFD master evaluates those features and writes matching nodes to
 Fabric topology is variable-depth. The engine publishes `fabric-tier-N` for
 every discovered tier, where tier 0 is closest to the node and higher tiers
 progress outward; there is no fixed number of fabric attributes or groups.
-XCLR domain and optional sub-domain attributes are published separately when
+Accelerator domain and optional sub-domain attributes are published separately when
 the provider supplies them.
 
 ## When to Use
@@ -69,6 +69,7 @@ engine:
     nodeSelector:
       nvidia.com/gpu.present: "true"
     cleanup: true
+    acceleratorDomainSourceLabel: example.com/accelerator-domain
 kubeClient:
   qps: 50
   burst: 100
@@ -81,6 +82,7 @@ Parameters:
 |---|---:|---|---|
 | `nodeSelector` | No | all nodes | Limits the Kubernetes nodes used as provider input. Same meaning as the `k8s` engine selector. |
 | `cleanup` | No | `true` | Deletes stale Topograph-managed `NodeFeature` and `NodeFeatureGroup` objects that are no longer present in the generated topology. If generation produces no objects, the engine returns an error and preserves the existing topology. |
+| `acceleratorDomainSourceLabel` | No | none | Existing Kubernetes Node label used as the authoritative accelerator-domain source. Values replace the provider domain and suppress the provider sub-domain for matching nodes. |
 
 `nfdNamespace` is a deployment-level Helm value, not an engine request
 parameter. It must be the namespace where NFD master runs because NFD updates
@@ -128,8 +130,8 @@ spec:
           nodename: node-a
       topograph.network:
         elements:
-          xclr-domain: nvl3
-          xclr-sub-domain: nvl3.rack01
+          accelerator-domain: nvl3
+          accelerator-sub-domain: nvl3.rack01
           fabric-tier-0: leaf-12
           fabric-tier-1: spine-2
           fabric-tier-2: core-1
@@ -165,12 +167,14 @@ Topograph includes `system.name.elements.nodename` so NFD can populate group
 membership even when an NFD worker does not run on the node, as with simulated
 KWOK nodes. Topograph does not write `status.nodes`; NFD owns status updates.
 
-If a Kubernetes node already has `nvidia.com/gpu.clique`, the engine uses that
-label's value as the authoritative `xclr-domain` attribute instead of the value
-derived from the provider graph. The matching `NodeFeatureGroup` records
-`nvidia.com/gpu.clique` as its source label key. The provider-supplied `xclr-sub-domain` is suppressed alongside `xclr-domain`
-(matching the `k8s` engine behaviour); all fabric-tier attributes are still
-published.
+When `acceleratorDomainSourceLabel` is configured and a Kubernetes node has a
+non-empty value for that label, the engine uses the value as the authoritative
+`accelerator-domain` NFD attribute instead of the provider domain. The matching
+`NodeFeatureGroup` records the configured key as its source label. The
+provider-supplied `accelerator-sub-domain` is suppressed for that node, while all
+fabric-tier attributes are still published. Nodes without the configured label
+retain their provider domain and sub-domain. When the parameter is omitted, no
+existing Kubernetes label receives special treatment.
 
 ## Caveats
 

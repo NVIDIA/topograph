@@ -61,6 +61,17 @@ tests:
       - failedTemplate:
           errorMessage: "env.NFD_NAMESPACE is managed by the chart for the nfd engine; configure nfdNamespace instead"
 
+  - it: rejects accelerator output customization with an accelerator domain source label
+    set:
+      engine:
+        name: k8s
+        params:
+          acceleratorLabel: example.com/output-domain
+          acceleratorDomainSourceLabel: example.com/source-domain
+    asserts:
+      - failedTemplate:
+          errorMessage: "engine.params.acceleratorLabel and engine.params.acceleratorDomainSourceLabel cannot be set together for the k8s engine"
+
   - it: rejects overriding the chart-managed Kubernetes QPS environment variable
     set:
       env:

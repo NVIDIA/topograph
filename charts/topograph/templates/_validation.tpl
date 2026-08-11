@@ -12,6 +12,15 @@
   {{- fail "env.NFD_NAMESPACE is managed by the chart for the nfd engine; configure nfdNamespace instead" }}
 {{- end }}
 
+{{- if eq .Values.engine.name "k8s" }}
+{{- $engineParams := default dict .Values.engine.params }}
+{{- $acceleratorLabel := trim (toString (get $engineParams "acceleratorLabel")) }}
+{{- $acceleratorDomainSourceLabel := trim (toString (get $engineParams "acceleratorDomainSourceLabel")) }}
+{{- if and (ne $acceleratorLabel "") (ne $acceleratorDomainSourceLabel "") }}
+  {{- fail "engine.params.acceleratorLabel and engine.params.acceleratorDomainSourceLabel cannot be set together for the k8s engine" }}
+{{- end }}
+{{- end }}
+
 {{- if hasKey (default dict .Values.env) "KUBE_QPS" }}
   {{- fail "env.KUBE_QPS is managed by the chart; configure kubeClient.qps instead" }}
 {{- end }}

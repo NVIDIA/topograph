@@ -26,9 +26,13 @@ engine:
   # name: "k8s", "nfd", "slinky", "slurm" or "graph"
   name: k8s
   # params:
-  #   # For slinky topology/block output, use the GPU Operator's existing
-  #   # Kubernetes node label as the block-domain source.
-  #   useGpuCliqueLabel: true
+  #   # For the k8s, nfd, and slinky engines, optionally use an existing
+  #   # Kubernetes Node label as the authoritative accelerator-domain source.
+  #   # There is no default. The k8s engine does not allow acceleratorLabel
+  #   # to be customized when this parameter is set. Nodes missing the label
+  #   # retain provider domains with k8s and nfd; Slinky excludes them from
+  #   # label-backed block domains and fails if no usable domains remain.
+  #   acceleratorDomainSourceLabel: example.com/accelerator-domain
 
 # Kubernetes client rate limits for the DRA provider and the k8s, NFD, and
 # Slinky engines. The chart passes configured values to the Topograph deployment

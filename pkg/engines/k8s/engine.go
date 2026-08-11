@@ -7,6 +7,7 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	corev1 "k8s.io/api/core/v1"
@@ -40,6 +41,9 @@ type Params struct {
 	FabricLabels []string `mapstructure:"fabricLabels"`
 	// AcceleratorLabel optionally sets the accelerator label key.
 	AcceleratorLabel string `mapstructure:"acceleratorLabel"`
+	// AcceleratorDomainSourceLabel optionally selects an existing Kubernetes
+	// Node label as the authoritative accelerator-domain source.
+	AcceleratorDomainSourceLabel string `mapstructure:"acceleratorDomainSourceLabel"`
 
 	// derived fields
 	nodeListOpt *metav1.ListOptions
@@ -81,6 +85,14 @@ func getParameters(params engines.Config) (*Params, error) {
 	p := &Params{}
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
+	}
+	if p.AcceleratorLabel != "" && p.AcceleratorDomainSourceLabel != "" {
+		return nil, fmt.Errorf("engine parameters acceleratorLabel and acceleratorDomainSourceLabel cannot be set together")
+	}
+	if p.AcceleratorDomainSourceLabel != "" {
+		if err := internalk8s.ValidateLabelKey("acceleratorDomainSourceLabel", p.AcceleratorDomainSourceLabel); err != nil {
+			return nil, err
+		}
 	}
 	p.labelKeys = NewTopologyLabelKeys(p.FabricLabels, p.AcceleratorLabel)
 	if err := p.labelKeys.Validate(); err != nil {

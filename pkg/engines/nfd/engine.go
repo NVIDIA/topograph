@@ -45,6 +45,9 @@ type Params struct {
 	NodeSelector map[string]string `mapstructure:"nodeSelector"`
 	// Cleanup deletes stale Topograph-managed NFD objects. Defaults to true.
 	Cleanup bool `mapstructure:"cleanup"`
+	// AcceleratorDomainSourceLabel optionally selects an existing Kubernetes
+	// Node label as the authoritative accelerator-domain source.
+	AcceleratorDomainSourceLabel string `mapstructure:"acceleratorDomainSourceLabel"`
 
 	// derived fields
 	nodeListOpt *metav1.ListOptions
@@ -97,6 +100,11 @@ func getParameters(params engines.Config) (*Params, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
 	}
+	if p.AcceleratorDomainSourceLabel != "" {
+		if err := internalk8s.ValidateLabelKey("acceleratorDomainSourceLabel", p.AcceleratorDomainSourceLabel); err != nil {
+			return nil, err
+		}
+	}
 	if len(p.NodeSelector) != 0 {
 		p.nodeListOpt = &metav1.ListOptions{
 			LabelSelector: labels.Set(p.NodeSelector).String(),
@@ -130,7 +138,11 @@ func (eng *NfdEngine) GenerateOutput(ctx context.Context, graph *topology.Graph,
 		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
 	}
 
-	nodeFeatures, nodeFeatureGroups, err := buildNFDObjects(nodeLabels, gpuCliqueValues(nodes))
+	nodeFeatures, nodeFeatureGroups, err := buildNFDObjects(
+		nodeLabels,
+		acceleratorDomainSourceValues(nodes, eng.params.AcceleratorDomainSourceLabel),
+		eng.params.AcceleratorDomainSourceLabel,
+	)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
@@ -152,14 +164,14 @@ func (eng *NfdEngine) GenerateOutput(ctx context.Context, graph *topology.Graph,
 	return fmt.Appendf(nil, "OK nodeFeatures=%d nodeFeatureGroups=%d\n", len(nodeFeatures), len(nodeFeatureGroups)), nil
 }
 
-func gpuCliqueValues(nodes *corev1.NodeList) map[string]string {
+func acceleratorDomainSourceValues(nodes *corev1.NodeList, sourceLabel string) map[string]string {
 	out := make(map[string]string)
-	if nodes == nil {
+	if nodes == nil || sourceLabel == "" {
 		return out
 	}
 
 	for _, node := range nodes.Items {
-		if value := strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique]); value != "" {
+		if value := strings.TrimSpace(node.Labels[sourceLabel]); value != "" {
 			out[node.Name] = value
 		}
 	}

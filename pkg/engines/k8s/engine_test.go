@@ -89,6 +89,31 @@ func TestGetParameters(t *testing.T) {
 			},
 			err: `topology label key "accelerator.topograph.run/sub-domain" is configured for both acceleratorLabel and xclrSubDomainLabel`,
 		},
+		{
+			name: "Case 9: accelerator domain source label",
+			params: map[string]any{
+				"acceleratorDomainSourceLabel": "example.com/accelerator-domain",
+			},
+			ret: &Params{
+				AcceleratorDomainSourceLabel: "example.com/accelerator-domain",
+				labelKeys:                    NewTopologyLabelKeys(nil, ""),
+			},
+		},
+		{
+			name: "Case 10: reject invalid accelerator domain source label",
+			params: map[string]any{
+				"acceleratorDomainSourceLabel": "not a label",
+			},
+			err: `acceleratorDomainSourceLabel "not a label" is not a valid Kubernetes label key`,
+		},
+		{
+			name: "Case 11: reject customized accelerator output with source label",
+			params: map[string]any{
+				"acceleratorLabel":             "example.com/output-domain",
+				"acceleratorDomainSourceLabel": "example.com/source-domain",
+			},
+			err: "engine parameters acceleratorLabel and acceleratorDomainSourceLabel cannot be set together",
+		},
 	}
 
 	for _, tc := range testCases {

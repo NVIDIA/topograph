@@ -234,7 +234,7 @@ func TestToInstanceOmitsXclrSubDomainWithoutDomainLabel(t *testing.T) {
 	require.NotContains(t, instance.Labels, KeyTopologyXclrSubDomain)
 }
 
-func TestToInstanceOmitsXclrSubDomainWhenGPUCliqueSupersedesDomain(t *testing.T) {
+func TestToInstanceIgnoresUnrelatedGPUCliqueLabel(t *testing.T) {
 	inst := &InstanceTopology{
 		InstanceID:      "i-001",
 		XclrDomainID:    "discovered-domain",
@@ -248,8 +248,9 @@ func TestToInstanceOmitsXclrSubDomainWhenGPUCliqueSupersedesDomain(t *testing.T)
 
 	instance := inst.toInstance(0)
 
-	require.NotContains(t, instance.Labels, KeyTopologyXclrDomain)
-	require.NotContains(t, instance.Labels, KeyTopologyXclrSubDomain)
+	require.Equal(t, "gpu-clique", instance.Labels[KeyNvidiaGPUClique])
+	require.Equal(t, "discovered-domain", instance.Labels[KeyTopologyXclrDomain])
+	require.Equal(t, "discovered-sub-domain", instance.Labels[KeyTopologyXclrSubDomain])
 }
 
 func TestTrimTiers(t *testing.T) {

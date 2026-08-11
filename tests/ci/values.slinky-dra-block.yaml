@@ -20,7 +20,6 @@ engine:
     blockName:
       nodeNameRegexp: '^srv([0-9]{2})'
       format: 'rack${1}'
-    useGpuCliqueLabel: true
     topologyConfigPath: topology.conf
     topologyConfigmapName: slurm-config-extra
     useDynamicNodes: true

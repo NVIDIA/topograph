@@ -90,9 +90,13 @@ engine:
 
 `blockName.nodeNameRegexp` uses Go regular-expression syntax and may match anywhere in the node name; use anchors when needed. `blockName.format` uses Go regexp expansion syntax, including numeric captures such as `${1}` and named captures such as `${domain}`. Every node in a non-empty block must match and produce the same non-empty name, and names must be unique across blocks. Invalid expressions, unmatched nodes, inconsistent names within a block, and duplicate names are rejected. Empty complemented blocks retain their generated names.
 
-### Using `nvidia.com/gpu.clique` for block topology
+### Using an existing Node label for block topology
 
-On MNNVL Kubernetes clusters, the NVIDIA GPU Operator can label nodes with `nvidia.com/gpu.clique`. When `useGpuCliqueLabel` is enabled, the Slinky engine uses that label as the source for `topology/block` domains instead of the accelerator domains returned by the provider. This is useful with cloud API providers whose accelerator ID describes a broader provider domain than the GPU Operator clique label.
+Set `acceleratorDomainSourceLabel` when another component already publishes the
+desired accelerator domain as a Kubernetes Node label. For `topology/block`,
+the Slinky engine uses that label instead of accelerator domains returned by
+the provider. There is no default source label, and existing labels receive no
+special treatment when the parameter is omitted.
 
 The option only affects block topology. Tree topology still comes from the selected provider, and the engine still maps Kubernetes nodes to Slurm nodes through the configured slurmd pod selector.
 
@@ -108,10 +112,18 @@ engine:
     blockSizes: [8, 16]
     topologyConfigmapName: slurm-config
     topologyConfigPath: topology.conf
-    useGpuCliqueLabel: true
+    acceleratorDomainSourceLabel: example.com/accelerator-domain
 ```
 
-If `useGpuCliqueLabel` is enabled for a block topology and no matching nodes have the `nvidia.com/gpu.clique` label plus the Topograph instance annotation, topology generation fails with a `502` error instead of falling back to provider accelerator domains.
+Nodes without the configured label retain the existing label-backed behavior:
+they are skipped rather than falling back individually to provider domains. If
+no usable domains can be built from the configured label and the Topograph
+instance annotation, topology generation fails with an actionable `502` error
+that reports the configured key and why nodes were skipped. Replacing provider
+domains also suppresses provider accelerator sub-domains.
+
+For example, an operator may explicitly select
+`nvidia.com/gpu.clique`, but the Slinky engine no longer assumes that key.
 
 ### Kubernetes API rate limiting
 

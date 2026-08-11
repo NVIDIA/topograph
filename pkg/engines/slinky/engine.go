@@ -91,9 +91,9 @@ type Params struct {
 	ConfigPath string `mapstructure:"topologyConfigPath"`
 	// UseDynamicNodes specifies whether to use dynamic nodes for reporting: true or false
 	UseDynamicNodes bool `mapstructure:"useDynamicNodes" default:"false"`
-	// UseGPUCliqueLabel uses the GPU Operator's nvidia.com/gpu.clique node label
-	// as the block-domain source for topology/block output.
-	UseGPUCliqueLabel bool `mapstructure:"useGpuCliqueLabel"`
+	// AcceleratorDomainSourceLabel optionally selects an existing Kubernetes
+	// Node label as the authoritative block-domain source.
+	AcceleratorDomainSourceLabel string `mapstructure:"acceleratorDomainSourceLabel"`
 	// ConfigUpdateMode specifies the mode for updating the slurm config: valid values {"none", "skeleton-only"}
 	ConfigUpdateMode string `mapstructure:"configUpdateMode,omitempty"`
 	// Topologies specifies per-partition topology configuration
@@ -150,6 +150,11 @@ func getParameters(params engines.Config) (*Params, error) {
 	if err := config.Decode(params, p); err != nil {
 		return nil, err
 	}
+	if p.AcceleratorDomainSourceLabel != "" {
+		if err := k8s.ValidateLabelKey("acceleratorDomainSourceLabel", p.AcceleratorDomainSourceLabel); err != nil {
+			return nil, err
+		}
+	}
 	// Validate config update mode
 	if len(p.ConfigUpdateMode) != 0 && p.ConfigUpdateMode != ConfigUpdateModeNone && p.ConfigUpdateMode != ConfigUpdateModeSkeletonOnly {
 		return nil, fmt.Errorf("invalid configUpdateMode: %s, must be either %s, or %s", p.ConfigUpdateMode, ConfigUpdateModeNone, ConfigUpdateModeSkeletonOnly)
@@ -196,7 +201,7 @@ func isEmptySelector(sel *metav1.LabelSelector) bool {
 }
 
 func (eng *SlinkyEngine) ResolveComputeInstances(ctx context.Context, instances []topology.ComputeInstances, _ any) ([]topology.ComputeInstances, *httperr.Error) {
-	if len(instances) != 0 && !eng.params.UseDynamicNodes && !eng.params.UseGPUCliqueLabel {
+	if len(instances) != 0 && !eng.params.UseDynamicNodes {
 		return instances, nil
 	}
 
@@ -301,7 +306,7 @@ func getComputeInstances(nodes *corev1.NodeList, nodeMap map[string]string) ([]t
 	return cis, nil
 }
 
-func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*topology.Graph, *httperr.Error) {
+func withLabelBackedDomains(graph *topology.Graph, clusterNodes *clusterNodes, sourceLabel string) (*topology.Graph, *httperr.Error) {
 	// No nodes selected at all is a distinct failure from "nodes exist but none
 	// matched": it usually points at a too-narrow engine nodeSelector.
 	if len(clusterNodes.nodes.Items) == 0 {
@@ -313,10 +318,10 @@ func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*t
 
 	// Diagnostic counters to explain why no domains were built. The instance
 	// annotation is written per-node by the node-data-broker DaemonSet, so a
-	// node with the clique label but no annotation points at a broker that has
+	// node with the source label but no annotation points at a broker that has
 	// not (yet) annotated that specific node.
 	totalNodes := len(clusterNodes.nodes.Items)
-	var noSlurmName, noCliqueLabel int
+	var noSlurmName, noSourceLabel int
 	missingAnnotation := []string{}
 
 	for _, node := range clusterNodes.nodes.Items {
@@ -327,30 +332,30 @@ func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*t
 			continue
 		}
 
-		gpuClique := strings.TrimSpace(node.Labels[topology.KeyNvidiaGPUClique])
-		if gpuClique == "" {
-			noCliqueLabel++
-			klog.V(4).Infof("Skipping node %s (SLURM node %s): missing/empty %q label", node.Name, slurmName, topology.KeyNvidiaGPUClique)
+		acceleratorDomain := strings.TrimSpace(node.Labels[sourceLabel])
+		if acceleratorDomain == "" {
+			noSourceLabel++
+			klog.V(4).Infof("Skipping node %s (SLURM node %s): missing/empty %q label", node.Name, slurmName, sourceLabel)
 			continue
 		}
 
-		instance, ok := node.Annotations[topology.KeyNodeInstance]
-		if !ok {
+		instance := strings.TrimSpace(node.Annotations[topology.KeyNodeInstance])
+		if instance == "" {
 			missingAnnotation = append(missingAnnotation, node.Name)
-			klog.Warningf("node %s (SLURM node %s) has label %s=%q but is missing annotation %q (expected from node-data-broker on that node)",
-				node.Name, slurmName, topology.KeyNvidiaGPUClique, gpuClique, topology.KeyNodeInstance)
+			klog.Warningf("node %s (SLURM node %s) has label %s=%q but has a missing/empty annotation %q (expected from node-data-broker on that node)",
+				node.Name, slurmName, sourceLabel, acceleratorDomain, topology.KeyNodeInstance)
 			continue
 		}
 
-		domains.AddHost(gpuClique, instance, slurmName)
+		domains.AddHost(acceleratorDomain, instance, slurmName)
 	}
 
 	if len(domains) == 0 {
 		return nil, httperr.NewError(http.StatusBadGateway,
-			fmt.Sprintf("useGpuCliqueLabel=true but no matching nodes found; check label %q and annotation %q. "+
-				"Scanned %d node(s): %d without a SLURM node mapping (no Ready slurmd pod), %d missing the %q label, %d with the label but missing the %q annotation%s",
-				topology.KeyNvidiaGPUClique, topology.KeyNodeInstance,
-				totalNodes, noSlurmName, noCliqueLabel, topology.KeyNvidiaGPUClique,
+			fmt.Sprintf("acceleratorDomainSourceLabel=%q produced no usable label-backed domains; check label %q and annotation %q. "+
+				"Scanned %d node(s): %d without a SLURM node mapping (no Ready slurmd pod), %d missing the %q label, %d with the label but a missing/empty %q annotation%s",
+				sourceLabel, sourceLabel, topology.KeyNodeInstance,
+				totalNodes, noSlurmName, noSourceLabel, sourceLabel,
 				len(missingAnnotation), topology.KeyNodeInstance, formatMissingAnnotationNodes(missingAnnotation)))
 	}
 
@@ -365,8 +370,8 @@ func withGPUCliqueDomains(graph *topology.Graph, clusterNodes *clusterNodes) (*t
 	return graph, nil
 }
 
-// formatMissingAnnotationNodes renders the node names that carry the GPU clique
-// label but lack the node-data-broker-written instance annotation. The list is
+// formatMissingAnnotationNodes renders the node names that carry the configured
+// source label but lack the node-data-broker-written instance annotation. The list is
 // capped so the error message stays bounded on large clusters.
 func formatMissingAnnotationNodes(nodes []string) string {
 	if len(nodes) == 0 {
@@ -447,12 +452,12 @@ func (eng *SlinkyEngine) GenerateOutput(ctx context.Context, graph *topology.Gra
 		return clusterNodeData, httpErr
 	}
 
-	if p.UseGPUCliqueLabel && usesBlockTopology(cfg) {
+	if p.AcceleratorDomainSourceLabel != "" && usesBlockTopology(cfg) {
 		clusterNodeData, httpErr := loadClusterNodes()
 		if httpErr != nil {
 			return nil, httpErr
 		}
-		graph, httpErr = withGPUCliqueDomains(graph, clusterNodeData)
+		graph, httpErr = withLabelBackedDomains(graph, clusterNodeData, p.AcceleratorDomainSourceLabel)
 		if httpErr != nil {
 			return nil, httpErr
 		}
