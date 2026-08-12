@@ -103,7 +103,6 @@ func convert(inst *types.InstanceTopology) *topology.InstanceTopology {
 	if inst.CapacityBlockId != nil {
 		topo.XclrDomainID = *inst.CapacityBlockId
 	}
-	klog.V(4).Infof("Adding instance topology %s", topo.String())
 	return topo
 }
 

@@ -80,6 +80,9 @@ func NewClusterTopology() *ClusterTopology {
 }
 
 func (c *ClusterTopology) Append(inst *InstanceTopology) {
+	if klog.V(4).Enabled() {
+		klog.V(4).Infof("Adding instance topology %s", inst.String())
+	}
 	c.Instances = append(c.Instances, inst)
 }
 

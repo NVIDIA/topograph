@@ -17,13 +17,84 @@
 package oci
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/agrea/ptr"
 	"github.com/oracle/oci-go-sdk/v65/core"
+	"github.com/oracle/oci-go-sdk/v65/identity"
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
+
+var errListComputeHostsCallLimit = errors.New("ListComputeHosts call limit exceeded")
+
+type repeatingPageClient struct {
+	listCalls    int
+	getCalls     int
+	maxListCalls int
+}
+
+func (c *repeatingPageClient) TenantID() *string { return ptr.String("tenant") }
+
+func (c *repeatingPageClient) Limit() *int { return ptr.Int(1) }
+
+func (c *repeatingPageClient) ListAvailabilityDomains(context.Context, identity.ListAvailabilityDomainsRequest) (identity.ListAvailabilityDomainsResponse, error) {
+	return identity.ListAvailabilityDomainsResponse{}, nil
+}
+
+func (c *repeatingPageClient) ListComputeHosts(context.Context, core.ListComputeHostsRequest) (core.ListComputeHostsResponse, error) {
+	c.listCalls++
+	if c.listCalls > c.maxListCalls {
+		return core.ListComputeHostsResponse{}, errListComputeHostsCallLimit
+	}
+
+	return core.ListComputeHostsResponse{
+		ComputeHostCollection: core.ComputeHostCollection{
+			Items: []core.ComputeHostSummary{
+				{
+					Id:         ptr.String("host"),
+					InstanceId: ptr.String("instance"),
+				},
+			},
+		},
+		OpcNextPage: ptr.String("repeat"),
+	}, nil
+}
+
+func (c *repeatingPageClient) GetComputeHost(context.Context, core.GetComputeHostRequest) (core.GetComputeHostResponse, error) {
+	c.getCalls++
+	return core.GetComputeHostResponse{
+		ComputeHost: core.ComputeHost{
+			Id:             ptr.String("host"),
+			InstanceId:     ptr.String("instance"),
+			LocalBlockId:   ptr.String("local"),
+			NetworkBlockId: ptr.String("network"),
+			HpcIslandId:    ptr.String("island"),
+		},
+	}, nil
+}
+
+func TestGetComputeHostSummaryRejectsRepeatedPageTokenBeforeCallLimit(t *testing.T) {
+	client := &repeatingPageClient{maxListCalls: 2}
+	topo := topology.NewClusterTopology()
+
+	err := getComputeHostSummary(
+		context.Background(),
+		client,
+		ptr.String("availability-domain"),
+		topo,
+		map[string]string{"instance": "node"},
+	)
+
+	require.EqualError(t, err, `ListComputeHosts returned repeated page token "repeat"`)
+	require.NotErrorIs(t, err, errListComputeHostsCallLimit)
+	require.Equal(t, 2, client.listCalls)
+	require.Equal(t, 1, client.getCalls)
+	require.Len(t, topo.Instances, 1)
+}
 
 func TestConvert(t *testing.T) {
 	leaf, spine, root := "leaf", "net", "core"
