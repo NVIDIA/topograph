@@ -37,7 +37,6 @@ const (
 	KeyGpuClusterID = "topograph.nvidia.com/cluster-id"
 
 	// NVIDIA GPU Operator node labels
-	KeyNvidiaGPUClique  = "nvidia.com/gpu.clique"
 	KeyNvidiaGPUProduct = "nvidia.com/gpu.product"
 
 	// Topograph default node labels. Fabric tier zero is closest to the compute

@@ -234,21 +234,23 @@ func TestToInstanceOmitsXclrSubDomainWithoutDomainLabel(t *testing.T) {
 	require.NotContains(t, instance.Labels, KeyTopologyXclrSubDomain)
 }
 
-func TestToInstanceIgnoresUnrelatedGPUCliqueLabel(t *testing.T) {
+func TestToInstancePreservesUnrelatedAcceleratorDomainLabel(t *testing.T) {
+	const acceleratorDomainLabel = "example.cpm/accelerator-domain"
+
 	inst := &InstanceTopology{
 		InstanceID:      "i-001",
 		XclrDomainID:    "discovered-domain",
 		XclrSubDomainID: "discovered-sub-domain",
 		Instance: &Instance{
 			Labels: map[string]string{
-				KeyNvidiaGPUClique: "gpu-clique",
+				acceleratorDomainLabel: "external-domain",
 			},
 		},
 	}
 
 	instance := inst.toInstance(0)
 
-	require.Equal(t, "gpu-clique", instance.Labels[KeyNvidiaGPUClique])
+	require.Equal(t, "external-domain", instance.Labels[acceleratorDomainLabel])
 	require.Equal(t, "discovered-domain", instance.Labels[KeyTopologyXclrDomain])
 	require.Equal(t, "discovered-sub-domain", instance.Labels[KeyTopologyXclrSubDomain])
 }

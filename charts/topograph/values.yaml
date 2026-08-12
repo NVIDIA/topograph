@@ -8,13 +8,15 @@ provider:
   # params:
   #   accelerator:
   #     # Accelerator-domain discovery is independent of fabric discovery.
-  #     # Sources supported by infiniband-k8s: nvidia-smi,
-  #     # kubernetes-label, and none. Omitting the accelerator section disables
-  #     # accelerator discovery; an empty accelerator section is equivalent to
-  #     # source: none. A non-empty section must set source explicitly.
+  #     # Sources supported by infiniband-k8s: nvidia-smi, kubernetes-label,
+  #     # and none. The dra provider supports kubernetes-label and defaults to
+  #     # nvidia.com/gpu.clique when this section is omitted. For InfiniBand,
+  #     # omitting accelerator disables discovery; an empty section is
+  #     # equivalent to source: none. A non-empty section must set source.
   #     source: kubernetes-label
   #     kubernetesLabel:
-  #       # Required for the kubernetes-label source; there is no default key.
+  #       # Required for the kubernetes-label source. DRA defaults this key to
+  #       # nvidia.com/gpu.clique only when the accelerator section is omitted.
   #       key: nvidia.com/gpu.clique
   #     nvidiaSmi:
   #       # Optional; defaults used by the Helm-managed node-data-broker are

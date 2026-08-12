@@ -43,12 +43,12 @@ func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []t
 		return nil, httperr.NewError(http.StatusBadRequest, "on-prem does not support multi-region topology requests")
 	}
 
-	targets := acceleratorTargets(cis)
+	targets := accelerator.TargetsFromComputeInstances(cis)
 	assignments, err := p.accelerator.Discover(ctx, targets)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to discover accelerator domains: %v", err))
 	}
-	domainMap := domainMapFromAssignments(assignments, targets)
+	domainMap := accelerator.DomainMapFromAssignments(assignments, targets)
 
 	treeRoot, err := getIbTree(ctx, cis, &IBNetDiscoverBM{})
 	if err != nil {

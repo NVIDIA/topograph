@@ -29,7 +29,7 @@
   {{- fail "env.KUBE_BURST is managed by the chart; configure kubeClient.burst instead" }}
 {{- end }}
 
-{{- if or (eq .Values.provider.name "infiniband-k8s") (eq .Values.provider.name "infiniband-bm") }}
+{{- if or (eq .Values.provider.name "infiniband-k8s") (eq .Values.provider.name "infiniband-bm") (eq .Values.provider.name "dra") }}
 {{- $params := default dict .Values.provider.params }}
 {{- $acceleratorValue := get $params "accelerator" }}
 {{- $accelerator := default dict $acceleratorValue }}
@@ -49,7 +49,7 @@
   {{- fail (printf "unsupported provider.params.accelerator.source %q" $source) }}
 {{- end }}
 
-{{- if and (eq .Values.provider.name "infiniband-k8s") (eq $source "kubernetes-label") }}
+{{- if and (or (eq .Values.provider.name "infiniband-k8s") (eq .Values.provider.name "dra")) (eq $source "kubernetes-label") }}
 {{- $kubernetesLabel := default dict (get $accelerator "kubernetesLabel") }}
 {{- $key := trim (toString (get $kubernetesLabel "key")) }}
 {{- if eq $key "" }}
@@ -59,6 +59,10 @@
 
 {{- if and (eq .Values.provider.name "infiniband-bm") (eq $source "kubernetes-label") }}
   {{- fail "provider.params.accelerator.source kubernetes-label is not supported by infiniband-bm" }}
+{{- end }}
+
+{{- if and (eq .Values.provider.name "dra") (hasKey $params "accelerator") (ne $source "kubernetes-label") }}
+  {{- fail "provider.params.accelerator.source must be kubernetes-label for the dra provider" }}
 {{- end }}
 
 {{- end }}

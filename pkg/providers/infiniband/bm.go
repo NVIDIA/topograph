@@ -13,7 +13,6 @@ import (
 
 	"github.com/NVIDIA/topograph/internal/exec"
 	"github.com/NVIDIA/topograph/pkg/accelerator"
-	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
 type IBNetDiscoverBM struct{}
@@ -54,31 +53,4 @@ func parsePdshNvidiaSMIOutput(stdout *bytes.Buffer) (map[string]string, error) {
 	}
 
 	return outputs, nil
-}
-
-func acceleratorTargets(cis []topology.ComputeInstances) []accelerator.Target {
-	targets := make([]accelerator.Target, 0)
-	for _, ci := range cis {
-		for instanceID, hostName := range ci.Instances {
-			targets = append(targets, accelerator.Target{InstanceID: instanceID, HostName: hostName})
-		}
-	}
-	return targets
-}
-
-func domainMapFromAssignments(assignments accelerator.Assignments, targets []accelerator.Target) topology.DomainMap {
-	domainMap := topology.NewDomainMap()
-	for _, target := range targets {
-		assignment, ok := assignments[target.InstanceID]
-		if !ok {
-			continue
-		}
-		domainMap.AddHostInfo(&topology.HostInfo{
-			Domain:     assignment.DomainID,
-			SubDomain:  assignment.SubDomainID,
-			InstanceID: target.InstanceID,
-			HostName:   target.HostName,
-		})
-	}
-	return domainMap
 }

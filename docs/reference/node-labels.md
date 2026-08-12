@@ -62,7 +62,7 @@ provider discovery.
 
 Some GPU Operator deployments expose `nvidia.com/gpu.clique` on nodes with
 Multi-Node NVLink (MNNVL) GPUs; operators may select it explicitly as either an
-engine source label or an `infiniband-k8s` provider discovery label. The `netq`
+engine source label or a DRA/`infiniband-k8s` provider discovery label. The `netq`
 provider instead uses a `DomainUUID` from the NMX management API—a different
 identifier that refers to the same physical domain but cannot be compared as a
 string.

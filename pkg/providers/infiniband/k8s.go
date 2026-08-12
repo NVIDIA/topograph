@@ -48,10 +48,7 @@ func (h *IBNetDiscoverK8S) Run(ctx context.Context, node string) (*bytes.Buffer,
 }
 
 func GetNodeAnnotations(ctx context.Context, client kubernetes.Interface, config *rest.Config, hostname string, section accelerator.Section) (map[string]string, error) {
-	annotations := map[string]string{
-		topology.KeyNodeInstance: hostname,
-		topology.KeyNodeRegion:   "local",
-	}
+	annotations := accelerator.BaseKubernetesNodeAnnotations(hostname)
 
 	discoverer, err := accelerator.NewKubernetesNodeDiscoverer(section, client, config)
 	if err != nil {

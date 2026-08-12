@@ -6,45 +6,21 @@
 package infiniband
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
-func TestGetParameters(t *testing.T) {
-	tests := []struct {
-		name          string
-		params        map[string]any
-		labelSelector string
-		err           string
-	}{
-		{name: "no parameters"},
-		{
-			name:   "bad node selector",
-			params: map[string]any{"nodeSelector": .1},
-			err:    "could not decode configuration",
-		},
-		{
-			name:          "node selector",
-			params:        map[string]any{"nodeSelector": map[string]string{"key": "val"}},
-			labelSelector: "key=val",
-		},
-	}
+func TestProviderK8SRejectsMultiRegionRequest(t *testing.T) {
+	provider := &ProviderK8S{}
+	graph, httpErr := provider.GenerateTopologyConfig(context.Background(), nil, []topology.ComputeInstances{
+		{Region: "region-1"},
+		{Region: "region-2"},
+	})
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			params, err := getParameters(test.params)
-			if test.err != "" {
-				require.ErrorContains(t, err, test.err)
-				return
-			}
-			require.NoError(t, err)
-			if test.labelSelector == "" {
-				require.Nil(t, params.nodeListOpt)
-			} else {
-				require.Equal(t, &metav1.ListOptions{LabelSelector: test.labelSelector}, params.nodeListOpt)
-			}
-		})
-	}
+	require.Nil(t, graph)
+	require.EqualError(t, httpErr, "on-prem does not support multi-region topology requests")
 }

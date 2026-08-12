@@ -13,6 +13,8 @@ cd "$demo_dir/../.."
 
 source demos/utils.sh
 
+step "make build TARGETS=kwok-nodes"
+
 step "delete_cluster"
 
 step "kind create cluster --name \"${KUBE_CONTEXT#kind-}\" --wait 120s"
