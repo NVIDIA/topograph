@@ -3,8 +3,8 @@ name: topograph
 description: Discovers the physical network topology of a cluster and exposes it to schedulers.
 kubeVersion: ">=1.27.0-0"
 type: application
-version: "1.0.0-rc.2"
-appVersion: "v1.0.0-rc.2"
+version: "1.0.0-rc.5"
+appVersion: "73d496f"
 
 home: https://github.com/NVIDIA/topograph
 icon: https://raw.githubusercontent.com/NVIDIA/topograph/main/docs/assets/topograph-logo.png
