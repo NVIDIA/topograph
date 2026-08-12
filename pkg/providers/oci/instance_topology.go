@@ -35,6 +35,7 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 		AvailabilityDomain: availabilityDomain,
 		Limit:              client.Limit(),
 	}
+	seenPages := make(map[string]struct{})
 
 	for {
 		klog.V(4).InfoS("ListComputeHosts", "request", req.String())
@@ -44,12 +45,23 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 		if err != nil {
 			return err
 		}
-
-		instances := make([]*topology.InstanceTopology, len(resp.Items))
-		getErrors := make([]error, len(resp.Items))
+		if resp.OpcNextPage != nil {
+			nextPage := *resp.OpcNextPage
+			if _, ok := seenPages[nextPage]; ok {
+				return fmt.Errorf("ListComputeHosts returned repeated page token %q", nextPage)
+			}
+			seenPages[nextPage] = struct{}{}
+		}
+		nRec := len(resp.Items)
+		klog.V(4).Infof("received %d records", nRec)
+		instances := make([]*topology.InstanceTopology, nRec)
+		getErrors := make([]error, nRec)
 		var wg sync.WaitGroup
 		for i := range resp.Items {
-			wg.Go(func() {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+
 				hostSummary := &resp.Items[i]
 				if hostSummary.Id == nil {
 					klog.Warning("missing Id in ComputeHostSummary")
@@ -83,9 +95,10 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 				}
 				klog.V(4).Infof("Adding host %s", getResp.ComputeHost.String())
 				instances[i] = inst
-			})
+			}(i)
 		}
 		wg.Wait()
+		klog.V(4).Infof("processed %d records", nRec)
 
 		for i, inst := range instances {
 			if getErrors[i] != nil {
