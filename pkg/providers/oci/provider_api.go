@@ -27,9 +27,9 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/common/auth"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/oracle/oci-go-sdk/v65/identity"
-	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
+	"github.com/NVIDIA/topograph/internal/logs"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -116,7 +116,7 @@ func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider
 		}
 
 		if len(region) != 0 {
-			klog.Infof("Use provided region %s", region)
+			logs.Infof("Use provided region %s", region)
 			identityClient.SetRegion(region)
 			computeClient.SetRegion(region)
 		}
@@ -134,7 +134,7 @@ func LoaderAPI(ctx context.Context, config providers.Config) (providers.Provider
 
 func getConfigurationProvider(creds map[string]any) (common.ConfigurationProvider, *httperr.Error) {
 	if len(creds) != 0 {
-		klog.Info("Using provided credentials")
+		logs.Info("Using provided credentials")
 		c, err := decodeCredentials(creds)
 		if err != nil {
 			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
@@ -143,14 +143,14 @@ func getConfigurationProvider(creds map[string]any) (common.ConfigurationProvide
 		return common.NewRawConfigurationProvider(c.TenancyID, c.UserID, c.Region, c.Fingerprint, c.PrivateKey, &c.Passphrase), nil
 	}
 
-	klog.Info("No credentials provided, trying default configuration provider")
+	logs.Info("No credentials provided, trying default configuration provider")
 	configProvider := common.DefaultConfigProvider()
 	_, err := configProvider.AuthType()
 	if err == nil {
 		return configProvider, nil
 	}
 
-	klog.Infof("No default configuration provider found: %v; trying instance principal configuration provider", err)
+	logs.Infof("No default configuration provider found: %v; trying instance principal configuration provider", err)
 	configProvider, err = auth.InstancePrincipalConfigurationProvider()
 	if err != nil {
 		return nil, httperr.NewError(http.StatusUnauthorized, fmt.Sprintf("unable to authenticate API: %v", err))
@@ -206,7 +206,7 @@ func (p *apiProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci 
 	if len(ci.Region) == 0 {
 		return httperr.NewError(http.StatusBadRequest, "must specify region")
 	}
-	klog.Infof("Getting instance topology for %s region", ci.Region)
+	logs.Infof("Getting instance topology for %s region", ci.Region)
 
 	client, err := p.clientFactory(ci.Region, pageSize)
 	if err != nil {
@@ -231,7 +231,7 @@ func (p *apiProvider) getComputeHostInfo(ctx context.Context, pageSize *int, ci 
 		}
 	}
 
-	klog.V(4).Infof("Returning host info for %d nodes", topo.Len())
+	logs.V(4).Infof("Returning host info for %d nodes", topo.Len())
 
 	return nil
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"k8s.io/klog/v2"
 
+	"github.com/NVIDIA/topograph/internal/logs"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -37,7 +38,7 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 	}
 
 	for {
-		klog.V(4).InfoS("ListComputeHosts", "request", req.String())
+		logs.V(4).InfoS("ListComputeHosts", "request", req)
 		start := time.Now()
 		resp, err := client.ListComputeHosts(ctx, req)
 		reportLatency(resp.HTTPResponse(), start, "ListComputeHosts")
@@ -62,14 +63,14 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 				}
 
 				if _, ok := instMap[*hostSummary.InstanceId]; !ok {
-					klog.V(4).Infof("Skipping instance %s", *hostSummary.InstanceId)
+					logs.V(4).Infof("Skipping instance %s", *hostSummary.InstanceId)
 					return
 				}
 
 				getReq := core.GetComputeHostRequest{
 					ComputeHostId: hostSummary.Id,
 				}
-				klog.V(4).InfoS("GetComputeHost", "request", getReq.String())
+				logs.V(4).InfoS("GetComputeHost", "request", getReq)
 				getResp, err := client.GetComputeHost(ctx, getReq)
 				if err != nil {
 					getErrors[i] = err
@@ -81,7 +82,7 @@ func getComputeHostSummary(ctx context.Context, client Client, availabilityDomai
 					klog.Warning(err.Error())
 					return
 				}
-				klog.V(4).Infof("Adding host %s", getResp.ComputeHost.String())
+				logs.V(4).Infof("Adding host %s", getResp.ComputeHost)
 				instances[i] = inst
 			})
 		}

@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/NVIDIA/topograph/internal/exec"
+	"github.com/NVIDIA/topograph/internal/logs"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -75,7 +76,7 @@ func parseTopologyOutput(buff *bytes.Buffer) (map[string]*topologyData, error) {
 		indx := strings.Index(str, ": ")
 		if indx != -1 {
 			node, data := str[:indx], str[indx+2:]
-			klog.V(4).Info("Node name: ", node, " Topology: ", data)
+			logs.V(4).Info("Node name: ", node, " Topology: ", data)
 			nodeTopology := &topologyData{}
 			err := json.Unmarshal([]byte(data), nodeTopology)
 			if err != nil {
