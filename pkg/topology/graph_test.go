@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testInstanceLabelKey = "example.com/gpu-product"
+
 var (
 	instances = []*InstanceTopology{
 		{
@@ -181,7 +183,7 @@ func TestToGraphIncludesInstanceData(t *testing.T) {
 		Instance: &Instance{
 			ID:            "i-001",
 			NetworkLayers: []string{"leaf-1", "spine-1", "core-1"},
-			Labels:        map[string]string{KeyNvidiaGPUProduct: "H100"},
+			Labels:        map[string]string{testInstanceLabelKey: "H100"},
 		},
 	})
 
@@ -197,7 +199,7 @@ func TestToGraphIncludesInstanceData(t *testing.T) {
 			ID:            "i-001",
 			NetworkLayers: []string{"leaf-1", "spine-1"},
 			Labels: map[string]string{
-				KeyNvidiaGPUProduct:      "H100",
+				testInstanceLabelKey:     "H100",
 				KeyTopologyXclrDomain:    "nvl-1",
 				KeyTopologyXclrSubDomain: "nvl-1.rack-1",
 			},

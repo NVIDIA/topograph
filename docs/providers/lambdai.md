@@ -236,8 +236,8 @@ With the `k8s` engine you do not pass `nodes` explicitly. Instead, the node-data
 
 | Node field (set by `lambda-cloud-controller`) | Topograph annotation (set by node-data-broker) |
 |---|---|
-| `.spec.providerID` — `lambda://<instance-id>` | `topograph.nvidia.com/instance` — `<instance-id>` (matches the API `id` 1:1) |
-| `topology.kubernetes.io/region` label — e.g. `stg-sjc01-cl03` | `topograph.nvidia.com/region` |
+| `.spec.providerID` — `lambda://<instance-id>` | `topograph.run/instance` — `<instance-id>` (matches the API `id` 1:1) |
+| `topology.kubernetes.io/region` label — e.g. `stg-sjc01-cl03` | `topograph.run/region` |
 
 The Kubernetes engine then discovers nodes from these annotations, the provider queries the Lambda API once per region, and the engine writes `fabric.topograph.run/*` labels. The Node Observer re-triggers generation when nodes change.
 

@@ -90,10 +90,10 @@ metadata:
   name: topograph-fabric-tier-0-leaf-12-...
   labels:
     app.kubernetes.io/managed-by: topograph
-    topograph.nvidia.com/group-type: fabric-tier-0
+    topograph.run/group-type: fabric-tier-0
   annotations:
-    topograph.nvidia.com/label-key: fabric.topograph.run/tier-0
-    topograph.nvidia.com/label-value: leaf-12
+    topograph.run/label-key: fabric.topograph.run/tier-0
+    topograph.run/label-value: leaf-12
 spec:
   featureGroupRules:
     - name: fabric-tier-0 equals leaf-12

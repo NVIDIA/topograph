@@ -57,13 +57,13 @@ To pass a kind cluster configuration file, add `--kind-config path/to/kind.yaml`
 
 The utility uses the model-derived instance-to-hostname mapping, so model hostname `1101` becomes Kubernetes node `1101` with:
 
-- `topograph.nvidia.com/instance: i-1101`
-- `topograph.nvidia.com/region: <derived-region-or-none>`
+- `topograph.run/instance: i-1101`
+- `topograph.run/region: <derived-region-or-none>`
 - `kwok.x-k8s.io/node=fake` as both a label and annotation
 - Model-derived labels such as `topology.kubernetes.io/region` and `topology.kubernetes.io/zone`
 - Model-derived annotations such as `accelerator.topology.test/domain`
 
-Generated Kubernetes node names come from model hostnames and are normalized to valid lowercase DNS names. For example, model hostname `I21` becomes Kubernetes node `i21`, while its generated instance ID `i-I21` is stored in `topograph.nvidia.com/instance`.
+Generated Kubernetes node names come from model hostnames and are normalized to valid lowercase DNS names. For example, model hostname `I21` becomes Kubernetes node `i21`, while its generated instance ID `i-I21` is stored in `topograph.run/instance`.
 
 The script applies the manifest with kubeconfig context `kind-<cluster>`, matching the context name created by `kind create cluster --name=<cluster>`.
 

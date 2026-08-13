@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING:** Topograph-owned Kubernetes labels and annotations now use the `topograph.run` domain. Consumers must update selectors, allowlists, and metadata lookups to use the new keys.
 - **BREAKING:** The Kubernetes, NFD, and Slinky engines now use the optional `acceleratorDomainSourceLabel` parameter to select an existing Kubernetes Node label as the authoritative accelerator-domain source. There is no default source label, so `nvidia.com/gpu.clique` is no longer implicitly authoritative. The Slinky `useGpuCliqueLabel` parameter has been removed. The k8s engine does not allow `acceleratorLabel` and `acceleratorDomainSourceLabel` to be configured together.
 - InfiniBand providers now query NVL partition IDs with the `nvidia-smi` CSV query interface, merge identical per-GPU rows, reject unavailable (`N/A`) fields, and normalize the result to `ClusterUUID.CliqueId`.
 - **BREAKING:** The default Kubernetes topology labels now use the vendor-neutral Topograph domains `fabric.topograph.run/tier-N`, `accelerator.topograph.run/domain`, and `accelerator.topograph.run/sub-domain`. Consumers must update topology keys, selectors, allowlists, and scheduling policies to use the new labels.
@@ -44,7 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **BREAKING (Helm chart `0.5.0` → `0.6.0`):** the chart now ships a hardened default security context across the API server, node-observer, and node-data-broker: non-root (`runAsNonRoot`, UID/GID `65532`), `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, and all capabilities dropped — satisfying the Kubernetes `restricted` Pod Security Standard out of the box. This changes the default runtime posture of every workload; operators who relied on root, a writable rootfs, or added capabilities must override the relevant keys (see the migration note below). `appVersion` is unchanged (`v0.5.0`; no binary change).
 - Go toolchain bumped to **1.26.5** (`go.mod`, `Dockerfile`, CI) to address reachable stdlib vulnerabilities reported by `govulncheck`.
 - Slinky partition discovery now prefers the Slinky controller pod and falls back to a login pod, so clusters without optional login pods can still discover partitions ([#362](https://github.com/NVIDIA/topograph/pull/362)).
-- Slinky engine label-backed block-domain generation emits an actionable diagnostic when no domains can be built: the error reports the configured source label, how many nodes were scanned, and why each was skipped (no Slurm mapping, missing source label, or a missing/empty node-data-broker-written `topograph.nvidia.com/instance` annotation), and lists the offending node names. When no Kubernetes nodes are selected at all, it reports a distinct error pointing at the engine `nodeSelector`.
+- Slinky engine label-backed block-domain generation emits an actionable diagnostic when no domains can be built: the error reports the configured source label, how many nodes were scanned, and why each was skipped (no Slurm mapping, missing source label, or a missing/empty node-data-broker-written `topograph.run/instance` annotation), and lists the offending node names. When no Kubernetes nodes are selected at all, it reports a distinct error pointing at the engine `nodeSelector`.
 - Simulation model YAML schema simplified: compute nodes are now declared through `blocks[].nodes`, with optional `blocks[].switch` attachment and `blocks[].labels`; the older separate `nodes` and `capacity_blocks` sections were removed from fixtures and docs ([#394](https://github.com/NVIDIA/topograph/pull/394)).
 
 ### Fixed
@@ -55,13 +56,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Slinky node-resolution logs now explain that an unresolved Kubernetes node lacks a mapping from a Ready Slurm pod and identify the relevant namespace, pod selector, readiness, and node-name metadata checks.
 - The DRA/Slinky KWOK demo now waits for all simulated worker pods before installing Topograph and retriggers topology generation when those pods become Ready, avoiding startup races during slow image pulls.
 - The node-observer now remains active after informer startup and retriggers topology generation when an API-server pod is deleted, preventing rolling deployments from losing requests accepted by a retiring pod.
-- `kwok-nodes` now prevents model-provided metadata from overriding its required KWOK selector and model-derived `topograph.nvidia.com/instance` and `topograph.nvidia.com/region` annotations.
+- `kwok-nodes` now prevents model-provided metadata from overriding its required KWOK selector and model-derived `topograph.run/instance` and `topograph.run/region` annotations.
 - Kubernetes engine label reconciliation now reuses the listed Nodes, skips unchanged labels without a per-node GET, and patches only changed topology labels, substantially reducing Kubernetes client-side throttling on large clusters.
 - Slinky dynamic-node reconciliation now reuses listed Node annotations, skips unchanged nodes without a per-node GET, and patches only changed topology annotations, substantially reducing Kubernetes client-side throttling on large clusters.
 - Corrected DRA provider guidance to document its Slinky-only block-topology scope, dependency on pre-existing `nvidia.com/gpu.clique` labels, and inability to guide placement across NVLink partitions without backend-fabric topology.
 - The NFD engine now rejects an empty generated object set when cleanup is enabled, preserving the last published topology instead of deleting every Topograph-managed NFD object after an empty provider result or over-narrow node selection.
 - The NFD engine now publishes the `system.name/nodename` attribute required by NFD to populate `NodeFeatureGroup.status.nodes`, including for simulated KWOK nodes where no NFD worker executes.
-- The DRA provider now matches nodes using the `topograph.nvidia.com/instance` annotation instead of assuming the instance ID equals the Kubernetes node name.
+- The DRA provider now matches nodes using the `topograph.run/instance` annotation instead of assuming the instance ID equals the Kubernetes node name.
 - `kwok-nodes` now maps generated instance IDs back to model hostnames when naming Kubernetes nodes and writing the Topograph instance annotation.
 - The node-observer now discovers the optional node-data-broker through `NODE_DATA_BROKER_NAME` and `NODE_DATA_BROKER_NAMESPACE` and gates topology generation on the broker DaemonSet's desired and ready replica counts. Helm injects the variables only when `nodeDataBroker.enabled=true`, so disabling the broker cannot leave the observer waiting for nonexistent pods.
 - The node-observer reports an actionable error and defers topology generation when an enabled node-data-broker DaemonSet has zero desired replicas.
@@ -71,7 +72,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-- **BREAKING:** Removed the exported Go constant `topology.KeyNvidiaGPUClique`. The GPU Operator's `nvidia.com/gpu.clique` label is now a DRA provider default rather than part of the canonical topology API; configure label-backed accelerator discovery through `provider.params.accelerator.kubernetesLabel.key`.
 - Periodic node annotation refreshes, including the `--refresh-interval` broker flag and `nodeDataBroker.refreshInterval` Helm value. The broker now applies annotations once at startup.
 
 ### Security

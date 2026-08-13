@@ -27,4 +27,4 @@ step "KUBE_CONTEXT=\"$KUBE_CONTEXT\" ./scripts/install-topograph.sh demos/test-n
 
 step "kubectl --context \"$KUBE_CONTEXT\" -n node-feature-discovery get nodefeaturegroups"
 
-step "kubectl --context \"$KUBE_CONTEXT\" -n node-feature-discovery get nodefeaturegroups -l topograph.nvidia.com/group-type=fabric-tier-1 -o yaml"
+step "kubectl --context \"$KUBE_CONTEXT\" -n node-feature-discovery get nodefeaturegroups -l topograph.run/group-type=fabric-tier-1 -o yaml"

@@ -47,16 +47,16 @@ const (
 
 	labelNFDNodeName = "nfd.node.kubernetes.io/node-name"
 	labelManagedBy   = "app.kubernetes.io/managed-by"
-	labelEngine      = "topograph.nvidia.com/engine"
-	labelResource    = "topograph.nvidia.com/resource"
-	labelGroupType   = "topograph.nvidia.com/group-type"
+	labelEngine      = "topograph.run/engine"
+	labelResource    = "topograph.run/resource"
+	labelGroupType   = "topograph.run/group-type"
 
 	managedByTopograph         = "topograph"
 	resourceNodeFeature        = "nodefeature"
 	resourceNodeFeatureGroup   = "nodefeaturegroup"
-	annotationNodeName         = "topograph.nvidia.com/node-name"
-	annotationTopologyLabelKey = "topograph.nvidia.com/label-key"
-	annotationTopologyValue    = "topograph.nvidia.com/label-value"
+	annotationNodeName         = "topograph.run/node-name"
+	annotationTopologyLabelKey = "topograph.run/label-key"
+	annotationTopologyValue    = "topograph.run/label-value"
 )
 
 var (

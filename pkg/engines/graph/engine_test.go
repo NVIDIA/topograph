@@ -16,6 +16,8 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+const testInstanceLabelKey = "example.com/gpu-product"
+
 func TestNamedLoader(t *testing.T) {
 	name, _ := NamedLoader()
 	require.Equal(t, NAME, name)
@@ -106,7 +108,7 @@ func TestGenerateOutput(t *testing.T) {
 		ctx := context.Background()
 		graph := &topology.Graph{Instances: map[string]topology.Instance{"n1": {
 			ID:     "n1",
-			Labels: map[string]string{topology.KeyNvidiaGPUProduct: "H100"},
+			Labels: map[string]string{testInstanceLabelKey: "H100"},
 		}}}
 		out, herr := eng.GenerateOutput(ctx, graph, nil)
 		require.Nil(t, herr)
@@ -118,7 +120,7 @@ func TestGenerateOutput(t *testing.T) {
 		require.NoError(t, json.Unmarshal(written, &doc))
 		require.Len(t, doc.Instances, 1)
 		require.Equal(t, "n1", doc.Instances[0].ID)
-		require.Equal(t, "H100", doc.Instances[0].Labels[topology.KeyNvidiaGPUProduct])
+		require.Equal(t, "H100", doc.Instances[0].Labels[testInstanceLabelKey])
 	})
 }
 

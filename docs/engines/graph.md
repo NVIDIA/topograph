@@ -21,7 +21,7 @@ Each instance entry contains:
       "id": "I21",
       "network_layers": ["leaf-a", "spine-a"],
       "labels": {
-        "nvidia.com/gpu.product": "H100",
+        "example.com/gpu-product": "H100",
         "accelerator.topograph.run/domain": "nvl-1",
         "accelerator.topograph.run/sub-domain": "nvl-1.rack-1"
       }
