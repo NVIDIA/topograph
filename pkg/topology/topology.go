@@ -32,12 +32,9 @@ const (
 	TopologyFlat  = "topology/flat"
 	NoTopology    = "no-topology"
 
-	KeyNodeInstance = "topograph.nvidia.com/instance"
-	KeyNodeRegion   = "topograph.nvidia.com/region"
-	KeyGpuClusterID = "topograph.nvidia.com/cluster-id"
-
-	// NVIDIA GPU Operator node labels
-	KeyNvidiaGPUProduct = "nvidia.com/gpu.product"
+	KeyNodeInstance = "topograph.run/instance"
+	KeyNodeRegion   = "topograph.run/region"
+	KeyGpuClusterID = "topograph.run/cluster-id"
 
 	// Topograph default node labels. Fabric tier zero is closest to the compute
 	// node.
@@ -46,12 +43,12 @@ const (
 	KeyTopologyXclrSubDomain = "accelerator.topograph.run/sub-domain"
 
 	// ConfigMap annotation keys for metadata tracking
-	KeyConfigMapEngine            = "topograph.nvidia.com/engine"
-	KeyConfigMapTopologyManagedBy = "topograph.nvidia.com/topology-managed-by"
-	KeyConfigMapLastUpdated       = "topograph.nvidia.com/last-updated"
-	KeyConfigMapPlugin            = "topograph.nvidia.com/plugin"
-	KeyConfigMapBlockSizes        = "topograph.nvidia.com/block-sizes"
-	KeyConfigMapNamespace         = "topograph.nvidia.com/slurm-namespace"
+	KeyConfigMapEngine            = "topograph.run/engine"
+	KeyConfigMapTopologyManagedBy = "topograph.run/topology-managed-by"
+	KeyConfigMapLastUpdated       = "topograph.run/last-updated"
+	KeyConfigMapPlugin            = "topograph.run/plugin"
+	KeyConfigMapBlockSizes        = "topograph.run/block-sizes"
+	KeyConfigMapNamespace         = "topograph.run/slurm-namespace"
 
 	//Slinky specific annotations and labels
 	KeySlinkyTopologySpec = "topology.slinky.slurm.net/spec"

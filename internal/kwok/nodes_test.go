@@ -110,7 +110,7 @@ func TestMarshalNodeManifest(t *testing.T) {
 	require.Contains(t, manifest, "apiVersion: v1")
 	require.Contains(t, manifest, "kind: List")
 	require.Contains(t, manifest, "name: i21")
-	require.Contains(t, manifest, "topograph.nvidia.com/instance: i-I21")
+	require.Contains(t, manifest, "topograph.run/instance: i-I21")
 	require.Contains(t, manifest, "accelerator.topology.test/domain: nvl2")
 }
 

@@ -12,7 +12,7 @@ sources:
   - https://github.com/NVIDIA/topograph
 maintainers:
   - name: NVIDIA CORPORATION
-    url: https://www.nvidia.com
+    url: https://topograph.run
 keywords:
   - topograph
   - topology

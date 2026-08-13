@@ -111,10 +111,10 @@ Before triggering topology generation, verify that the configured labels exist o
 kubectl get nodes -o json | jq '.items[] | {name: .metadata.name, clique: .metadata.labels["nvidia.com/gpu.clique"]}'
 ```
 
-If topology generation returns a `502` error, check that the expected nodes have the configured source label and the `topograph.nvidia.com/region` / `topograph.nvidia.com/instance` annotations (the latter two are set by Topograph itself during topology discovery). For the default label:
+If topology generation returns a `502` error, check that the expected nodes have the configured source label and the `topograph.run/region` / `topograph.run/instance` annotations (the latter two are set by Topograph itself during topology discovery). For the default label:
 
 ```bash
-kubectl get nodes -o json | jq '.items[] | {name: .metadata.name, clique: .metadata.labels["nvidia.com/gpu.clique"], region: .metadata.annotations["topograph.nvidia.com/region"], instance: .metadata.annotations["topograph.nvidia.com/instance"]}'
+kubectl get nodes -o json | jq '.items[] | {name: .metadata.name, clique: .metadata.labels["nvidia.com/gpu.clique"], region: .metadata.annotations["topograph.run/region"], instance: .metadata.annotations["topograph.run/instance"]}'
 ```
 
 See the [Slinky engine documentation](../engines/slinky.md) for details on `topology/block` output.

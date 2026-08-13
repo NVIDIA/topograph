@@ -163,12 +163,12 @@ metadata:
   name: slurm-config
   annotations:
     # Topograph metadata
-    topograph.nvidia.com/engine: "slinky"
-    topograph.nvidia.com/topology-managed-by: "topograph"
-    topograph.nvidia.com/last-updated: "2024-01-01T10:11:00Z"
-    topograph.nvidia.com/slurm-namespace: "slurm"
-    topograph.nvidia.com/plugin: "topology/tree"
-    topograph.nvidia.com/block-sizes: "8,16,32"
+    topograph.run/engine: "slinky"
+    topograph.run/topology-managed-by: "topograph"
+    topograph.run/last-updated: "2024-01-01T10:11:00Z"
+    topograph.run/slurm-namespace: "slurm"
+    topograph.run/plugin: "topology/tree"
+    topograph.run/block-sizes: "8,16,32"
 
     # Original annotations preserved
     meta.helm.sh/release-name: slurm
@@ -184,12 +184,12 @@ data:
 
 | Annotation                                 | Description                               |
 | ------------------------------------------ | ----------------------------------------- |
-| `topograph.nvidia.com/engine`              | Engine that manages this ConfigMap        |
-| `topograph.nvidia.com/topology-managed-by` | Indicates topograph manages topology data |
-| `topograph.nvidia.com/last-updated`        | RFC3339 timestamp of last update          |
-| `topograph.nvidia.com/slurm-namespace`     | SLURM cluster namespace                   |
-| `topograph.nvidia.com/plugin`              | Topology plugin used (tree/block)         |
-| `topograph.nvidia.com/block-sizes`         | Block sizes for block topology            |
+| `topograph.run/engine`              | Engine that manages this ConfigMap        |
+| `topograph.run/topology-managed-by` | Indicates topograph manages topology data |
+| `topograph.run/last-updated`        | RFC3339 timestamp of last update          |
+| `topograph.run/slurm-namespace`     | SLURM cluster namespace                   |
+| `topograph.run/plugin`              | Topology plugin used (tree/block)         |
+| `topograph.run/block-sizes`         | Block sizes for block topology            |
 
 ## Usage Examples
 

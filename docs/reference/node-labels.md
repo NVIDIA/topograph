@@ -151,20 +151,20 @@ Topograph sets the following annotations on nodes as internal bookkeeping metada
 
 | Annotation key | Semantics |
 |---|---|
-| `topograph.nvidia.com/instance` | The cloud instance ID or node identifier as returned by the provider |
-| `topograph.nvidia.com/region` | The provider region associated with this node |
-| `topograph.nvidia.com/cluster-id` | The cluster identifier (where reported by the provider) |
+| `topograph.run/instance` | The cloud instance ID or node identifier as returned by the provider |
+| `topograph.run/region` | The provider region associated with this node |
+| `topograph.run/cluster-id` | The cluster identifier (where reported by the provider) |
 
 Additional annotations are set on topology ConfigMaps (used by the Slinky engine):
 
 | Annotation key | Semantics |
 |---|---|
-| `topograph.nvidia.com/engine` | The engine that generated the ConfigMap |
-| `topograph.nvidia.com/topology-managed-by` | The Topograph instance managing the ConfigMap |
-| `topograph.nvidia.com/last-updated` | Timestamp of the most recent topology update |
-| `topograph.nvidia.com/plugin` | The scheduler plugin that consumes the ConfigMap |
-| `topograph.nvidia.com/block-sizes` | Comma-separated list of block sizes in the topology |
-| `topograph.nvidia.com/slurm-namespace` | The Slurm namespace associated with this topology ConfigMap |
+| `topograph.run/engine` | The engine that generated the ConfigMap |
+| `topograph.run/topology-managed-by` | The Topograph instance managing the ConfigMap |
+| `topograph.run/last-updated` | Timestamp of the most recent topology update |
+| `topograph.run/plugin` | The scheduler plugin that consumes the ConfigMap |
+| `topograph.run/block-sizes` | Comma-separated list of block sizes in the topology |
+| `topograph.run/slurm-namespace` | The Slurm namespace associated with this topology ConfigMap |
 
 ## Integration with NVSentinel
 
