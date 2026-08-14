@@ -215,8 +215,12 @@ func (nt *NetworkTopology) getBlockTopologyUnit(topoName string, topoSpec *Topol
 			}
 		}
 
+		blockSizes, err := getBlockSizes(bInfos, effectiveBlockSizes)
+		if err != nil {
+			return nil, err
+		}
 		tu.Block = &BlockTopo{
-			BlockSizes: getBlockSizes(bInfos, effectiveBlockSizes),
+			BlockSizes: blockSizes,
 			Blocks:     blocks,
 			parents:    parents,
 		}

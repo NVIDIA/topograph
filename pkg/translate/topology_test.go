@@ -94,7 +94,10 @@ SwitchName=switch.1.2 Nodes=node-2
 
 func TestValidateConfig(t *testing.T) {
 	emptyRoot := &topology.Graph{}
-	blockRoot := &topology.Graph{Domains: topology.NewDomainMap()}
+	emptyBlockRoot := &topology.Graph{Domains: topology.NewDomainMap()}
+	domains := topology.NewDomainMap()
+	domains.AddHost("domain-1", "instance-1", "node-1")
+	blockRoot := &topology.Graph{Domains: domains}
 
 	testCases := []struct {
 		name string
@@ -130,6 +133,14 @@ func TestValidateConfig(t *testing.T) {
 				Plugin: topology.TopologyBlock,
 			},
 			err: "missing block topology",
+		},
+		{
+			name: "Case 3.2: empty block root",
+			root: emptyBlockRoot,
+			cfg: &Config{
+				Plugin: topology.TopologyBlock,
+			},
+			err: "block topology contains no accelerator domains",
 		},
 		{
 			name: "Case 4: mutually exclusive parameters",
@@ -174,6 +185,19 @@ func TestValidateConfig(t *testing.T) {
 					"topo": {Plugin: topology.TopologyBlock}},
 			},
 			err: `missing block topology for topology "topo"`,
+		},
+		{
+			name: "Case 7.2: empty block root in topology spec",
+			root: emptyBlockRoot,
+			cfg: &Config{
+				Topologies: map[string]*TopologySpec{
+					"topo": {
+						Plugin: topology.TopologyBlock,
+						Nodes:  []string{"node-1"},
+					},
+				},
+			},
+			err: `block topology for topology "topo" contains no accelerator domains`,
 		},
 		{
 			name: "Case 8: missing nodes in topology spec",

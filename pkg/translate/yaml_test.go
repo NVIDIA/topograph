@@ -411,7 +411,9 @@ func TestGetBlockTopologyUnitComplementEmptyNodes(t *testing.T) {
 // error — not an OOM kill — for both the block and tree topology plugins.
 func TestExpandDoSNodeRange(t *testing.T) {
 	t.Run(topology.TopologyBlock, func(t *testing.T) {
-		graph := &topology.Graph{Domains: topology.NewDomainMap()}
+		domains := topology.NewDomainMap()
+		domains.AddHost("domain-1", "instance-1", "node-1")
+		graph := &topology.Graph{Domains: domains}
 		cfg := &Config{
 			Topologies: map[string]*TopologySpec{
 				"evil": {

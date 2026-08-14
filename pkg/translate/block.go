@@ -16,15 +16,18 @@ import (
 	"github.com/NVIDIA/topograph/internal/httperr"
 )
 
-func findMinDomainSize(blocks []*blockInfo) int {
-	minDomainSize := -1
-	for _, block := range blocks {
+func findMinDomainSize(blocks []*blockInfo) (int, error) {
+	if len(blocks) == 0 {
+		return 0, fmt.Errorf("cannot determine blockSizes: topology contains no blocks")
+	}
+	minDomainSize := len(blocks[0].nodes)
+	for _, block := range blocks[1:] {
 		blocklen := len(block.nodes)
-		if minDomainSize == -1 || minDomainSize > blocklen {
+		if minDomainSize > blocklen {
 			minDomainSize = blocklen
 		}
 	}
-	return minDomainSize
+	return minDomainSize, nil
 }
 
 // getBlockSizes returns the BlockSizes list for Slurm's block topology.
@@ -33,12 +36,15 @@ func findMinDomainSize(blocks []*blockInfo) int {
 // count and k = floor(log2(N)) for N blocks: the base size matches the
 // smallest accelerator domain and each successive level doubles, up to the
 // largest power-of-two multiple that fits the block count.
-func getBlockSizes(blocks []*blockInfo, requestedBlockSizes []int) []int {
+func getBlockSizes(blocks []*blockInfo, requestedBlockSizes []int) ([]int, error) {
 	if len(requestedBlockSizes) != 0 {
-		return requestedBlockSizes
+		return requestedBlockSizes, nil
 	}
 	// get smallest domain size
-	minDomainSize := findMinDomainSize(blocks)
+	minDomainSize, err := findMinDomainSize(blocks)
+	if err != nil {
+		return nil, err
+	}
 	outputbs := []int{minDomainSize}
 	maxnumbs := int(math.Log2(float64(len(blocks))))
 
@@ -47,7 +53,7 @@ func getBlockSizes(blocks []*blockInfo, requestedBlockSizes []int) []int {
 		outputbs = append(outputbs, levelblocksize)
 	}
 
-	return outputbs
+	return outputbs, nil
 }
 
 func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *httperr.Error {
@@ -71,7 +77,10 @@ func (nt *NetworkTopology) toBlockTopology(wr io.Writer, skeletonOnly bool) *htt
 		}
 	}
 	blocks = namedBlocks
-	blockSizes := getBlockSizes(blocks, effectiveBlockSizes)
+	blockSizes, err := getBlockSizes(blocks, effectiveBlockSizes)
+	if err != nil {
+		return httperr.NewError(http.StatusBadRequest, err.Error())
+	}
 
 	for _, bInfo := range blocks {
 		var comment string

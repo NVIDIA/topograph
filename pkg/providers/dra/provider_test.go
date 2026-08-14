@@ -92,6 +92,34 @@ func TestGenerateTopologyConfigUsesAnnotatedInstanceID(t *testing.T) {
 	require.Equal(t, expectedDomains, graph.Domains)
 }
 
+func TestGenerateTopologyConfigRejectsMissingDomainLabels(t *testing.T) {
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name: "k8s-node-1",
+		Annotations: map[string]string{
+			topology.KeyNodeInstance: "instance-123",
+			topology.KeyNodeRegion:   "local",
+		},
+	}}
+	provider := &Provider{
+		client:           fake.NewSimpleClientset(node),
+		accelerator:      mustAcceleratorDiscoverer(t, defaultDomainLabel),
+		acceleratorLabel: defaultDomainLabel,
+	}
+	instances := []topology.ComputeInstances{{
+		Region: "local",
+		Instances: map[string]string{
+			"instance-123": "scheduler-node-1",
+		},
+	}}
+
+	graph, httpErr := provider.GenerateTopologyConfig(context.Background(), nil, instances)
+
+	require.Nil(t, graph)
+	require.NotNil(t, httpErr)
+	require.Equal(t, 502, httpErr.Code())
+	require.ErrorContains(t, httpErr, `no matching nodes found; check label "nvidia.com/gpu.clique"`)
+}
+
 func mustAcceleratorDiscoverer(t *testing.T, labelKey string) accelerator.Discoverer {
 	t.Helper()
 	discoverer, err := accelerator.NewKubernetesDiscoverer(accelerator.KubernetesLabelSection(labelKey))

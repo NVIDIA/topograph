@@ -162,6 +162,9 @@ func (cfg *Config) Validate(graph *topology.Graph) error {
 				if graph == nil || graph.Domains == nil {
 					return fmt.Errorf("missing block topology for topology %q", topo)
 				}
+				if len(graph.Domains) == 0 {
+					return fmt.Errorf("block topology for topology %q contains no accelerator domains", topo)
+				}
 			case topology.TopologyFlat:
 				// nop
 			default:
@@ -180,6 +183,9 @@ func (cfg *Config) Validate(graph *topology.Graph) error {
 		case topology.TopologyBlock:
 			if graph == nil || graph.Domains == nil {
 				return fmt.Errorf("missing block topology")
+			}
+			if len(graph.Domains) == 0 {
+				return fmt.Errorf("block topology contains no accelerator domains")
 			}
 		default:
 			return fmt.Errorf("unsupported topology plugin %q", cfg.Plugin)

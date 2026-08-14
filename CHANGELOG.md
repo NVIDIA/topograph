@@ -50,6 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Block topology generation now rejects an empty accelerator-domain set instead of leaking the internal `-1` minimum-size sentinel as `BlockSizes=-1` when automatic block-size inference is enabled.
 - AWS provider authentication now uses the standard SDK credential chain when explicit credentials are absent, enabling EKS Pod Identity and IRSA with automatic temporary-credential refresh instead of forcing EC2 instance-role credentials.
 - Blank or whitespace-only `KUBE_QPS` and `KUBE_BURST` values are now treated as unset for non-Helm deployments, while numeric values may include surrounding whitespace.
 - Invalid `KUBE_QPS` and `KUBE_BURST` deployment values now fail Kubernetes-client provider and engine loading immediately with HTTP 400 instead of being retried as HTTP 502 errors.
