@@ -78,7 +78,7 @@ func ParsePdshOutput(buff *bytes.Buffer, direct bool) (map[string]string, error)
 		arr := strings.Split(scanner.Text(), ": ")
 		if len(arr) == 2 {
 			node, attr := arr[0], arr[1]
-			klog.V(4).Info("Node name: ", node, "Attribute: ", attr)
+			klog.V(4).Infof("Node name: %q Attribute: %q", node, attr)
 			if direct {
 				res[node] = attr
 			} else {
