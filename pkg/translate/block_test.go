@@ -106,6 +106,13 @@ BlockName=b2 Nodes=n3
 BlockSizes=1,2
 `,
 		},
+		{
+			name: "Case 5: no blocks",
+			nt: &NetworkTopology{
+				config: &Config{},
+			},
+			err: "cannot determine blockSizes: topology contains no blocks",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -197,10 +204,34 @@ func TestGetBlockSizes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			blockSize := getBlockSizes(populateBlockInfo(tc.blocks), tc.blockSize)
+			blockSize, err := getBlockSizes(populateBlockInfo(tc.blocks), tc.blockSize)
+			require.NoError(t, err)
 			require.Equal(t, tc.expectedOutput, blockSize)
 		})
 	}
+
+	blockSizes, err := getBlockSizes(nil, nil)
+	require.EqualError(t, err, "cannot determine blockSizes: topology contains no blocks")
+	require.Nil(t, blockSizes)
+
+	requestedBlockSizes := []int{8, 16}
+	blockSizes, err = getBlockSizes(nil, requestedBlockSizes)
+	require.NoError(t, err)
+	require.Equal(t, requestedBlockSizes, blockSizes)
+}
+
+func TestFindMinDomainSize(t *testing.T) {
+	minDomainSize, err := findMinDomainSize(nil)
+	require.EqualError(t, err, "cannot determine blockSizes: topology contains no blocks")
+	require.Zero(t, minDomainSize)
+
+	minDomainSize, err = findMinDomainSize([]*blockInfo{
+		{nodes: []string{"node-1", "node-2", "node-3"}},
+		{nodes: []string{"node-4"}},
+		{nodes: []string{"node-5", "node-6"}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, minDomainSize)
 }
 
 // TestGenerateTopologyConfig exercises GenerateTopologyConfig directly for a
