@@ -14,7 +14,7 @@ With the **Slurm engine**, `lambdai` does **not** auto-discover nodes: the topol
 
 - A Lambda topology API endpoint reachable from the Topograph host
 - A Lambda workspace ID
-- An API token with permission to read instance topology
+- An API token with permission to read instance topology, or Kubernetes workload identity
 - The region ID for each cluster you query
 
 ## Credentials

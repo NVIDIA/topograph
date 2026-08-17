@@ -33,6 +33,9 @@ const (
 	errBlankTokenWI = "credentials error: empty 'token' credential; omit it entirely to use the pod's workload identity"
 )
 
+// TestLoader covers credential and parameter handling: which authentication mode
+// Loader selects, the workspace it resolves and hands the client, and the error
+// each misconfiguration reports.
 func TestLoader(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
@@ -314,6 +317,23 @@ func TestLoader(t *testing.T) {
 			wantWorkspaceID: "workspace-from-params",
 		},
 		{
+			// The inverse of Case 16d: with both sources usable the credential
+			// wins, so selecting the parameter first would be caught here.
+			name: "Case 16f: a usable workspaceId credential wins over the parameter",
+			config: providers.Config{
+				Creds: map[string]any{
+					"workspaceId": "workspace-from-creds",
+					"token":       "token-abc",
+				},
+				Params: map[string]any{
+					"url":         "https://api.example.com",
+					"workspaceId": "workspace-from-params",
+				},
+			},
+			wantToken:       "token-abc",
+			wantWorkspaceID: "workspace-from-creds",
+		},
+		{
 			name: "Case 16e: surrounding whitespace is trimmed off the workspaceId",
 			config: providers.Config{
 				Creds: map[string]any{
@@ -389,6 +409,49 @@ func TestLoader(t *testing.T) {
 				},
 			},
 			err: "credentials error: ambiguous 'workspaceId' credential: WorkspaceID, workspaceId",
+		},
+		{
+			// Params decode through the same case-insensitive matching, so the
+			// workspace is as ambiguous here as in the credentials. Two inexact
+			// spellings are the dangerous shape: neither is preferred, so
+			// randomized map iteration decides which workspace gets queried.
+			name: "Case 21: duplicate workspaceId parameter spellings are rejected",
+			config: providers.Config{
+				Creds: map[string]any{"token": "token-abc"},
+				Params: map[string]any{
+					"url":         "https://api.example.com",
+					"WorkspaceId": "workspace-123",
+					"WORKSPACEID": "workspace-999",
+				},
+			},
+			err: "parameters error: ambiguous 'workspaceId' parameter: WORKSPACEID, WorkspaceId",
+		},
+		{
+			// An ambiguous url picks the API host the same way.
+			name: "Case 22: duplicate url parameter spellings are rejected",
+			config: providers.Config{
+				Creds: map[string]any{"workspaceId": "workspace-123", "token": "token-abc"},
+				Params: map[string]any{
+					"Url": "https://a.example.com",
+					"URL": "https://b.example.com",
+				},
+			},
+			err: "parameters error: ambiguous 'url' parameter: URL, Url",
+		},
+		{
+			// A single inexact spelling is unambiguous: mapstructure feeds it to
+			// the same field, so it must keep working rather than be rejected
+			// alongside the duplicates.
+			name: "Case 23: a single case-variant parameter spelling is accepted",
+			config: providers.Config{
+				Creds: map[string]any{"token": "token-abc"},
+				Params: map[string]any{
+					"URL":         "https://api.example.com",
+					"WorkspaceId": "workspace-123",
+				},
+			},
+			wantToken:       "token-abc",
+			wantWorkspaceID: "workspace-123",
 		},
 	}
 

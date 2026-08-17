@@ -176,13 +176,25 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
+// Loader builds a provider from a request's credentials and parameters. It
+// authenticates with a supplied API token, or -- when no token is supplied and
+// the pod carries an injected workload identity -- with a short-lived key minted
+// from that identity. The workspace comes from either source; everything else
+// the Lambda API needs travels with each request.
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
+	// The workspace and the API host are both decoded from params, so an
+	// ambiguous spelling there picks the wrong workspace or the wrong host just as
+	// silently as an ambiguous credential picks the wrong principal.
+	if err := requireUnambiguousKeys(config.Params, "parameter", authWorkspaceID, apiBaseURL); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
+	}
+
 	params, err := decodeParams(config.Params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
 	}
 
-	if err := requireUnambiguousCredentials(config.Creds); err != nil {
+	if err := requireUnambiguousKeys(config.Creds, "credential", authWorkspaceID, authToken); err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 	}
 
@@ -278,6 +290,9 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	return New(clientFactory, trimTiers), nil
 }
 
+// decodeCredentials decodes the credential map. Keys match case-insensitively,
+// so requireUnambiguousKeys must reject the collisions that allows before the
+// decoded values are trusted.
 func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
 	c := &credentialsConfig{}
 	if err := mapstructure.Decode(creds, c); err != nil {
@@ -287,25 +302,28 @@ func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
 	return c, nil
 }
 
-// requireUnambiguousCredentials rejects duplicate case-insensitive spellings of a
-// credential key.
+// requireUnambiguousKeys rejects duplicate case-insensitive spellings of a key.
+// kind names what the map holds, for the error message.
 //
 // mapstructure matches keys case-insensitively, so "token" and "Token" both feed
-// the same field and Go's randomized map iteration picks a winner
-// nondeterministically -- the very same request could authenticate as a different
-// principal, or against a different workspace, from one run to the next. There is
-// no safe way to choose, so the ambiguity is reported instead of resolved.
-func requireUnambiguousCredentials(creds map[string]any) error {
-	for _, key := range []string{authWorkspaceID, authToken} {
+// the same field. An exact spelling wins deterministically, but two inexact ones
+// ("Token" and "TOKEN") leave Go's randomized map iteration to pick the winner --
+// the very same request could authenticate as a different principal, read a
+// different workspace, or query a different API host from one run to the next.
+// There is no safe way to choose, so the ambiguity is reported instead of
+// resolved, and the exact-match case is rejected alongside it rather than relying
+// on a decoder precedence rule the caller cannot see.
+func requireUnambiguousKeys(m map[string]any, kind string, keys ...string) error {
+	for _, key := range keys {
 		var spellings []string
-		for k := range creds {
+		for k := range m {
 			if strings.EqualFold(k, key) {
 				spellings = append(spellings, k)
 			}
 		}
 		if len(spellings) > 1 {
 			sort.Strings(spellings) // map order is random; keep the message stable
-			return fmt.Errorf("ambiguous '%s' credential: %s", key, strings.Join(spellings, ", "))
+			return fmt.Errorf("ambiguous '%s' %s: %s", key, kind, strings.Join(spellings, ", "))
 		}
 	}
 
