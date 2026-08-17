@@ -208,12 +208,36 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	identityLRN := os.Getenv(envRoleLRN)
 	wiMode := !tokenSupplied && identityLRN != ""
 
+	// The workspace is required by both modes and may be supplied as a credential
+	// or, since it is an identifier rather than a secret, as a provider parameter.
+	// Resolve it before the mode branch so a missing value reports the same error
+	// either way: validating it inside the static credential check reported
+	// workspaceId as missing whenever workload-identity injection had not
+	// happened, even when it was set in params, sending operators after the wrong
+	// key.
+	//
+	// Both sources are trimmed before selection, so a blank value counts as
+	// absent and the surviving one reaches the API without surrounding
+	// whitespace, which would otherwise be sent verbatim as workspace_id.
+	// Unlike a blank token, a blank workspace is not treated as a malformed
+	// credential to be rejected outright: the workspace selects no principal, so
+	// falling through to the other source cannot change who a request
+	// authenticates as.
+	workspaceID := strings.TrimSpace(creds.WorkspaceID)
+	if workspaceID == "" {
+		workspaceID = strings.TrimSpace(params.WorkspaceID)
+	}
+	if workspaceID == "" {
+		return nil, httperr.NewError(http.StatusBadRequest,
+			fmt.Sprintf("missing '%s': set it in the provider credentials or params", authWorkspaceID))
+	}
+
 	// Announce the selected credential in every branch, as the aws provider does,
 	// so which principal a pod authenticates as is always visible in its log.
 	if wiMode {
 		klog.InfoS("Using Lambda workload identity credentials", "identityLRN", identityLRN)
 	} else {
-		if err := requireStaticCredentials(creds); err != nil {
+		if err := requireStaticToken(creds.Token, tokenSupplied, identityLRN); err != nil {
 			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
 		if identityLRN != "" {
@@ -227,17 +251,6 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	trimTiers, err := providers.GetTrimTiers(config.Params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
-	}
-
-	// In workload-identity mode the workspaceId may come from params (it is an
-	// identifier, not a secret), so no Secret is required. Static mode already
-	// required it as a credential in requireStaticCredentials.
-	workspaceID := creds.WorkspaceID
-	if workspaceID == "" {
-		workspaceID = params.WorkspaceID
-	}
-	if workspaceID == "" {
-		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("parameters error: missing '%s'", authWorkspaceID))
 	}
 
 	var tp tokenProvider
@@ -317,24 +330,37 @@ func credentialSupplied(creds map[string]any, key string) bool {
 	return false
 }
 
-// requireStaticCredentials enforces what static-token authentication needs.
-// Workload-identity mode skips it: the token is minted at runtime and the
-// workspace may be supplied as a provider parameter instead.
+// requireStaticToken enforces what static-token authentication needs: a usable
+// token. Workload-identity mode skips it, since the token is minted at runtime.
+// The workspace is validated for both modes before the mode branch.
 //
 // A blank value is rejected like an absent one -- an empty or whitespace-only
 // token is unusable, and accepting it would send a credential-less "Bearer "
-// header instead of reporting the malformed credential.
-func requireStaticCredentials(creds *credentialsConfig) error {
-	for _, cred := range []struct{ key, val string }{
-		{authWorkspaceID, creds.WorkspaceID},
-		{authToken, creds.Token},
-	} {
-		if strings.TrimSpace(cred.val) == "" {
-			return fmt.Errorf("missing '%s'", cred.key)
-		}
+// header instead of reporting the malformed credential. The two cases need
+// different guidance, so they report different errors: naming the key at all
+// opts into static authentication, making a blank value a malformed credential,
+// whereas naming no token and having no pod identity means neither
+// authentication mode is configured.
+//
+// That second state is genuinely ambiguous -- a Slurm or bare-metal deployment
+// that forgot its token looks exactly like a Kubernetes pod whose workload
+// identity was never injected -- so the error leads with the token every
+// deployment can supply and offers the pod-identity checks as the alternative,
+// rather than assuming the caller meant to use workload identity.
+func requireStaticToken(token string, supplied bool, identityLRN string) error {
+	if strings.TrimSpace(token) != "" {
+		return nil
 	}
 
-	return nil
+	if supplied {
+		if identityLRN != "" {
+			return fmt.Errorf("empty '%s' credential; omit it entirely to use the pod's workload identity", authToken)
+		}
+		return fmt.Errorf("empty '%s' credential", authToken)
+	}
+
+	return fmt.Errorf("missing '%s' credential: supply the Lambda API token in the request credentials or the credentialsPath file; to authenticate with Kubernetes workload identity instead, the pod needs %s, which lambda-pod-identity-webhook injects when the API-server ServiceAccount carries the 'lambda.ai/role-lrn' annotation",
+		authToken, envRoleLRN)
 }
 
 func decodeParams(params map[string]any) (*paramsConfig, error) {
