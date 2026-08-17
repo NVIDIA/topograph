@@ -24,7 +24,7 @@ With the **Slurm engine**, `lambdai` does **not** auto-discover nodes: the topol
 | `workspaceId` | Yes\* | Lambda workspace ID; sent as the `workspace_id` query parameter |
 | `token` | Yes\*\* | Bearer token used for topology API requests |
 
-\* Required in both authentication modes, but accepted from either place: the `workspaceId` credential, or the [`workspaceId` parameter](#parameters) (it is an identifier, not a secret, so putting it in params keeps a workload-identity deployment free of a Secret). The credential wins when both are set.
+\* Required in both authentication modes, and always supplied as a credential. It is an identifier rather than a secret, so a workload-identity deployment does not need a Secret for it: set `provider.creds.workspaceId` in the Helm values and the Node Observer forwards it with each topology request.
 
 \*\* Required for static-token authentication only. With [workload identity](#authentication-via-workload-identity) the API token is minted at runtime, so omit `token` entirely — a `token` supplied here always takes precedence over a workload identity, and an empty one is rejected rather than treated as a request to fall back.
 
@@ -87,13 +87,14 @@ curl -s -X PATCH -H "Authorization: Bearer $LAMBDA_ADMIN_TOKEN" \
 
 ### 2. Configure Topograph
 
-Annotate Topograph's ServiceAccount with the identity LRN and set the provider params — no Secret and no audience:
+Annotate Topograph's ServiceAccount with the identity LRN, put `workspaceId` in the provider credentials, and set the API URL as a provider parameter — no Secret and no audience:
 
 ```yaml
 provider:
   name: lambdai
   params:
     url: https://cloud.lambda.ai
+  creds:
     workspaceId: "<WORKSPACE_ID>"
 
 serviceAccount:
@@ -101,7 +102,7 @@ serviceAccount:
     lambda.ai/role-lrn: "lrn:iam:identity:<id>"
 ```
 
-`workspaceId` is an identifier, not a secret, so it lives in params and no `config.credentialsSecret` is required. The webhook keys off the `lambda.ai/role-lrn` annotation on the pod's ServiceAccount — there is no `workloadIdentity` parameter and no chart-managed volume.
+`workspaceId` is an identifier, not a secret. It lives in `provider.creds`, where the Node Observer forwards it in topology requests, so no `config.credentialsSecret` is required. The webhook keys off the `lambda.ai/role-lrn` annotation on the pod's ServiceAccount — there is no `workloadIdentity` parameter and no chart-managed volume.
 
 ### 3. Install with Helm (no credentials Secret)
 
@@ -136,7 +137,6 @@ The pod identity is a fallback, not an override: a request (or `credentialsPath`
 | Field | Required | Description |
 |---|---|---|
 | `url` | Yes | Base URL for the Lambda topology API, for example `https://cloud.example.com` |
-| `workspaceId` | No | Lambda workspace ID. Normally supplied as a [credential](#credentials); it may be given here instead in either authentication mode (it is an identifier, not a secret), so that a workload-identity deployment needs no Secret. Required in one place or the other. |
 | `trimTiers` | No | Number of highest topology tiers to trim from output. Defaults to `0` |
 
 The region is **not** a parameter — it is taken from each entry in the request's `nodes` list and forwarded to the API as the `region` query parameter (the API requires it). The top-level Topograph `pageSize` setting controls the page size for paginated topology requests.

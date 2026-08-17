@@ -56,8 +56,7 @@ type credentialsConfig struct {
 }
 
 type paramsConfig struct {
-	BaseURL     string `mapstructure:"url"`
-	WorkspaceID string `mapstructure:"workspaceId"` // optional alternative to the workspaceId credential
+	BaseURL string `mapstructure:"url"`
 }
 
 // lambdaiClient is a Topology API client.
@@ -179,13 +178,13 @@ func NamedLoader() (string, providers.Loader) {
 // Loader builds a provider from a request's credentials and parameters. It
 // authenticates with a supplied API token, or -- when no token is supplied and
 // the pod carries an injected workload identity -- with a short-lived key minted
-// from that identity. The workspace comes from either source; everything else
-// the Lambda API needs travels with each request.
+// from that identity. The workspace is a credential in both modes; the API host
+// is a parameter.
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
-	// The workspace and the API host are both decoded from params, so an
-	// ambiguous spelling there picks the wrong workspace or the wrong host just as
-	// silently as an ambiguous credential picks the wrong principal.
-	if err := requireUnambiguousKeys(config.Params, "parameter", authWorkspaceID, apiBaseURL); err != nil {
+	// The API host is decoded from params, so an ambiguous spelling there picks the
+	// wrong host just as silently as an ambiguous credential picks the wrong
+	// principal.
+	if err := requireUnambiguousKeys(config.Params, "parameter", apiBaseURL); err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
 	}
 
@@ -220,28 +219,17 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	identityLRN := os.Getenv(envRoleLRN)
 	wiMode := !tokenSupplied && identityLRN != ""
 
-	// The workspace is required by both modes and may be supplied as a credential
-	// or, since it is an identifier rather than a secret, as a provider parameter.
-	// Resolve it before the mode branch so a missing value reports the same error
-	// either way: validating it inside the static credential check reported
-	// workspaceId as missing whenever workload-identity injection had not
-	// happened, even when it was set in params, sending operators after the wrong
-	// key.
+	// The workspace is required by both authentication modes, so validate it
+	// before the mode branch: reporting it from inside the static credential check
+	// made the error depend on which mode the request happened to select.
 	//
-	// Both sources are trimmed before selection, so a blank value counts as
-	// absent and the surviving one reaches the API without surrounding
-	// whitespace, which would otherwise be sent verbatim as workspace_id.
-	// Unlike a blank token, a blank workspace is not treated as a malformed
-	// credential to be rejected outright: the workspace selects no principal, so
-	// falling through to the other source cannot change who a request
-	// authenticates as.
+	// It is trimmed rather than compared as-is, so a blank value counts as missing
+	// instead of reaching the API as a whitespace workspace_id, and a padded one
+	// is normalized rather than forwarded verbatim.
 	workspaceID := strings.TrimSpace(creds.WorkspaceID)
 	if workspaceID == "" {
-		workspaceID = strings.TrimSpace(params.WorkspaceID)
-	}
-	if workspaceID == "" {
 		return nil, httperr.NewError(http.StatusBadRequest,
-			fmt.Sprintf("missing '%s': set it in the provider credentials or params", authWorkspaceID))
+			fmt.Sprintf("credentials error: missing '%s': supply the Lambda workspace ID in the request credentials or the credentialsPath file", authWorkspaceID))
 	}
 
 	// Announce the selected credential in every branch, as the aws provider does,

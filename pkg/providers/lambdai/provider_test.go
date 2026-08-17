@@ -24,8 +24,9 @@ import (
 // The exact operator-facing messages, spelled out rather than built from the
 // production format strings: the wording is the contract being tested.
 const (
-	errMissingWorkspace = "missing 'workspaceId': set it in the provider credentials or params"
-	errNoAuth           = "credentials error: missing 'token' credential: supply the Lambda API token in the " +
+	errMissingWorkspace = "credentials error: missing 'workspaceId': supply the Lambda workspace ID in the " +
+		"request credentials or the credentialsPath file"
+	errNoAuth = "credentials error: missing 'token' credential: supply the Lambda API token in the " +
 		"request credentials or the credentialsPath file; to authenticate with Kubernetes workload identity " +
 		"instead, the pod needs LAMBDA_ROLE_LRN, which lambda-pod-identity-webhook injects when the " +
 		"API-server ServiceAccount carries the 'lambda.ai/role-lrn' annotation"
@@ -123,17 +124,6 @@ func TestLoader(t *testing.T) {
 			err: "parameters error: missing 'url'",
 		},
 		{
-			name:    "Case 7: workload identity success (no token cred, workspaceId from params)",
-			roleLRN: "lrn:iam:identity:abc",
-			config: providers.Config{
-				Params: map[string]any{
-					"url":         "https://api.example.com",
-					"workspaceId": "workspace-123",
-				},
-			},
-			wantWI: true,
-		},
-		{
 			name:    "Case 8: workload identity missing workspaceId",
 			roleLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
@@ -142,21 +132,6 @@ func TestLoader(t *testing.T) {
 				},
 			},
 			err: errMissingWorkspace,
-		},
-		{
-			// Regression: the static path used to validate workspaceId before the
-			// token, so a workspaceId supplied in params -- the arrangement Case 7
-			// documents -- was reported missing whenever the webhook had not
-			// injected an identity. The error named the one key that was actually
-			// set, pointing operators away from the real problem.
-			name: "Case 8b: workspaceId in params without workload identity reports the token, not the workspace",
-			config: providers.Config{
-				Params: map[string]any{
-					"url":         "https://api.example.com",
-					"workspaceId": "workspace-123",
-				},
-			},
-			err: errNoAuth,
 		},
 		{
 			name:    "Case 9: supplied token wins over the ambient workload identity",
@@ -289,51 +264,6 @@ func TestLoader(t *testing.T) {
 			err: errMissingWorkspace,
 		},
 		{
-			name:    "Case 16c: whitespace-only workspaceId parameter is rejected",
-			roleLRN: "lrn:iam:identity:abc",
-			config: providers.Config{
-				Params: map[string]any{
-					"url":         "https://api.example.com",
-					"workspaceId": "\t\n ",
-				},
-			},
-			err: errMissingWorkspace,
-		},
-		{
-			// Blank counts as absent, so the parameter still supplies the
-			// workspace rather than the request failing.
-			name: "Case 16d: blank workspaceId credential falls through to the parameter",
-			config: providers.Config{
-				Creds: map[string]any{
-					"workspaceId": " ",
-					"token":       "token-abc",
-				},
-				Params: map[string]any{
-					"url":         "https://api.example.com",
-					"workspaceId": "workspace-from-params",
-				},
-			},
-			wantToken:       "token-abc",
-			wantWorkspaceID: "workspace-from-params",
-		},
-		{
-			// The inverse of Case 16d: with both sources usable the credential
-			// wins, so selecting the parameter first would be caught here.
-			name: "Case 16f: a usable workspaceId credential wins over the parameter",
-			config: providers.Config{
-				Creds: map[string]any{
-					"workspaceId": "workspace-from-creds",
-					"token":       "token-abc",
-				},
-				Params: map[string]any{
-					"url":         "https://api.example.com",
-					"workspaceId": "workspace-from-params",
-				},
-			},
-			wantToken:       "token-abc",
-			wantWorkspaceID: "workspace-from-creds",
-		},
-		{
 			name: "Case 16e: surrounding whitespace is trimmed off the workspaceId",
 			config: providers.Config{
 				Creds: map[string]any{
@@ -411,22 +341,6 @@ func TestLoader(t *testing.T) {
 			err: "credentials error: ambiguous 'workspaceId' credential: WorkspaceID, workspaceId",
 		},
 		{
-			// Params decode through the same case-insensitive matching, so the
-			// workspace is as ambiguous here as in the credentials. Two inexact
-			// spellings are the dangerous shape: neither is preferred, so
-			// randomized map iteration decides which workspace gets queried.
-			name: "Case 21: duplicate workspaceId parameter spellings are rejected",
-			config: providers.Config{
-				Creds: map[string]any{"token": "token-abc"},
-				Params: map[string]any{
-					"url":         "https://api.example.com",
-					"WorkspaceId": "workspace-123",
-					"WORKSPACEID": "workspace-999",
-				},
-			},
-			err: "parameters error: ambiguous 'workspaceId' parameter: WORKSPACEID, WorkspaceId",
-		},
-		{
 			// An ambiguous url picks the API host the same way.
 			name: "Case 22: duplicate url parameter spellings are rejected",
 			config: providers.Config{
@@ -442,16 +356,30 @@ func TestLoader(t *testing.T) {
 			// A single inexact spelling is unambiguous: mapstructure feeds it to
 			// the same field, so it must keep working rather than be rejected
 			// alongside the duplicates.
-			name: "Case 23: a single case-variant parameter spelling is accepted",
+			name: "Case 23: a single case-variant spelling is accepted in either map",
 			config: providers.Config{
-				Creds: map[string]any{"token": "token-abc"},
-				Params: map[string]any{
-					"URL":         "https://api.example.com",
+				Creds: map[string]any{
 					"WorkspaceId": "workspace-123",
+					"token":       "token-abc",
 				},
+				Params: map[string]any{"URL": "https://api.example.com"},
 			},
 			wantToken:       "token-abc",
 			wantWorkspaceID: "workspace-123",
+		},
+		{
+			// The workspaceId parameter is gone. It must not quietly keep working,
+			// or a config that relied on it would look correct while omitting the
+			// credential the provider now requires.
+			name: "Case 24: a workspaceId parameter no longer supplies the workspace",
+			config: providers.Config{
+				Creds: map[string]any{"token": "token-abc"},
+				Params: map[string]any{
+					"url":         "https://api.example.com",
+					"workspaceId": "workspace-123",
+				},
+			},
+			err: errMissingWorkspace,
 		},
 	}
 
@@ -623,10 +551,10 @@ func TestGenerateTopologyConfigWorkloadIdentity(t *testing.T) {
 	defer server.Close()
 
 	provider, httpErr := Loader(ctx, providers.Config{
-		Params: map[string]any{
-			apiBaseURL:      server.URL,
-			authWorkspaceID: "ws-1",
-		},
+		// workspaceId is a credential; naming no token keeps this in
+		// workload-identity mode.
+		Creds:  map[string]any{authWorkspaceID: "ws-1"},
+		Params: map[string]any{apiBaseURL: server.URL},
 	})
 	require.Nil(t, httpErr)
 
@@ -685,10 +613,10 @@ func TestInstanceListRetriesOnUnauthorized(t *testing.T) {
 	defer server.Close()
 
 	provider, httpErr := Loader(ctx, providers.Config{
-		Params: map[string]any{
-			apiBaseURL:      server.URL,
-			authWorkspaceID: "ws-1",
-		},
+		// workspaceId is a credential; naming no token keeps this in
+		// workload-identity mode.
+		Creds:  map[string]any{authWorkspaceID: "ws-1"},
+		Params: map[string]any{apiBaseURL: server.URL},
 	})
 	require.Nil(t, httpErr)
 

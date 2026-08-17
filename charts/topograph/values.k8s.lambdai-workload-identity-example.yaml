@@ -2,8 +2,9 @@ provider:
   name: lambdai
   params:
     url: https://cloud.lambda.ai
-    # workspaceId is an identifier, not a secret; with workload identity no
-    # credentialsSecret is needed.
+  creds:
+    # workspaceId is an identifier, not a secret. The Node Observer forwards it
+    # as a provider credential; workload identity supplies only the API token.
     workspaceId: "<WORKSPACE_ID>"
 
 engine:
