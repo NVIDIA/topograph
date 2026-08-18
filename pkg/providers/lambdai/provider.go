@@ -202,8 +202,8 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 	}
 
-	// lambda-pod-identity-webhook injects LAMBDA_ROLE_LRN into pods whose
-	// ServiceAccount carries the lambda.ai/role-lrn annotation. That identity is
+	// lambda-pod-identity-webhook injects LAMBDA_IDENTITY_LRN into pods whose
+	// ServiceAccount carries the lambda.ai/identity-lrn annotation. That identity is
 	// ambient pod infrastructure, so a token supplied with the request takes
 	// precedence over it -- the same explicit-then-ambient tiering the aws
 	// provider applies. Without that precedence a pod running under workload
@@ -216,7 +216,7 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	// identity instead of being rejected. Naming the key at all opts into static
 	// authentication, and a blank value is then a validation error.
 	tokenSupplied := credentialSupplied(config.Creds, authToken)
-	identityLRN := os.Getenv(envRoleLRN)
+	identityLRN := injectedIdentityLRN()
 	wiMode := !tokenSupplied && identityLRN != ""
 
 	// The workspace is required by both authentication modes, so validate it
@@ -365,8 +365,8 @@ func requireStaticToken(token string, supplied bool, identityLRN string) error {
 		return fmt.Errorf("empty '%s' credential", authToken)
 	}
 
-	return fmt.Errorf("missing '%s' credential: supply the Lambda API token in the request credentials or the credentialsPath file; to authenticate with Kubernetes workload identity instead, the pod needs %s, which lambda-pod-identity-webhook injects when the API-server ServiceAccount carries the 'lambda.ai/role-lrn' annotation",
-		authToken, envRoleLRN)
+	return fmt.Errorf("missing '%s' credential: supply the Lambda API token in the request credentials or the credentialsPath file; to authenticate with Kubernetes workload identity instead, the pod needs %s, which lambda-pod-identity-webhook injects when the API-server ServiceAccount carries the 'lambda.ai/identity-lrn' annotation",
+		authToken, envIdentityLRN)
 }
 
 func decodeParams(params map[string]any) (*paramsConfig, error) {

@@ -52,7 +52,7 @@ The cluster's OIDC provider (issuer + JWKS) is **pre-registered by LKS** at prov
 ### Prerequisites
 
 - An **LKS cluster** — its OIDC issuer and public JWKS are registered with Lambda automatically at provisioning.
-- **`lambda-pod-identity-webhook`** installed in the cluster (LKS ships it). The webhook watches for pods whose ServiceAccount is annotated `lambda.ai/role-lrn` and mutates them to inject the projected token and identity env vars.
+- **`lambda-pod-identity-webhook`** installed in the cluster (LKS ships it). The webhook watches for pods whose ServiceAccount is annotated `lambda.ai/identity-lrn` and mutates them to inject the projected token and identity env vars.
 - **Workload identity enabled** for your Lambda account.
 - A Lambda **admin API key** for the one-time operator setup below.
 
@@ -99,10 +99,10 @@ provider:
 
 serviceAccount:
   annotations:
-    lambda.ai/role-lrn: "lrn:iam:identity:<id>"
+    lambda.ai/identity-lrn: "lrn:iam:identity:<id>"
 ```
 
-`workspaceId` is an identifier, not a secret. It lives in `provider.creds`, where the Node Observer forwards it in topology requests, so no `config.credentialsSecret` is required. The webhook keys off the `lambda.ai/role-lrn` annotation on the pod's ServiceAccount — there is no `workloadIdentity` parameter and no chart-managed volume.
+`workspaceId` is an identifier, not a secret. It lives in `provider.creds`, where the Node Observer forwards it in topology requests, so no `config.credentialsSecret` is required. The webhook keys off the `lambda.ai/identity-lrn` annotation on the pod's ServiceAccount — there is no `workloadIdentity` parameter and no chart-managed volume. ServiceAccounts annotated before that key was renamed still work: the webhook reads the older `lambda.ai/role-lrn` when the current key is absent, so migrating is not urgent, but annotate new accounts with `lambda.ai/identity-lrn`.
 
 ### 3. Install with Helm (no credentials Secret)
 
@@ -116,12 +116,12 @@ See [`values.k8s.lambdai-workload-identity-example.yaml`](../../charts/topograph
 
 ### How it works
 
-Because the pod's ServiceAccount carries the `lambda.ai/role-lrn` annotation, `lambda-pod-identity-webhook` mutates the pod to inject:
+Because the pod's ServiceAccount carries the `lambda.ai/identity-lrn` annotation, `lambda-pod-identity-webhook` mutates the pod to inject:
 
 - a projected ServiceAccount token at `/var/run/secrets/lambda.ai/serviceaccount/token`, and
-- the env vars `LAMBDA_ROLE_LRN` (the identity LRN) and `LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE` (the token path).
+- the env vars `LAMBDA_IDENTITY_LRN` (the identity LRN) and `LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE` (the token path). The webhook also injects the deprecated `LAMBDA_ROLE_LRN` with the same value while operators migrate; Topograph reads it only when `LAMBDA_IDENTITY_LRN` is absent.
 
-Topograph reads `LAMBDA_ROLE_LRN` to switch into workload-identity mode, reads the projected token from `LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE`, and exchanges it at `POST /api/v1/oidc/token` for a Lambda API key. The key is cached process-wide and refreshed shortly (≈5 minutes, jittered) before expiry so a fleet of pods does not refresh in lockstep. A transient exchange failure while the cached key is still valid is tolerated — Topograph keeps serving the current key until it actually expires. If the Lambda API rejects a cached key mid-life, Topograph mints a new one and retries the request once.
+Topograph reads `LAMBDA_IDENTITY_LRN` to switch into workload-identity mode, reads the projected token from `LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE`, and exchanges it at `POST /api/v1/oidc/token` for a Lambda API key. The key is cached process-wide and refreshed shortly (≈5 minutes, jittered) before expiry so a fleet of pods does not refresh in lockstep. A transient exchange failure while the cached key is still valid is tolerated — Topograph keeps serving the current key until it actually expires. If the Lambda API rejects a cached key mid-life, Topograph mints a new one and retries the request once.
 
 The pod identity is a fallback, not an override: a request (or `credentialsPath`) that supplies a `token` credential authenticates with **that** token even when the pod carries a workload identity, so a caller's credentials are never silently replaced by the pod's principal. Topograph logs which one it used. Supplying a `token` that is empty or whitespace is treated as a malformed credential and rejected with `400` — not as a request to fall back to the pod identity. To use workload identity, omit the `token` credential entirely.
 
@@ -130,7 +130,7 @@ The pod identity is a fallback, not an override: a request (or `credentialsPath`
 - **Stable subject.** The trust pins the token's `sub` claim, `system:serviceaccount:<namespace>:<serviceAccountName>`. The chart's generated ServiceAccount name derives from the release name and can change; set a fixed `serviceAccount.name` and trust that exact subject (or use `"*"`) so the trust keeps matching.
 - **JWKS rotation is handled by LKS.** LKS keeps the cluster's registered issuer and JWKS current, so key rotation does not require operator action.
 - **Opaque failures.** The token-exchange endpoint returns an identical `401` for every failure (unknown issuer, untrusted subject, missing role). Topograph logs only the HTTP status and the identity LRN; check the pod logs for `workload-identity token exchange failed (status ...)` and verify the trust, subject, and role.
-- **Injection that never happened.** A request that fails with `missing 'token' credential` in a deployment meant to use workload identity means the pod has no `LAMBDA_ROLE_LRN`, so the webhook did not mutate it. Mutating webhooks run only at pod creation, so annotating the ServiceAccount on a running release changes nothing until the pods restart; and with `serviceAccount.create=false` the chart skips the ServiceAccount template entirely, `serviceAccount.annotations` included, so the annotation has to be added to your existing account.
+- **Injection that never happened.** A request that fails with `missing 'token' credential` in a deployment meant to use workload identity means the pod has no `LAMBDA_IDENTITY_LRN`, so the webhook did not mutate it. Mutating webhooks run only at pod creation, so annotating the ServiceAccount on a running release changes nothing until the pods restart; and with `serviceAccount.create=false` the chart skips the ServiceAccount template entirely, `serviceAccount.annotations` included, so the annotation has to be added to your existing account.
 
 ## Parameters
 
