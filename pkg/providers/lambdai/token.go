@@ -25,9 +25,17 @@ import (
 
 const (
 	// Env vars injected by lambda-pod-identity-webhook into pods whose
-	// ServiceAccount carries the lambda.ai/role-lrn annotation.
-	envRoleLRN   = "LAMBDA_ROLE_LRN"
-	envTokenFile = "LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE"
+	// ServiceAccount carries the lambda.ai/identity-lrn annotation.
+	envIdentityLRN = "LAMBDA_IDENTITY_LRN"
+	envTokenFile   = "LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE"
+
+	// envRoleLRN is the webhook's previous name for envIdentityLRN. The webhook
+	// injects both while operators migrate their ServiceAccount annotations, so
+	// this is read only when the current name is absent.
+	//
+	// Deprecated: read envIdentityLRN; this exists so pods admitted by an older
+	// webhook keep authenticating.
+	envRoleLRN = "LAMBDA_ROLE_LRN"
 
 	// defaultSATokenPath matches where the webhook mounts the projected token;
 	// used only if envTokenFile is unset.
@@ -44,6 +52,17 @@ const (
 	// through its own retry cycle while a usable cached key is still in hand.
 	failedRefreshBackoff = 30 * time.Second
 )
+
+// injectedIdentityLRN returns the workload identity the webhook injected,
+// preferring the current env var over the deprecated one it still sets alongside
+// it. An empty result means no identity was injected at all.
+func injectedIdentityLRN() string {
+	if lrn := os.Getenv(envIdentityLRN); lrn != "" {
+		return lrn
+	}
+
+	return os.Getenv(envRoleLRN)
+}
 
 // tokenProvider yields a Lambda API bearer token. *httperr.Error preserves the
 // provider-boundary contract so the correct HTTP status propagates.

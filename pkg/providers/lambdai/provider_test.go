@@ -28,8 +28,8 @@ const (
 		"request credentials or the credentialsPath file"
 	errNoAuth = "credentials error: missing 'token' credential: supply the Lambda API token in the " +
 		"request credentials or the credentialsPath file; to authenticate with Kubernetes workload identity " +
-		"instead, the pod needs LAMBDA_ROLE_LRN, which lambda-pod-identity-webhook injects when the " +
-		"API-server ServiceAccount carries the 'lambda.ai/role-lrn' annotation"
+		"instead, the pod needs LAMBDA_IDENTITY_LRN, which lambda-pod-identity-webhook injects when the " +
+		"API-server ServiceAccount carries the 'lambda.ai/identity-lrn' annotation"
 	errBlankToken   = "credentials error: empty 'token' credential"
 	errBlankTokenWI = "credentials error: empty 'token' credential; omit it entirely to use the pod's workload identity"
 )
@@ -40,12 +40,12 @@ const (
 func TestLoader(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
-		name      string
-		roleLRN   string // LAMBDA_ROLE_LRN; non-empty selects workload-identity mode
-		config    providers.Config
-		err       string
-		wantWI    bool   // expect the workload-identity credential, not a static token
-		wantToken string // when static, the exact token the client must be given
+		name        string
+		identityLRN string // LAMBDA_IDENTITY_LRN; non-empty selects workload-identity mode
+		config      providers.Config
+		err         string
+		wantWI      bool   // expect the workload-identity credential, not a static token
+		wantToken   string // when static, the exact token the client must be given
 
 		// the exact workspace the client must query, once resolved and trimmed
 		wantWorkspaceID string
@@ -124,8 +124,8 @@ func TestLoader(t *testing.T) {
 			err: "parameters error: missing 'url'",
 		},
 		{
-			name:    "Case 8: workload identity missing workspaceId",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 8: workload identity missing workspaceId",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Params: map[string]any{
 					"url": "https://api.example.com",
@@ -134,8 +134,8 @@ func TestLoader(t *testing.T) {
 			err: errMissingWorkspace,
 		},
 		{
-			name:    "Case 9: supplied token wins over the ambient workload identity",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 9: supplied token wins over the ambient workload identity",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Creds: map[string]any{
 					"workspaceId": "workspace-123",
@@ -149,8 +149,8 @@ func TestLoader(t *testing.T) {
 		{
 			// A workspaceId credential alone is not a token, so the ambient
 			// identity still applies rather than failing on the missing token.
-			name:    "Case 10: workspaceId cred with workload identity stays in WI mode",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 10: workspaceId cred with workload identity stays in WI mode",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Creds: map[string]any{
 					"workspaceId": "workspace-123",
@@ -178,8 +178,8 @@ func TestLoader(t *testing.T) {
 		{
 			// Security: an explicitly supplied but malformed token must be
 			// rejected, never silently downgraded to the pod identity.
-			name:    "Case 12: empty token with workload identity is rejected",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 12: empty token with workload identity is rejected",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Creds: map[string]any{
 					"workspaceId": "workspace-123",
@@ -192,8 +192,8 @@ func TestLoader(t *testing.T) {
 			err: errBlankTokenWI,
 		},
 		{
-			name:    "Case 13: nil token with workload identity is rejected",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 13: nil token with workload identity is rejected",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Creds: map[string]any{
 					"workspaceId": "workspace-123",
@@ -206,8 +206,8 @@ func TestLoader(t *testing.T) {
 			err: errBlankTokenWI,
 		},
 		{
-			name:    "Case 14: whitespace-only token with workload identity is rejected",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 14: whitespace-only token with workload identity is rejected",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Creds: map[string]any{
 					"workspaceId": "workspace-123",
@@ -235,8 +235,8 @@ func TestLoader(t *testing.T) {
 			err: errBlankToken,
 		},
 		{
-			name:    "Case 16: empty workspaceId credential is rejected",
-			roleLRN: "",
+			name:        "Case 16: empty workspaceId credential is rejected",
+			identityLRN: "",
 			config: providers.Config{
 				Creds: map[string]any{
 					"workspaceId": "",
@@ -281,8 +281,8 @@ func TestLoader(t *testing.T) {
 			// Security: mapstructure matches credential keys case-insensitively, so
 			// mode selection must too. A case variant that populates the token must
 			// not be treated as absent and downgraded to the pod identity.
-			name:    "Case 17: case-variant token with workload identity is still used",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 17: case-variant token with workload identity is still used",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Creds: map[string]any{
 					"WorkspaceId": "workspace-123",
@@ -295,8 +295,8 @@ func TestLoader(t *testing.T) {
 			wantToken: "token-abc",
 		},
 		{
-			name:    "Case 18: blank case-variant token with workload identity is rejected",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 18: blank case-variant token with workload identity is rejected",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Creds: map[string]any{
 					"workspaceId": "workspace-123",
@@ -312,8 +312,8 @@ func TestLoader(t *testing.T) {
 			// Security: duplicate case-insensitive spellings both feed the same
 			// decoded field, and randomized map iteration picks the winner, so the
 			// ambiguity is reported rather than resolved arbitrarily.
-			name:    "Case 19: duplicate token spellings are rejected",
-			roleLRN: "lrn:iam:identity:abc",
+			name:        "Case 19: duplicate token spellings are rejected",
+			identityLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
 				Creds: map[string]any{
 					"workspaceId": "workspace-123",
@@ -385,9 +385,10 @@ func TestLoader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mode is selected by env, not params: static cases pin it empty so
-			// ambient env can't flip them into workload-identity mode.
-			t.Setenv(envRoleLRN, tt.roleLRN)
+			// Mode is selected by env, not params: static cases pin both names
+			// empty so ambient env can't flip them into workload-identity mode.
+			t.Setenv(envIdentityLRN, tt.identityLRN)
+			t.Setenv(envRoleLRN, "")
 			resetCredentialCache()
 			provider, err := Loader(ctx, tt.config)
 
@@ -445,7 +446,9 @@ func tokenProviderOf(t *testing.T, p providers.Provider) tokenProvider {
 // page_token pagination, and the networkPath -> leaf/spine/core mapping.
 func TestGenerateTopologyConfig(t *testing.T) {
 	ctx := context.Background()
-	t.Setenv(envRoleLRN, "") // static-token mode: no workload identity
+	// static-token mode: no workload identity under either env var
+	t.Setenv(envIdentityLRN, "")
+	t.Setenv(envRoleLRN, "")
 
 	const page1 = `{"data":[
 		{"id":"i-1","networkPath":[{"id":"leaf1"},{"id":"spine1"},{"id":"core1"}],"nvlink":null},
@@ -511,7 +514,7 @@ SwitchName=leaf2 Nodes=node3
 // TestGenerateTopologyConfigWorkloadIdentity drives the workload-identity path
 // end to end against a single mock server that answers both the OIDC
 // token-exchange and the topology endpoint. The webhook model is simulated by
-// setting the LAMBDA_ROLE_LRN and LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE env vars;
+// setting the LAMBDA_IDENTITY_LRN and LAMBDA_WORKLOAD_IDENTITY_TOKEN_FILE env vars;
 // the test asserts that the provider reads the projected ServiceAccount token,
 // exchanges it once, and uses the minted key as the Bearer credential on the
 // topology request. No token or workspaceId credential is supplied.
@@ -520,7 +523,8 @@ func TestGenerateTopologyConfigWorkloadIdentity(t *testing.T) {
 	resetCredentialCache()
 
 	saTokenPath := writeToken(t, "sa-jwt-value\n")
-	t.Setenv(envRoleLRN, "lrn:iam:identity:abc")
+	t.Setenv(envIdentityLRN, "lrn:iam:identity:abc")
+	t.Setenv(envRoleLRN, "")
 	t.Setenv(envTokenFile, saTokenPath)
 
 	const topoPage = `{"data":[
@@ -581,7 +585,8 @@ func TestInstanceListRetriesOnUnauthorized(t *testing.T) {
 	resetCredentialCache()
 
 	saTokenPath := writeToken(t, "sa-jwt-value")
-	t.Setenv(envRoleLRN, "lrn:iam:identity:abc")
+	t.Setenv(envIdentityLRN, "lrn:iam:identity:abc")
+	t.Setenv(envRoleLRN, "")
 	t.Setenv(envTokenFile, saTokenPath)
 
 	const topoPage = `{"data":[
@@ -643,7 +648,8 @@ func TestSuppliedTokenWinsOverWorkloadIdentity(t *testing.T) {
 	resetCredentialCache()
 
 	// A full workload-identity environment is present and must be ignored.
-	t.Setenv(envRoleLRN, "lrn:iam:identity:abc")
+	t.Setenv(envIdentityLRN, "lrn:iam:identity:abc")
+	t.Setenv(envRoleLRN, "")
 	t.Setenv(envTokenFile, writeToken(t, "sa-jwt-value"))
 
 	const topoPage = `{"data":[
@@ -777,6 +783,7 @@ func TestInstanceListStaleUnauthorizedKeepsRefreshedKey(t *testing.T) {
 // not re-minted or replayed -- only a workload-identity key is refreshable.
 func TestStaticTokenDoesNotRetryOnUnauthorized(t *testing.T) {
 	ctx := context.Background()
+	t.Setenv(envIdentityLRN, "")
 	t.Setenv(envRoleLRN, "")
 
 	var topoHits int
@@ -802,4 +809,52 @@ func TestStaticTokenDoesNotRetryOnUnauthorized(t *testing.T) {
 	})
 	require.NotNil(t, httpErr)
 	require.Equal(t, 1, topoHits, "a static token must not be replayed on 401")
+}
+
+// TestInjectedIdentityLRN covers the webhook rename: it injects
+// LAMBDA_IDENTITY_LRN and, for the transition, the deprecated LAMBDA_ROLE_LRN
+// alongside it. Reading the current name first keeps working once the webhook
+// stops setting the old one, while the fallback keeps pods admitted by an older
+// webhook authenticating.
+func TestInjectedIdentityLRN(t *testing.T) {
+	const (
+		current    = "lrn:iam:identity:c0000000000000000000000000000000"
+		deprecated = "lrn:iam:identity:d0000000000000000000000000000000"
+	)
+
+	tests := []struct {
+		name                 string
+		identityLRN, roleLRN string
+		want                 string
+	}{
+		{name: "current name only", identityLRN: current, want: current},
+		{name: "deprecated name only", roleLRN: deprecated, want: deprecated},
+		{name: "both: current wins", identityLRN: current, roleLRN: deprecated, want: current},
+		{name: "neither: no identity injected", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(envIdentityLRN, tt.identityLRN)
+			t.Setenv(envRoleLRN, tt.roleLRN)
+
+			require.Equal(t, tt.want, injectedIdentityLRN())
+		})
+	}
+}
+
+// TestLoaderDeprecatedRoleLRNEnv pins the fallback end to end: a pod carrying
+// only the deprecated env var still selects workload-identity mode rather than
+// failing on the missing token.
+func TestLoaderDeprecatedRoleLRNEnv(t *testing.T) {
+	t.Setenv(envIdentityLRN, "")
+	t.Setenv(envRoleLRN, "lrn:iam:identity:abc")
+	resetCredentialCache()
+
+	provider, err := Loader(context.Background(), providers.Config{
+		Creds:  map[string]any{"workspaceId": "workspace-123"},
+		Params: map[string]any{"url": "https://api.example.com"},
+	})
+	require.Nil(t, err)
+	require.IsType(t, &workloadIdentityCredential{}, tokenProviderOf(t, provider))
 }
