@@ -21,6 +21,22 @@ import (
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
+// The exact operator-facing messages, spelled out rather than built from the
+// production format strings: the wording is the contract being tested.
+const (
+	errMissingWorkspace = "credentials error: missing 'workspaceId': supply the Lambda workspace ID in the " +
+		"request credentials or the credentialsPath file"
+	errNoAuth = "credentials error: missing 'token' credential: supply the Lambda API token in the " +
+		"request credentials or the credentialsPath file; to authenticate with Kubernetes workload identity " +
+		"instead, the pod needs LAMBDA_ROLE_LRN, which lambda-pod-identity-webhook injects when the " +
+		"API-server ServiceAccount carries the 'lambda.ai/role-lrn' annotation"
+	errBlankToken   = "credentials error: empty 'token' credential"
+	errBlankTokenWI = "credentials error: empty 'token' credential; omit it entirely to use the pod's workload identity"
+)
+
+// TestLoader covers credential and parameter handling: which authentication mode
+// Loader selects, the workspace it resolves and hands the client, and the error
+// each misconfiguration reports.
 func TestLoader(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
@@ -30,6 +46,9 @@ func TestLoader(t *testing.T) {
 		err       string
 		wantWI    bool   // expect the workload-identity credential, not a static token
 		wantToken string // when static, the exact token the client must be given
+
+		// the exact workspace the client must query, once resolved and trimmed
+		wantWorkspaceID string
 	}{
 		{
 			name: "Case 1: success",
@@ -53,7 +72,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'workspaceId'",
+			err: errMissingWorkspace,
 		},
 		{
 			name: "Case 3: missing token",
@@ -65,7 +84,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'token'",
+			err: errNoAuth,
 		},
 		{
 			name: "Case 4: missing baseURL",
@@ -105,17 +124,6 @@ func TestLoader(t *testing.T) {
 			err: "parameters error: missing 'url'",
 		},
 		{
-			name:    "Case 7: workload identity success (no token cred, workspaceId from params)",
-			roleLRN: "lrn:iam:identity:abc",
-			config: providers.Config{
-				Params: map[string]any{
-					"url":         "https://api.example.com",
-					"workspaceId": "workspace-123",
-				},
-			},
-			wantWI: true,
-		},
-		{
 			name:    "Case 8: workload identity missing workspaceId",
 			roleLRN: "lrn:iam:identity:abc",
 			config: providers.Config{
@@ -123,7 +131,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "parameters error: missing 'workspaceId'",
+			err: errMissingWorkspace,
 		},
 		{
 			name:    "Case 9: supplied token wins over the ambient workload identity",
@@ -165,7 +173,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'token'",
+			err: errNoAuth,
 		},
 		{
 			// Security: an explicitly supplied but malformed token must be
@@ -181,7 +189,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'token'",
+			err: errBlankTokenWI,
 		},
 		{
 			name:    "Case 13: nil token with workload identity is rejected",
@@ -195,7 +203,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'token'",
+			err: errBlankTokenWI,
 		},
 		{
 			name:    "Case 14: whitespace-only token with workload identity is rejected",
@@ -209,7 +217,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'token'",
+			err: errBlankTokenWI,
 		},
 		{
 			// Without workload identity an empty token previously passed
@@ -224,7 +232,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'token'",
+			err: errBlankToken,
 		},
 		{
 			name:    "Case 16: empty workspaceId credential is rejected",
@@ -238,7 +246,36 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'workspaceId'",
+			err: errMissingWorkspace,
+		},
+		{
+			// A whitespace-only workspace is unusable: sending it as the
+			// workspace_id query value queries no workspace at all.
+			name: "Case 16b: whitespace-only workspaceId credential is rejected",
+			config: providers.Config{
+				Creds: map[string]any{
+					"workspaceId": "   ",
+					"token":       "token-abc",
+				},
+				Params: map[string]any{
+					"url": "https://api.example.com",
+				},
+			},
+			err: errMissingWorkspace,
+		},
+		{
+			name: "Case 16e: surrounding whitespace is trimmed off the workspaceId",
+			config: providers.Config{
+				Creds: map[string]any{
+					"workspaceId": "  workspace-123\n",
+					"token":       "token-abc",
+				},
+				Params: map[string]any{
+					"url": "https://api.example.com",
+				},
+			},
+			wantToken:       "token-abc",
+			wantWorkspaceID: "workspace-123",
 		},
 		{
 			// Security: mapstructure matches credential keys case-insensitively, so
@@ -269,7 +306,7 @@ func TestLoader(t *testing.T) {
 					"url": "https://api.example.com",
 				},
 			},
-			err: "credentials error: missing 'token'",
+			err: errBlankTokenWI,
 		},
 		{
 			// Security: duplicate case-insensitive spellings both feed the same
@@ -303,6 +340,47 @@ func TestLoader(t *testing.T) {
 			},
 			err: "credentials error: ambiguous 'workspaceId' credential: WorkspaceID, workspaceId",
 		},
+		{
+			// An ambiguous url picks the API host the same way.
+			name: "Case 22: duplicate url parameter spellings are rejected",
+			config: providers.Config{
+				Creds: map[string]any{"workspaceId": "workspace-123", "token": "token-abc"},
+				Params: map[string]any{
+					"Url": "https://a.example.com",
+					"URL": "https://b.example.com",
+				},
+			},
+			err: "parameters error: ambiguous 'url' parameter: URL, Url",
+		},
+		{
+			// A single inexact spelling is unambiguous: mapstructure feeds it to
+			// the same field, so it must keep working rather than be rejected
+			// alongside the duplicates.
+			name: "Case 23: a single case-variant spelling is accepted in either map",
+			config: providers.Config{
+				Creds: map[string]any{
+					"WorkspaceId": "workspace-123",
+					"token":       "token-abc",
+				},
+				Params: map[string]any{"URL": "https://api.example.com"},
+			},
+			wantToken:       "token-abc",
+			wantWorkspaceID: "workspace-123",
+		},
+		{
+			// The workspaceId parameter is gone. It must not quietly keep working,
+			// or a config that relied on it would look correct while omitting the
+			// credential the provider now requires.
+			name: "Case 24: a workspaceId parameter no longer supplies the workspace",
+			config: providers.Config{
+				Creds: map[string]any{"token": "token-abc"},
+				Params: map[string]any{
+					"url":         "https://api.example.com",
+					"workspaceId": "workspace-123",
+				},
+			},
+			err: errMissingWorkspace,
+		},
 	}
 
 	for _, tt := range tests {
@@ -323,6 +401,13 @@ func TestLoader(t *testing.T) {
 
 			require.Nil(t, err)
 			require.NotNil(t, provider)
+
+			if tt.wantWorkspaceID != "" {
+				client, cerr := provider.(*Provider).clientFactory(nil)
+				require.NoError(t, cerr)
+				require.Equal(t, tt.wantWorkspaceID, client.WorkspaceID(),
+					"the resolved workspace must reach the client verbatim")
+			}
 
 			// Assert which credential Loader actually wired in, not merely that
 			// it built something: the static and workload-identity paths differ
@@ -466,10 +551,10 @@ func TestGenerateTopologyConfigWorkloadIdentity(t *testing.T) {
 	defer server.Close()
 
 	provider, httpErr := Loader(ctx, providers.Config{
-		Params: map[string]any{
-			apiBaseURL:      server.URL,
-			authWorkspaceID: "ws-1",
-		},
+		// workspaceId is a credential; naming no token keeps this in
+		// workload-identity mode.
+		Creds:  map[string]any{authWorkspaceID: "ws-1"},
+		Params: map[string]any{apiBaseURL: server.URL},
 	})
 	require.Nil(t, httpErr)
 
@@ -528,10 +613,10 @@ func TestInstanceListRetriesOnUnauthorized(t *testing.T) {
 	defer server.Close()
 
 	provider, httpErr := Loader(ctx, providers.Config{
-		Params: map[string]any{
-			apiBaseURL:      server.URL,
-			authWorkspaceID: "ws-1",
-		},
+		// workspaceId is a credential; naming no token keeps this in
+		// workload-identity mode.
+		Creds:  map[string]any{authWorkspaceID: "ws-1"},
+		Params: map[string]any{apiBaseURL: server.URL},
 	})
 	require.Nil(t, httpErr)
 

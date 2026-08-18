@@ -56,8 +56,7 @@ type credentialsConfig struct {
 }
 
 type paramsConfig struct {
-	BaseURL     string `mapstructure:"url"`
-	WorkspaceID string `mapstructure:"workspaceId"` // optional alternative to the workspaceId credential
+	BaseURL string `mapstructure:"url"`
 }
 
 // lambdaiClient is a Topology API client.
@@ -176,13 +175,25 @@ func NamedLoader() (string, providers.Loader) {
 	return NAME, Loader
 }
 
+// Loader builds a provider from a request's credentials and parameters. It
+// authenticates with a supplied API token, or -- when no token is supplied and
+// the pod carries an injected workload identity -- with a short-lived key minted
+// from that identity. The workspace is a credential in both modes; the API host
+// is a parameter.
 func Loader(ctx context.Context, config providers.Config) (providers.Provider, *httperr.Error) {
+	// The API host is decoded from params, so an ambiguous spelling there picks the
+	// wrong host just as silently as an ambiguous credential picks the wrong
+	// principal.
+	if err := requireUnambiguousKeys(config.Params, "parameter", apiBaseURL); err != nil {
+		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
+	}
+
 	params, err := decodeParams(config.Params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
 	}
 
-	if err := requireUnambiguousCredentials(config.Creds); err != nil {
+	if err := requireUnambiguousKeys(config.Creds, "credential", authWorkspaceID, authToken); err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 	}
 
@@ -208,12 +219,25 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	identityLRN := os.Getenv(envRoleLRN)
 	wiMode := !tokenSupplied && identityLRN != ""
 
+	// The workspace is required by both authentication modes, so validate it
+	// before the mode branch: reporting it from inside the static credential check
+	// made the error depend on which mode the request happened to select.
+	//
+	// It is trimmed rather than compared as-is, so a blank value counts as missing
+	// instead of reaching the API as a whitespace workspace_id, and a padded one
+	// is normalized rather than forwarded verbatim.
+	workspaceID := strings.TrimSpace(creds.WorkspaceID)
+	if workspaceID == "" {
+		return nil, httperr.NewError(http.StatusBadRequest,
+			fmt.Sprintf("credentials error: missing '%s': supply the Lambda workspace ID in the request credentials or the credentialsPath file", authWorkspaceID))
+	}
+
 	// Announce the selected credential in every branch, as the aws provider does,
 	// so which principal a pod authenticates as is always visible in its log.
 	if wiMode {
 		klog.InfoS("Using Lambda workload identity credentials", "identityLRN", identityLRN)
 	} else {
-		if err := requireStaticCredentials(creds); err != nil {
+		if err := requireStaticToken(creds.Token, tokenSupplied, identityLRN); err != nil {
 			return nil, httperr.NewError(http.StatusBadRequest, "credentials error: "+err.Error())
 		}
 		if identityLRN != "" {
@@ -227,17 +251,6 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	trimTiers, err := providers.GetTrimTiers(config.Params)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusBadRequest, "parameters error: "+err.Error())
-	}
-
-	// In workload-identity mode the workspaceId may come from params (it is an
-	// identifier, not a secret), so no Secret is required. Static mode already
-	// required it as a credential in requireStaticCredentials.
-	workspaceID := creds.WorkspaceID
-	if workspaceID == "" {
-		workspaceID = params.WorkspaceID
-	}
-	if workspaceID == "" {
-		return nil, httperr.NewError(http.StatusBadRequest, fmt.Sprintf("parameters error: missing '%s'", authWorkspaceID))
 	}
 
 	var tp tokenProvider
@@ -265,6 +278,9 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	return New(clientFactory, trimTiers), nil
 }
 
+// decodeCredentials decodes the credential map. Keys match case-insensitively,
+// so requireUnambiguousKeys must reject the collisions that allows before the
+// decoded values are trusted.
 func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
 	c := &credentialsConfig{}
 	if err := mapstructure.Decode(creds, c); err != nil {
@@ -274,25 +290,28 @@ func decodeCredentials(creds map[string]any) (*credentialsConfig, error) {
 	return c, nil
 }
 
-// requireUnambiguousCredentials rejects duplicate case-insensitive spellings of a
-// credential key.
+// requireUnambiguousKeys rejects duplicate case-insensitive spellings of a key.
+// kind names what the map holds, for the error message.
 //
 // mapstructure matches keys case-insensitively, so "token" and "Token" both feed
-// the same field and Go's randomized map iteration picks a winner
-// nondeterministically -- the very same request could authenticate as a different
-// principal, or against a different workspace, from one run to the next. There is
-// no safe way to choose, so the ambiguity is reported instead of resolved.
-func requireUnambiguousCredentials(creds map[string]any) error {
-	for _, key := range []string{authWorkspaceID, authToken} {
+// the same field. An exact spelling wins deterministically, but two inexact ones
+// ("Token" and "TOKEN") leave Go's randomized map iteration to pick the winner --
+// the very same request could authenticate as a different principal, read a
+// different workspace, or query a different API host from one run to the next.
+// There is no safe way to choose, so the ambiguity is reported instead of
+// resolved, and the exact-match case is rejected alongside it rather than relying
+// on a decoder precedence rule the caller cannot see.
+func requireUnambiguousKeys(m map[string]any, kind string, keys ...string) error {
+	for _, key := range keys {
 		var spellings []string
-		for k := range creds {
+		for k := range m {
 			if strings.EqualFold(k, key) {
 				spellings = append(spellings, k)
 			}
 		}
 		if len(spellings) > 1 {
 			sort.Strings(spellings) // map order is random; keep the message stable
-			return fmt.Errorf("ambiguous '%s' credential: %s", key, strings.Join(spellings, ", "))
+			return fmt.Errorf("ambiguous '%s' %s: %s", key, kind, strings.Join(spellings, ", "))
 		}
 	}
 
@@ -317,24 +336,37 @@ func credentialSupplied(creds map[string]any, key string) bool {
 	return false
 }
 
-// requireStaticCredentials enforces what static-token authentication needs.
-// Workload-identity mode skips it: the token is minted at runtime and the
-// workspace may be supplied as a provider parameter instead.
+// requireStaticToken enforces what static-token authentication needs: a usable
+// token. Workload-identity mode skips it, since the token is minted at runtime.
+// The workspace is validated for both modes before the mode branch.
 //
 // A blank value is rejected like an absent one -- an empty or whitespace-only
 // token is unusable, and accepting it would send a credential-less "Bearer "
-// header instead of reporting the malformed credential.
-func requireStaticCredentials(creds *credentialsConfig) error {
-	for _, cred := range []struct{ key, val string }{
-		{authWorkspaceID, creds.WorkspaceID},
-		{authToken, creds.Token},
-	} {
-		if strings.TrimSpace(cred.val) == "" {
-			return fmt.Errorf("missing '%s'", cred.key)
-		}
+// header instead of reporting the malformed credential. The two cases need
+// different guidance, so they report different errors: naming the key at all
+// opts into static authentication, making a blank value a malformed credential,
+// whereas naming no token and having no pod identity means neither
+// authentication mode is configured.
+//
+// That second state is genuinely ambiguous -- a Slurm or bare-metal deployment
+// that forgot its token looks exactly like a Kubernetes pod whose workload
+// identity was never injected -- so the error leads with the token every
+// deployment can supply and offers the pod-identity checks as the alternative,
+// rather than assuming the caller meant to use workload identity.
+func requireStaticToken(token string, supplied bool, identityLRN string) error {
+	if strings.TrimSpace(token) != "" {
+		return nil
 	}
 
-	return nil
+	if supplied {
+		if identityLRN != "" {
+			return fmt.Errorf("empty '%s' credential; omit it entirely to use the pod's workload identity", authToken)
+		}
+		return fmt.Errorf("empty '%s' credential", authToken)
+	}
+
+	return fmt.Errorf("missing '%s' credential: supply the Lambda API token in the request credentials or the credentialsPath file; to authenticate with Kubernetes workload identity instead, the pod needs %s, which lambda-pod-identity-webhook injects when the API-server ServiceAccount carries the 'lambda.ai/role-lrn' annotation",
+		authToken, envRoleLRN)
 }
 
 func decodeParams(params map[string]any) (*paramsConfig, error) {

@@ -14,7 +14,7 @@ With the **Slurm engine**, `lambdai` does **not** auto-discover nodes: the topol
 
 - A Lambda topology API endpoint reachable from the Topograph host
 - A Lambda workspace ID
-- An API token with permission to read instance topology
+- An API token with permission to read instance topology, or Kubernetes workload identity
 - The region ID for each cluster you query
 
 ## Credentials
@@ -22,9 +22,11 @@ With the **Slurm engine**, `lambdai` does **not** auto-discover nodes: the topol
 | Field | Required | Description |
 |---|---|---|
 | `workspaceId` | Yes\* | Lambda workspace ID; sent as the `workspace_id` query parameter |
-| `token` | Yes\* | Bearer token used for topology API requests |
+| `token` | Yes\*\* | Bearer token used for topology API requests |
 
-\* Required for static-token authentication. With [workload identity](#authentication-via-workload-identity) no credentials are needed — the API token is minted at runtime and `workspaceId` is supplied as a provider parameter instead. A `token` supplied here always takes precedence over a workload identity.
+\* Required in both authentication modes, and always supplied as a credential. It is an identifier rather than a secret, so a workload-identity deployment does not need a Secret for it: set `provider.creds.workspaceId` in the Helm values and the Node Observer forwards it with each topology request.
+
+\*\* Required for static-token authentication only. With [workload identity](#authentication-via-workload-identity) the API token is minted at runtime, so omit `token` entirely — a `token` supplied here always takes precedence over a workload identity, and an empty one is rejected rather than treated as a request to fall back.
 
 Store credentials in a YAML file:
 
@@ -85,13 +87,14 @@ curl -s -X PATCH -H "Authorization: Bearer $LAMBDA_ADMIN_TOKEN" \
 
 ### 2. Configure Topograph
 
-Annotate Topograph's ServiceAccount with the identity LRN and set the provider params — no Secret and no audience:
+Annotate Topograph's ServiceAccount with the identity LRN, put `workspaceId` in the provider credentials, and set the API URL as a provider parameter — no Secret and no audience:
 
 ```yaml
 provider:
   name: lambdai
   params:
     url: https://cloud.lambda.ai
+  creds:
     workspaceId: "<WORKSPACE_ID>"
 
 serviceAccount:
@@ -99,7 +102,7 @@ serviceAccount:
     lambda.ai/role-lrn: "lrn:iam:identity:<id>"
 ```
 
-`workspaceId` is an identifier, not a secret, so it lives in params and no `config.credentialsSecret` is required. The webhook keys off the `lambda.ai/role-lrn` annotation on the pod's ServiceAccount — there is no `workloadIdentity` parameter and no chart-managed volume.
+`workspaceId` is an identifier, not a secret. It lives in `provider.creds`, where the Node Observer forwards it in topology requests, so no `config.credentialsSecret` is required. The webhook keys off the `lambda.ai/role-lrn` annotation on the pod's ServiceAccount — there is no `workloadIdentity` parameter and no chart-managed volume.
 
 ### 3. Install with Helm (no credentials Secret)
 
@@ -127,13 +130,13 @@ The pod identity is a fallback, not an override: a request (or `credentialsPath`
 - **Stable subject.** The trust pins the token's `sub` claim, `system:serviceaccount:<namespace>:<serviceAccountName>`. The chart's generated ServiceAccount name derives from the release name and can change; set a fixed `serviceAccount.name` and trust that exact subject (or use `"*"`) so the trust keeps matching.
 - **JWKS rotation is handled by LKS.** LKS keeps the cluster's registered issuer and JWKS current, so key rotation does not require operator action.
 - **Opaque failures.** The token-exchange endpoint returns an identical `401` for every failure (unknown issuer, untrusted subject, missing role). Topograph logs only the HTTP status and the identity LRN; check the pod logs for `workload-identity token exchange failed (status ...)` and verify the trust, subject, and role.
+- **Injection that never happened.** A request that fails with `missing 'token' credential` in a deployment meant to use workload identity means the pod has no `LAMBDA_ROLE_LRN`, so the webhook did not mutate it. Mutating webhooks run only at pod creation, so annotating the ServiceAccount on a running release changes nothing until the pods restart; and with `serviceAccount.create=false` the chart skips the ServiceAccount template entirely, `serviceAccount.annotations` included, so the annotation has to be added to your existing account.
 
 ## Parameters
 
 | Field | Required | Description |
 |---|---|---|
 | `url` | Yes | Base URL for the Lambda topology API, for example `https://cloud.example.com` |
-| `workspaceId` | No | Lambda workspace ID. Normally supplied as a credential; in [workload-identity mode](#authentication-via-workload-identity) it may be given here instead (it is an identifier, not a secret), so that no Secret is required. |
 | `trimTiers` | No | Number of highest topology tiers to trim from output. Defaults to `0` |
 
 The region is **not** a parameter — it is taken from each entry in the request's `nodes` list and forwarded to the API as the `region` query parameter (the API requires it). The top-level Topograph `pageSize` setting controls the page size for paginated topology requests.
