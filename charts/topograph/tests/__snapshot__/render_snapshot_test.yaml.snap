@@ -416,12 +416,6 @@ renders default values.yaml:
       - apiGroups:
           - ""
         resources:
-          - pods
-        verbs:
-          - list
-      - apiGroups:
-          - ""
-        resources:
           - nodes
         verbs:
           - get
@@ -432,12 +426,6 @@ renders default values.yaml:
           - nodes
         verbs:
           - patch
-      - apiGroups:
-          - apps
-        resources:
-          - daemonsets
-        verbs:
-          - get
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -1014,12 +1002,6 @@ renders values.k8s.gateway-api-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - pods
-        verbs:
-          - list
-      - apiGroups:
-          - ""
-        resources:
           - nodes
         verbs:
           - get
@@ -1030,12 +1012,6 @@ renders values.k8s.gateway-api-example.yaml:
           - nodes
         verbs:
           - patch
-      - apiGroups:
-          - apps
-        resources:
-          - daemonsets
-        verbs:
-          - get
   16: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -1626,12 +1602,6 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - pods
-        verbs:
-          - list
-      - apiGroups:
-          - ""
-        resources:
           - nodes
         verbs:
           - get
@@ -1642,12 +1612,6 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
           - nodes
         verbs:
           - patch
-      - apiGroups:
-          - apps
-        resources:
-          - daemonsets
-        verbs:
-          - get
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -2224,12 +2188,6 @@ renders values.k8s.gcp-service-account-example.yaml:
       - apiGroups:
           - ""
         resources:
-          - pods
-        verbs:
-          - list
-      - apiGroups:
-          - ""
-        resources:
           - nodes
         verbs:
           - get
@@ -2240,12 +2198,6 @@ renders values.k8s.gcp-service-account-example.yaml:
           - nodes
         verbs:
           - patch
-      - apiGroups:
-          - apps
-        resources:
-          - daemonsets
-        verbs:
-          - get
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
@@ -3456,12 +3408,6 @@ renders values.slinky.block-example.yaml:
         verbs:
           - patch
       - apiGroups:
-          - apps
-        resources:
-          - daemonsets
-        verbs:
-          - get
-      - apiGroups:
           - ""
         resources:
           - configmaps
@@ -4081,12 +4027,6 @@ renders values.slinky.partition-example.yaml:
         verbs:
           - patch
       - apiGroups:
-          - apps
-        resources:
-          - daemonsets
-        verbs:
-          - get
-      - apiGroups:
           - ""
         resources:
           - configmaps
@@ -4680,12 +4620,6 @@ renders values.slinky.tree-example.yaml:
           - nodes
         verbs:
           - patch
-      - apiGroups:
-          - apps
-        resources:
-          - daemonsets
-        verbs:
-          - get
       - apiGroups:
           - ""
         resources:

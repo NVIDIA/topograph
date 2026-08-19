@@ -1,4 +1,6 @@
 {{- if .Values.rbac.create -}}
+{{- $engine := .Values.engine.name -}}
+{{- $provider := .Values.provider.name -}}
 {{- /*
 pods/exec is needed by providers that exec inside pods, and by Slinky only for
 legacy partition discovery through `scontrol show partition` in the controller
@@ -6,11 +8,11 @@ pod (falling back to a login pod when present).
 Slinky skips that path when dynamic nodes are enabled or when a topology entry
 already supplies nodes, a pod selector, or the default flat topology.
 */ -}}
-{{- $needsPodExec := dict "value" false -}}
-{{- if eq .Values.provider.name "infiniband-k8s" -}}
-{{- $_ := set $needsPodExec "value" true -}}
+{{- $needsPodExec := false -}}
+{{- if eq $provider "infiniband-k8s" -}}
+{{- $needsPodExec = true -}}
 {{- end -}}
-{{- if eq .Values.engine.name "slinky" -}}
+{{- if eq $engine "slinky" -}}
 {{- $params := default dict .Values.engine.params -}}
 {{- if not (get $params "useDynamicNodes") -}}
 {{- range $topology := (default dict (get $params "topologies")) -}}
@@ -20,41 +22,64 @@ already supplies nodes, a pod selector, or the default flat topology.
 {{- $hasPodSelector := and $podSelector (or (get $podSelector "matchLabels") (get $podSelector "matchExpressions")) -}}
 {{- $isDefaultFlat := and (get $spec "clusterDefault") (eq (get $spec "plugin") "topology/flat") (not (get $spec "partition")) -}}
 {{- if and (not $hasNodes) (not $hasPodSelector) (not $isDefaultFlat) -}}
-{{- $_ := set $needsPodExec "value" true -}}
+{{- $needsPodExec = true -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
+{{- /*
+Gate the main ClusterRole rules by engine/provider. The API server only needs
+Kubernetes API access when the selected engine or provider actually calls the
+API.
+*/ -}}
+{{- $needsNodes := false -}}
+{{- if or (eq $engine "k8s") (eq $engine "slinky") (eq $engine "nfd") (eq $provider "dra") (eq $provider "infiniband-k8s") -}}
+{{- $needsNodes = true -}}
+{{- end -}}
+{{- $needsPods := false -}}
+{{- if or (eq $engine "slinky") (eq $provider "infiniband-k8s") -}}
+{{- $needsPods = true -}}
+{{- end -}}
+{{- $needsDaemonSets := false -}}
+{{- if eq $provider "infiniband-k8s" -}}
+{{- $needsDaemonSets = true -}}
+{{- end -}}
+{{- $needsConfigMaps := false -}}
+{{- if eq $engine "slinky" -}}
+{{- $needsConfigMaps = true -}}
+{{- end -}}
+{{- if or $needsNodes $needsPods $needsDaemonSets $needsConfigMaps $needsPodExec }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ include "topograph.rbacName" . }}
 rules:
+{{- if $needsPods }}
 - apiGroups: [""]
   resources: [pods]
   verbs: [list]
-{{- if $needsPodExec.value }}
+{{- end }}
+{{- if $needsPodExec }}
 - apiGroups: [""]
   resources: [pods/exec]
   verbs: [create]
 {{- end }}
+{{- if $needsNodes }}
 - apiGroups: [""]
   resources: [nodes]
   verbs: [get,list]
-{{- if eq .Values.engine.name "k8s" }}
+{{- if or (eq $engine "k8s") (eq $engine "slinky") }}
 - apiGroups: [""]
   resources: [nodes]
   verbs: [patch]
 {{- end }}
-{{- if eq .Values.engine.name "slinky" }}
-- apiGroups: [""]
-  resources: [nodes]
-  verbs: [patch]
 {{- end }}
+{{- if $needsDaemonSets }}
 - apiGroups: [apps]
   resources: [daemonsets]
   verbs: [get]
-{{- if eq .Values.engine.name "slinky" }}
+{{- end }}
+{{- if $needsConfigMaps }}
 - apiGroups: [""]
   resources: [configmaps]
   verbs: [create,get,update]
@@ -73,7 +98,8 @@ roleRef:
   kind: ClusterRole
   name: {{ include "topograph.rbacName" . }}
   apiGroup: rbac.authorization.k8s.io
-{{- if eq .Values.engine.name "nfd" }}
+{{- end }}
+{{- if eq $engine "nfd" }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

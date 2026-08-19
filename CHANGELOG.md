@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - GCP and OCI simulation providers now handle partial final pagination pages without indexing past the available instances.
 - Non-positive `pageSize` configuration values now emit a warning and use the provider default instead of reaching provider APIs and simulation pagination loops.
 
+### Security
+
+- Main Topograph API server ClusterRole rules are gated by the selected engine and provider: `nodes`, `pods`, `daemonsets`, and `configmaps` permissions render only when the engine or provider reaches the Kubernetes API, and the ClusterRole and ClusterRoleBinding are omitted entirely for non-Kubernetes combinations such as the `test` provider with the `slurm` engine.
+
 ---
 
 ## [v1.0.0] - 2026-08-18
