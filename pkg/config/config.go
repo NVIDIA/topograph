@@ -75,6 +75,11 @@ func NewFromFile(fname string) (*Config, error) {
 }
 
 func (cfg *Config) validate() error {
+	if cfg.PageSize != nil && *cfg.PageSize <= 0 {
+		klog.Warningf("pageSize %d is invalid; using the provider default", *cfg.PageSize)
+		cfg.PageSize = nil
+	}
+
 	if cfg.HTTP.Port == 0 {
 		return fmt.Errorf("port is not set")
 	}

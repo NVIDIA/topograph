@@ -167,7 +167,7 @@ SwitchName=tor2 Nodes=node[21-22]
 		{
 			name:     "Case 7: valid cluster, pagination",
 			model:    clusterModel,
-			pageSize: ptr.Int(2),
+			pageSize: ptr.Int(3),
 			instances: []topology.ComputeInstances{
 				{
 					Region:    "region",
