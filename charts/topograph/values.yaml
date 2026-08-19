@@ -241,8 +241,12 @@ serviceMonitor:
 # Opt-in NetworkPolicy covering all Topograph components (API server,
 # node-observer, node-data-broker), selected by the release instance label.
 # When enabled, ingress is denied except: intra-release traffic (so the
-# node-observer can reach the API server) and, when serviceMonitor.enabled, the
-# Prometheus scrape namespace (serviceMonitor.namespace).
+# node-observer can reach the API server) and, when metricsScraperNamespace is
+# set, the namespace that Prometheus runs in (see below).
+#
+# If you are also using ingress.enabled or gatewayAPI.enabled, the ingress /
+# gateway controller pod (in its own namespace) will be blocked. Add an
+# extraIngress rule for that namespace. See docs/engines/k8s.md "NetworkPolicy".
 #
 # Egress is only constrained when `extraEgress` is set -- this keeps enabling
 # the policy from breaking egress on clusters that do not run a default-deny.
@@ -260,6 +264,12 @@ serviceMonitor:
 # per-provider table (netq, CSP/IMDS caveat, dra/infiniband need none).
 networkPolicy:
   enabled: false
+  # Namespace that Prometheus (or another metrics scraper) runs in. When set,
+  # an ingress rule is added allowing TCP on the service port from this
+  # namespace. This is separate from serviceMonitor.namespace (which is where
+  # the ServiceMonitor CR lives); set this to where the Prometheus pod actually
+  # runs, e.g. `prometheus-system` or `monitoring`.
+  metricsScraperNamespace: ""
   # Pod label selector for the cluster's DNS server, used to scope the DNS
   # egress allow rule (only rendered when extraEgress is set). Leave empty to use
   # the standard kube-dns/CoreDNS label `{ k8s-app: kube-dns }`. Set this to
@@ -270,14 +280,17 @@ networkPolicy:
   dnsPodSelector: {}
   extraIngress: []
   extraEgress: []
-  #  # Kubernetes API server (all providers under default-deny; adjust to your
-  #  # cluster -- `kubectl get endpoints kubernetes -n default`):
+  #  # Kubernetes API server (all providers under default-deny):
+  #  #   Service IP (kubectl get svc kubernetes -n default) uses port 443;
+  #  #   endpoint IP (kubectl get endpoints kubernetes -n default) uses port 6443.
+  #  #   Which is needed depends on whether the CNI evaluates the policy before or
+  #  #   after kube-proxy DNAT. The Service IP + 443 path is the most common:
   #  - to:
   #      - ipBlock:
   #          cidr: 10.96.0.1/32
   #    ports:
   #      - protocol: TCP
-  #        port: 6443
+  #        port: 443
   #  # Provider topology source, e.g. netq apiUrl host or the BCM endpoint
   #  # (resolve the hostname to an ipBlock):
   #  - to:

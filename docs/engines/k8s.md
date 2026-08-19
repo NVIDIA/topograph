@@ -345,7 +345,30 @@ networkPolicy:
 The policy selects every pod in the release by the `app.kubernetes.io/instance` label. When enabled, ingress is denied except:
 
 - **intra-release traffic** — so the node-observer can reach the API server to trigger regeneration, and
-- the **Prometheus scrape namespace** (`serviceMonitor.namespace`) when `serviceMonitor.enabled: true`.
+- the **metrics scraper namespace** (`networkPolicy.metricsScraperNamespace`) when set.
+
+`serviceMonitor.namespace` is where the `ServiceMonitor` CR lives — it is not necessarily where Prometheus runs. Set `networkPolicy.metricsScraperNamespace` to the namespace that the Prometheus pod (or other scraper) actually runs in:
+
+```yaml
+networkPolicy:
+  enabled: true
+  metricsScraperNamespace: prometheus-system
+```
+
+**Ingress and Gateway API controllers.** If you enable `ingress.enabled` or `gatewayAPI.enabled` alongside the NetworkPolicy, the ingress or gateway controller pod (which runs in its own namespace) will be blocked. Add an `extraIngress` rule for the controller namespace:
+
+```yaml
+networkPolicy:
+  enabled: true
+  extraIngress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx   # adjust to your controller namespace
+      ports:
+        - protocol: TCP
+          port: 49021
+```
 
 **Egress stays unconstrained until you set `extraEgress`.** Adding an egress rule to a pod turns on default-deny egress for it, so enabling the policy does *not* add an `Egress` policyType by itself — that would break egress on clusters without a default-deny. When you set `extraEgress` (i.e. you *do* run default-deny egress), the chart adds an `Egress` policyType with a **DNS** allow, an **intra-release** allow (observer→API), and then your rules.
 
@@ -355,7 +378,11 @@ Because a portable chart cannot know your cluster's API-server address or your p
 networkPolicy:
   enabled: true
   extraEgress:
-    # Kubernetes API server (adjust to your cluster's apiserver CIDR/port):
+    # Kubernetes API server. Which IP and port to use depends on whether your
+    # CNI evaluates NetworkPolicy before or after kube-proxy DNAT:
+    #   Service IP  (kubectl get svc kubernetes -n default)  → port 443
+    #   Endpoint IP (kubectl get endpoints kubernetes -n default) → port 6443
+    # The Service IP + 443 path is most common for in-cluster client-go:
     - to:
         - ipBlock:
             cidr: 10.96.0.1/32
@@ -386,7 +413,7 @@ networkPolicy:
 
 | Provider(s) | `extraEgress` target |
 |---|---|
-| all (under default-deny) | the kube-apiserver endpoint — `kubectl get endpoints kubernetes -n default` — typically `<control-plane-ip>/32` on `6443` |
+| all (under default-deny) | kube-apiserver Service IP on `443` or endpoint IP on `6443` (see above) |
 | `netq` | the NetQ server IP (resolve the `apiUrl` host) on its port (`443` by default) |
 | BCM (planned) | the BCM head-node CIDR on `8081` |
 | `aws`, `gcp`, `oci`, `nebius`, `nscale`, `lambdai`, `cw` | the cloud API over `443`; if the provider reads instance metadata, `169.254.169.254/32` — **IMDS access is a credential-exposure vector**, so scope it tightly and prefer workload identity where the provider supports it |

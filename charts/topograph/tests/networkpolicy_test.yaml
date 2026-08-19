@@ -31,7 +31,23 @@ tests:
           path: spec.ingress[0].from[0].podSelector.matchLabels["app.kubernetes.io/instance"]
           value: chart-ci
 
-  - it: adds a Prometheus ingress rule when serviceMonitor is enabled
+  - it: adds a metrics scraper ingress rule when metricsScraperNamespace is set
+    set:
+      networkPolicy:
+        enabled: true
+        metricsScraperNamespace: prometheus-system
+    asserts:
+      - lengthEqual:
+          path: spec.ingress
+          count: 2
+      - equal:
+          path: spec.ingress[1].from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: prometheus-system
+      - equal:
+          path: spec.ingress[1].ports[0].port
+          value: 49021
+
+  - it: does not add a metrics ingress rule when metricsScraperNamespace is empty
     set:
       networkPolicy:
         enabled: true
@@ -41,10 +57,7 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.ingress
-          count: 2
-      - equal:
-          path: spec.ingress[1].from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
-          value: monitoring
+          count: 1
 
   - it: adds Egress with DNS and intra-release allows when extraEgress is set
     set:
@@ -95,3 +108,37 @@ tests:
           value: coredns
       - notExists:
           path: spec.egress[0].to[0].podSelector.matchLabels["k8s-app"]
+
+  - it: falls back to kube-dns selector when dnsPodSelector is empty
+    set:
+      networkPolicy:
+        enabled: true
+        dnsPodSelector: {}
+        extraEgress:
+          - to:
+              - ipBlock:
+                  cidr: 10.1.2.0/24
+    asserts:
+      - equal:
+          path: spec.egress[0].to[0].podSelector.matchLabels["k8s-app"]
+          value: kube-dns
+
+  - it: appends extraIngress rules after the intra-release allow
+    set:
+      networkPolicy:
+        enabled: true
+        extraIngress:
+          - from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: ingress-nginx
+            ports:
+              - protocol: TCP
+                port: 49021
+    asserts:
+      - lengthEqual:
+          path: spec.ingress
+          count: 2
+      - equal:
+          path: spec.ingress[1].from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: ingress-nginx

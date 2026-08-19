@@ -26,12 +26,15 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/instance: {{ .Release.Name }}
-    {{- if .Values.serviceMonitor.enabled }}
-    # Prometheus scrapes the API server /metrics on the service port.
+    {{- if .Values.networkPolicy.metricsScraperNamespace }}
+    # Prometheus (or any metrics scraper) scrapes the API server /metrics.
+    # Set networkPolicy.metricsScraperNamespace to the namespace the scraper
+    # pod runs in (not necessarily serviceMonitor.namespace, which is where
+    # the ServiceMonitor CR lives).
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: {{ .Values.serviceMonitor.namespace }}
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.metricsScraperNamespace }}
       ports:
         - protocol: TCP
           port: {{ .Values.service.port }}
