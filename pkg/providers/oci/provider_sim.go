@@ -87,7 +87,7 @@ func (c *simClient) ListComputeHosts(ctx context.Context, req core.ListComputeHo
 
 	var indx int
 	from := getPage(req.Page)
-	for indx = from; indx < from+*c.pageSize; indx++ {
+	for indx = from; indx < from+*c.pageSize && indx < len(c.instanceIDs); indx++ {
 		node := c.model.Nodes[c.instanceIDs[indx]]
 		host := core.ComputeHostSummary{
 			Id:         ptr.String(node.ID),

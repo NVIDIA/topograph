@@ -10,7 +10,7 @@ http:
 # waiting period before processing a request
 requestAggregationDelay: 15s
 
-# number of results per API call (optional)
+# number of results per API call (optional); non-positive values use the provider default
 pageSize: 100
 
 # ssl credentials for when http.ssl = true

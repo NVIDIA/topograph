@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+### Fixed
+
+- GCP and OCI simulation providers now handle partial final pagination pages without indexing past the available instances.
+- Non-positive `pageSize` configuration values now emit a warning and use the provider default instead of reaching provider APIs and simulation pagination loops.
+
 ---
 
 ## [v1.0.0] - 2026-08-18

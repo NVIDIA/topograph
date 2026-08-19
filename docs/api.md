@@ -30,6 +30,7 @@ engine: slurm
 requestAggregationDelay: 15s
 
 # pageSize: sets the page size for topology requests against a CSP API (optional).
+# Non-positive values emit a warning and use the provider default.
 pageSize: 100
 
 # ssl: specifies the paths to the TLS certificate, private key,

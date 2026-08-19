@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"k8s.io/klog/v2"
@@ -60,8 +61,9 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, pageS
 			input.InstanceIds = append(input.InstanceIds, instanceID)
 		}
 	} else {
-		klog.Infof("Getting instance topology with page size %d", pageSize)
-		input.MaxResults = client.PageSize()
+		pageSz := client.PageSize()
+		klog.Infof("Getting instance topology with page size %d", aws.ToInt32(pageSz))
+		input.MaxResults = pageSz
 	}
 
 	var cycle, total int

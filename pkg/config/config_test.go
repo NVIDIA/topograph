@@ -119,6 +119,33 @@ func TestConfig(t *testing.T) {
 	require.Equal(t, "/etc/slurm/config.yaml", os.Getenv("SLURM_CONF"))
 	require.Equal(t, path, os.Getenv("PATH"))
 }
+
+func TestValidatePageSize(t *testing.T) {
+	testCases := []struct {
+		name     string
+		pageSize *int
+		expected *int
+	}{
+		{name: "nil"},
+		{name: "negative", pageSize: ptr.Int(-1)},
+		{name: "zero", pageSize: ptr.Int(0)},
+		{name: "positive", pageSize: ptr.Int(50), expected: ptr.Int(50)},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Config{
+				HTTP:                    Endpoint{Port: 49021},
+				RequestAggregationDelay: time.Second,
+				PageSize:                tc.pageSize,
+			}
+
+			require.NoError(t, cfg.validate())
+			require.Equal(t, tc.expected, cfg.PageSize)
+		})
+	}
+}
+
 func TestValidate(t *testing.T) {
 	cert, err := os.CreateTemp("", "test-cert-*.yml")
 	require.NoError(t, err)

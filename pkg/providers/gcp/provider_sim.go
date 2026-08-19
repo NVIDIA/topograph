@@ -74,7 +74,7 @@ func (c *simClient) Instances(ctx context.Context, req *computepb.ListInstancesR
 	from := getPage(req.PageToken)
 	iter := &simInstanceIter{instances: make([]*computepb.Instance, 0)}
 
-	for indx = from; indx < from+int(*c.pageSize); indx++ {
+	for indx = from; indx < from+int(*c.pageSize) && indx < len(c.instanceIDs); indx++ {
 		node := c.model.Nodes[c.instanceIDs[indx]]
 		instanceID, err := strconv.ParseUint(node.ID, 10, 64)
 		if err != nil {

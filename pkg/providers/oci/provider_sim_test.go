@@ -166,7 +166,7 @@ SwitchName=switch.1.2 Nodes=node[21-22]
 					Instances: map[string]string{"n11": "node11", "n12": "node12", "n21": "node21", "n22": "node22", "n31": "node31"},
 				},
 			},
-			pageSize: ptr.Int(2),
+			pageSize: ptr.Int(3),
 			params:   map[string]any{"plugin": "topology/block"},
 			topology: `# block001=nvl1
 BlockName=block001 Nodes=node[11-12]
