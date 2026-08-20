@@ -37,7 +37,12 @@ then to switch `s3`, Topograph will apply the following labels to the node:
   fabric.topograph.run/tier-2: s3
 ```
 
-<p align="center"><img src="../assets/topograph-k8s.png" width="600" alt="Design" /></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/topograph-k8s-community-dark.png" />
+    <img src="../assets/topograph-k8s-community-light.png" width="100%" alt="Topograph Kubernetes engine flow diagram" />
+  </picture>
+</p>
 
 ### Relationship to the kubelet Topology Manager
 

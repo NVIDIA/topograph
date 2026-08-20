@@ -8,7 +8,12 @@ Topograph consists of five major components:
 4. **Provider**
 5. **Engine**
 
-<p align="center"><img src="assets/topograph-arch.png" width="600" alt="Design" /></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/topograph-arch-community-dark.png" />
+    <img src="assets/topograph-arch-community-light.png" width="100%" alt="Topograph architecture diagram" />
+  </picture>
+</p>
 
 ## Components
 

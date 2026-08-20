@@ -14,7 +14,12 @@ The Slinky engine bridges the gap between Kubernetes infrastructure and SLURM wo
 2. **Topology Generation**: Creates SLURM topology configuration (tree or block format)
 3. **ConfigMap Management**: Updates the specified ConfigMap with new topology data including metadata annotations for tracking and debugging
 
-<p align="center"><img src="../assets/topograph-slinky.png" width="600" alt="Design" /></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/topograph-slinky-community-dark.png" />
+    <img src="../assets/topograph-slinky-community-light.png" width="100%" alt="Topograph Slinky engine flow diagram" />
+  </picture>
+</p>
 
 ## Configuration
 Topograph is deployed as a standard Kubernetes application using a [Helm chart](https://github.com/NVIDIA/topograph/tree/main/charts/topograph).
