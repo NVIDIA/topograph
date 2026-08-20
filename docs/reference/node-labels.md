@@ -119,7 +119,9 @@ without a usable source value retain the provider-derived labels.
 
 ### Relationship to upstream standardization
 
-[KEP-4962: Standardizing the Representation of Cluster Network Topology](https://github.com/kubernetes/enhancements/issues/4962) proposed reserved label keys under the `topology.kubernetes.io/` namespace, but it was closed without being adopted. Its active successor, [KEP-5732](https://github.com/kubernetes/enhancements/issues/5732), targets alpha in Kubernetes v1.36 and takes a similar approach to exposing network topology through standard label keys. Topograph therefore publishes its topology contract under the project-controlled, vendor-neutral `fabric.topograph.run/*` and `accelerator.topograph.run/*` namespaces. If KEP-5732 or a successor reaches stable, Topograph will evaluate aligning with or publishing those keys alongside its project-scoped labels.
+[KEP-4962: Standardizing the Representation of Cluster Network Topology](https://github.com/kubernetes/enhancements/issues/4962) proposed reserved label keys under the `topology.kubernetes.io/` namespace, but it was closed without being adopted. Topograph therefore publishes its topology contract under the project-controlled, vendor-neutral `fabric.topograph.run/*` and `accelerator.topograph.run/*` namespaces. If Kubernetes adopts stable standard topology label keys in the future, Topograph will evaluate aligning with or publishing those keys alongside its project-scoped labels.
+
+A related upstream effort, [KEP-5732: Topology Aware Scheduling](https://github.com/kubernetes/enhancements/issues/5732) (beta in Kubernetes v1.37), introduces topology-aware workload scheduling that consumes existing node labels via a caller-provided key. It does not define a new label namespace — operators point it at whatever label keys are present, including Topograph's `fabric.topograph.run/*` keys.
 
 ## Without Topograph
 
