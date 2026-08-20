@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Documentation diagrams for architecture, Kubernetes, Slinky, Slurm topology formats, and engine outputs now ship as community-variant SVG and PNG assets with automatic dark/light mode switching (`<picture>` / `prefers-color-scheme` in docs; `#gh-light-mode-only` / `#gh-dark-mode-only` in README).
+
 ### Fixed
 
 - GCP and OCI simulation providers now handle partial final pagination pages without indexing past the available instances.
