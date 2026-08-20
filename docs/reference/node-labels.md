@@ -117,9 +117,9 @@ the k8s engine preserves that existing source label as authoritative and omits
 its managed accelerator domain and sub-domain labels for the node. Nodes
 without a usable source value retain the provider-derived labels.
 
-### Relationship to upstream standardization (KEP-4962)
+### Relationship to upstream standardization
 
-[KEP-4962: Standardizing the Representation of Cluster Network Topology](https://github.com/kubernetes/enhancements/issues/4962) proposed reserved label keys under the `topology.kubernetes.io/` namespace, but it was closed without being adopted. Topograph therefore publishes its topology contract under the project-controlled, vendor-neutral `fabric.topograph.run/*` and `accelerator.topograph.run/*` namespaces. If Kubernetes adopts stable standard keys in the future, Topograph will evaluate aligning with or publishing those keys alongside its project-scoped labels.
+[KEP-4962: Standardizing the Representation of Cluster Network Topology](https://github.com/kubernetes/enhancements/issues/4962) proposed reserved label keys under the `topology.kubernetes.io/` namespace, but it was closed without being adopted. Its active successor, [KEP-5732](https://github.com/kubernetes/enhancements/issues/5732), targets alpha in Kubernetes v1.36 and takes a similar approach to exposing network topology through standard label keys. Topograph therefore publishes its topology contract under the project-controlled, vendor-neutral `fabric.topograph.run/*` and `accelerator.topograph.run/*` namespaces. If KEP-5732 or a successor reaches stable, Topograph will evaluate aligning with or publishing those keys alongside its project-scoped labels.
 
 ## Without Topograph
 
