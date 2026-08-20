@@ -185,10 +185,10 @@ renders default values.yaml:
                   port: http
               resources:
                 limits:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
                 requests:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
               securityContext:
                 allowPrivilegeEscalation: false
@@ -332,7 +332,7 @@ renders default values.yaml:
               name: node-observer
               resources:
                 limits:
-                  cpu: 400m
+                  cpu: 1000m
                   memory: 512Mi
                 requests:
                   cpu: 250m
@@ -771,10 +771,10 @@ renders values.k8s.gateway-api-example.yaml:
                   port: http
               resources:
                 limits:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
                 requests:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
               securityContext:
                 allowPrivilegeEscalation: false
@@ -918,7 +918,7 @@ renders values.k8s.gateway-api-example.yaml:
               name: node-observer
               resources:
                 limits:
-                  cpu: 400m
+                  cpu: 1000m
                   memory: 512Mi
                 requests:
                   cpu: 250m
@@ -1357,10 +1357,10 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
                   port: http
               resources:
                 limits:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
                 requests:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
               securityContext:
                 allowPrivilegeEscalation: false
@@ -1511,7 +1511,7 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
               name: node-observer
               resources:
                 limits:
-                  cpu: 400m
+                  cpu: 1000m
                   memory: 512Mi
                 requests:
                   cpu: 250m
@@ -1945,10 +1945,10 @@ renders values.k8s.gcp-service-account-example.yaml:
                   port: http
               resources:
                 limits:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
                 requests:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
               securityContext:
                 allowPrivilegeEscalation: false
@@ -2097,7 +2097,7 @@ renders values.k8s.gcp-service-account-example.yaml:
               name: node-observer
               resources:
                 limits:
-                  cpu: 400m
+                  cpu: 1000m
                   memory: 512Mi
                 requests:
                   cpu: 250m
@@ -2529,10 +2529,10 @@ renders values.k8s.ib-example.yaml:
                   port: http
               resources:
                 limits:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
                 requests:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
               securityContext:
                 allowPrivilegeEscalation: true
@@ -2691,7 +2691,7 @@ renders values.k8s.ib-example.yaml:
               name: node-observer
               resources:
                 limits:
-                  cpu: 400m
+                  cpu: 1000m
                   memory: 512Mi
                 requests:
                   cpu: 250m
@@ -3140,10 +3140,10 @@ renders values.slinky.block-example.yaml:
                   port: http
               resources:
                 limits:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
                 requests:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
               securityContext:
                 allowPrivilegeEscalation: false
@@ -3305,7 +3305,7 @@ renders values.slinky.block-example.yaml:
               name: node-observer
               resources:
                 limits:
-                  cpu: 400m
+                  cpu: 1000m
                   memory: 512Mi
                 requests:
                   cpu: 250m
@@ -3742,10 +3742,10 @@ renders values.slinky.partition-example.yaml:
                   port: http
               resources:
                 limits:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
                 requests:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
               securityContext:
                 allowPrivilegeEscalation: false
@@ -3924,7 +3924,7 @@ renders values.slinky.partition-example.yaml:
               name: node-observer
               resources:
                 limits:
-                  cpu: 400m
+                  cpu: 1000m
                   memory: 512Mi
                 requests:
                   cpu: 250m
@@ -4361,10 +4361,10 @@ renders values.slinky.tree-example.yaml:
                   port: http
               resources:
                 limits:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
                 requests:
-                  cpu: 100m
+                  cpu: 200m
                   memory: 128Mi
               securityContext:
                 allowPrivilegeEscalation: false
@@ -4518,7 +4518,7 @@ renders values.slinky.tree-example.yaml:
               name: node-observer
               resources:
                 limits:
-                  cpu: 400m
+                  cpu: 1000m
                   memory: 512Mi
                 requests:
                   cpu: 250m
