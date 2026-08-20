@@ -40,7 +40,7 @@ then to switch `s3`, Topograph will apply the following labels to the node:
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/topograph-k8s-community-dark.png" />
-    <img src="../assets/topograph-k8s-community-light.png" width="600" alt="Topograph Kubernetes engine flow diagram" />
+    <img src="../assets/topograph-k8s-community-light.png" width="100%" alt="Topograph Kubernetes engine flow diagram" />
   </picture>
 </p>
 

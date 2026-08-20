@@ -17,7 +17,7 @@ The Slinky engine bridges the gap between Kubernetes infrastructure and SLURM wo
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/topograph-slinky-community-dark.png" />
-    <img src="../assets/topograph-slinky-community-light.png" width="600" alt="Topograph Slinky engine flow diagram" />
+    <img src="../assets/topograph-slinky-community-light.png" width="100%" alt="Topograph Slinky engine flow diagram" />
   </picture>
 </p>
 

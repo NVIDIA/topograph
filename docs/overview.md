@@ -28,7 +28,7 @@ This design allows Topograph to abstract across multiple topology sources — in
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/topograph-engine-outputs-community-dark.png" />
-    <img src="assets/topograph-engine-outputs-community-light.png" width="600" alt="Topograph engine output formats diagram" />
+    <img src="assets/topograph-engine-outputs-community-light.png" width="100%" alt="Topograph engine output formats diagram" />
   </picture>
 </p>
 

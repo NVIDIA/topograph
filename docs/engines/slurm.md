@@ -5,7 +5,7 @@ For the SLURM engine, topograph supports [tree](https://slurm.schedmd.com/topolo
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/topograph-slurm-topology-formats-community-dark.png" />
-    <img src="../assets/topograph-slurm-topology-formats-community-light.png" width="600" alt="Topograph Slurm topology formats diagram" />
+    <img src="../assets/topograph-slurm-topology-formats-community-light.png" width="100%" alt="Topograph Slurm topology formats diagram" />
   </picture>
 </p>
 
