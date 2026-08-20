@@ -1,7 +1,9 @@
 <p align="center">
   <a href="https://github.com/NVIDIA/topograph" target="_blank">
-    <img src="docs/assets/topograph-logo-color.png#gh-light-mode-only" width="100" alt="Topograph logo" />
-    <img src="docs/assets/topograph-logo-color-dark.png#gh-dark-mode-only" width="100" alt="Topograph logo" />
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/topograph-logo-color-dark.png" />
+      <img src="docs/assets/topograph-logo-color.png" width="100" alt="Topograph logo" />
+    </picture>
   </a>
 </p>
 
