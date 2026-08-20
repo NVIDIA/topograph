@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Topograph logo variants for light mode (`topograph-logo-color`), dark mode (`topograph-logo-color-dark`), reversed black, and reversed white added to `docs/assets/`. The `README.md` logo now switches between color and color-dark automatically based on the viewer's GitHub theme preference.
+
 ### Fixed
 
 - GCP and OCI simulation providers now handle partial final pagination pages without indexing past the available instances.

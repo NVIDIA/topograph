@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">Topograph Offset Wheel Logo - Black</title>
+<desc id="desc">Offset Wheel Topograph logo exploration in black form.</desc>
+
+<g fill="none" stroke="#111111" stroke-width="38" stroke-linecap="round" stroke-linejoin="round">
+<path d="M 551.84 190.00 L 770.94 316.50"/>
+<path d="M 810.78 385.50 L 810.78 638.50"/>
+<path d="M 770.94 707.50 L 551.84 834.00"/>
+<path d="M 472.16 834.00 L 253.06 707.50"/>
+<path d="M 213.22 638.50 L 213.22 385.50"/>
+<path d="M 253.06 316.50 L 472.16 190.00"/>
+<path d="M 512.00 290.00 L 512.00 213.00"/>
+<path d="M 704.26 401.00 L 770.94 362.50"/>
+<path d="M 704.26 623.00 L 770.94 661.50"/>
+<path d="M 512.00 734.00 L 512.00 811.00"/>
+<path d="M 319.74 623.00 L 253.06 661.50"/>
+<path d="M 319.74 401.00 L 253.06 362.50"/>
+<circle cx="512.00" cy="167.00" r="46" fill="none" stroke="#111111"/>
+<circle cx="810.78" cy="339.50" r="46" fill="none" stroke="#111111"/>
+<circle cx="810.78" cy="684.50" r="46" fill="none" stroke="#111111"/>
+<circle cx="512.00" cy="857.00" r="46" fill="none" stroke="#111111"/>
+<circle cx="213.22" cy="684.50" r="46" fill="none" stroke="#111111"/>
+<circle cx="213.22" cy="339.50" r="46" fill="none" stroke="#111111"/>
+</g>
+<g fill="none" stroke="#111111" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="512" cy="512" r="210" stroke-width="34"/>
+<circle cx="512" cy="512" r="136" stroke-width="26"/>
+<g stroke-width="30"><path d="M 541.00 461.77 L 588.00 380.36"/>
+<path d="M 570.00 512.00 L 664.00 512.00"/>
+<path d="M 541.00 562.23 L 588.00 643.64"/>
+<path d="M 483.00 562.23 L 436.00 643.64"/>
+<path d="M 454.00 512.00 L 360.00 512.00"/>
+<path d="M 483.00 461.77 L 436.00 380.36"/></g>
+<circle cx="512" cy="512" r="48" fill="none" stroke-width="18"/>
+</g>
+</svg>

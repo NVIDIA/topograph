@@ -1,4 +1,9 @@
-<p align="center"><a href="https://github.com/NVIDIA/topograph" target="_blank"><img src="docs/assets/topograph-logo.png" width="100" alt="Logo"></a></p>
+<p align="center">
+  <a href="https://github.com/NVIDIA/topograph" target="_blank">
+    <img src="docs/assets/topograph-logo-color.png#gh-light-mode-only" width="100" alt="Topograph logo" />
+    <img src="docs/assets/topograph-logo-color-dark.png#gh-dark-mode-only" width="100" alt="Topograph logo" />
+  </a>
+</p>
 
 # Topograph
 
