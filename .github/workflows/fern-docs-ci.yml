@@ -67,6 +67,20 @@ jobs:
             exit 1
           fi
 
+      - name: Check that all docs pages are listed in index.yml
+        # Every .md file under docs/ (excluding the design/ drafting space) must
+        # appear in docs/index.yml so it is reachable from the Fern sidebar.
+        run: |
+          MISSING=0
+          while IFS= read -r -d '' f; do
+            rel="${f#docs/}"
+            if ! grep -qF "$rel" docs/index.yml; then
+              echo "::error file=$f::$f is not listed in docs/index.yml (add it or move it to docs/design/ if it is a draft)"
+              MISSING=1
+            fi
+          done < <(find docs/ -name '*.md' -not -path 'docs/design/*' -print0)
+          [ "$MISSING" -eq 0 ]
+
       - name: Fern check
         run: fern check
 

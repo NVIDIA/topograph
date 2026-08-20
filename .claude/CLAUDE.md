@@ -225,6 +225,14 @@ Signed commits get a **Verified** badge on GitHub. The GPG public key must be up
 
 If you discover what appears to be a security vulnerability while working in this codebase — unauthenticated code path, exposed credential, injection vulnerability, privilege-escalation path, dependency with a known CVE, or similar — do **not** file a public GitHub issue or include it in a public PR description. Surface it privately to the maintainer, who can route it through the NVIDIA PSIRT channels documented in `SECURITY.md` (`psirt@nvidia.com` and the submission form; not GitHub).
 
+### Documentation structure
+
+`docs/` is the **source of truth** for all public-facing documentation, published to `https://docs.nvidia.com/topograph` via Fern. `fern/` holds only site config and theme assets — never doc content.
+
+**`docs/design/`** is a drafting space for design work in progress. Files there are intentionally excluded from the Fern sidebar and are not published to the docs site. Finalized design decisions should move to the appropriate `docs/` subtree or be captured in code comments / CHANGELOG entries.
+
+**Every `.md` file added to `docs/` (outside `docs/design/`) must also be added to `docs/index.yml`**, which drives the Fern sidebar. CI enforces this: `fern-docs-ci.yml` fails if any `docs/**/*.md` outside `docs/design/` is absent from `docs/index.yml`.
+
 ### Documentation Impact Evaluation
 
 Every PR should be evaluated for documentation impact before pre-push qualification. The following changes imply specific doc updates in the same PR:
@@ -241,6 +249,7 @@ Every PR should be evaluated for documentation impact before pre-push qualificat
 | User-facing feature, fix, breaking change, or Helm migration worth calling out in release notes | `CHANGELOG.md` under `[Unreleased]` (Added / Changed / Fixed / Removed); move entries into a version section at release time |
 | New invariant or "do not change without discussion" surface | `AGENTS.md` + `.claude/CLAUDE.md` in the same PR |
 | New Makefile target, top-level directory, or repository-layout change described by the repository map | `AGENTS.md` + `.claude/CLAUDE.md` in the same PR |
+| New `.md` file added to `docs/` (outside `docs/design/`) | Add an entry to `docs/index.yml`; CI will fail if omitted |
 
 If a change falls outside these categories, it still warrants a moment's review for collateral doc drift.
 
