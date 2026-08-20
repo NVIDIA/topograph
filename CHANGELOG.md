@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Fern sidebar now includes a direct link to `CHANGELOG.md` on GitHub under the Reference section, so release notes are discoverable from the docs site without navigating the repository.
+- CI check (`fern-docs-ci.yml`) verifies that every `.md` file under `docs/` (outside `docs/design/`) is listed in `docs/index.yml`, preventing orphaned pages from being authored but never published.
+
 ### Fixed
 
 - GCP and OCI simulation providers now handle partial final pagination pages without indexing past the available instances.

@@ -60,3 +60,5 @@ navigation:
     contents:
       - page: Node Labels and Annotations
         path: reference/node-labels.md
+      - link: Changelog
+        href: https://github.com/NVIDIA/topograph/blob/main/CHANGELOG.md
