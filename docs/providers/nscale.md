@@ -2,27 +2,27 @@
 
 The `nscale` topology provider reads topology data from the Nscale Radar API and converts it into Topograph's canonical three-tier topology graph.
 
-The provider uses two Nscale APIs:
+The provider uses three Nscale APIs:
 
 - **Radar API**: returns each instance's network path via `GET /v1/topology`
-- **Placement Servers API**: returns server metadata via `GET /api/v2/placements/{placementID}/servers`
+- **Placements API**: lists the organization's placements in a region via `GET /api/v2/placements`
+- **Placement Servers API**: returns server metadata for a placement via `GET /api/v2/placements/{placementID}/servers`
 
-The Radar response supplies the provider instance ID, switch path, and optional block ID. The Placement Servers API response maps provider instance IDs to hostnames using `metadata.id` and `metadata.name`; this is used by the Slurm engine when Topograph discovers Slurm nodes automatically.
+The Radar response supplies the provider instance ID, switch path, and optional block ID. For Slurm auto-discovery, the provider lists every placement for the configured organization and region, then queries the Placement Servers API for each one and merges the results into a single instance-ID-to-hostname map using `metadata.id` and `metadata.name`.
 
 ## When to Use This Provider
 
 Use this provider for Nscale environments where Radar is the topology source. It is most commonly used with the Slurm engine to generate `topology.conf` from the current Slurm node list.
 
-If the request payload supplies explicit `nodes`, Topograph uses those instance ID to node name mappings directly. If `nodes` is omitted and the Slurm engine is used, Topograph runs `scontrol show nodes -o`, asks the Nscale Placement Servers API for the server catalog in the configured placement, and keeps entries whose `metadata.name` matches a Slurm node name.
+If the request payload supplies explicit `nodes`, Topograph uses those instance ID to node name mappings directly. If `nodes` is omitted and the Slurm engine is used, Topograph runs `scontrol show nodes -o`, lists the organization's placements in the configured region via the Nscale Placements API, and asks the Placement Servers API for the server catalog of each placement. When `scontrol` returns a non-empty node list, only entries whose `metadata.name` exactly matches a Slurm node name are kept; if the node list is empty, every placement-server mapping is kept.
 
 ## Prerequisites
 
 - A Radar API endpoint reachable from the Topograph host
-- A Placement Servers API endpoint reachable from the Topograph host
+- A Placements / Placement Servers API endpoint reachable from the Topograph host
 - An Nscale organization ID
-- An API token with permission to read topology and placement server metadata
+- An API token with permission to read topology, placements, and placement server metadata
 - The Nscale region ID for the cluster
-- The Nscale placement ID for the rack-scale group of servers
 - For Slurm auto-discovery, `scontrol` must be available to the Topograph process
 
 ## Credentials
@@ -30,8 +30,8 @@ If the request payload supplies explicit `nodes`, Topograph uses those instance 
 | Field | Required | Description |
 |---|---|---|
 | `org` | Yes | Nscale organization ID |
-| `token` | Yes | Bearer token used for Radar and Placement Servers API requests |
-| `region` | Required for Slurm auto-discovery | Nscale region ID used for Slurm region assignment |
+| `token` | Yes | Bearer token used for Radar, Placements, and Placement Servers API requests |
+| `region` | Required for Slurm auto-discovery | Nscale region ID used for Slurm region assignment and to scope the Placements API listing |
 
 Store credentials in a YAML file:
 
@@ -54,8 +54,7 @@ Credentials can also be supplied directly in the topology request payload under 
 | Field | Required | Description |
 |---|---|---|
 | `radarApiUrl` | Yes | Base URL for the Radar API, for example `https://radar.example.com` |
-| `instanceApiUrl` | Yes | Base URL for the Instance API, for example `https://api.example.com` |
-| `placementId` | Yes | Nscale placement ID used to scope the Placement Servers API request |
+| `instanceApiUrl` | Yes | Base URL for the Placements and Placement Servers APIs, for example `https://api.example.com` |
 | `trimTiers` | No | Number of highest topology tiers to trim from output. Defaults to `0` |
 
 The top-level Topograph `pageSize` setting controls pagination for the Radar topology request.
@@ -78,7 +77,6 @@ credentialsPath: /etc/topograph/nscale-credentials.yaml
 providerParams:
   radarApiUrl: https://radar.example.com
   instanceApiUrl: https://api.example.com
-  placementId: <PLACEMENT_ID>
 
 engineParams:
   plugin: topology/tree
@@ -98,8 +96,7 @@ Example request payload:
     },
     "params": {
       "radarApiUrl": "https://radar.example.com",
-      "instanceApiUrl": "https://api.example.com",
-      "placementId": "<PLACEMENT_ID>"
+      "instanceApiUrl": "https://api.example.com"
     }
   },
   "engine": {
@@ -124,8 +121,7 @@ If you already have the instance ID to hostname mapping, you can include it expl
     },
     "params": {
       "radarApiUrl": "https://radar.example.com",
-      "instanceApiUrl": "https://api.example.com",
-      "placementId": "<PLACEMENT_ID>"
+      "instanceApiUrl": "https://api.example.com"
     }
   },
   "engine": {
@@ -164,32 +160,74 @@ Each returned instance is translated as follows:
 | `network_node_path[2]` | Leaf tier |
 | `block_id` | Accelerator / NVLink domain |
 
-For Slurm auto-discovery, the provider fetches server metadata from the Placement Servers API:
+For Slurm auto-discovery, the provider first lists the organization's placements in the configured region from the Placements API:
+
+```text
+GET <instanceApiUrl>/api/v2/placements?organizationID=<org>&regionID=<region>
+Authorization: Bearer <token>
+```
+
+The response is an array of placement objects; the provider extracts `metadata.id` from each entry. It then fetches server metadata from the Placement Servers API for every placement ID returned:
 
 ```text
 GET <instanceApiUrl>/api/v2/placements/<placementId>/servers
 Authorization: Bearer <token>
 ```
 
-The response is an array of placement server objects. The provider extracts `metadata.id` (the server's unique identifier) and `metadata.name` (the hostname) from each entry and builds an instance-ID-to-hostname map.
+The response is an array of placement server objects. The provider extracts `metadata.id` (the server's unique identifier) and `metadata.name` (the hostname) from each entry and merges them across all placements into a single instance-ID-to-hostname map.
 
 It builds the same map produced by:
 
 ```bash
-curl -s -H "Authorization: Bearer $TOKEN" \
-  "$INSTANCE_API_URL/api/v2/placements/$PLACEMENT_ID/servers" \
-  | jq -r '.[] | "\(.metadata.id)\t\(.metadata.name)"'
+set -euo pipefail
+
+placement_ids=$(curl --fail --show-error --silent -H "Authorization: Bearer $TOKEN" \
+  "$INSTANCE_API_URL/api/v2/placements?organizationID=$ORG_ID&regionID=$REGION_ID" \
+  | jq -er '.[] | select(.metadata.id != "") | .metadata.id')
+
+for placement_id in $placement_ids; do
+  curl --fail --show-error --silent -H "Authorization: Bearer $TOKEN" \
+    "$INSTANCE_API_URL/api/v2/placements/$placement_id/servers" \
+    | jq -er '.[] | select(.metadata.id != "" and .metadata.name != "") | "\(.metadata.id)\t\(.metadata.name)"'
+done
 ```
 
 ## Verifying the Output
 
-First verify that the Placement Servers API returns the hostnames Slurm knows:
+When Slurm's node list (`scontrol show nodes -o`) is non-empty, `Instances2NodeMap`
+only keeps a Placement Server entry when its `metadata.name` is an exact match for a
+Slurm node name — there is no fuzzy or partial matching. If the node list is empty,
+no filtering is applied and every placement-server mapping is retained. Before
+triggering topology generation, compare the hostnames returned by the Placements and
+Placement Servers APIs against Slurm's own node list and fail if they differ:
 
 ```bash
-curl -s -H "Authorization: Bearer $TOKEN" \
-  "$INSTANCE_API_URL/api/v2/placements/$PLACEMENT_ID/servers" \
-  | jq -r '.[] | "\(.metadata.id)\t\(.metadata.name)"'
+set -euo pipefail
+
+slurm_nodes=$(scontrol show nodes -o | grep -oE 'NodeName=[^ ]+' | cut -d= -f2 | sort -u)
+[ -n "$slurm_nodes" ] || { echo "FAIL: scontrol returned no nodes"; exit 1; }
+
+placement_ids=$(curl --fail --show-error --silent -H "Authorization: Bearer $TOKEN" \
+  "$INSTANCE_API_URL/api/v2/placements?organizationID=$ORG_ID&regionID=$REGION_ID" \
+  | jq -er '.[] | select(.metadata.id != "") | .metadata.id')
+
+placement_hostnames=$(for placement_id in $placement_ids; do
+  curl --fail --show-error --silent -H "Authorization: Bearer $TOKEN" \
+    "$INSTANCE_API_URL/api/v2/placements/$placement_id/servers" \
+    | jq -er '.[] | select(.metadata.id != "" and .metadata.name != "") | .metadata.name'
+done | sort -u)
+
+if diff <(printf '%s\n' "$slurm_nodes") <(printf '%s\n' "$placement_hostnames"); then
+  echo "OK: Placement Server hostnames match Slurm's node list"
+else
+  echo "FAIL: Placement Server hostnames differ from Slurm's node list"
+  exit 1
+fi
 ```
+
+If the two lists differ, `Instances2NodeMap` will silently drop the mismatched nodes
+from the generated topology rather than erroring, so this check should be run before
+relying on Slurm auto-discovery.
 
 Then trigger topology generation:
 

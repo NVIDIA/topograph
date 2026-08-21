@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The `nscale` provider's Slurm auto-discovery no longer requires a statically configured `placementId`. It now lists placements for the credentialed organization and region via the Nscale Placements API, then queries the Placement Servers API for each placement and merges the results into the instance-to-node map.
+
+### Removed
+
+- `nscale` provider `placementId` parameter — placements are discovered dynamically instead. `region` credential is now required whenever Slurm auto-discovery (`Instances2NodeMap`) is used.
+
 ### Added
 
 - Documentation diagrams for architecture, Kubernetes, Slinky, Slurm topology formats, and engine outputs now ship as community-variant SVG and PNG assets with automatic dark/light mode switching (`<picture>` / `prefers-color-scheme` in docs; `#gh-light-mode-only` / `#gh-dark-mode-only` in README).
