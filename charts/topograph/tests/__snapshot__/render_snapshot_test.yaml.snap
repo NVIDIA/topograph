@@ -420,11 +420,6 @@ renders default values.yaml:
         verbs:
           - get
           - list
-      - apiGroups:
-          - ""
-        resources:
-          - nodes
-        verbs:
           - patch
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -1006,11 +1001,6 @@ renders values.k8s.gateway-api-example.yaml:
         verbs:
           - get
           - list
-      - apiGroups:
-          - ""
-        resources:
-          - nodes
-        verbs:
           - patch
   16: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -1606,11 +1596,6 @@ renders values.k8s.gcp-federated-workload-identity-example.yaml:
         verbs:
           - get
           - list
-      - apiGroups:
-          - ""
-        resources:
-          - nodes
-        verbs:
           - patch
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -2192,11 +2177,6 @@ renders values.k8s.gcp-service-account-example.yaml:
         verbs:
           - get
           - list
-      - apiGroups:
-          - ""
-        resources:
-          - nodes
-        verbs:
           - patch
   15: |
     apiVersion: rbac.authorization.k8s.io/v1
@@ -2798,11 +2778,6 @@ renders values.k8s.ib-example.yaml:
         verbs:
           - get
           - list
-      - apiGroups:
-          - ""
-        resources:
-          - nodes
-        verbs:
           - patch
       - apiGroups:
           - apps
@@ -3399,14 +3374,7 @@ renders values.slinky.block-example.yaml:
         resources:
           - nodes
         verbs:
-          - get
           - list
-      - apiGroups:
-          - ""
-        resources:
-          - nodes
-        verbs:
-          - patch
       - apiGroups:
           - ""
         resources:
@@ -4018,13 +3986,7 @@ renders values.slinky.partition-example.yaml:
         resources:
           - nodes
         verbs:
-          - get
           - list
-      - apiGroups:
-          - ""
-        resources:
-          - nodes
-        verbs:
           - patch
       - apiGroups:
           - ""
@@ -4612,14 +4574,7 @@ renders values.slinky.tree-example.yaml:
         resources:
           - nodes
         verbs:
-          - get
           - list
-      - apiGroups:
-          - ""
-        resources:
-          - nodes
-        verbs:
-          - patch
       - apiGroups:
           - ""
         resources:

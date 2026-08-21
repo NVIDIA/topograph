@@ -62,7 +62,7 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: grants core node read/write access by default
+  - it: grants core node read and patch access by default
     documentIndex: 0
     asserts:
       - contains:
@@ -70,13 +70,25 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [get, list]
-      - contains:
+            verbs: [get, list, patch]
+      - notContains:
           path: rules
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [patch]
+            verbs: [update]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [apps]
+            resources: [daemonsets]
+            verbs: [get]
 
   - it: does not grant provider- or engine-specific access by default
     documentIndex: 0
@@ -108,23 +120,11 @@ tests:
       - notContains:
           path: rules
           content:
-            apiGroups: [""]
-            resources: [pods]
-            verbs: [list]
-      - notContains:
-          path: rules
-          content:
             apiGroups: [apps]
             resources: [daemonsets]
             verbs: [get, list]
-      - notContains:
-          path: rules
-          content:
-            apiGroups: [apps]
-            resources: [daemonsets]
-            verbs: [get]
 
-  - it: grants node read without node write for the dra provider
+  - it: grants node read access for the dra provider
     set:
       provider:
         name: dra
@@ -137,13 +137,25 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [get, list]
+            verbs: [list]
       - notContains:
           path: rules
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [patch]
+            verbs: [list, patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
       - notContains:
           path: rules
           content:
@@ -182,7 +194,7 @@ tests:
             resources: [daemonsets]
             verbs: [get]
 
-  - it: grants configmaps and pods for the slinky engine
+  - it: grants configmaps, pods, and node list for the slinky engine
     set:
       engine:
         name: slinky
@@ -205,7 +217,19 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [patch]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list, patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, patch]
       - contains:
           path: rules
           content:
@@ -230,7 +254,92 @@ tests:
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [patch]
+            verbs: [get, list, patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
+
+  - it: does not grant node patch access to the slurm engine
+    set:
+      provider:
+        name: dra
+      engine:
+        name: slurm
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list, patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, patch]
+
+  - it: does not grant node patch or update access to the non-dynamic slinky engine
+    set:
+      engine:
+        name: slinky
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list, patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [update]
+
+  - it: grants node patch access to the dynamic slinky engine
+    set:
+      engine:
+        name: slinky
+        params:
+          useDynamicNodes: true
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list, patch]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, patch]
       - notContains:
           path: rules
           content:
@@ -257,38 +366,27 @@ tests:
     asserts:
       - hasDocuments:
           count: 2
-      - notContains:
+      - contains:
           path: rules
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [patch]
+            verbs: [list]
         documentIndex: 0
-
-  - it: does not grant node update access to the slinky engine
-    set:
-      engine:
-        name: slinky
-    documentIndex: 0
-    asserts:
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [get, list]
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [patch]
       - notContains:
           path: rules
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [update]
+            verbs: [list, patch]
+        documentIndex: 0
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, patch]
+        documentIndex: 0
 
   - it: does not render NFD namespace RBAC for an explicit non-NFD engine
     set:
@@ -318,12 +416,26 @@ tests:
             resources: [nodefeatures, nodefeaturegroups]
             verbs: [create, list, patch, delete]
         documentIndex: 0
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list]
+        documentIndex: 0
       - notContains:
           path: rules
           content:
             apiGroups: [""]
             resources: [nodes]
-            verbs: [patch]
+            verbs: [list, patch]
+        documentIndex: 0
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [get, list, patch]
         documentIndex: 0
       - notContains:
           path: rules
@@ -331,13 +443,6 @@ tests:
             apiGroups: [""]
             resources: [pods]
             verbs: [list]
-        documentIndex: 0
-      - contains:
-          path: rules
-          content:
-            apiGroups: [""]
-            resources: [nodes]
-            verbs: [get, list]
         documentIndex: 0
       - isKind:
           of: Role
