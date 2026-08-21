@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The `nscale` provider's Slurm auto-discovery no longer requires a statically configured `placementId`. It now lists placements for the credentialed organization and region via the Nscale Placements API, then queries the Placement Servers API for each placement and merges the results into the instance-to-node map.
+
+### Removed
+
+- `nscale` provider `placementId` parameter — placements are discovered dynamically instead. `region` credential is now required whenever Slurm auto-discovery (`Instances2NodeMap`) is used.
+
 ### Added
 
 - Crusoe provider (`crusoe`) and its simulation variant (`crusoe-sim`) discover the InfiniBand switch fabric on Crusoe Cloud from the `crusoe.ai/ib.partition.id` and `crusoe.ai/pod.id` Node labels the Crusoe control plane publishes. Crusoe compute is virtualized, so a guest VM cannot run `ibnetdiscover` and there is no per-node metadata service for switch identity. Fabric tiers are the rail-optimized pod, the InfiniBand partition, and a synthetic root above them. Nodes without those labels are placed under placeholder tiers beneath the same root, so one Slurm tree spans a heterogeneous cluster. Use it with `topology/tree`.
