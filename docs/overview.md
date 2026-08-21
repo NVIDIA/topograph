@@ -41,6 +41,7 @@ Topology discovery is performed asynchronously. The /v1/generate endpoint first 
 Currently supported providers:
 
 - [AWS](./providers/aws.md)
+- [Crusoe](./providers/crusoe.md)
 - [OCI](./providers/oci.md)
 - [GCP](./providers/gcp.md)
 - [Nebius](./providers/nebius.md)
@@ -64,13 +65,14 @@ Currently supported engines:
 
 | Scenario | Recommended provider |
 |---|---|
-| Cloud cluster (AWS, GCP, OCI, Nebius, Nscale, Lambda) | Use the matching CSP provider |
+| Cloud cluster (AWS, Crusoe, GCP, OCI, Nebius, Nscale, Lambda) | Use the matching CSP provider |
 | Spectrum-X fabric | [NetQ](./providers/netq.md) |
 | Multi-Node NVLink (MNNVL), including cross-partition fabric locality | [NetQ](./providers/netq.md) or [InfiniBand (Kubernetes)](./providers/infiniband.md#infiniband-k8s-kubernetes) |
 | MNNVL with Slinky, workloads contained within one NVLink partition, and `nvidia.com/gpu.clique` present | [DRA](./providers/dra.md) |
 | InfiniBand fabric, NetQ deployed | [NetQ](./providers/netq.md) |
 | InfiniBand fabric, no NetQ, bare-metal / Slurm | [InfiniBand (bare-metal)](./providers/infiniband.md) |
 | InfiniBand fabric, no NetQ, Kubernetes | [InfiniBand (Kubernetes)](./providers/infiniband.md) |
+| Crusoe Cloud, including Crusoe Managed Kubernetes | [Crusoe](./providers/crusoe.md) |
 | Client integration and regression testing | [Test](./providers/test.md) |
 
 The DRA provider is a narrow Slinky integration, not a general Kubernetes MNNVL topology provider. It groups nodes into Slurm `topology/block` domains from an existing Node label, defaulting to `nvidia.com/gpu.clique`. That label is not present in every GPU Operator deployment, and DRA does not discover the backend switch fabric between NVLink partitions. Consequently, if a workload cannot fit in one partition, selection of additional partitions is not informed by network proximity. Use NetQ or `infiniband-k8s` when cross-partition fabric locality is required.

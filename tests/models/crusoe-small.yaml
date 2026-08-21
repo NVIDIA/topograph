@@ -1,0 +1,53 @@
+# Crusoe Cloud cluster with two InfiniBand partitions and a CPU-only nodepool.
+#
+#                        crusoe (common root)
+#                       /        |            \
+#            partition-a     partition-b    (no InfiniBand)
+#            /       \            |               |
+#        pod-a1     pod-a2     pod-b1        cpu nodepool
+#          |          |           |               |
+#      gpu-[01-02] gpu-[03-04] gpu-[05-06]   cpu-[01-02]
+#
+# The provider reads locality from Crusoe Node labels, so the model attaches
+# them to switches and lets them propagate down to the nodes:
+#
+#   crusoe.ai/ib.partition.id  InfiniBand partition, the outer fabric tier
+#   crusoe.ai/pod.id           rail-optimized pod, the inner fabric tier
+#
+# The cpu nodes carry no InfiniBand labels. They land under cpu-partition/cpu-pod
+# beneath the same root, which is what lets one Slurm tree span both.
+
+switches:
+  partition-a:
+    labels:
+      crusoe.ai/ib.partition.id: 0cf47922-9f9e-4a2e-b187-5c51697e7739
+    switches:
+    - pod-a1
+    - pod-a2
+  partition-b:
+    labels:
+      crusoe.ai/ib.partition.id: 1d0e8b3a-2c47-4f16-9a55-7be3d9c4f082
+    switches:
+    - pod-b1
+  pod-a1:
+    labels:
+      crusoe.ai/pod.id: 9b1c7d54-3e08-4a92-8f61-2d5a4c7b0e13
+  pod-a2:
+    labels:
+      crusoe.ai/pod.id: 4f6a2e91-8d75-4c30-b1e8-6a9c3f5d7b24
+  pod-b1:
+    labels:
+      crusoe.ai/pod.id: 7c3d9f68-5b21-4e84-a0f3-9e1b8d2c6a57
+
+blocks:
+- switch: pod-a1
+  nodes:
+  - "gpu-[01-02]"
+- switch: pod-a2
+  nodes:
+  - "gpu-[03-04]"
+- switch: pod-b1
+  nodes:
+  - "gpu-[05-06]"
+- nodes:
+  - "cpu-[01-02]"

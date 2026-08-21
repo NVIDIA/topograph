@@ -24,6 +24,8 @@ navigation:
     contents:
       - page: AWS
         path: providers/aws.md
+      - page: Crusoe
+        path: providers/crusoe.md
       - page: GCP
         path: providers/gcp.md
       - page: OCI

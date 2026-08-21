@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Crusoe provider (`crusoe`) and its simulation variant (`crusoe-sim`) discover the InfiniBand switch fabric on Crusoe Cloud from the `crusoe.ai/ib.partition.id` and `crusoe.ai/pod.id` Node labels the Crusoe control plane publishes. Crusoe compute is virtualized, so a guest VM cannot run `ibnetdiscover` and there is no per-node metadata service for switch identity. Fabric tiers are the rail-optimized pod, the InfiniBand partition, and a synthetic root above them. Nodes without those labels are placed under placeholder tiers beneath the same root, so one Slurm tree spans a heterogeneous cluster. Use it with `topology/tree`.
 - Documentation diagrams for architecture, Kubernetes, Slinky, Slurm topology formats, and engine outputs now ship as community-variant SVG and PNG assets with automatic dark/light mode switching (`<picture>` / `prefers-color-scheme` in docs; `#gh-light-mode-only` / `#gh-dark-mode-only` in README).
 - Topograph logo variants for light mode (`topograph-logo-color`), dark mode (`topograph-logo-color-dark`), reversed black, and reversed white added to `docs/assets/`. The `README.md` logo now switches between color and color-dark automatically based on the viewer's GitHub theme preference.
 - Fern sidebar now includes a direct link to `CHANGELOG.md` on GitHub under the Reference section, so release notes are discoverable from the docs site without navigating the repository.

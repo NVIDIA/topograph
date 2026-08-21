@@ -5,17 +5,20 @@
 
 set -euo pipefail
 
-if (( $# != 2 )); then
-    echo "usage: $0 <values-file> <expected-accelerator>" >&2
+if (( $# < 1 || $# > 2 )); then
+    echo "usage: $0 <values-file> [<expected-accelerator>]" >&2
     exit 2
 fi
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/../.." && pwd)"
 values_file="$1"
-expected_accelerator="$2"
+expected_accelerator="${2:-}"
 kube_context="${KUBE_CONTEXT:-kind-topograph}"
 test_node="${TEST_NODE:-1202}"
+expected_tier_0="${EXPECTED_TIER_0:-sw12}"
+expected_tier_1="${EXPECTED_TIER_1:-sw21}"
+expected_tier_2="${EXPECTED_TIER_2:-sw3}"
 wait_attempts="${WAIT_ATTEMPTS:-60}"
 
 if [[ "$values_file" != /* ]]; then
@@ -26,11 +29,16 @@ fi
 
 for attempt in $(seq 1 "$wait_attempts"); do
     if kubectl --context "$kube_context" get node "$test_node" -o json |
-        jq -e --arg accelerator "$expected_accelerator" '
-            .metadata.labels["fabric.topograph.run/tier-0"] == "sw12" and
-            .metadata.labels["fabric.topograph.run/tier-1"] == "sw21" and
-            .metadata.labels["fabric.topograph.run/tier-2"] == "sw3" and
-            .metadata.labels["accelerator.topograph.run/domain"] == $accelerator
+        jq -e \
+            --arg accelerator "$expected_accelerator" \
+            --arg tier0 "$expected_tier_0" \
+            --arg tier1 "$expected_tier_1" \
+            --arg tier2 "$expected_tier_2" '
+            .metadata.labels["fabric.topograph.run/tier-0"] == $tier0 and
+            .metadata.labels["fabric.topograph.run/tier-1"] == $tier1 and
+            .metadata.labels["fabric.topograph.run/tier-2"] == $tier2 and
+            (($accelerator == "") or
+             (.metadata.labels["accelerator.topograph.run/domain"] == $accelerator))
         ' >/dev/null; then
         exit 0
     fi

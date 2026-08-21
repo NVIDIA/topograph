@@ -28,6 +28,7 @@ import (
 	"github.com/NVIDIA/topograph/internal/version"
 	"github.com/NVIDIA/topograph/pkg/accelerator"
 	"github.com/NVIDIA/topograph/pkg/providers/aws"
+	"github.com/NVIDIA/topograph/pkg/providers/crusoe"
 	"github.com/NVIDIA/topograph/pkg/providers/dra"
 	"github.com/NVIDIA/topograph/pkg/providers/gcp"
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
@@ -205,6 +206,8 @@ func (b *nodeBroker) getAnnotations(ctx context.Context) (map[string]string, err
 	switch b.config.Provider.Name {
 	case aws.NAME:
 		return aws.GetNodeAnnotations(ctx)
+	case crusoe.NAME:
+		return crusoe.GetNodeAnnotations(ctx, b.nodeName)
 	case gcp.NAME:
 		return gcp.GetNodeAnnotations(ctx)
 	case oci.NAME:

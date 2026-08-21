@@ -34,6 +34,16 @@ jobs:
           - provider: gcp-sim
             values: tests/ci/values.k8s-gcp-sim.yaml
             expected_accelerator: sw12
+          - provider: crusoe
+            model: ./tests/models/crusoe-small.yaml
+            values: tests/ci/values.k8s-crusoe.yaml
+            test_node: gpu-05
+            expected_tier_0: 7c3d9f68-5b21-4e84-a0f3-9e1b8d2c6a57
+            expected_tier_1: 1d0e8b3a-2c47-4f16-9a55-7be3d9c4f082
+            expected_tier_2: crusoe
+            # The Crusoe provider discovers fabric tiers only, so there is no
+            # accelerator domain to assert.
+            expected_accelerator: ""
 
     steps:
       - name: Checkout repository
@@ -70,7 +80,7 @@ jobs:
       - name: Create KWOK nodes
         run: |
           ./scripts/create-kind-kwok-cluster.sh \
-            --model ./tests/models/medium.yaml \
+            --model "${{ matrix.model || './tests/models/medium.yaml' }}" \
             --cluster topograph \
             --kwok-release "$KWOK_RELEASE"
 
@@ -78,6 +88,10 @@ jobs:
         env:
           VALUES_FILE: ${{ matrix.values }}
           EXPECTED_ACCELERATOR: ${{ matrix.expected_accelerator }}
+          TEST_NODE: ${{ matrix.test_node || '1202' }}
+          EXPECTED_TIER_0: ${{ matrix.expected_tier_0 || 'sw12' }}
+          EXPECTED_TIER_1: ${{ matrix.expected_tier_1 || 'sw21' }}
+          EXPECTED_TIER_2: ${{ matrix.expected_tier_2 || 'sw3' }}
         run: tests/ci/run-k8s-test.sh "$VALUES_FILE" "$EXPECTED_ACCELERATOR"
 
       - name: Collect diagnostics

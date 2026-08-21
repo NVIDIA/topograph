@@ -555,3 +555,25 @@ tests:
       - equal:
           path: subjects[0].namespace
           value: topograph
+
+  - it: grants node list for the crusoe provider with the slurm engine
+    set:
+      provider:
+        name: crusoe
+      engine:
+        name: slurm
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list]
+        documentIndex: 0
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [pods/exec]
+            verbs: [create]
+        documentIndex: 0
