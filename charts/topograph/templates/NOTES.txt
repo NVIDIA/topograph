@@ -60,6 +60,26 @@
         Configure these limits only through kubeClient.
 {{- end }}
 
+{{- if .Values.networkPolicy.enabled }}
+
+2. NetworkPolicy is enabled. Ingress is restricted to intra-release traffic{{ if .Values.networkPolicy.metricsScraperNamespace }} and the metrics scraper namespace ({{ .Values.networkPolicy.metricsScraperNamespace }}){{ end }}.
+{{- if or .Values.ingress.enabled .Values.gatewayAPI.enabled }}
+   WARNING: ingress/gatewayAPI is also enabled. The ingress or gateway controller
+   pod (in its own namespace) is blocked by the NetworkPolicy. Add an extraIngress
+   rule for the controller namespace, e.g.:
+     networkPolicy:
+       extraIngress:
+         - from:
+             - namespaceSelector:
+                 matchLabels:
+                   kubernetes.io/metadata.name: <controller-namespace>
+           ports:
+             - protocol: TCP
+               port: {{ .Values.service.port }}
+{{- end }}
+   If egress is constrained via extraEgress, ensure the Kubernetes API server
+   and provider topology source are included. See docs/engines/k8s.md.
+{{- end }}
 {{- if not .Values.serviceAccount.create }}
 
 2. Topograph is configured to use the existing ServiceAccount "{{ include "topograph.serviceAccountName" . }}".

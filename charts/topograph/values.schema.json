@@ -210,6 +210,43 @@
         }
       }
     },
+    "networkPolicy": {
+      "type": "object",
+      "description": "Opt-in NetworkPolicy for the whole release. extraEgress, when non-empty, adds an Egress policyType plus a DNS allow rule. extraIngress/extraEgress items must be non-empty objects — an empty {} rule matches all traffic.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "metricsScraperNamespace": {
+          "type": "string",
+          "description": "Namespace where the Prometheus (or other metrics scraper) pod runs. When set, an ingress rule is added allowing TCP on service.port from this namespace. Distinct from serviceMonitor.namespace (the ServiceMonitor CR namespace)."
+        },
+        "dnsPodSelector": {
+          "type": "object",
+          "description": "Pod label selector matching the cluster's DNS server, used to scope the DNS egress allow rule. Defaults to { k8s-app: kube-dns }; override for CoreDNS deployments carrying a different label."
+        },
+        "extraIngress": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "minProperties": 1,
+            "properties": {
+              "from":  { "type": "array", "minItems": 1 },
+              "ports": { "type": "array", "minItems": 1 }
+            }
+          }
+        },
+        "extraEgress": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "minProperties": 1,
+            "properties": {
+              "to":    { "type": "array", "minItems": 1 },
+              "ports": { "type": "array", "minItems": 1 }
+            }
+          }
+        }
+      }
+    },
     "tests": {
       "type": "object",
       "properties": {
