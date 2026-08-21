@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Security
 
 - Main Topograph API server ClusterRole rules are gated by the selected engine and provider: `nodes`, `pods`, `daemonsets`, and `configmaps` permissions render only when the engine or provider reaches the Kubernetes API, and the ClusterRole and ClusterRoleBinding are omitted entirely for non-Kubernetes combinations such as the `test` provider with the `slurm` engine.
+- Node RBAC permissions in the main Topograph API server ClusterRole are collapsed into a single rule following least privilege: the Kubernetes engine receives Node `[get, list, patch]`, the dynamic Slinky engine (`useDynamicNodes: true`) receives Node `[list, patch]`, and other node-consuming configurations receive Node `[list]` without unnecessary `patch`, `get`, or `update` access.
 
 ---
 

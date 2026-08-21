@@ -65,14 +65,16 @@ rules:
   verbs: [create]
 {{- end }}
 {{- if $needsNodes }}
-- apiGroups: [""]
-  resources: [nodes]
-  verbs: [get,list]
-{{- if or (eq $engine "k8s") (eq $engine "slinky") }}
-- apiGroups: [""]
-  resources: [nodes]
-  verbs: [patch]
+{{- $nodeVerbs := list "list" -}}
+{{- if eq $engine "k8s" -}}
+{{- $nodeVerbs = list "get" "list" "patch" -}}
+{{- end -}}
+{{- if and (eq $engine "slinky") (get (default dict .Values.engine.params) "useDynamicNodes") -}}
+{{- $nodeVerbs = list "list" "patch" -}}
 {{- end }}
+- apiGroups: [""]
+  resources: [nodes]
+  verbs: {{ $nodeVerbs | toJson }}
 {{- end }}
 {{- if $needsDaemonSets }}
 - apiGroups: [apps]
