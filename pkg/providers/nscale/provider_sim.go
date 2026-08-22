@@ -67,7 +67,11 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 	return resp, nil
 }
 
-func (c *simClient) Instances(_ context.Context, _ string) (map[string]string, error) {
+func (c *simClient) ListPlacements(_ context.Context, _, _ string) ([]string, error) {
+	return []string{"sim"}, nil
+}
+
+func (c *simClient) PlacementServers(_ context.Context, _ string) (map[string]string, error) {
 	i2n := make(map[string]string, len(c.model.Nodes))
 	for _, node := range c.model.Nodes {
 		i2n[node.ID] = node.ID
