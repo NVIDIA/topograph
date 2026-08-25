@@ -72,3 +72,40 @@ func TestReadFabricLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestReadNVLinkDomain(t *testing.T) {
+	testCases := []struct {
+		name   string
+		labels map[string]string
+		want   string
+	}{
+		{
+			name:   "clique becomes a prefixed domain",
+			labels: map[string]string{labelGPUClique: "cluster-uuid.32766"},
+			want:   nvlDomainPrefix + "cluster-uuid.32766",
+		},
+		{
+			name:   "surrounding whitespace is trimmed",
+			labels: map[string]string{labelGPUClique: " cluster-uuid.32766 "},
+			want:   nvlDomainPrefix + "cluster-uuid.32766",
+		},
+		{
+			name:   "no clique label",
+			labels: map[string]string{labelPartitionID: "partition-uuid"},
+		},
+		{
+			name:   "empty clique value",
+			labels: map[string]string{labelGPUClique: ""},
+		},
+		{
+			name:   "whitespace-only clique value",
+			labels: map[string]string{labelGPUClique: "   "},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, readNVLinkDomain(tc.labels))
+		})
+	}
+}

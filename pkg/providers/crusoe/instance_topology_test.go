@@ -22,6 +22,11 @@ const (
 	podA1      = "9b1c7d54-3e08-4a92-8f61-2d5a4c7b0e13"
 	podA2      = "4f6a2e91-8d75-4c30-b1e8-6a9c3f5d7b24"
 	podB1      = "7c3d9f68-5b21-4e84-a0f3-9e1b8d2c6a57"
+
+	// GPU Feature Discovery publishes the clique as "<clusterUUID>.<cliqueID>".
+	// Two cliques of the same cluster are two racks of one NVL fabric.
+	cliqueA = "29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766"
+	cliqueB = "29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767"
 )
 
 func gpuNode(name, partition, pod string) nodeMetadata {
@@ -34,18 +39,27 @@ func gpuNode(name, partition, pod string) nodeMetadata {
 	}
 }
 
+func mnnvlNode(name, partition, pod, clique string) nodeMetadata {
+	node := gpuNode(name, partition, pod)
+	node.Labels[labelGPUClique] = clique
+	return node
+}
+
 func TestBuildInstanceTopology(t *testing.T) {
 	testCases := []struct {
 		name       string
 		node       nodeMetadata
 		wantTiers  []topology.FabricTier
 		wantFabric bool
+		wantDomain string
 	}{
 		{
 			name:       "InfiniBand node maps pod, partition and root",
 			node:       gpuNode("gpu-01", partitionA, podA1),
 			wantTiers:  topology.ClosestFirstFabricTiers(podA1, partitionA, rootTier),
 			wantFabric: true,
+			// No NVLink fabric, so no block domain — the partition is
+			// deliberately not used as a stand-in.
 		},
 		{
 			name:      "node without InfiniBand sits under the same root",
@@ -60,6 +74,22 @@ func TestBuildInstanceTopology(t *testing.T) {
 			},
 			wantTiers: topology.ClosestFirstFabricTiers(cpuPod, cpuPartition, rootTier),
 		},
+		{
+			name:       "MNNVL node takes its block domain from the clique",
+			node:       mnnvlNode("gb200-01", partitionA, podA1, cliqueA),
+			wantTiers:  topology.ClosestFirstFabricTiers(podA1, partitionA, rootTier),
+			wantFabric: true,
+			wantDomain: nvlDomainPrefix + cliqueA,
+		},
+		{
+			name: "MNNVL node without InfiniBand still contributes a block",
+			node: nodeMetadata{
+				InstanceID: "gb200-no-ib",
+				Labels:     map[string]string{labelGPUClique: cliqueA},
+			},
+			wantTiers:  topology.ClosestFirstFabricTiers(cpuPod, cpuPartition, rootTier),
+			wantDomain: nvlDomainPrefix + cliqueA,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -68,9 +98,7 @@ func TestBuildInstanceTopology(t *testing.T) {
 			require.Equal(t, tc.node.InstanceID, got.InstanceID)
 			require.Equal(t, tc.wantTiers, got.FabricTiers)
 			require.Equal(t, tc.wantFabric, hasFabric)
-			// Block topology is out of scope for this provider, so it
-			// contributes no accelerator domain.
-			require.Empty(t, got.XclrDomainID)
+			require.Equal(t, tc.wantDomain, got.XclrDomainID)
 			require.Empty(t, got.XclrSubDomainID)
 		})
 	}
@@ -165,6 +193,50 @@ func TestRenderedTreeTopologyConf(t *testing.T) {
 	// which is what lets a Slurm job span GPU and CPU nodes.
 	require.Contains(t, got,
 		"SwitchName="+rootTier+" Switches="+partitionA+","+partitionB+","+cpuPartition)
+}
+
+// TestRenderedBlockTopologyConf pins the block topology.conf, so a regression in
+// domain selection shows up as a diff in the file Slurm reads.
+//
+// The emission order is deterministic — block IDs come from the sorted domain
+// names and print order from the tree walk. That matters beyond readability:
+// unstable ordering would rewrite the topology ConfigMap on every regeneration
+// and churn slurmctld reconfigures.
+func TestRenderedBlockTopologyConf(t *testing.T) {
+	nodes := []nodeMetadata{
+		mnnvlNode("rack-a-1", partitionA, podA1, cliqueA),
+		mnnvlNode("rack-a-2", partitionA, podA1, cliqueA),
+		mnnvlNode("rack-b-1", partitionA, podA2, cliqueB),
+		mnnvlNode("rack-b-2", partitionA, podA2, cliqueB),
+	}
+
+	got := render(t, nodes, &translate.Config{Plugin: topology.TopologyBlock})
+
+	// One block per clique, never per partition: all four nodes share partitionA
+	// but sit in two racks, and a job must stay inside one to get MNNVL.
+	require.Contains(t, got, "BlockName=block001 Nodes=rack-a-[1-2]")
+	require.Contains(t, got, "BlockName=block002 Nodes=rack-b-[1-2]")
+	require.Contains(t, got, "# block001="+nvlDomainPrefix+cliqueA)
+	require.Contains(t, got, "# block002="+nvlDomainPrefix+cliqueB)
+	// Planning size is the smallest domain, then the power-of-two level above.
+	require.Contains(t, got, "BlockSizes=2,4")
+}
+
+// TestRenderedBlockTopologyConfSkipsNodesWithoutNVLink keeps non-MNNVL nodes out
+// of the block topology entirely rather than inventing a domain for them.
+func TestRenderedBlockTopologyConfSkipsNodesWithoutNVLink(t *testing.T) {
+	nodes := []nodeMetadata{
+		mnnvlNode("rack-a-1", partitionA, podA1, cliqueA),
+		mnnvlNode("rack-a-2", partitionA, podA1, cliqueA),
+		gpuNode("gpu-01", partitionB, podB1),
+		{InstanceID: "cpu-01"},
+	}
+
+	got := render(t, nodes, &translate.Config{Plugin: topology.TopologyBlock})
+
+	require.Contains(t, got, "BlockName=block001 Nodes=rack-a-[1-2]")
+	require.NotContains(t, got, "gpu-01")
+	require.NotContains(t, got, "cpu-01")
 }
 
 func render(t *testing.T, nodes []nodeMetadata, cfg *translate.Config) string {

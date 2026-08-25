@@ -74,6 +74,14 @@ func buildClusterTopology(nodes []nodeMetadata, requested map[string]struct{}) (
 // the InfiniBand partition and tier 2 is the common root. A node without labels
 // gets placeholder tiers under the same root, which lets Slurm schedule across
 // GPU and CPU nodes in one tree.
+//
+// The accelerator domain is set separately from the tiers, because it feeds
+// block topology rather than the switch tree. Only an NVLink fabric produces
+// one: the InfiniBand partition is deliberately not used as a fallback. A
+// partition can span many racks while a clique never leaves one, so keying
+// blocks on the partition would let Slurm spread a job across racks and quietly
+// fall back to InfiniBand instead of MNNVL. Nodes with no NVLink fabric are
+// left without a domain and are scheduled by the tree alone.
 func buildInstanceTopology(node nodeMetadata) (*topology.InstanceTopology, bool) {
 	inst := &topology.InstanceTopology{InstanceID: node.InstanceID}
 
@@ -83,6 +91,10 @@ func buildInstanceTopology(node nodeMetadata) (*topology.InstanceTopology, bool)
 	} else {
 		inst.FabricTiers = topology.ClosestFirstFabricTiers(cpuPod, cpuPartition, rootTier)
 	}
+
+	// A GB200 node on the SKU that ships without InfiniBand has no fabric
+	// labels but does have a clique, so it still contributes a block.
+	inst.XclrDomainID = readNVLinkDomain(node.Labels)
 
 	klog.V(4).Infof("Built %s", inst.String())
 	return inst, ok

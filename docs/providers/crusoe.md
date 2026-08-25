@@ -15,15 +15,18 @@ the provider only has to read the Kubernetes API.
 Use it on Crusoe Managed Kubernetes. On any other platform use the provider
 that matches it — see [Choosing a Provider](../overview.md).
 
-The provider supplies the switch fabric hierarchy. Pair it with
-`topology/tree`.
+The provider supplies the switch fabric hierarchy, so pair it with
+`topology/tree`. On rack-scale NVLink systems it also supplies an accelerator
+domain per node, which `topology/block` uses — see
+[NVLink domains](#nvlink-domains).
 
 ## How It Works
 
 1. Lists Nodes, filtered by `nodeSelector` when one is set.
 2. Reads `crusoe.ai/ib.partition.id` and `crusoe.ai/pod.id` from each Node and
    turns them into fabric tiers.
-3. Returns the canonical graph.
+3. Reads `nvidia.com/gpu.clique` and turns it into an accelerator domain.
+4. Returns the canonical graph.
 
 ### Fabric tiers
 
@@ -47,11 +50,41 @@ tree alongside the InfiniBand nodes.
 A node the request names but the `nodeSelector` excludes has no tiers at all, so
 it appears under `no-topology` in the generated file rather than disappearing.
 
+### NVLink domains
+
+On rack-scale NVLink systems such as GB200 and GB300 NVL72, the fabric a job
+wants to stay inside is the NVLink domain, not the InfiniBand partition. NVIDIA
+GPU Feature Discovery advertises that domain as `nvidia.com/gpu.clique`, with the
+value `<clusterUUID>.<cliqueID>`. Every node in a rack carries the same value and
+a clique never spans racks.
+
+The provider maps each distinct clique to one accelerator domain, which
+`topology/block` renders as one Slurm block:
+
+```
+# block001=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766
+BlockName=block001 Nodes=gpu-[01-02]
+# block002=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767
+BlockName=block002 Nodes=gpu-[03-04]
+BlockSizes=2,4
+```
+
+The InfiniBand partition is deliberately **not** used as a fallback domain. A
+partition can span many racks while a clique cannot, so keying blocks on the
+partition would let Slurm spread one job across racks and quietly fall back to
+InfiniBand instead of NVLink. Nodes with no clique label get no domain and are
+scheduled by the tree alone.
+
+A GPU SKU that ships without InfiniBand still carries a clique, so it
+contributes a block even though it has no fabric tiers.
+
 ## Prerequisites
 
 - A Crusoe Cloud Kubernetes cluster
 - Nodes labelled by the Crusoe control plane with `crusoe.ai/ib.partition.id`
   and `crusoe.ai/pod.id`
+- For block topology, NVIDIA GPU Feature Discovery publishing
+  `nvidia.com/gpu.clique` on NVLink hosts
 
 ## Parameters
 
