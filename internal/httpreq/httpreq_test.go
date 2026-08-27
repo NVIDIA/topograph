@@ -249,6 +249,7 @@ func TestDoRequest(t *testing.T) {
 		resp, body, err := DoRequest(f, false)
 		require.NotNil(t, err)
 		require.Equal(t, http.StatusNotFound, err.Code())
+		require.Equal(t, "not found", err.Error())
 		require.NotNil(t, resp)
 		require.Equal(t, []byte("not found"), body)
 	})
