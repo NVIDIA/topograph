@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- README badges replaced with a consistent flat-square Shields.io row: Go CI, Coverage, Chart Tests, K8s Tests, Release, and License — each linked to its source and using a shared dark label color aligned with the Topograph logo palette.
 - Documentation diagrams for architecture, Kubernetes, Slinky, Slurm topology formats, and engine outputs now ship as community-variant SVG and PNG assets with automatic dark/light mode switching (`<picture>` / `prefers-color-scheme` in docs; `#gh-light-mode-only` / `#gh-dark-mode-only` in README).
 - Topograph logo variants for light mode (`topograph-logo-color`), dark mode (`topograph-logo-color-dark`), reversed black, and reversed white added to `docs/assets/`. The `README.md` logo now switches between color and color-dark automatically based on the viewer's GitHub theme preference.
 - Fern sidebar now includes a direct link to `CHANGELOG.md` on GitHub under the Reference section, so release notes are discoverable from the docs site without navigating the repository.
