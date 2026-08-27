@@ -8,6 +8,7 @@ package httpreq
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -197,6 +198,111 @@ func TestGetURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDoRequest(t *testing.T) {
+	t.Run("request func returns error", func(t *testing.T) {
+		f := func() (*http.Request, *httperr.Error) {
+			return nil, httperr.NewError(http.StatusBadRequest, "bad input")
+		}
+		resp, body, err := DoRequest(f, false)
+		require.Nil(t, resp)
+		require.Nil(t, body)
+		require.NotNil(t, err)
+		require.Equal(t, http.StatusBadRequest, err.Code())
+	})
+
+	t.Run("2xx response returns body and no error", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		}))
+		defer srv.Close()
+
+		f := func() (*http.Request, *httperr.Error) {
+			req, e := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+			if e != nil {
+				return nil, httperr.NewError(http.StatusInternalServerError, e.Error())
+			}
+			return req, nil
+		}
+		resp, body, err := DoRequest(f, false)
+		require.Nil(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, []byte("ok"), body)
+	})
+
+	t.Run("non-2xx response returns body and error with that status", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("not found"))
+		}))
+		defer srv.Close()
+
+		f := func() (*http.Request, *httperr.Error) {
+			req, e := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+			if e != nil {
+				return nil, httperr.NewError(http.StatusInternalServerError, e.Error())
+			}
+			return req, nil
+		}
+		resp, body, err := DoRequest(f, false)
+		require.NotNil(t, err)
+		require.Equal(t, http.StatusNotFound, err.Code())
+		require.NotNil(t, resp)
+		require.Equal(t, []byte("not found"), body)
+	})
+
+	t.Run("transport error returns 502", func(t *testing.T) {
+		f := func() (*http.Request, *httperr.Error) {
+			req, e := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://127.0.0.1:1", nil)
+			if e != nil {
+				return nil, httperr.NewError(http.StatusInternalServerError, e.Error())
+			}
+			return req, nil
+		}
+		_, _, err := DoRequest(f, false)
+		require.NotNil(t, err)
+		require.Equal(t, http.StatusBadGateway, err.Code())
+	})
+
+	t.Run("insecureSkipVerify works against TLS server", func(t *testing.T) {
+		srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("tls-ok"))
+		}))
+		defer srv.Close()
+
+		f := func() (*http.Request, *httperr.Error) {
+			req, e := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+			if e != nil {
+				return nil, httperr.NewError(http.StatusInternalServerError, e.Error())
+			}
+			return req, nil
+		}
+		resp, body, err := DoRequest(f, true)
+		require.Nil(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, []byte("tls-ok"), body)
+	})
+}
+
+func TestGetRequestFunc(t *testing.T) {
+	ctx := context.Background()
+	f := GetRequestFunc(ctx, http.MethodGet,
+		map[string]string{"Authorization": "Bearer token"},
+		map[string]string{"page": "1"},
+		nil,
+		"http://localhost",
+		"v1", "resource",
+	)
+	req, err := f()
+	require.Nil(t, err)
+	require.NotNil(t, req)
+	require.Equal(t, http.MethodGet, req.Method)
+	require.Equal(t, "Bearer token", req.Header.Get("Authorization"))
+	require.Equal(t, "1", req.URL.Query().Get("page"))
+	require.Equal(t, "/v1/resource", req.URL.Path)
 }
 
 func TestGetNextBackoff(t *testing.T) {
