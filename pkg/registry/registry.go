@@ -53,6 +53,7 @@ var Providers = providers.NewRegistry(
 	netq.NamedLoader,
 	lambdai.NamedLoader,
 	lambdai.NamedLoaderSim,
+	dsx.NamedLoader,
 	dsx.NamedLoaderSim,
 	nscale.NamedLoader,
 	nscale.NamedLoaderSim,
