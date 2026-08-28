@@ -19,8 +19,7 @@ import (
 const (
 	NAME_SIM = "nscale-sim"
 
-	errNone = iota
-	errTopology
+	errTopology = iota
 )
 
 type simClient struct {
@@ -34,9 +33,9 @@ type simProvider struct {
 	*providers.BaseSimProvider
 }
 
-func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int) ([]InstanceTopology, error) {
+func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int) ([]InstanceTopology, *httperr.Error) {
 	if c.apiErr == errTopology {
-		return nil, providers.ErrAPIError
+		return nil, httperr.NewError(http.StatusBadGateway, providers.ErrAPIError.Error())
 	}
 
 	resp := make([]InstanceTopology, 0, pageSize)
@@ -53,7 +52,7 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 			path[len(nl)-1-i] = v
 		}
 		instance := InstanceTopology{
-			ID:          node.ID,
+			ServerID:    node.ID,
 			NetworkPath: path,
 		}
 		domainID := node.AcceleratorDomain()
@@ -65,19 +64,6 @@ func (c *simClient) Topology(ctx context.Context, _ string, pageSize, offset int
 	}
 
 	return resp, nil
-}
-
-func (c *simClient) ListPlacements(_ context.Context, _, _ string) ([]string, error) {
-	return []string{"sim"}, nil
-}
-
-func (c *simClient) PlacementServers(_ context.Context, _ string) (map[string]string, error) {
-	i2n := make(map[string]string, len(c.model.Nodes))
-	for _, node := range c.model.Nodes {
-		i2n[node.ID] = node.ID
-	}
-
-	return i2n, nil
 }
 
 func NamedLoaderSim() (string, providers.Loader) {

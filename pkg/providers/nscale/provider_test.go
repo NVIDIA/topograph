@@ -7,17 +7,36 @@ package nscale
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/NVIDIA/topograph/internal/httperr"
 	"github.com/NVIDIA/topograph/pkg/providers"
+	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 )
+
+type fakeClient struct {
+	instances []InstanceTopology
+	err       *httperr.Error
+	regions   []string
+}
+
+func (c *fakeClient) Topology(_ context.Context, region string, _, offset int) ([]InstanceTopology, *httperr.Error) {
+	c.regions = append(c.regions, region)
+	if c.err != nil {
+		return nil, c.err
+	}
+	if offset >= len(c.instances) {
+		return nil, nil
+	}
+	return c.instances[offset:], nil
+}
 
 func TestLoader(t *testing.T) {
 	ctx := context.Background()
@@ -31,8 +50,21 @@ func TestLoader(t *testing.T) {
 			name: "Case 1: success",
 			config: providers.Config{
 				Params: map[string]any{
-					"radarApiUrl":    "https://radar.test.com",
-					"instanceApiUrl": "https://instances.test.com",
+					"radarApiUrl": "https://radar.test.com",
+				},
+				Creds: map[string]any{
+					"org":    "org",
+					"token":  "token",
+					"region": "region",
+				},
+			},
+		},
+		{
+			name: "Case 1b: success with custom imdsUrl",
+			config: providers.Config{
+				Params: map[string]any{
+					"radarApiUrl": "https://radar.test.com",
+					"imdsUrl":     "http://custom-imds.example.com/meta_data.json",
 				},
 				Creds: map[string]any{
 					"org":    "org",
@@ -44,9 +76,7 @@ func TestLoader(t *testing.T) {
 		{
 			name: "Case 2: missing radarApiUrl",
 			config: providers.Config{
-				Params: map[string]any{
-					"instanceApiUrl": "https://instances.test.com",
-				},
+				Params: map[string]any{},
 				Creds: map[string]any{
 					"org":   "org",
 					"token": "token",
@@ -55,24 +85,10 @@ func TestLoader(t *testing.T) {
 			err: "missing 'radarApiUrl'",
 		},
 		{
-			name: "Case 3: missing instanceApiUrl",
+			name: "Case 3: missing org",
 			config: providers.Config{
 				Params: map[string]any{
 					"radarApiUrl": "https://radar.test.com",
-				},
-				Creds: map[string]any{
-					"org":   "org",
-					"token": "token",
-				},
-			},
-			err: "missing 'instanceApiUrl'",
-		},
-		{
-			name: "Case 4: missing org",
-			config: providers.Config{
-				Params: map[string]any{
-					"radarApiUrl":    "https://radar.test.com",
-					"instanceApiUrl": "https://instances.test.com",
 				},
 				Creds: map[string]any{
 					"token": "token",
@@ -81,17 +97,30 @@ func TestLoader(t *testing.T) {
 			err: "missing 'org'",
 		},
 		{
-			name: "Case 5: missing token",
+			name: "Case 4: missing token",
 			config: providers.Config{
 				Params: map[string]any{
-					"radarApiUrl":    "https://radar.test.com",
-					"instanceApiUrl": "https://instances.test.com",
+					"radarApiUrl": "https://radar.test.com",
 				},
 				Creds: map[string]any{
 					"org": "org",
 				},
 			},
 			err: "missing 'token'",
+		},
+		{
+			name: "Case 5: invalid imdsUrl type",
+			config: providers.Config{
+				Params: map[string]any{
+					"radarApiUrl": "https://radar.test.com",
+					"imdsUrl":     1,
+				},
+				Creds: map[string]any{
+					"org":   "org",
+					"token": "token",
+				},
+			},
+			err: "invalid 'imdsUrl' value '1': unsupported type int",
 		},
 	}
 
@@ -112,319 +141,476 @@ func TestLoader(t *testing.T) {
 	}
 }
 
-const placementsResponse = `[
-  {"metadata": {"id": "placement-1"}},
-  {"metadata": {"id": "placement-2"}}
-]`
-
-const placementServersResponseTmpl = `[
-  {
-    "metadata": {
-      "id": "%s",
-      "name": "%s",
-      "organizationId": "9a8c6370-4065-4d4a-9da0-7678df40cd9d",
-      "projectId": "e36c058a-8eba-4f5b-91f4-f6ffb983795c",
-      "creationTime": "2026-04-28T11:04:00Z",
-      "createdBy": "john.doe@example.com",
-      "provisioningStatus": "provisioned",
-      "healthStatus": "healthy"
-    },
-    "status": {
-      "regionId": "c7568e2d-f9ab-453d-9a3a-51375f78426b",
-      "reservationId": "a64f9269-36e0-4312-b8d1-52d93d569b7b",
-      "placementId": "%s",
-      "networkId": "61f0ad85-3001-41cb-824a-e6a047668dfe",
-      "powerState": "Running",
-      "privateIP": "10.0.0.12",
-      "macAddress": "fa:16:3e:7c:11:8a"
-    }
-  }
-]`
-
-func newTestProvider(t *testing.T, ctx context.Context, serverURL string) *Provider {
-	t.Helper()
-	provider, httpErr := Loader(ctx, providers.Config{
-		Params: map[string]any{
-			"radarApiUrl":    "https://radar.test.com",
-			"instanceApiUrl": serverURL,
-		},
-		Creds: map[string]any{
-			"org":    "org",
-			"token":  "token",
-			"region": "region",
-		},
+func TestGetParamsIMDSUrl(t *testing.T) {
+	p, err := getParams(map[string]any{
+		"radarApiUrl": "https://radar.test.com",
+		"imdsUrl":     "http://custom-imds.example.com/meta_data.json",
 	})
-	require.Nil(t, httpErr)
-	return provider.(*Provider)
-}
-
-func TestInstances2NodeMap(t *testing.T) {
-	ctx := context.Background()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodGet, r.Method)
-		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
-
-		w.Header().Set("Content-Type", "application/json")
-
-		switch r.URL.Path {
-		case "/api/v2/placements":
-			require.Equal(t, "org", r.URL.Query().Get("organizationID"))
-			require.Equal(t, "region", r.URL.Query().Get("regionID"))
-			_, err := w.Write([]byte(placementsResponse))
-			require.NoError(t, err)
-		case "/api/v2/placements/placement-1/servers":
-			_, err := fmt.Fprintf(w, placementServersResponseTmpl, "psrv-7f3d9d5d2a7c4e32", "training-workers-0", "placement-1")
-			require.NoError(t, err)
-		case "/api/v2/placements/placement-2/servers":
-			_, err := fmt.Fprintf(w, placementServersResponseTmpl, "psrv-950ab3259a1443da", "training-workers-1", "placement-2")
-			require.NoError(t, err)
-		default:
-			t.Fatalf("unexpected request path %q", r.URL.Path)
-		}
-	}))
-	defer server.Close()
-
-	p := newTestProvider(t, ctx, server.URL)
-
-	i2n, err := p.Instances2NodeMap(ctx, []string{"training-workers-0", "training-workers-1"})
 	require.NoError(t, err)
-	require.Equal(t, map[string]string{
-		"psrv-7f3d9d5d2a7c4e32": "training-workers-0",
-		"psrv-950ab3259a1443da": "training-workers-1",
-	}, i2n)
+	require.Equal(t, "http://custom-imds.example.com/meta_data.json", p.IMDSUrl)
 
-	i2n, err = p.Instances2NodeMap(ctx, nil)
+	p, err = getParams(map[string]any{
+		"radarApiUrl": "https://radar.test.com",
+	})
 	require.NoError(t, err)
-	require.Equal(t, map[string]string{
-		"psrv-7f3d9d5d2a7c4e32": "training-workers-0",
-		"psrv-950ab3259a1443da": "training-workers-1",
-	}, i2n)
+	require.Empty(t, p.IMDSUrl)
 }
 
-const placementServersMissingFieldsResponse = `[
-  {"metadata": {"id": "psrv-1", "name": "training-workers-0"}},
-  {"metadata": {"id": "", "name": "training-workers-1"}},
-  {"metadata": {"id": "psrv-2", "name": ""}},
-  {"metadata": {"id": "psrv-3", "name": "training-workers-2"}}
-]`
-
-func TestPlacementServers(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("excludes servers missing id or name", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, err := w.Write([]byte(placementServersMissingFieldsResponse))
-			require.NoError(t, err)
-		}))
-		defer server.Close()
-
-		c := &nscaleClient{instanceAPIURL: server.URL, token: "token"}
-		i2n, err := c.PlacementServers(ctx, "placement-1")
-		require.NoError(t, err)
-		require.Equal(t, map[string]string{
-			"psrv-1": "training-workers-0",
-			"psrv-3": "training-workers-2",
-		}, i2n)
-	})
-
-	t.Run("malformed JSON returns an error", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, err := w.Write([]byte(`{not valid json`))
-			require.NoError(t, err)
-		}))
-		defer server.Close()
-
-		c := &nscaleClient{instanceAPIURL: server.URL, token: "token"}
-		i2n, err := c.PlacementServers(ctx, "placement-1")
-		require.Error(t, err)
-		require.Nil(t, i2n)
-	})
-
-	t.Run("canceled context returns promptly without retries", func(t *testing.T) {
-		var requests int32
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			atomic.AddInt32(&requests, 1)
-			w.Header().Set("Content-Type", "application/json")
-			_, err := w.Write([]byte(placementsResponse))
-			require.NoError(t, err)
-		}))
-		defer server.Close()
-
-		cancelCtx, cancel := context.WithCancel(ctx)
-		cancel()
-
-		c := &nscaleClient{instanceAPIURL: server.URL, token: "token"}
-
-		start := time.Now()
-		i2n, err := c.PlacementServers(cancelCtx, "placement-1")
-		elapsed := time.Since(start)
-
-		require.Error(t, err)
-		require.Nil(t, i2n)
-		require.Less(t, elapsed, time.Second, "canceled context should fail immediately, not retry with backoff")
-		require.Equal(t, int32(0), atomic.LoadInt32(&requests), "canceled context should not reach the server")
-	})
-}
-
-const placementsResponseWithEmptyID = `[
-  {"metadata": {"id": "placement-1"}},
-  {"metadata": {"id": ""}},
-  {"metadata": {"id": "placement-2"}}
-]`
-
-func TestListPlacements(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("excludes placements missing id", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, err := w.Write([]byte(placementsResponseWithEmptyID))
-			require.NoError(t, err)
-		}))
-		defer server.Close()
-
-		c := &nscaleClient{instanceAPIURL: server.URL, token: "token"}
-		ids, err := c.ListPlacements(ctx, "org", "region")
-		require.NoError(t, err)
-		require.Equal(t, []string{"placement-1", "placement-2"}, ids)
-	})
-
-	t.Run("empty list returns no ids and no error", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, err := w.Write([]byte(`[]`))
-			require.NoError(t, err)
-		}))
-		defer server.Close()
-
-		c := &nscaleClient{instanceAPIURL: server.URL, token: "token"}
-		ids, err := c.ListPlacements(ctx, "org", "region")
-		require.NoError(t, err)
-		require.Empty(t, ids)
-	})
-
-	t.Run("malformed JSON returns HTTP 502", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, err := w.Write([]byte(`{not valid json`))
-			require.NoError(t, err)
-		}))
-		defer server.Close()
-
-		c := &nscaleClient{instanceAPIURL: server.URL, token: "token"}
-		ids, err := c.ListPlacements(ctx, "org", "region")
-		require.Error(t, err)
-		require.Nil(t, ids)
-
-		var httpErr *httperr.Error
-		require.ErrorAs(t, err, &httpErr)
-		require.Equal(t, http.StatusBadGateway, httpErr.Code())
-	})
-
-	t.Run("canceled context returns without issuing a request", func(t *testing.T) {
-		var requests int32
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			atomic.AddInt32(&requests, 1)
-			w.Header().Set("Content-Type", "application/json")
-			_, err := w.Write([]byte(placementsResponse))
-			require.NoError(t, err)
-		}))
-		defer server.Close()
-
-		cancelCtx, cancel := context.WithCancel(ctx)
-		cancel()
-
-		c := &nscaleClient{instanceAPIURL: server.URL, token: "token"}
-
-		start := time.Now()
-		ids, err := c.ListPlacements(cancelCtx, "org", "region")
-		elapsed := time.Since(start)
-
-		require.Error(t, err)
-		require.Nil(t, ids)
-		require.Less(t, elapsed, time.Second, "canceled context should fail immediately, not retry with backoff")
-		require.Equal(t, int32(0), atomic.LoadInt32(&requests), "canceled context should not reach the server")
-	})
-}
-
-func TestInstances2NodeMapErrors(t *testing.T) {
-	ctx := context.Background()
-
+func TestIMDSURL(t *testing.T) {
 	tests := []struct {
-		name             string
-		failPlacements   bool
-		statusCode       int
-		body             string
-		wantErrSubstring string
+		name     string
+		params   *ProviderParams
+		expected string
 	}{
 		{
-			name:             "400 invalid request listing placements",
-			failPlacements:   true,
-			statusCode:       http.StatusBadRequest,
-			body:             `{"error":"invalid_request","error_description":"request body invalid","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
-			wantErrSubstring: "failed to list placements",
+			name:     "Case 1: unset falls back to default",
+			params:   &ProviderParams{},
+			expected: IMDSURL,
 		},
 		{
-			name:             "401 authentication failed listing placements",
-			failPlacements:   true,
-			statusCode:       http.StatusUnauthorized,
-			body:             `{"error":"access_denied","error_description":"authentication failed","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
-			wantErrSubstring: "failed to list placements",
-		},
-		{
-			name:             "404 not found listing placements",
-			failPlacements:   true,
-			statusCode:       http.StatusNotFound,
-			body:             `{"error":"not_found","error_description":"the requested resource does not exist","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
-			wantErrSubstring: "failed to list placements",
-		},
-		{
-			name:             "403 forbidden fetching placement servers",
-			statusCode:       http.StatusForbidden,
-			body:             `{"error":"forbidden","error_description":"user credentials do not have the required privileges","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
-			wantErrSubstring: "failed to get placement servers",
-		},
-		{
-			name:             "500 server error fetching placement servers",
-			statusCode:       http.StatusInternalServerError,
-			body:             `{"error":"server_error","error_description":"failed to token claim","trace_id":"57bc14d9bd461f0b5a72db830149b67a"}`,
-			wantErrSubstring: "failed to get placement servers",
+			name:     "Case 2: custom URL overrides default",
+			params:   &ProviderParams{IMDSUrl: "http://custom-imds.example.com/meta_data.json"},
+			expected: "http://custom-imds.example.com/meta_data.json",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-
-				if r.URL.Path == "/api/v2/placements" {
-					if tt.failPlacements {
-						w.WriteHeader(tt.statusCode)
-						_, err := w.Write([]byte(tt.body))
-						require.NoError(t, err)
-						return
-					}
-					_, err := w.Write([]byte(placementsResponse))
-					require.NoError(t, err)
-					return
-				}
-
-				w.WriteHeader(tt.statusCode)
-				_, err := w.Write([]byte(tt.body))
-				require.NoError(t, err)
-			}))
-			defer server.Close()
-
-			p := newTestProvider(t, ctx, server.URL)
-			_, err := p.Instances2NodeMap(ctx, nil)
-			require.ErrorContains(t, err, tt.wantErrSubstring)
-
-			var httpErr *httperr.Error
-			require.ErrorAs(t, err, &httpErr)
-			require.Equal(t, tt.statusCode, httpErr.Code())
+			p := &baseProvider{params: tt.params}
+			require.Equal(t, tt.expected, p.imdsURL())
 		})
 	}
+}
+
+func TestFetchIMDSMetadataNilParams(t *testing.T) {
+	var gotURL string
+	p := &baseProvider{
+		imdsFetch: func(_ context.Context, _ []string, imdsURL string) (map[string]*imdsMetadata, error) {
+			gotURL = imdsURL
+			return fakeMetadata(), nil
+		},
+	}
+
+	data, err := p.fetchIMDSMetadata(context.Background(), []string{"node-1"})
+	require.NoError(t, err)
+	require.Equal(t, fakeMetadata(), data)
+	require.Equal(t, IMDSURL, gotURL)
+}
+
+func TestGenerateTopologyConfig(t *testing.T) {
+	blockID := "block-1"
+
+	tests := []struct {
+		name      string
+		client    Client
+		instances []topology.ComputeInstances
+		trimTiers int
+		err       string
+	}{
+		{
+			name: "Case 1: success",
+			client: &fakeClient{instances: []InstanceTopology{
+				{ServerID: "srv-1", NetworkPath: []string{"core-1", "spine-1", "leaf-1"}},
+				{ServerID: "srv-2", NetworkPath: []string{"core-1", "spine-1", "leaf-2"}, BlockID: &blockID},
+			}},
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region-a",
+					Instances: map[string]string{"srv-1": "node1", "srv-2": "node2"},
+				},
+			},
+		},
+		{
+			name:      "Case 2: no compute instances",
+			client:    &fakeClient{},
+			instances: nil,
+		},
+		{
+			name:   "Case 3: missing region",
+			client: &fakeClient{},
+			instances: []topology.ComputeInstances{
+				{Instances: map[string]string{"srv-1": "node1"}},
+			},
+			err: "must specify region",
+		},
+		{
+			name:   "Case 4: Radar API error",
+			client: &fakeClient{err: httperr.NewError(http.StatusBadGateway, "boom")},
+			instances: []topology.ComputeInstances{
+				{
+					Region:    "region-a",
+					Instances: map[string]string{"srv-1": "node1"},
+				},
+			},
+			err: "boom",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &baseProvider{
+				client: tt.client,
+				params: &ProviderParams{TrimTiers: tt.trimTiers},
+			}
+
+			graph, err := p.GenerateTopologyConfig(context.Background(), nil, tt.instances)
+
+			if len(tt.err) != 0 {
+				require.Nil(t, graph)
+				require.NotNil(t, err)
+				require.Contains(t, err.Error(), tt.err)
+			} else {
+				require.Nil(t, err)
+				require.NotNil(t, graph)
+
+				if tt.name == "Case 1: success" {
+					leaves := make(map[string]string)
+					collectLeafVertices(graph.Tiers, leaves)
+					require.Equal(t, map[string]string{"srv-1": "node1", "srv-2": "node2"}, leaves)
+
+					fc := tt.client.(*fakeClient)
+					require.NotEmpty(t, fc.regions)
+					for _, r := range fc.regions {
+						require.Equal(t, "region-a", r)
+					}
+				}
+			}
+		})
+	}
+}
+
+// collectLeafVertices walks the graph tree, collecting compute-node vertices
+// (those without children) into leaves, keyed by instance ID.
+func collectLeafVertices(v *topology.Vertex, leaves map[string]string) {
+	if v == nil {
+		return
+	}
+	if len(v.Vertices) == 0 {
+		if len(v.ID) != 0 {
+			leaves[v.ID] = v.Name
+		}
+		return
+	}
+	for _, child := range v.Vertices {
+		collectLeafVertices(child, leaves)
+	}
+}
+
+func TestNscaleClientTopology(t *testing.T) {
+	blockID := "block-1"
+
+	tests := []struct {
+		name     string
+		region   string
+		pageSize int
+		offset   int
+		status   int
+		body     string
+		expected []InstanceTopology
+		err      string
+	}{
+		{
+			name:     "Case 1: success",
+			region:   "region-a",
+			pageSize: 50,
+			offset:   100,
+			status:   http.StatusOK,
+			body: `{"results": [
+				{"server_id": "srv-1", "network_node_path": ["core-1", "spine-1", "leaf-1"]},
+				{"server_id": "srv-2", "network_node_path": ["core-1", "spine-1", "leaf-2"], "block_id": "block-1"}
+			]}`,
+			expected: []InstanceTopology{
+				{ServerID: "srv-1", NetworkPath: []string{"core-1", "spine-1", "leaf-1"}},
+				{ServerID: "srv-2", NetworkPath: []string{"core-1", "spine-1", "leaf-2"}, BlockID: &blockID},
+			},
+		},
+		{
+			name:     "Case 2: empty page",
+			region:   "region-a",
+			pageSize: 50,
+			offset:   0,
+			status:   http.StatusOK,
+			body:     `{"results": []}`,
+			expected: []InstanceTopology{},
+		},
+		{
+			name:     "Case 3: API error",
+			region:   "region-a",
+			pageSize: 50,
+			offset:   0,
+			status:   http.StatusBadRequest,
+			body:     `invalid request`,
+			err:      "invalid request",
+		},
+		{
+			name:     "Case 4: malformed JSON",
+			region:   "region-a",
+			pageSize: 50,
+			offset:   0,
+			status:   http.StatusOK,
+			body:     `not valid json`,
+			err:      "invalid character",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotMethod, gotPath, gotAuth, gotOrg, gotRegion string
+			var gotLimit, gotOffset string
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotMethod = r.Method
+				gotPath = r.URL.Path
+				gotAuth = r.Header.Get("Authorization")
+				gotOrg = r.Header.Get("X-Organization")
+				gotRegion = r.Header.Get("X-Region")
+				gotLimit = r.URL.Query().Get("limit")
+				gotOffset = r.URL.Query().Get("offset")
+
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			t.Cleanup(server.Close)
+
+			c := &nscaleClient{radarAPIURL: server.URL, org: "org1", token: "token1"}
+			resp, err := c.Topology(context.Background(), tt.region, tt.pageSize, tt.offset)
+
+			if len(tt.err) != 0 {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.err)
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, tt.expected, resp)
+			}
+
+			require.Equal(t, http.MethodGet, gotMethod)
+			require.Equal(t, urlTopologyPath, gotPath)
+			require.Equal(t, "Bearer token1", gotAuth)
+			require.Equal(t, "org1", gotOrg)
+			require.Equal(t, tt.region, gotRegion)
+			require.Equal(t, strconv.Itoa(tt.pageSize), gotLimit)
+			require.Equal(t, strconv.Itoa(tt.offset), gotOffset)
+		})
+	}
+}
+
+func TestNscaleClientTopologyCanceledContext(t *testing.T) {
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-unblock
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results": []}`))
+	}))
+	t.Cleanup(func() {
+		close(unblock)
+		server.Close()
+	})
+
+	c := &nscaleClient{radarAPIURL: server.URL, org: "org1", token: "token1"}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := c.Topology(ctx, "region-a", 50, 0)
+		done <- err
+	}()
+
+	<-started
+	cancel()
+
+	select {
+	case err := <-done:
+		require.Error(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Topology did not return after context cancellation")
+	}
+}
+
+func fakeMetadata() map[string]*imdsMetadata {
+	return map[string]*imdsMetadata{
+		"node-1": {Meta: map[string]string{"serverID": "srv-1"}},
+	}
+}
+
+func TestFetchIMDSMetadataCachesRepeatedIdenticalNodes(t *testing.T) {
+	var calls int32
+	p := &baseProvider{
+		params: &ProviderParams{},
+		imdsFetch: func(_ context.Context, _ []string, _ string) (map[string]*imdsMetadata, error) {
+			atomic.AddInt32(&calls, 1)
+			return fakeMetadata(), nil
+		},
+	}
+	nodes := []string{"node-1"}
+
+	data1, err := p.fetchIMDSMetadata(context.Background(), nodes)
+	require.NoError(t, err)
+	data2, err := p.fetchIMDSMetadata(context.Background(), nodes)
+	require.NoError(t, err)
+
+	require.Equal(t, data1, data2)
+	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
+
+	_, err = p.fetchIMDSMetadata(context.Background(), []string{"node-2"})
+	require.NoError(t, err)
+	require.Equal(t, int32(2), atomic.LoadInt32(&calls))
+}
+
+func TestFetchIMDSMetadataConcurrentIdenticalNodesDedup(t *testing.T) {
+	var calls int32
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+
+	p := &baseProvider{
+		params: &ProviderParams{},
+		imdsFetch: func(_ context.Context, _ []string, _ string) (map[string]*imdsMetadata, error) {
+			atomic.AddInt32(&calls, 1)
+			close(started)
+			<-unblock
+			return fakeMetadata(), nil
+		},
+	}
+	nodes := []string{"node-1"}
+
+	type result struct {
+		data map[string]*imdsMetadata
+		err  error
+	}
+	results := make(chan result, 2)
+
+	go func() {
+		data, err := p.fetchIMDSMetadata(context.Background(), nodes)
+		results <- result{data, err}
+	}()
+
+	<-started // owner is in-flight, holding no lock, blocked on unblock
+
+	go func() {
+		data, err := p.fetchIMDSMetadata(context.Background(), nodes)
+		results <- result{data, err}
+	}()
+
+	close(unblock)
+
+	for i := 0; i < 2; i++ {
+		select {
+		case r := <-results:
+			require.NoError(t, r.err)
+			require.Equal(t, fakeMetadata(), r.data)
+		case <-time.After(5 * time.Second):
+			t.Fatal("fetchIMDSMetadata did not return")
+		}
+	}
+
+	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
+}
+
+func TestFetchIMDSMetadataWaiterCanceledContext(t *testing.T) {
+	var calls int32
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+
+	p := &baseProvider{
+		params: &ProviderParams{},
+		imdsFetch: func(_ context.Context, _ []string, _ string) (map[string]*imdsMetadata, error) {
+			atomic.AddInt32(&calls, 1)
+			close(started)
+			<-unblock
+			return fakeMetadata(), nil
+		},
+	}
+	nodes := []string{"node-1"}
+
+	ownerDone := make(chan struct{})
+	go func() {
+		_, _ = p.fetchIMDSMetadata(context.Background(), nodes)
+		close(ownerDone)
+	}()
+
+	<-started // owner is in-flight, blocked on unblock
+
+	waiterCtx, cancel := context.WithCancel(context.Background())
+	waiterErrCh := make(chan error, 1)
+	go func() {
+		_, err := p.fetchIMDSMetadata(waiterCtx, nodes)
+		waiterErrCh <- err
+	}()
+
+	cancel()
+
+	select {
+	case err := <-waiterErrCh:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(5 * time.Second):
+		t.Fatal("waiter did not return promptly after ctx cancellation")
+	}
+
+	// The canceled waiter must not have disturbed the owner's in-flight load.
+	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
+
+	close(unblock)
+	select {
+	case <-ownerDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("owner fetch did not complete")
+	}
+
+	data, err := p.fetchIMDSMetadata(context.Background(), nodes)
+	require.NoError(t, err)
+	require.Equal(t, fakeMetadata(), data)
+	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
+}
+
+func TestFetchIMDSMetadataFailureClearsInFlight(t *testing.T) {
+	var calls int32
+	wantErr := errors.New("pdsh failed")
+
+	p := &baseProvider{
+		params: &ProviderParams{},
+		imdsFetch: func(_ context.Context, _ []string, _ string) (map[string]*imdsMetadata, error) {
+			if atomic.AddInt32(&calls, 1) == 1 {
+				return nil, wantErr
+			}
+			return fakeMetadata(), nil
+		},
+	}
+	nodes := []string{"node-1"}
+
+	_, err := p.fetchIMDSMetadata(context.Background(), nodes)
+	require.ErrorIs(t, err, wantErr)
+	require.Nil(t, p.imdsInFlight)
+	require.Nil(t, p.imdsData)
+
+	data, err := p.fetchIMDSMetadata(context.Background(), nodes)
+	require.NoError(t, err)
+	require.Equal(t, fakeMetadata(), data)
+	require.Equal(t, int32(2), atomic.LoadInt32(&calls))
+}
+
+func TestProviderInstanceAndRegionMapsFilterByRegion(t *testing.T) {
+	p := &Provider{
+		baseProvider: baseProvider{
+			params: &ProviderParams{},
+			creds:  &Credentials{Region: "region-a"},
+			imdsFetch: func(_ context.Context, _ []string, _ string) (map[string]*imdsMetadata, error) {
+				return map[string]*imdsMetadata{
+					"node-1": {Meta: map[string]string{"serverID": "srv-1", "regionID": "region-a"}},
+					"node-2": {Meta: map[string]string{"serverID": "srv-2", "regionID": "region-b"}},
+				}, nil
+			},
+		},
+	}
+	nodes := []string{"node-1", "node-2"}
+
+	i2n, err := p.Instances2NodeMap(context.Background(), nodes)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"srv-1": "node-1"}, i2n)
+
+	nodeRegions, err := p.GetInstancesRegions(context.Background(), nodes)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"node-1": "region-a"}, nodeRegions)
 }

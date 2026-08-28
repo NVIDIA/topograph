@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
+	"sync"
 
 	"github.com/NVIDIA/topograph/internal/config"
 	"github.com/NVIDIA/topograph/internal/httperr"
@@ -22,46 +24,62 @@ import (
 const (
 	NAME = "nscale"
 
-	urlTopologyPath         = "/v1/topology"
-	urlPlacementsPath       = "/api/v2/placements"
-	urlPlacementServersPath = "/api/v2/placements/%s/servers"
+	urlTopologyPath = "/v2/topology"
 )
+
+type imdsFetchFunc func(ctx context.Context, nodes []string, imdsURL string) (map[string]*imdsMetadata, error)
+
+// imdsCall represents a single in-flight fetchIMDSMetadata load. Callers
+// that arrive while a load is in progress wait on done instead of issuing a
+// redundant pdsh sweep; a canceled ctx lets a waiter stop waiting without
+// affecting the in-flight load itself.
+type imdsCall struct {
+	done chan struct{}
+	data map[string]*imdsMetadata
+	err  error
+}
 
 type baseProvider struct {
 	params *ProviderParams
 	creds  *Credentials
 	client Client
+
+	imdsMu       sync.Mutex
+	imdsNodes    []string
+	imdsData     map[string]*imdsMetadata
+	imdsInFlight *imdsCall
+	imdsFetch    imdsFetchFunc
 }
 
 type ProviderParams struct {
-	RadarApiUrl    string `mapstructure:"radarApiUrl"`
-	InstanceAPIUrl string `mapstructure:"instanceApiUrl"`
-	TrimTiers      int    `mapstructure:"trimTiers"`
+	RadarApiUrl string `mapstructure:"radarApiUrl"`
+	TrimTiers   int    `mapstructure:"trimTiers"`
+	IMDSUrl     string `mapstructure:"-"`
 }
 
 type Credentials struct {
-	Org    string `mapstructure:"org"`
-	Token  string `mapstructure:"token"`
+	Org   string `mapstructure:"org"`
+	Token string `mapstructure:"token"`
+	// Region, when set, restricts Slurm auto-discovery to nodes whose IMDS
+	// region matches. Nodes whose IMDS region differs are excluded from the
+	// topology query and logged as a warning.
 	Region string `mapstructure:"region"`
 }
 
 type Client interface {
-	Topology(context.Context, string, int, int) ([]InstanceTopology, error)
-	ListPlacements(ctx context.Context, org, region string) ([]string, error)
-	PlacementServers(context.Context, string) (map[string]string, error)
+	Topology(context.Context, string, int, int) ([]InstanceTopology, *httperr.Error)
 }
 
-// nscaleClient is a Radar topology, Placements, and Placement Servers API client.
+// nscaleClient is a Radar topology API client.
 type nscaleClient struct {
-	radarAPIURL    string
-	instanceAPIURL string
-	org            string
-	token          string
+	radarAPIURL string
+	org         string
+	token       string
 }
 
 // InstanceTopology represents the topology of a single instance.
 type InstanceTopology struct {
-	ID          string   `json:"instance_id"`
+	ServerID    string   `json:"server_id"`
 	NetworkPath []string `json:"network_node_path"`
 	BlockID     *string  `json:"block_id,omitempty"`
 }
@@ -71,24 +89,7 @@ type TopologyResult struct {
 	Instances []InstanceTopology `json:"results"`
 }
 
-type placement struct {
-	Metadata placementMetadata `json:"metadata"`
-}
-
-type placementMetadata struct {
-	ID string `json:"id"`
-}
-
-type placementServer struct {
-	Metadata placementServerMetadata `json:"metadata"`
-}
-
-type placementServerMetadata struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-func (c *nscaleClient) Topology(ctx context.Context, region string, pageSize, offset int) ([]InstanceTopology, error) {
+func (c *nscaleClient) Topology(ctx context.Context, region string, pageSize, offset int) ([]InstanceTopology, *httperr.Error) {
 	headers := map[string]string{
 		"Authorization":  "Bearer " + c.token,
 		"X-Organization": c.org,
@@ -113,65 +114,6 @@ func (c *nscaleClient) Topology(ctx context.Context, region string, pageSize, of
 	return resp.Instances, nil
 }
 
-func (c *nscaleClient) ListPlacements(ctx context.Context, org, region string) ([]string, error) {
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.token,
-	}
-	query := map[string]string{
-		"organizationID": org,
-		"regionID":       region,
-	}
-	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, query, nil, c.instanceAPIURL, urlPlacementsPath)
-
-	body, httpErr := httpreq.DoRequestWithRetries(f, false)
-	if httpErr != nil {
-		return nil, httpErr
-	}
-
-	placements := []placement{}
-	if err := json.Unmarshal(body, &placements); err != nil {
-		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
-	}
-
-	ids := make([]string, 0, len(placements))
-	for _, p := range placements {
-		if p.Metadata.ID == "" {
-			continue
-		}
-		ids = append(ids, p.Metadata.ID)
-	}
-
-	return ids, nil
-}
-
-func (c *nscaleClient) PlacementServers(ctx context.Context, placementID string) (map[string]string, error) {
-	headers := map[string]string{
-		"Authorization": "Bearer " + c.token,
-	}
-	path := fmt.Sprintf(urlPlacementServersPath, placementID)
-	f := httpreq.GetRequestFunc(ctx, http.MethodGet, headers, nil, nil, c.instanceAPIURL, path)
-
-	body, httpErr := httpreq.DoRequestWithRetries(f, false)
-	if httpErr != nil {
-		return nil, httpErr
-	}
-
-	servers := []placementServer{}
-	if err := json.Unmarshal(body, &servers); err != nil {
-		return nil, httperr.NewError(http.StatusBadGateway, err.Error())
-	}
-
-	i2n := make(map[string]string, len(servers))
-	for _, s := range servers {
-		if s.Metadata.ID == "" || s.Metadata.Name == "" {
-			continue
-		}
-		i2n[s.Metadata.ID] = s.Metadata.Name
-	}
-
-	return i2n, nil
-}
-
 type Provider struct {
 	baseProvider
 }
@@ -194,13 +136,13 @@ func Loader(ctx context.Context, config providers.Config) (providers.Provider, *
 	return &Provider{
 		baseProvider: baseProvider{
 			client: &nscaleClient{
-				radarAPIURL:    params.RadarApiUrl,
-				instanceAPIURL: params.InstanceAPIUrl,
-				org:            creds.Org,
-				token:          creds.Token,
+				radarAPIURL: params.RadarApiUrl,
+				org:         creds.Org,
+				token:       creds.Token,
 			},
-			params: params,
-			creds:  creds,
+			params:    params,
+			creds:     creds,
+			imdsFetch: fetchIMDSMetadata,
 		},
 	}, nil
 }
@@ -213,9 +155,12 @@ func getParams(params map[string]any) (*ProviderParams, error) {
 	if len(p.RadarApiUrl) == 0 {
 		return nil, fmt.Errorf("missing 'radarApiUrl'")
 	}
-	if len(p.InstanceAPIUrl) == 0 {
-		return nil, fmt.Errorf("missing 'instanceApiUrl'")
+
+	imdsURL, err := providers.GetIMDSURL(params)
+	if err != nil {
+		return nil, err
 	}
+	p.IMDSUrl = imdsURL
 
 	return p, nil
 }
@@ -246,55 +191,107 @@ func (p *baseProvider) GenerateTopologyConfig(ctx context.Context, pageSize *int
 
 // Instances2NodeMap implements slurm.instanceMapper
 func (p *Provider) Instances2NodeMap(ctx context.Context, nodes []string) (map[string]string, error) {
-	if len(p.creds.Region) == 0 {
-		return nil, fmt.Errorf("missing 'region'")
-	}
-
-	placementIDs, err := p.client.ListPlacements(ctx, p.creds.Org, p.creds.Region)
+	nodeMeta, err := p.fetchIMDSMetadata(ctx, nodes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list placements: %w", err)
+		return nil, err
 	}
-
-	instances := make(map[string]string)
-	for _, placementID := range placementIDs {
-		servers, err := p.client.PlacementServers(ctx, placementID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get placement servers for placement %s: %w", placementID, err)
-		}
-		for id, node := range servers {
-			instances[id] = node
-		}
-	}
-
-	if len(nodes) == 0 {
-		return instances, nil
-	}
-
-	nodeSet := make(map[string]struct{}, len(nodes))
-	for _, node := range nodes {
-		nodeSet[node] = struct{}{}
-	}
-
-	i2n := make(map[string]string, len(instances))
-	for instanceID, node := range instances {
-		if _, ok := nodeSet[node]; ok {
-			i2n[instanceID] = node
-		}
-	}
-
-	return i2n, nil
+	return instanceToNodeMap(nodeMeta), nil
 }
 
 // GetInstancesRegions implements slurm.instanceMapper
 func (p *Provider) GetInstancesRegions(ctx context.Context, nodes []string) (map[string]string, error) {
-	if len(p.creds.Region) == 0 {
-		return nil, fmt.Errorf("missing 'region'")
+	nodeMeta, err := p.fetchIMDSMetadata(ctx, nodes)
+	if err != nil {
+		return nil, err
+	}
+	return getRegions(nodeMeta), nil
+}
+
+// fetchIMDSMetadata returns parsed IMDS metadata for the given nodes, caching
+// the result so that repeated calls with the same node list (as done by
+// Instances2NodeMap and GetInstancesRegions) issue a single pdsh sweep. Nodes
+// whose IMDS region does not match the configured 'region' credential are
+// excluded, with a warning logged per excluded node.
+//
+// imdsMu only guards the cache and the in-flight bookkeeping, never the pdsh
+// call itself: a caller that finds a load already in progress waits on that
+// call's done channel rather than holding the lock, so a canceled ctx lets
+// it stop waiting immediately instead of blocking for the full sweep.
+func (p *baseProvider) fetchIMDSMetadata(ctx context.Context, nodes []string) (map[string]*imdsMetadata, error) {
+	for {
+		p.imdsMu.Lock()
+		if p.imdsData != nil && slices.Equal(p.imdsNodes, nodes) {
+			data := p.imdsData
+			p.imdsMu.Unlock()
+			return data, nil
+		}
+
+		if call := p.imdsInFlight; call != nil {
+			p.imdsMu.Unlock()
+			select {
+			case <-call.done:
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		call := &imdsCall{done: make(chan struct{})}
+		p.imdsInFlight = call
+		p.imdsMu.Unlock()
+
+		p.runIMDSFetch(ctx, nodes, call)
+		return call.data, call.err
+	}
+}
+
+// runIMDSFetch executes the pdsh sweep for call outside imdsMu, then
+// publishes its result to the cache (on success) and wakes any waiters. The
+// cleanup runs via defer so a canceled ctx, an error, or a panic unwinding
+// through this frame all leave imdsInFlight cleared and call.done closed.
+func (p *baseProvider) runIMDSFetch(ctx context.Context, nodes []string, call *imdsCall) {
+	defer func() {
+		p.imdsMu.Lock()
+		if p.imdsInFlight == call {
+			p.imdsInFlight = nil
+		}
+		if call.err == nil {
+			p.imdsNodes = slices.Clone(nodes)
+			p.imdsData = call.data
+		}
+		p.imdsMu.Unlock()
+		close(call.done)
+	}()
+
+	nodeMeta, err := p.imdsFetchFunc()(ctx, nodes, p.imdsURL())
+	if err != nil {
+		call.err = err
+		return
 	}
 
-	res := make(map[string]string)
-	for _, node := range nodes {
-		res[node] = p.creds.Region
+	var expectedRegion string
+	if p.creds != nil {
+		expectedRegion = p.creds.Region
+	}
+	call.data = filterByRegion(nodeMeta, expectedRegion)
+}
+
+// imdsFetchFunc returns the configured IMDS loader, falling back to the
+// package-level fetchIMDSMetadata for a baseProvider constructed without
+// going through Loader.
+func (p *baseProvider) imdsFetchFunc() imdsFetchFunc {
+	if p.imdsFetch != nil {
+		return p.imdsFetch
+	}
+	return fetchIMDSMetadata
+}
+
+// imdsURL returns the configured 'imdsUrl' provider parameter, falling back
+// to the default IMDS endpoint when it is not set.
+func (p *baseProvider) imdsURL() string {
+	if p.params != nil && len(p.params.IMDSUrl) > 0 {
+		return p.params.IMDSUrl
 	}
 
-	return res, nil
+	return IMDSURL
 }

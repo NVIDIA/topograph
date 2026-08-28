@@ -83,7 +83,7 @@ func TestProviderSim(t *testing.T) {
 				},
 			},
 			apiErr: errTopology,
-			err:    `failed to get topology: API error`,
+			err:    `API error`,
 		},
 		{
 			name:   "Case 5: valid cluster in tree format without pagination",

@@ -34,6 +34,7 @@ import (
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
 	"github.com/NVIDIA/topograph/pkg/providers/lambdai"
 	"github.com/NVIDIA/topograph/pkg/providers/nebius"
+	"github.com/NVIDIA/topograph/pkg/providers/nscale"
 	"github.com/NVIDIA/topograph/pkg/providers/oci"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -214,6 +215,8 @@ func (b *nodeBroker) getAnnotations(ctx context.Context) (map[string]string, err
 		return oci.GetNodeAnnotations(ctx)
 	case nebius.NAME:
 		return nebius.GetNodeAnnotations(ctx)
+	case nscale.NAME:
+		return nscale.GetNodeAnnotations(ctx, b.config.Provider.Params)
 	case dra.NAME:
 		return dra.GetNodeAnnotations(ctx, b.nodeName)
 	case infiniband.NAME_K8S:

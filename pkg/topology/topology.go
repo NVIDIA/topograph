@@ -25,6 +25,7 @@ const (
 	KeyNodeNameRegexp    = "nodeNameRegexp"
 	KeyFormat            = "format"
 	KeyTrimTiers         = "trimTiers"
+	KeyIMDSURL           = "imdsUrl"
 
 	KeyPlugin     = "plugin"
 	TopologyTree  = "topology/tree"

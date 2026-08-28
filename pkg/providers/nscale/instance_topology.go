@@ -7,7 +7,6 @@ package nscale
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"k8s.io/klog/v2"
@@ -47,7 +46,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, topo 
 	for {
 		resp, err := p.client.Topology(ctx, ci.Region, pageSize, offset)
 		if err != nil {
-			return httperr.NewError(http.StatusBadGateway, fmt.Sprintf("failed to get topology: %v", err))
+			return err
 		}
 
 		n := len(resp)
@@ -59,7 +58,7 @@ func (p *baseProvider) generateRegionInstanceTopology(ctx context.Context, topo 
 
 		for _, inst := range resp {
 			t := &topology.InstanceTopology{
-				InstanceID: inst.ID,
+				InstanceID: inst.ServerID,
 			}
 
 			t.FabricTiers = topology.RootFirstFabricTiers(inst.NetworkPath...)

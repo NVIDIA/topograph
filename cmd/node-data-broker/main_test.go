@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/NVIDIA/topograph/pkg/providers/infiniband"
+	"github.com/NVIDIA/topograph/pkg/providers/nscale"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
 
@@ -216,5 +217,83 @@ func TestServeHealthShutsDownOnContextCancel(t *testing.T) {
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("serveHealth did not return after context cancellation")
+	}
+}
+
+// TestGetAnnotationsNscaleDispatch verifies that getAnnotations routes the
+// nscale.NAME provider to nscale.GetNodeAnnotations, forwarding the
+// configured imdsUrl provider param instead of touching the process-global
+// http.DefaultTransport. nscale.GetNodeAnnotations' own request/parse/
+// error-handling behavior (malformed IMDS response, context cancellation,
+// etc.) is covered by pkg/providers/nscale's own test suite (imds_test.go);
+// this test only needs to prove the switch reaches it with the configured
+// endpoint.
+func TestGetAnnotationsNscaleDispatch(t *testing.T) {
+	body := `{"meta": {"serverID": "srv-1", "regionID": "region-a"}}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(server.Close)
+
+	broker := &nodeBroker{
+		config: nodeDataBrokerConfig{Provider: topology.Provider{
+			Name:   nscale.NAME,
+			Params: map[string]any{"imdsUrl": server.URL},
+		}},
+	}
+	annotations, err := broker.getAnnotations(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		topology.KeyNodeInstance: "srv-1",
+		topology.KeyNodeRegion:   "region-a",
+	}, annotations)
+}
+
+// TestGetAnnotationsNscaleDispatchCanceledContext verifies that a canceled
+// context passed into broker.getAnnotations propagates through the nscale
+// dispatch to the underlying IMDS request, returning promptly with an error
+// instead of hanging.
+func TestGetAnnotationsNscaleDispatchCanceledContext(t *testing.T) {
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-unblock
+		_, _ = w.Write([]byte(`{"meta": {"serverID": "srv-1"}}`))
+	}))
+	t.Cleanup(func() {
+		close(unblock)
+		server.Close()
+	})
+
+	broker := &nodeBroker{
+		config: nodeDataBrokerConfig{Provider: topology.Provider{
+			Name:   nscale.NAME,
+			Params: map[string]any{"imdsUrl": server.URL},
+		}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := broker.getAnnotations(ctx)
+		done <- err
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler did not receive request before timeout")
+	}
+	cancel()
+
+	select {
+	case err := <-done:
+		require.Error(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("getAnnotations did not return after context cancellation")
 	}
 }
