@@ -13,6 +13,8 @@
           "enum": [
             "aws",
             "aws-sim",
+            "crusoe",
+            "crusoe-sim",
             "dra",
             "gcp",
             "gcp-sim",

@@ -28,7 +28,7 @@ This separation is load-bearing. If you find yourself reading the fabric in an e
 cmd/                  # Entry points: topograph, node-observer, node-data-broker, kwok-nodes
 pkg/
   accelerator/        # Pluggable accelerator-domain discovery composed by providers
-  providers/          # One directory per provider: aws, gcp, oci, nebius, netq, dra, infiniband, lambdai, test
+  providers/          # One directory per provider: aws, crusoe, gcp, oci, nebius, netq, dra, infiniband, lambdai, test
   engines/            # One directory per engine: k8s, nfd, slinky, slurm
   topology/           # Canonical Graph, Vertex tree, and topology constants (DO NOT CHANGE CASUALLY)
   registry/           # Central NamedLoader wiring for providers + engines

@@ -1,0 +1,33 @@
+# Kubernetes integration test using the live Crusoe provider against KWOK nodes
+# labelled from tests/models/crusoe-small.yaml.
+
+provider:
+  name: crusoe
+  params:
+    nodeSelector:
+      kwok.x-k8s.io/node: "fake"
+
+engine:
+  name: k8s
+
+image:
+  repository: topograph
+  tag: ci
+  pullPolicy: Never
+
+config:
+  requestAggregationDelay: 2s
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: ""
+
+nodeObserver:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  topograph:
+    trigger:
+      nodeSelector:
+        kwok.x-k8s.io/node: "fake"
+
+nodeDataBroker:
+  enabled: false
