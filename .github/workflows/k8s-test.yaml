@@ -27,12 +27,21 @@ jobs:
         include:
           - provider: test
             values: tests/ci/values.k8s-test.yaml
+            expected_tier_0: sw12
+            expected_tier_1: sw21
+            expected_tier_2: sw3
             expected_accelerator: nvl2
           - provider: aws-sim
             values: tests/ci/values.k8s-aws-sim.yaml
+            expected_tier_0: sw12
+            expected_tier_1: sw21
+            expected_tier_2: sw3
             expected_accelerator: nvl2
           - provider: gcp-sim
             values: tests/ci/values.k8s-gcp-sim.yaml
+            expected_tier_0: sw12
+            expected_tier_1: sw21
+            expected_tier_2: sw3
             expected_accelerator: sw12
           - provider: crusoe
             model: ./tests/models/crusoe-small.yaml
@@ -89,9 +98,9 @@ jobs:
           VALUES_FILE: ${{ matrix.values }}
           EXPECTED_ACCELERATOR: ${{ matrix.expected_accelerator }}
           TEST_NODE: ${{ matrix.test_node || '1202' }}
-          EXPECTED_TIER_0: ${{ matrix.expected_tier_0 || 'sw12' }}
-          EXPECTED_TIER_1: ${{ matrix.expected_tier_1 || 'sw21' }}
-          EXPECTED_TIER_2: ${{ matrix.expected_tier_2 || 'sw3' }}
+          EXPECTED_TIER_0: ${{ matrix.expected_tier_0 }}
+          EXPECTED_TIER_1: ${{ matrix.expected_tier_1 }}
+          EXPECTED_TIER_2: ${{ matrix.expected_tier_2 }}
         run: tests/ci/run-k8s-test.sh "$VALUES_FILE" "$EXPECTED_ACCELERATOR"
 
       - name: Collect diagnostics
