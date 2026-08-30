@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The `Go` workflow now also runs on pushes to `main`, so Codecov receives a coverage report for every merged commit. Merges are squashed, so the SHA that lands on `main` no longer matches the `pull-request/<n>` SHA that uploaded coverage; without a `main` trigger, Codecov's `main` branch had gone stale since 2026-07-06 and the README coverage badge reported a figure roughly six points below actual coverage.
 - GCP and OCI simulation providers now handle partial final pagination pages without indexing past the available instances.
 - Non-positive `pageSize` configuration values now emit a warning and use the provider default instead of reaching provider APIs and simulation pagination loops.
 
