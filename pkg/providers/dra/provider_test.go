@@ -7,6 +7,7 @@ package dra
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/NVIDIA/topograph/pkg/accelerator"
@@ -14,8 +15,44 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
+
+func TestDRANamedLoader(t *testing.T) {
+	name, loader := NamedLoader()
+	require.Equal(t, NAME, name)
+	require.NotNil(t, loader)
+	// Loader itself is not exercised here: it calls rest.InClusterConfig() which
+	// returns an error outside a Kubernetes pod (StatusBadGateway). That path
+	// is not meaningfully testable in a unit environment.
+}
+
+func TestGetNodeAnnotations(t *testing.T) {
+	ann, err := GetNodeAnnotations(context.Background(), "my-node")
+	require.NoError(t, err)
+	require.NotEmpty(t, ann)
+}
+
+func TestGenerateTopologyConfigAPIError(t *testing.T) {
+	errClient := fake.NewSimpleClientset()
+	errClient.PrependReactor("list", "nodes", func(_ k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("api unavailable")
+	})
+	provider := &Provider{
+		client:           errClient,
+		accelerator:      mustAcceleratorDiscoverer(t, defaultDomainLabel),
+		acceleratorLabel: defaultDomainLabel,
+	}
+
+	graph, httpErr := provider.GenerateTopologyConfig(context.Background(), nil, nil)
+
+	require.Nil(t, graph)
+	require.NotNil(t, httpErr)
+	require.Equal(t, 502, httpErr.Code())
+	require.ErrorContains(t, httpErr, "api unavailable")
+}
 
 func TestNewAcceleratorDiscoverer(t *testing.T) {
 	tests := []struct {

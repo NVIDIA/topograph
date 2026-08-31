@@ -130,6 +130,7 @@ func (s *HttpServer) Stop(err error) {
 	if err := s.srv.Shutdown(s.ctx); err != nil {
 		klog.Errorf("Error during HTTP server shutdown: %v", err)
 	}
+	s.async.queue.Shutdown()
 	klog.Infof("Stopped HTTP server")
 }
 
