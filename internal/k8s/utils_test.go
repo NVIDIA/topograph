@@ -65,10 +65,21 @@ func TestGetPodsByLabels(t *testing.T) {
 	}
 	client := fake.NewSimpleClientset(pod1, pod2)
 
-	pods, err := GetPodsByLabels(context.Background(), client, "default", map[string]string{"app": "broker"})
-	require.NoError(t, err)
-	require.Len(t, pods.Items, 1)
-	require.Equal(t, "pod-1", pods.Items[0].Name)
+	t.Run("returns matching pods", func(t *testing.T) {
+		pods, err := GetPodsByLabels(context.Background(), client, "default", map[string]string{"app": "broker"})
+		require.NoError(t, err)
+		require.Len(t, pods.Items, 1)
+		require.Equal(t, "pod-1", pods.Items[0].Name)
+	})
+
+	t.Run("api error is returned", func(t *testing.T) {
+		errClient := fake.NewSimpleClientset()
+		errClient.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("pods unavailable")
+		})
+		_, err := GetPodsByLabels(context.Background(), errClient, "default", map[string]string{"app": "broker"})
+		require.ErrorContains(t, err, "pods unavailable")
+	})
 }
 
 func TestGetDaemonSetPods(t *testing.T) {
@@ -96,12 +107,20 @@ func TestGetDaemonSetPods(t *testing.T) {
 		},
 		Spec: corev1.PodSpec{NodeName: "node-2"},
 	}
+	// The fake client does not enforce label/field selectors server-side.
+	// Selector correctness is verified via Actions() inspection below.
 	client := fake.NewSimpleClientset(ds, pod1, pod2)
 
 	t.Run("all pods without node filter", func(t *testing.T) {
+		client.ClearActions()
 		pods, err := GetDaemonSetPods(context.Background(), client, "broker", "default", "")
 		require.NoError(t, err)
 		require.Len(t, pods.Items, 2)
+		// verify label selector was sent — fake client does not enforce it server-side
+		actions := client.Actions()
+		listAction := actions[len(actions)-1].(k8stesting.ListAction)
+		require.Contains(t, listAction.GetListRestrictions().Labels.String(), "app=broker")
+		require.Empty(t, listAction.GetListRestrictions().Fields.String())
 	})
 
 	t.Run("daemonset not found returns error", func(t *testing.T) {
@@ -109,11 +128,13 @@ func TestGetDaemonSetPods(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("nodename filter is applied", func(t *testing.T) {
-		pods, err := GetDaemonSetPods(context.Background(), client, "broker", "default", "node-1")
+	t.Run("nodename field selector is sent", func(t *testing.T) {
+		client.ClearActions()
+		_, err := GetDaemonSetPods(context.Background(), client, "broker", "default", "node-1")
 		require.NoError(t, err)
-		// fake client doesn't enforce field selectors server-side, but the call succeeds
-		require.NotNil(t, pods)
+		actions := client.Actions()
+		listAction := actions[len(actions)-1].(k8stesting.ListAction)
+		require.Equal(t, "spec.nodeName=node-1", listAction.GetListRestrictions().Fields.String())
 	})
 }
 
@@ -159,6 +180,40 @@ func TestGetComputeInstances(t *testing.T) {
 		}
 		require.Equal(t, map[string]string{"i-001": "node-1", "i-002": "node-2"}, byRegion["us-east-1"])
 		require.Equal(t, map[string]string{"i-003": "node-3"}, byRegion["us-west-2"])
+	})
+
+	t.Run("incomplete nodes are skipped alongside valid ones", func(t *testing.T) {
+		nodes := &corev1.NodeList{
+			Items: []corev1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "good-node",
+						Annotations: map[string]string{
+							topology.KeyNodeInstance: "i-good",
+							topology.KeyNodeRegion:   "us-east-1",
+						},
+					},
+				},
+				{
+					// missing instance annotation
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "no-instance",
+						Annotations: map[string]string{topology.KeyNodeRegion: "us-east-1"},
+					},
+				},
+				{
+					// missing region annotation
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "no-region",
+						Annotations: map[string]string{topology.KeyNodeInstance: "i-bad"},
+					},
+				},
+			},
+		}
+		cis := GetComputeInstances(nodes)
+		require.Len(t, cis, 1)
+		require.Equal(t, "us-east-1", cis[0].Region)
+		require.Equal(t, map[string]string{"i-good": "good-node"}, cis[0].Instances)
 	})
 
 	t.Run("node missing instance annotation is skipped", func(t *testing.T) {
