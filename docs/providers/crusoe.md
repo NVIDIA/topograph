@@ -53,15 +53,21 @@ it appears under `no-topology` in the generated file rather than disappearing.
 ### NVLink domains
 
 On rack-scale NVLink systems such as GB200 and GB300 NVL72, the fabric a job
-wants to stay inside is the NVLink domain, not the InfiniBand partition. NVIDIA
-GPU Feature Discovery advertises that domain as `nvidia.com/gpu.clique`, with the
-value `<clusterUUID>.<cliqueID>`. Every node in a rack carries the same value and
-a clique never spans racks.
+wants to stay inside is the NVLink partition, not the InfiniBand partition.
+NVIDIA GPU Feature Discovery advertises it as `nvidia.com/gpu.clique`, with the
+value `<clusterUUID>.<cliqueID>`.
 
-The provider maps each distinct clique to one accelerator domain, which
-`topology/block` renders as one Slurm block:
+The provider groups on the whole value. That is the NVL Partition: the set of
+nodes Fabric Manager placed in one IMEX domain, which is the granularity a job
+must stay inside to get NVLink bandwidth. It can be finer than the physical NVL
+Domain named by the `<clusterUUID>` prefix alone — an x72 rack split into two
+x36 halves carries two clique values, and each becomes its own block. A clique
+never spans racks, so a block never does either.
 
-```
+Each distinct clique becomes one accelerator domain, which `topology/block`
+renders as one Slurm block:
+
+```text
 # block001=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766
 BlockName=block001 Nodes=gpu-[01-02]
 # block002=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767
@@ -81,10 +87,14 @@ contributes a block even though it has no fabric tiers.
 ## Prerequisites
 
 - A Crusoe Cloud Kubernetes cluster
-- Nodes labelled by the Crusoe control plane with `crusoe.ai/ib.partition.id`
-  and `crusoe.ai/pod.id`
-- For block topology, NVIDIA GPU Feature Discovery publishing
+- For fabric tiers, nodes labelled by the Crusoe control plane with
+  `crusoe.ai/ib.partition.id` and `crusoe.ai/pod.id`
+- For NVLink blocks, NVIDIA GPU Feature Discovery publishing
   `nvidia.com/gpu.clique` on NVLink hosts
+
+Neither set is required on every node. A node with only the InfiniBand labels
+gets fabric tiers and no block. A node with only a clique gets a block and the
+placeholder tiers.
 
 ## Parameters
 
@@ -130,7 +140,8 @@ Check that the labels are present before generating topology:
 kubectl get nodes -o json | jq '.items[] | {
   name: .metadata.name,
   partition: .metadata.labels["crusoe.ai/ib.partition.id"],
-  pod: .metadata.labels["crusoe.ai/pod.id"]
+  pod: .metadata.labels["crusoe.ai/pod.id"],
+  clique: .metadata.labels["nvidia.com/gpu.clique"]
 }'
 ```
 

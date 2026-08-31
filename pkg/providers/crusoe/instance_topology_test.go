@@ -79,7 +79,7 @@ func TestBuildInstanceTopology(t *testing.T) {
 			node:       mnnvlNode("gb200-01", partitionA, podA1, cliqueA),
 			wantTiers:  topology.ClosestFirstFabricTiers(podA1, partitionA, rootTier),
 			wantFabric: true,
-			wantDomain: nvlDomainPrefix + cliqueA,
+			wantDomain: "nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766",
 		},
 		{
 			name: "MNNVL node without InfiniBand still contributes a block",
@@ -88,7 +88,7 @@ func TestBuildInstanceTopology(t *testing.T) {
 				Labels:     map[string]string{labelGPUClique: cliqueA},
 			},
 			wantTiers:  topology.ClosestFirstFabricTiers(cpuPod, cpuPartition, rootTier),
-			wantDomain: nvlDomainPrefix + cliqueA,
+			wantDomain: "nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766",
 		},
 	}
 
@@ -213,13 +213,22 @@ func TestRenderedBlockTopologyConf(t *testing.T) {
 	got := render(t, nodes, &translate.Config{Plugin: topology.TopologyBlock})
 
 	// One block per clique, never per partition: all four nodes share partitionA
-	// but sit in two racks, and a job must stay inside one to get MNNVL.
-	require.Contains(t, got, "BlockName=block001 Nodes=rack-a-[1-2]")
-	require.Contains(t, got, "BlockName=block002 Nodes=rack-b-[1-2]")
-	require.Contains(t, got, "# block001="+nvlDomainPrefix+cliqueA)
-	require.Contains(t, got, "# block002="+nvlDomainPrefix+cliqueB)
-	// Planning size is the smallest domain, then the power-of-two level above.
-	require.Contains(t, got, "BlockSizes=2,4")
+	// but sit in two cliques, and a job must stay inside one to get NVLink.
+	//
+	// Compared whole and in order. Independent line checks would pass if the
+	// blocks were emitted in either order or if an extra block appeared, and
+	// unstable ordering would rewrite the topology ConfigMap on every
+	// regeneration.
+	// Block IDs come from the sorted domain names, so the lower clique is
+	// block001. Print order comes from the tree walk, which reaches the last
+	// leaf first, so block002 is written first. Both are deterministic, and
+	// they disagree — which is precisely what a per-line check cannot show.
+	expected := "# block002=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767\n" +
+		"BlockName=block002 Nodes=rack-b-[1-2]\n" +
+		"# block001=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766\n" +
+		"BlockName=block001 Nodes=rack-a-[1-2]\n" +
+		"BlockSizes=2,4\n"
+	require.Equal(t, expected, got)
 }
 
 // TestRenderedBlockTopologyConfSkipsNodesWithoutNVLink keeps non-MNNVL nodes out

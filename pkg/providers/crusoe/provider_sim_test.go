@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/NVIDIA/topograph/pkg/engines/slurm"
+	"github.com/NVIDIA/topograph/pkg/models"
 	"github.com/NVIDIA/topograph/pkg/providers"
 	"github.com/NVIDIA/topograph/pkg/topology"
 )
@@ -77,4 +78,49 @@ func TestProviderSimRejectsMultiRegion(t *testing.T) {
 	})
 	require.NotNil(t, httpErr)
 	require.ErrorContains(t, httpErr, "does not support multi-region")
+}
+
+// TestProviderSimBlockTopology covers the bridge from the model's shared
+// accelerator-domain annotation onto the clique label the provider reads.
+// Without it a model following the shared convention silently produces no
+// blocks, and the simulation would not exercise the block path at all.
+func TestProviderSimBlockTopology(t *testing.T) {
+	ctx := context.Background()
+
+	provider, httpErr := LoaderSim(ctx, providers.Config{
+		Params: map[string]any{"modelFileName": "crusoe-small.yaml"},
+	})
+	require.Nil(t, httpErr)
+
+	sim, ok := provider.(*simProvider)
+	require.True(t, ok)
+
+	cis, httpErr := sim.GetComputeInstances(ctx)
+	require.Nil(t, httpErr)
+
+	graph, httpErr := provider.GenerateTopologyConfig(ctx, nil, cis)
+	require.Nil(t, httpErr)
+
+	// Only the nodes under pod-b1 carry an accelerator domain in the model.
+	require.Len(t, graph.Domains, 1)
+	require.Contains(t, graph.Domains, "nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766")
+
+	data, httpErr := slurm.GenerateOutput(ctx, graph, map[string]any{"plugin": topology.TopologyBlock})
+	require.Nil(t, httpErr)
+	require.Equal(t,
+		"# block001=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766\n"+
+			"BlockName=block001 Nodes=gpu-[05-06]\n"+
+			"BlockSizes=2\n",
+		string(data))
+}
+
+// TestSimNodeLabelsPrefersExplicitClique confirms a model that sets the live
+// label directly is left alone rather than overwritten by the annotation.
+func TestSimNodeLabelsPrefersExplicitClique(t *testing.T) {
+	node := &models.Node{Annotations: map[string]string{
+		"accelerator.topology.test/domain": "from-annotation",
+	}}
+	node.Labels = map[string]string{labelGPUClique: "from-label"}
+
+	require.Equal(t, "from-label", simNodeLabels(node)[labelGPUClique])
 }

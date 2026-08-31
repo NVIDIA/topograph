@@ -20,9 +20,13 @@ const (
 
 	// labelGPUClique is published by NVIDIA GPU Feature Discovery on MNNVL
 	// systems such as GB200 and GB300 NVL72. Its value is
-	// "<clusterUUID>.<cliqueID>" and names the NVLink domain: the set of nodes
-	// that share an NVLink fabric and can form one IMEX domain. Every node in a
-	// rack carries the same value, and a clique never spans racks.
+	// "<clusterUUID>.<cliqueID>".
+	//
+	// Group on the whole value, which is the NVL Partition: the nodes Fabric
+	// Manager placed in one IMEX domain. That is the granularity a job must
+	// stay inside to get NVLink bandwidth. It can be finer than the physical
+	// NVL Domain named by the <clusterUUID> prefix alone, because one rack can
+	// be split into several cliques. A clique never spans racks.
 	labelGPUClique = "nvidia.com/gpu.clique"
 
 	// nvlDomainPrefix marks a domain as NVLink-derived, so the domain a block
