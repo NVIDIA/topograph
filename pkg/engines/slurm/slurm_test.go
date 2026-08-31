@@ -28,6 +28,7 @@ func TestNamedLoader(t *testing.T) {
 	require.NotNil(t, loader)
 	eng, httpErr := loader(context.Background(), engines.Config{})
 	require.Nil(t, httpErr)
+	require.NotNil(t, eng)
 	require.IsType(t, &SlurmEngine{}, eng)
 }
 
@@ -38,6 +39,7 @@ func TestLoader(t *testing.T) {
 	// and those paths require a running Slurm daemon.
 	eng, httpErr := Loader(context.Background(), engines.Config{})
 	require.Nil(t, httpErr)
+	require.NotNil(t, eng)
 	require.IsType(t, &SlurmEngine{}, eng)
 }
 
@@ -138,21 +140,40 @@ func TestGetPartitionNodes(t *testing.T) {
 		require.ErrorContains(t, err, "scontrol failed")
 	})
 
-	t.Run("injectable finder — partition name forwarded and result parsed", func(t *testing.T) {
+	t.Run("injectable finder — partition name and context forwarded, result parsed", func(t *testing.T) {
 		fixture := `PartitionName=my_partition
    Nodes=node[001-004]
 `
+		testCtx := context.WithValue(ctx, struct{ key string }{"k"}, "v")
+		var receivedCtx context.Context
 		var receivedPartition string
 		finder := &TopologyNodeFinder{
-			GetPartitionNodes: func(_ context.Context, partition string, _ []any) (string, error) {
+			GetPartitionNodes: func(c context.Context, partition string, _ []any) (string, error) {
+				receivedCtx = c
 				receivedPartition = partition
 				return fixture, nil
 			},
 		}
-		nodes, err := GetPartitionNodes(ctx, "my_partition", finder)
+		nodes, err := GetPartitionNodes(testCtx, "my_partition", finder)
 		require.NoError(t, err)
+		require.Equal(t, testCtx, receivedCtx)
 		require.Equal(t, "my_partition", receivedPartition)
 		require.Equal(t, []string{"node[001-004]"}, nodes)
+	})
+
+	t.Run("canceled context is forwarded to finder and error propagates", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		var receivedCtx context.Context
+		finder := &TopologyNodeFinder{
+			GetPartitionNodes: func(c context.Context, _ string, _ []any) (string, error) {
+				receivedCtx = c
+				return "", c.Err()
+			},
+		}
+		_, err := GetPartitionNodes(cancelCtx, "my_partition", finder)
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, cancelCtx, receivedCtx)
 	})
 
 	// getPartitionNodes (the concrete implementation used in production) calls
