@@ -11,13 +11,120 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
+
+func TestNamedLoader(t *testing.T) {
+	name, loader := NamedLoader()
+	require.Equal(t, NAME, name)
+	require.NotNil(t, loader)
+}
+
+func TestLoader(t *testing.T) {
+	// Loader has no external dependencies — it simply returns a SlurmEngine.
+	// The paths that call scontrol (GetNodeList, getPartitionNodes, reconfigure)
+	// are not tested here because exec.Exec is a free function, not an interface,
+	// and those paths require a running Slurm daemon.
+	eng, httpErr := Loader(context.Background(), engines.Config{})
+	require.Nil(t, httpErr)
+	require.NotNil(t, eng)
+}
+
+func TestSlurmEngineGenerateOutput(t *testing.T) {
+	// SlurmEngine.GenerateOutput delegates to the package-level GenerateOutput.
+	// This test exercises the method receiver path, which TestGenerateOutput
+	// does not reach because it calls the free function directly.
+	ctx := context.TODO()
+	graph, _ := translate.GetTreeTestSet(false)
+	eng := &SlurmEngine{}
+	out, httpErr := eng.GenerateOutput(ctx, graph, nil)
+	require.Nil(t, httpErr)
+	require.NotEmpty(t, out)
+}
+
+func TestGenerateOutputParamsFilePath(t *testing.T) {
+	ctx := context.TODO()
+	graph, _ := translate.GetTreeTestSet(false)
+	path := filepath.Join(t.TempDir(), "topology.conf")
+	params := &Params{
+		BaseParams:     BaseParams{Plugin: topology.TopologyTree},
+		TopoConfigPath: path,
+		// Reconfigure: false — reconfigure calls exec.Exec("scontrol", "reconfigure")
+		// which requires a running Slurm daemon and is not interface-injectable.
+	}
+
+	out, httpErr := GenerateOutputParams(ctx, graph, params)
+
+	require.Nil(t, httpErr)
+	require.Equal(t, "OK\n", string(out))
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Contains(t, string(data), fmt.Sprintf(TopologyHeader, topology.TopologyTree))
+	require.Contains(t, string(data), "SwitchName=")
+}
+
+func TestResolveComputeInstances(t *testing.T) {
+	ctx := context.Background()
+	eng := &SlurmEngine{}
+
+	t.Run("instances already provided — early return", func(t *testing.T) {
+		existing := []topology.ComputeInstances{{Region: "r1", Instances: map[string]string{"i1": "n1"}}}
+		out, httpErr := eng.ResolveComputeInstances(ctx, existing, nil)
+		require.Nil(t, httpErr)
+		require.Equal(t, existing, out)
+	})
+
+	t.Run("environment does not implement instanceMapper", func(t *testing.T) {
+		out, httpErr := eng.ResolveComputeInstances(ctx, nil, "not-an-instancemapper")
+		require.Nil(t, out)
+		require.NotNil(t, httpErr)
+		require.Equal(t, http.StatusBadRequest, httpErr.Code())
+		require.ErrorContains(t, httpErr, "environment must implement instanceMapper")
+	})
+
+	// The path through GetNodeList is not tested here: GetNodeList calls
+	// exec.Exec("scontrol", "show", "nodes", ...) which is a free function
+	// (not interface-injectable) and requires a running Slurm daemon.
+}
+
+func TestGetPartitionNodes(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("empty partition name returns error", func(t *testing.T) {
+		finder := &TopologyNodeFinder{
+			GetPartitionNodes: func(context.Context, string, []any) (string, error) {
+				return "", nil
+			},
+		}
+		_, err := GetPartitionNodes(ctx, "", finder)
+		require.EqualError(t, err, "missing partition name")
+	})
+
+	t.Run("injectable finder — valid fixture output", func(t *testing.T) {
+		fixture := `PartitionName=my_partition
+   Nodes=node[001-004]
+`
+		finder := &TopologyNodeFinder{
+			GetPartitionNodes: func(_ context.Context, _ string, _ []any) (string, error) {
+				return fixture, nil
+			},
+		}
+		nodes, err := GetPartitionNodes(ctx, "my_partition", finder)
+		require.NoError(t, err)
+		require.Equal(t, []string{"node[001-004]"}, nodes)
+	})
+
+	// getPartitionNodes (the concrete implementation used in production) calls
+	// exec.Exec("scontrol", ...) and is not testable without a running Slurm daemon.
+}
 
 func TestAggregateComputeInstances(t *testing.T) {
 	testCases := []struct {
