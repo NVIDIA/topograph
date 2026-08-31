@@ -126,6 +126,7 @@ func testIntegration(t *testing.T, baseURL, payload, expected, generateMethod st
 	// send generate request and validate response code
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, tp.Provider.Params.GenerateResponseCode, resp.StatusCode)
 	if resp.StatusCode != http.StatusAccepted {
 		return
@@ -134,7 +135,6 @@ func testIntegration(t *testing.T, baseURL, payload, expected, generateMethod st
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	out := string(body)
-	resp.Body.Close()
 
 	// retrieve topology config
 	params := url.Values{}
