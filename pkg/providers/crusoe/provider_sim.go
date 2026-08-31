@@ -93,7 +93,8 @@ func nodeMetadataFromModel(model *models.Model) []nodeMetadata {
 // instead, because that is what a live cluster carries. Without this bridge a
 // model that follows the shared convention would silently produce no blocks.
 // A clique label set directly on the model wins, so a Crusoe-shaped model can
-// still describe the live labels verbatim.
+// still describe the live labels verbatim. The domain is the clique verbatim,
+// so a model value passes through unchanged.
 func simNodeLabels(node *models.Node) map[string]string {
 	domain := node.AcceleratorDomain()
 	if domain == "" || node.Labels[labelGPUClique] != "" {

@@ -79,7 +79,7 @@ func TestBuildInstanceTopology(t *testing.T) {
 			node:       mnnvlNode("gb200-01", partitionA, podA1, cliqueA),
 			wantTiers:  topology.ClosestFirstFabricTiers(podA1, partitionA, rootTier),
 			wantFabric: true,
-			wantDomain: "nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766",
+			wantDomain: "29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766",
 		},
 		{
 			name: "MNNVL node without InfiniBand still contributes a block",
@@ -88,7 +88,7 @@ func TestBuildInstanceTopology(t *testing.T) {
 				Labels:     map[string]string{labelGPUClique: cliqueA},
 			},
 			wantTiers:  topology.ClosestFirstFabricTiers(cpuPod, cpuPartition, rootTier),
-			wantDomain: "nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766",
+			wantDomain: "29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766",
 		},
 	}
 
@@ -223,9 +223,9 @@ func TestRenderedBlockTopologyConf(t *testing.T) {
 	// block001. Print order comes from the tree walk, which reaches the last
 	// leaf first, so block002 is written first. Both are deterministic, and
 	// they disagree — which is precisely what a per-line check cannot show.
-	expected := "# block002=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767\n" +
+	expected := "# block002=29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767\n" +
 		"BlockName=block002 Nodes=rack-b-[1-2]\n" +
-		"# block001=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766\n" +
+		"# block001=29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766\n" +
 		"BlockName=block001 Nodes=rack-a-[1-2]\n" +
 		"BlockSizes=2,4\n"
 	require.Equal(t, expected, got)

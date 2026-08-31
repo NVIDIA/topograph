@@ -29,10 +29,6 @@ const (
 	// be split into several cliques. A clique never spans racks.
 	labelGPUClique = "nvidia.com/gpu.clique"
 
-	// nvlDomainPrefix marks a domain as NVLink-derived, so the domain a block
-	// came from is readable in the accelerator topology.
-	nvlDomainPrefix = "nvl-"
-
 	// rootTier names the synthetic tier above every partition. Slurm needs one
 	// common root so a job can span partitions and reach nodes that have no
 	// InfiniBand at all.
@@ -67,6 +63,10 @@ func readFabricLabels(labels map[string]string) (fabricLabels, bool) {
 
 // readNVLinkDomain returns the NVLink domain of a Node, or "" when the node is
 // not on an NVLink fabric.
+//
+// The value is the clique verbatim. Providers that derive a domain from a clique
+// publish the two identically, so accelerator.topograph.run/domain can be
+// compared directly against nvidia.com/gpu.clique on the node.
 func readNVLinkDomain(labels map[string]string) string {
 	clique := strings.TrimSpace(labels[labelGPUClique])
 	if clique == "" {
@@ -74,5 +74,5 @@ func readNVLinkDomain(labels map[string]string) string {
 	}
 
 	klog.V(4).Infof("NVLink domain from %s=%q", labelGPUClique, clique)
-	return nvlDomainPrefix + clique
+	return clique
 }

@@ -82,12 +82,12 @@ func TestReadNVLinkDomain(t *testing.T) {
 		{
 			name:   "clique becomes a prefixed domain",
 			labels: map[string]string{labelGPUClique: "cluster-uuid.32766"},
-			want:   nvlDomainPrefix + "cluster-uuid.32766",
+			want:   "cluster-uuid.32766",
 		},
 		{
 			name:   "surrounding whitespace is trimmed",
 			labels: map[string]string{labelGPUClique: " cluster-uuid.32766 "},
-			want:   nvlDomainPrefix + "cluster-uuid.32766",
+			want:   "cluster-uuid.32766",
 		},
 		{
 			name:   "no clique label",

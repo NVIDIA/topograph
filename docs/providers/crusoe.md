@@ -64,13 +64,15 @@ Domain named by the `<clusterUUID>` prefix alone — an x72 rack split into two
 x36 halves carries two clique values, and each becomes its own block. A clique
 never spans racks, so a block never does either.
 
-Each distinct clique becomes one accelerator domain, which `topology/block`
-renders as one Slurm block:
+Each distinct clique becomes one accelerator domain, published verbatim so
+`accelerator.topograph.run/domain` can be compared directly against
+`nvidia.com/gpu.clique` on the node. `topology/block` renders one block per
+domain:
 
 ```text
-# block001=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766
+# block001=29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766
 BlockName=block001 Nodes=gpu-[01-02]
-# block002=nvl-29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767
+# block002=29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767
 BlockName=block002 Nodes=gpu-[03-04]
 BlockSizes=2,4
 ```
