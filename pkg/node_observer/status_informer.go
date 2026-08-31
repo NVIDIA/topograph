@@ -188,6 +188,17 @@ func (s *StatusInformer) Stop(_ error) {
 	})
 }
 
+func (s *StatusInformer) requestOnDelete(kind string) func(any) {
+	return func(obj any) {
+		if key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj); err != nil {
+			klog.V(4).Infof("Informer deleted %s with unidentifiable object: %v", kind, err)
+		} else {
+			klog.V(4).Infof("Informer deleted %s %s", kind, key)
+		}
+		s.sendRequest()
+	}
+}
+
 func (s *StatusInformer) startNodeInformer() error {
 	if s.nodeFactory != nil {
 		informer := s.nodeFactory.Core().V1().Nodes().Informer()
@@ -198,18 +209,7 @@ func (s *StatusInformer) startNodeInformer() error {
 					s.sendRequest()
 				}
 			},
-			DeleteFunc: func(obj any) {
-				switch v := obj.(type) {
-				case *corev1.Node:
-					klog.V(4).Infof("Informer deleted node %s", v.Name)
-					s.sendRequest()
-				case cache.DeletedFinalStateUnknown:
-					if node, ok := v.Obj.(*corev1.Node); ok {
-						klog.V(4).Infof("Informer deleted node %s", node.Name)
-						s.sendRequest()
-					}
-				}
-			},
+			DeleteFunc: s.requestOnDelete("node"),
 		})
 		if err != nil {
 			return err
@@ -250,7 +250,7 @@ func (s *StatusInformer) startAPIServerInformer() error {
 					s.sendRequest()
 				}
 			},
-			DeleteFunc: s.requestOnAPIServerDelete,
+			DeleteFunc: s.requestOnDelete("API server pod"),
 		})
 		if err != nil {
 			return err
@@ -261,19 +261,6 @@ func (s *StatusInformer) startAPIServerInformer() error {
 		}
 	}
 	return nil
-}
-
-func (s *StatusInformer) requestOnAPIServerDelete(obj any) {
-	switch pod := obj.(type) {
-	case *corev1.Pod:
-		klog.V(4).Infof("Informer deleted API server pod %s/%s", pod.Namespace, pod.Name)
-		s.sendRequest()
-	case cache.DeletedFinalStateUnknown:
-		if pod, ok := pod.Obj.(*corev1.Pod); ok {
-			klog.V(4).Infof("Informer deleted API server pod %s/%s", pod.Namespace, pod.Name)
-			s.sendRequest()
-		}
-	}
 }
 
 func (s *StatusInformer) startBrokerInformer() error {
@@ -303,18 +290,7 @@ func (s *StatusInformer) startBrokerInformer() error {
 					s.sendRequest()
 				}
 			},
-			DeleteFunc: func(obj any) {
-				switch v := obj.(type) {
-				case *appsv1.DaemonSet:
-					klog.V(4).Infof("Informer deleted node-data-broker DaemonSet %s/%s", v.Namespace, v.Name)
-					s.sendRequest()
-				case cache.DeletedFinalStateUnknown:
-					if daemonSet, ok := v.Obj.(*appsv1.DaemonSet); ok {
-						klog.V(4).Infof("Informer deleted node-data-broker DaemonSet %s/%s", daemonSet.Namespace, daemonSet.Name)
-						s.sendRequest()
-					}
-				}
-			},
+			DeleteFunc: s.requestOnDelete("node-data-broker DaemonSet"),
 		})
 		if err != nil {
 			return err
@@ -353,18 +329,7 @@ func (s *StatusInformer) startPodInformer() error {
 					s.sendRequest()
 				}
 			},
-			DeleteFunc: func(obj any) {
-				switch v := obj.(type) {
-				case *corev1.Pod:
-					klog.V(4).Infof("Informer deleted pod %s/%s", v.Namespace, v.Name)
-					s.sendRequest()
-				case cache.DeletedFinalStateUnknown:
-					if pod, ok := v.Obj.(*corev1.Pod); ok {
-						klog.V(4).Infof("Informer deleted pod %s/%s", pod.Namespace, pod.Name)
-						s.sendRequest()
-					}
-				}
-			},
+			DeleteFunc: s.requestOnDelete("pod"),
 		})
 		if err != nil {
 			return err

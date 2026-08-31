@@ -220,17 +220,15 @@ func TestAPIServerPodReadinessRequiresTargetContainer(t *testing.T) {
 	))
 }
 
-func TestAPIServerPodDeleteQueuesRequest(t *testing.T) {
+func TestRequestOnDeleteQueuesRequest(t *testing.T) {
 	pod := makeWorkloadPod(true, makeContainerStatus("topograph", true, 0))
 	testCases := []struct {
-		name   string
-		obj    any
-		queued bool
+		name string
+		obj  any
 	}{
 		{
-			name:   "pod",
-			obj:    pod,
-			queued: true,
+			name: "pod",
+			obj:  pod,
 		},
 		{
 			name: "tombstone containing pod",
@@ -238,7 +236,12 @@ func TestAPIServerPodDeleteQueuesRequest(t *testing.T) {
 				Key: "topograph/api-server",
 				Obj: pod,
 			},
-			queued: true,
+		},
+		{
+			name: "tombstone without an object",
+			obj: cache.DeletedFinalStateUnknown{
+				Key: "topograph/api-server",
+			},
 		},
 		{
 			name: "tombstone containing unexpected object",
@@ -246,7 +249,10 @@ func TestAPIServerPodDeleteQueuesRequest(t *testing.T) {
 				Key: "topograph/api-server",
 				Obj: &appsv1.DaemonSet{},
 			},
-			queued: false,
+		},
+		{
+			name: "object with no resolvable key",
+			obj:  "unexpected",
 		},
 	}
 
@@ -254,13 +260,9 @@ func TestAPIServerPodDeleteQueuesRequest(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := newTestStatusInformer(t, time.Second, nil)
 
-			s.requestOnAPIServerDelete(tc.obj)
+			s.requestOnDelete("API server pod")(tc.obj)
 
-			if tc.queued {
-				require.Equal(t, 1, s.queue.Len())
-			} else {
-				require.Zero(t, s.queue.Len())
-			}
+			require.Equal(t, 1, s.queue.Len())
 		})
 	}
 }
