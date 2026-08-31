@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `nscale` provider's IMDS `pdsh` command no longer masks a failed `curl` behind `echo`'s always-zero exit status; a node whose IMDS request fails now reports that failure to `pdsh` instead of producing an empty response that silently drops the node.
 - GCP and OCI simulation providers now handle partial final pagination pages without indexing past the available instances.
 - Non-positive `pageSize` configuration values now emit a warning and use the provider default instead of reaching provider APIs and simulation pagination loops.
+- The node observer now regenerates topology for every deletion its informers report. Deletions that happen while a watch is disconnected arrive as `cache.DeletedFinalStateUnknown` tombstones, which carry a nil object when the resource has already left the informer store. The node, pod, API server, and node-data-broker delete handlers all required the tombstone to unwrap to the watched type, so those deletions were dropped and the topology stayed stale until an unrelated event arrived.
 
 ### Security
 
