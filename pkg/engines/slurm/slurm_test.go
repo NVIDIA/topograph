@@ -26,6 +26,9 @@ func TestNamedLoader(t *testing.T) {
 	name, loader := NamedLoader()
 	require.Equal(t, NAME, name)
 	require.NotNil(t, loader)
+	eng, httpErr := loader(context.Background(), engines.Config{})
+	require.Nil(t, httpErr)
+	require.IsType(t, &SlurmEngine{}, eng)
 }
 
 func TestLoader(t *testing.T) {
@@ -35,7 +38,7 @@ func TestLoader(t *testing.T) {
 	// and those paths require a running Slurm daemon.
 	eng, httpErr := Loader(context.Background(), engines.Config{})
 	require.Nil(t, httpErr)
-	require.NotNil(t, eng)
+	require.IsType(t, &SlurmEngine{}, eng)
 }
 
 func TestSlurmEngineGenerateOutput(t *testing.T) {
@@ -53,22 +56,35 @@ func TestSlurmEngineGenerateOutput(t *testing.T) {
 func TestGenerateOutputParamsFilePath(t *testing.T) {
 	ctx := context.TODO()
 	graph, _ := translate.GetTreeTestSet(false)
-	path := filepath.Join(t.TempDir(), "topology.conf")
-	params := &Params{
-		BaseParams:     BaseParams{Plugin: topology.TopologyTree},
-		TopoConfigPath: path,
-		// Reconfigure: false — reconfigure calls exec.Exec("scontrol", "reconfigure")
-		// which requires a running Slurm daemon and is not interface-injectable.
-	}
 
-	out, httpErr := GenerateOutputParams(ctx, graph, params)
+	t.Run("success — file written and OK returned", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "topology.conf")
+		params := &Params{
+			BaseParams:     BaseParams{Plugin: topology.TopologyTree},
+			TopoConfigPath: path,
+			// Reconfigure: false — reconfigure calls exec.Exec("scontrol", "reconfigure")
+			// which requires a running Slurm daemon and is not interface-injectable.
+		}
+		out, httpErr := GenerateOutputParams(ctx, graph, params)
+		require.Nil(t, httpErr)
+		require.Equal(t, "OK\n", string(out))
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		require.Contains(t, string(data), fmt.Sprintf(TopologyHeader, topology.TopologyTree))
+		require.Contains(t, string(data), "SwitchName=")
+	})
 
-	require.Nil(t, httpErr)
-	require.Equal(t, "OK\n", string(out))
-	data, err := os.ReadFile(path)
-	require.NoError(t, err)
-	require.Contains(t, string(data), fmt.Sprintf(TopologyHeader, topology.TopologyTree))
-	require.Contains(t, string(data), "SwitchName=")
+	t.Run("file creation failure returns InternalServerError", func(t *testing.T) {
+		// Use a path whose parent directory does not exist to force a write failure.
+		failPath := filepath.Join(t.TempDir(), "nonexistent-subdir", "topology.conf")
+		params := &Params{
+			BaseParams:     BaseParams{Plugin: topology.TopologyTree},
+			TopoConfigPath: failPath,
+		}
+		_, httpErr := GenerateOutputParams(ctx, graph, params)
+		require.NotNil(t, httpErr)
+		require.Equal(t, http.StatusInternalServerError, httpErr.Code())
+	})
 }
 
 func TestResolveComputeInstances(t *testing.T) {
@@ -98,27 +114,44 @@ func TestResolveComputeInstances(t *testing.T) {
 func TestGetPartitionNodes(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("empty partition name returns error", func(t *testing.T) {
+	t.Run("empty partition name returns error without invoking finder", func(t *testing.T) {
+		called := false
 		finder := &TopologyNodeFinder{
 			GetPartitionNodes: func(context.Context, string, []any) (string, error) {
+				called = true
 				return "", nil
 			},
 		}
 		_, err := GetPartitionNodes(ctx, "", finder)
 		require.EqualError(t, err, "missing partition name")
+		require.False(t, called, "finder must not be invoked when partition name is empty")
 	})
 
-	t.Run("injectable finder — valid fixture output", func(t *testing.T) {
+	t.Run("finder error is propagated", func(t *testing.T) {
+		finder := &TopologyNodeFinder{
+			GetPartitionNodes: func(_ context.Context, partition string, _ []any) (string, error) {
+				require.Equal(t, "my_partition", partition)
+				return "", fmt.Errorf("scontrol failed")
+			},
+		}
+		_, err := GetPartitionNodes(ctx, "my_partition", finder)
+		require.ErrorContains(t, err, "scontrol failed")
+	})
+
+	t.Run("injectable finder — partition name forwarded and result parsed", func(t *testing.T) {
 		fixture := `PartitionName=my_partition
    Nodes=node[001-004]
 `
+		var receivedPartition string
 		finder := &TopologyNodeFinder{
-			GetPartitionNodes: func(_ context.Context, _ string, _ []any) (string, error) {
+			GetPartitionNodes: func(_ context.Context, partition string, _ []any) (string, error) {
+				receivedPartition = partition
 				return fixture, nil
 			},
 		}
 		nodes, err := GetPartitionNodes(ctx, "my_partition", finder)
 		require.NoError(t, err)
+		require.Equal(t, "my_partition", receivedPartition)
 		require.Equal(t, []string{"node[001-004]"}, nodes)
 	})
 
