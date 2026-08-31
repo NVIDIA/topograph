@@ -21,6 +21,11 @@ func TestProviderBMNamedLoader(t *testing.T) {
 	name, loader := NamedLoaderBM()
 	require.Equal(t, NAME_BM, name)
 	require.NotNil(t, loader)
+	// Invoke loader to verify LoaderBM wires ibNetDiscover (regression for #492).
+	p, httpErr := loader(context.Background(), providers.Config{})
+	require.Nil(t, httpErr)
+	require.IsType(t, &ProviderBM{}, p)
+	require.NotNil(t, p.(*ProviderBM).ibNetDiscover)
 }
 
 func TestProviderBMRejectsMultiRegionRequest(t *testing.T) {
@@ -80,18 +85,48 @@ func TestProviderBMGenerateTopologyConfig(t *testing.T) {
 
 func TestProviderBMInstances2NodeMap(t *testing.T) {
 	p := &ProviderBM{}
-	nodes := []string{"node-1", "node-2"}
-	i2n, err := p.Instances2NodeMap(context.Background(), nodes)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{"node-1": "node-1", "node-2": "node-2"}, i2n)
+
+	t.Run("identity mapping", func(t *testing.T) {
+		i2n, err := p.Instances2NodeMap(context.Background(), []string{"node-1", "node-2"})
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{"node-1": "node-1", "node-2": "node-2"}, i2n)
+	})
+
+	t.Run("empty input returns empty map", func(t *testing.T) {
+		i2n, err := p.Instances2NodeMap(context.Background(), nil)
+		require.NoError(t, err)
+		require.Empty(t, i2n)
+	})
+
+	t.Run("duplicate node — idempotent, cardinality matches unique keys", func(t *testing.T) {
+		i2n, err := p.Instances2NodeMap(context.Background(), []string{"node-1", "node-1"})
+		require.NoError(t, err)
+		require.Len(t, i2n, 1)
+		require.Equal(t, "node-1", i2n["node-1"])
+	})
 }
 
 func TestProviderBMGetInstancesRegions(t *testing.T) {
 	p := &ProviderBM{}
-	nodes := []string{"node-1", "node-2"}
-	regions, err := p.GetInstancesRegions(context.Background(), nodes)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{"node-1": "local", "node-2": "local"}, regions)
+
+	t.Run("all regions are local", func(t *testing.T) {
+		regions, err := p.GetInstancesRegions(context.Background(), []string{"node-1", "node-2"})
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{"node-1": "local", "node-2": "local"}, regions)
+	})
+
+	t.Run("empty input returns empty map", func(t *testing.T) {
+		regions, err := p.GetInstancesRegions(context.Background(), nil)
+		require.NoError(t, err)
+		require.Empty(t, regions)
+	})
+
+	t.Run("duplicate node — idempotent, cardinality matches unique keys", func(t *testing.T) {
+		regions, err := p.GetInstancesRegions(context.Background(), []string{"node-1", "node-1"})
+		require.NoError(t, err)
+		require.Len(t, regions, 1)
+		require.Equal(t, "local", regions["node-1"])
+	})
 }
 
 // mustNoneDiscoverer returns an accelerator.Discoverer with source=none,

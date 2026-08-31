@@ -34,6 +34,12 @@ func TestServerIntegration(t *testing.T) {
 	backOff = 100 * time.Millisecond
 	defer func() { backOff = defaultBackOff }()
 
+	// testIntegration and topologyRequestWithRetries use http.DefaultClient / http.Get,
+	// which pool keep-alive connections in http.DefaultTransport. Close idle connections
+	// after the test so goroutine-leak detectors do not flag the transport's readLoop /
+	// writeLoop goroutines. See https://github.com/NVIDIA/topograph/issues/493.
+	t.Cleanup(func() { http.DefaultClient.CloseIdleConnections() })
+
 	port, err := test.GetAvailablePort()
 	require.NoError(t, err)
 

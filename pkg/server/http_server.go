@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -35,10 +36,11 @@ import (
 )
 
 type HttpServer struct {
-	ctx   context.Context
-	cfg   *config.Config
-	srv   *http.Server
-	async *asyncController
+	ctx      context.Context
+	cfg      *config.Config
+	srv      *http.Server
+	async    *asyncController
+	stopOnce sync.Once
 }
 
 type asyncController struct {
@@ -126,12 +128,14 @@ func (s *HttpServer) Start() error {
 }
 
 func (s *HttpServer) Stop(err error) {
-	klog.Infof("Stopping HTTP server: %v", err)
-	if err := s.srv.Shutdown(s.ctx); err != nil {
-		klog.Errorf("Error during HTTP server shutdown: %v", err)
-	}
-	s.async.queue.Shutdown()
-	klog.Infof("Stopped HTTP server")
+	s.stopOnce.Do(func() {
+		klog.Infof("Stopping HTTP server: %v", err)
+		if err := s.srv.Shutdown(s.ctx); err != nil {
+			klog.Errorf("Error during HTTP server shutdown: %v", err)
+		}
+		s.async.queue.Shutdown()
+		klog.Infof("Stopped HTTP server")
+	})
 }
 
 func healthz(w http.ResponseWriter, r *http.Request) {

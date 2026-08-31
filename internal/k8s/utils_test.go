@@ -136,6 +136,15 @@ func TestGetDaemonSetPods(t *testing.T) {
 		listAction := actions[len(actions)-1].(k8stesting.ListAction)
 		require.Equal(t, "spec.nodeName=node-1", listAction.GetListRestrictions().Fields.String())
 	})
+
+	t.Run("pod list error is returned when daemonset get succeeds", func(t *testing.T) {
+		errClient := fake.NewSimpleClientset(ds)
+		errClient.PrependReactor("list", "pods", func(_ k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("pods unavailable")
+		})
+		_, err := GetDaemonSetPods(context.Background(), errClient, "broker", "default", "")
+		require.ErrorContains(t, err, "pods unavailable")
+	})
 }
 
 func TestGetComputeInstances(t *testing.T) {
