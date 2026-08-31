@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -683,4 +684,27 @@ func TestReadInvalidRequest(t *testing.T) {
 			readInvalidRequest(t, tc.payload, tc.message)
 		})
 	}
+}
+
+func TestHttpServerStopIdempotent(t *testing.T) {
+	port, err := test.GetAvailablePort()
+	require.NoError(t, err)
+	s := initHttpServer(context.Background(), &config.Config{
+		HTTP: config.Endpoint{Port: port},
+	})
+
+	// sequential repeated calls must not panic
+	s.Stop(nil)
+	s.Stop(nil)
+
+	// concurrent calls must not panic
+	var wg sync.WaitGroup
+	for range 5 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.Stop(nil)
+		}()
+	}
+	wg.Wait()
 }
