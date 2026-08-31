@@ -6,9 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The `nscale` provider's Slurm auto-discovery runs `pdsh` across the current Slurm node list and queries each node's own Instance Metadata Service (IMDS) for its server ID (`serverID`) and region, merging the results into the instance-to-node and node-to-region maps.
+- The `nscale` provider's Radar API topology response field is now read as `server_id` instead of `instance_id`, matching the IMDS `serverID` field it is merged with.
+- The `nscale` provider's `region` credential, when set, now restricts Slurm auto-discovery to nodes whose IMDS region (`regionID`) matches it; nodes with a different or missing IMDS region are excluded from the topology query and logged as a warning.
+
+### Removed
+
+- `nscale` provider `instanceApiUrl` parameter and its instance API client — instance and region discovery for Slurm auto-discovery now comes from each node's IMDS instead.
+
 ### Added
 
 - Crusoe provider (`crusoe`) and its simulation variant (`crusoe-sim`) discover the InfiniBand switch fabric on Crusoe Cloud from the `crusoe.ai/ib.partition.id` and `crusoe.ai/pod.id` Node labels the Crusoe control plane publishes. Crusoe compute is virtualized, so a guest VM cannot run `ibnetdiscover` and there is no per-node metadata service for switch identity. Fabric tiers are the rail-optimized pod, the InfiniBand partition, and a synthetic root above them. Nodes without those labels are placed under placeholder tiers beneath the same root, so one Slurm tree spans a heterogeneous cluster. Use it with `topology/tree`.
+- Shared optional provider parameter `imdsUrl` (`providers.GetIMDSURL`, `topology.KeyIMDSURL`) for overriding a provider's default Instance Metadata Service URL. Only the `nscale` provider consumes it so far, falling back to its built-in IMDS URL when unset.
 - README badges replaced with a consistent flat-square Shields.io row: Docs, Go CI, Coverage, Chart Tests, K8s Tests, Release, and License — each linked to its source and using a shared dark label color aligned with the Topograph logo palette.
 - Documentation diagrams for architecture, Kubernetes, Slinky, Slurm topology formats, and engine outputs now ship as community-variant SVG and PNG assets with automatic dark/light mode switching (`<picture>` / `prefers-color-scheme` in docs; `#gh-light-mode-only` / `#gh-dark-mode-only` in README).
 - Topograph logo variants for light mode (`topograph-logo-color`), dark mode (`topograph-logo-color-dark`), reversed black, and reversed white added to `docs/assets/`. The `README.md` logo now switches between color and color-dark automatically based on the viewer's GitHub theme preference.
@@ -18,6 +29,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - The `Go` workflow now also runs on pushes to `main`, so Codecov receives a coverage report for every merged commit. Merges are squashed, so the SHA that lands on `main` no longer matches the `pull-request/<n>` SHA that uploaded coverage; without a `main` trigger, Codecov's `main` branch had gone stale since 2026-07-06 and the README coverage badge reported a figure roughly six points below actual coverage.
+- `nscale` provider's Slurm auto-discovery now issues a single `pdsh` sweep to fetch IMDS metadata for the node list, instead of running it twice (once each for `Instances2NodeMap` and `GetInstancesRegions`).
+- `node-data-broker`'s per-node self-annotation for the `nscale` provider now honors the configured `imdsUrl` parameter instead of always querying the default IMDS endpoint, matching the Slurm auto-discovery path's behavior.
+- `nscale` provider's IMDS `pdsh` command no longer masks a failed `curl` behind `echo`'s always-zero exit status; a node whose IMDS request fails now reports that failure to `pdsh` instead of producing an empty response that silently drops the node.
 - GCP and OCI simulation providers now handle partial final pagination pages without indexing past the available instances.
 - Non-positive `pageSize` configuration values now emit a warning and use the provider default instead of reaching provider APIs and simulation pagination loops.
 

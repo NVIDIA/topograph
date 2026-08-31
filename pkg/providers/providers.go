@@ -126,3 +126,20 @@ func GetTrimTiers(params map[string]any) (int, error) {
 
 	return trimTiers, nil
 }
+
+// GetIMDSURL returns the optional provider-level override for the Instance
+// Metadata Service URL. It returns an empty string when unset, leaving the
+// caller to fall back to its provider-specific default.
+func GetIMDSURL(params map[string]any) (string, error) {
+	v, ok := params[topology.KeyIMDSURL]
+	if !ok || v == nil {
+		return "", nil
+	}
+
+	url, ok := v.(string)
+	if !ok {
+		return "", fmt.Errorf("invalid '%s' value '%v': unsupported type %T", topology.KeyIMDSURL, v, v)
+	}
+
+	return url, nil
+}

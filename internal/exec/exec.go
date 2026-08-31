@@ -64,3 +64,55 @@ func Pdsh(ctx context.Context, cmd string, nodes []string, opts ...string) (*byt
 
 	return Exec(ctx, "pdsh", args, nil)
 }
+
+// pdshCommandTimeout bounds how long pdsh waits for a single remote command
+// to finish (pdsh -u). Without it, one node whose remote command hangs (e.g.
+// a curl to an unreachable/blackholed metadata endpoint) occupies a fanout
+// slot forever and eventually stalls the whole sweep.
+const pdshCommandTimeout = "10"
+
+// PdshTolerant behaves like Pdsh but is meant for sweeps across large,
+// heterogeneous fleets where a handful of nodes being down, unreachable, or
+// otherwise slow to respond is expected and should not fail the whole
+// sweep. It adds:
+//   - "-S": makes pdsh's own exit code reflect the worst remote exit code,
+//     so a total failure (e.g. every node rejecting SSH) is detectable.
+//   - "-u": kills any single remote command that runs past
+//     pdshCommandTimeout, so one hung node can't stall the entire sweep.
+//
+// Unlike Pdsh, a non-zero exit does not automatically fail the call: if
+// pdsh still produced output, that partial output is returned with the
+// failure logged as a warning, since some nodes having failed alongside
+// others succeeding is the normal case at fleet scale. Only a non-zero
+// exit with no output at all (e.g. every node failing, as when the
+// invoking user has no valid SSH key) is treated as a hard error.
+func PdshTolerant(ctx context.Context, cmd string, nodes []string, opts ...string) (*bytes.Buffer, error) {
+	args := []string{"-R", "ssh", "-S", "-u", pdshCommandTimeout}
+	if len(opts) != 0 {
+		args = append(args, opts...)
+	}
+	args = append(args, "-w", strings.Join(cluset.Compact(nodes), ","), cmd)
+
+	klog.V(2).Infof("Execute command %s", strings.Join(append([]string{"pdsh"}, args...), " "))
+	execCmd := exec.CommandContext(ctx, "pdsh", args...)
+	execCmd.Env = os.Environ()
+
+	var stdout, stderr bytes.Buffer
+	execCmd.Stdout = &stdout
+	execCmd.Stderr = &stderr
+
+	err := execCmd.Run()
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		strerr := strings.ReplaceAll(stderr.String(), "\n", " ")
+		if stdout.Len() > 0 {
+			klog.Warningf("pdsh reported remote failures, continuing with partial results: %s", strerr)
+			return &stdout, nil
+		}
+		klog.ErrorS(err, "failed to execute pdsh command", "stderr", strerr)
+		return nil, fmt.Errorf("pdsh failed: %s : %v", strerr, err)
+	}
+	return &stdout, nil
+}
