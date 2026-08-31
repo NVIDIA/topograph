@@ -18,9 +18,13 @@ const (
 	labelPartitionID = "crusoe.ai/ib.partition.id" // InfiniBand partition, the outer fabric tier
 	labelPodID       = "crusoe.ai/pod.id"          // rail-optimized pod, the inner fabric tier
 
-	// labelGPUClique is published by NVIDIA GPU Feature Discovery on MNNVL
-	// systems such as GB200 and GB300 NVL72. Its value is
-	// "<clusterUUID>.<cliqueID>".
+	// labelGPUClique carries the NVLink clique of an MNNVL node such as GB200
+	// and GB300 NVL72. Its value is "<clusterUUID>.<cliqueID>".
+	//
+	// Either NVIDIA GPU Feature Discovery or the NVIDIA DRA driver's
+	// compute-domain kubelet plugin publishes it, depending on the cluster. Both
+	// read the same NVML fabric info and write the same value, so the source
+	// does not matter here.
 	//
 	// Group on the whole value, which is the NVL Partition: the nodes Fabric
 	// Manager placed in one IMEX domain. That is the granularity a job must

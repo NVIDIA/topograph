@@ -53,9 +53,17 @@ it appears under `no-topology` in the generated file rather than disappearing.
 ### NVLink domains
 
 On rack-scale NVLink systems such as GB200 and GB300 NVL72, the fabric a job
-wants to stay inside is the NVLink partition, not the InfiniBand partition.
-NVIDIA GPU Feature Discovery advertises it as `nvidia.com/gpu.clique`, with the
-value `<clusterUUID>.<cliqueID>`.
+wants to stay inside is the NVLink partition, not the InfiniBand partition. It
+is advertised as `nvidia.com/gpu.clique`, with the value
+`<clusterUUID>.<cliqueID>`.
+
+Two components can publish that label. NVIDIA GPU Feature Discovery does, and so
+does the compute-domain kubelet plugin in the NVIDIA DRA driver when
+`kubeletPlugin.containers.computeDomains.gpuCliqueLabelEnabled=true`. GFD is
+bundled with the Kubernetes device plugin and is deprecated on clusters that run
+the DRA driver, so on those clusters the kubelet plugin owns the label. Both
+write the same key and the same `<clusterUUID>.<cliqueID>` value, so the
+provider reads them identically.
 
 The provider groups on the whole value. That is the NVL Partition: the set of
 nodes Fabric Manager placed in one IMEX domain, which is the granularity a job
@@ -91,8 +99,9 @@ contributes a block even though it has no fabric tiers.
 - A Crusoe Cloud Kubernetes cluster
 - For fabric tiers, nodes labelled by the Crusoe control plane with
   `crusoe.ai/ib.partition.id` and `crusoe.ai/pod.id`
-- For NVLink blocks, NVIDIA GPU Feature Discovery publishing
-  `nvidia.com/gpu.clique` on NVLink hosts
+- For NVLink blocks, a component publishing `nvidia.com/gpu.clique` on NVLink
+  hosts: either NVIDIA GPU Feature Discovery, or the NVIDIA DRA driver with
+  `kubeletPlugin.containers.computeDomains.gpuCliqueLabelEnabled=true`
 
 Neither set is required on every node. A node with only the InfiniBand labels
 gets fabric tiers and no block. A node with only a clique gets a block and the
