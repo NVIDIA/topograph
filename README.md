@@ -39,3 +39,7 @@ Ask questions and connect with other users in the
 
 Before contributing, read the [contribution guide](CONTRIBUTING.md) and
 [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Project roles and decision-making are described in
+[Governance](GOVERNANCE.md). See [Maintainers](MAINTAINERS.md) for the current
+maintainer list and project leadership status.
