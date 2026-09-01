@@ -34,6 +34,7 @@ types:
 | Provider | Accelerator domains | Fabric tiers |
 |---|---|---|
 | `aws` | Yes (CapacityBlockId) | Yes |
+| `crusoe` | Optional (`nvidia.com/gpu.clique` on NVLink hosts) | Yes (rail-optimized pod, InfiniBand partition) |
 | `gcp` | Yes (SubblockId) | Yes |
 | `lambdai` | Yes (`NVLink.DomainID.CliqueID`) | Yes |
 | `oci` | Yes (GpuMemoryFabricId) | Yes |

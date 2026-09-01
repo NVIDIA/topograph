@@ -213,3 +213,50 @@ func TestGetTrimTiers(t *testing.T) {
 		})
 	}
 }
+
+func TestGetIMDSURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		params   map[string]any
+		expected string
+		err      string
+	}{
+		{
+			name:   "Case 1: missing key",
+			params: map[string]any{},
+		},
+		{
+			name: "Case 2: nil value",
+			params: map[string]any{
+				topology.KeyIMDSURL: nil,
+			},
+		},
+		{
+			name: "Case 3: string value",
+			params: map[string]any{
+				topology.KeyIMDSURL: "http://custom-imds.example.com/meta_data.json",
+			},
+			expected: "http://custom-imds.example.com/meta_data.json",
+		},
+		{
+			name: "Case 4: unsupported type",
+			params: map[string]any{
+				topology.KeyIMDSURL: 1,
+			},
+			err: "invalid 'imdsUrl' value '1': unsupported type int",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := GetIMDSURL(tt.params)
+
+			if len(tt.err) != 0 {
+				require.EqualError(t, err, tt.err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}

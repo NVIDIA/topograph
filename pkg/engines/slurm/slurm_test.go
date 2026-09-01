@@ -11,13 +11,174 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/NVIDIA/topograph/pkg/engines"
 	"github.com/NVIDIA/topograph/pkg/topology"
 	"github.com/NVIDIA/topograph/pkg/translate"
 )
+
+func TestNamedLoader(t *testing.T) {
+	name, loader := NamedLoader()
+	require.Equal(t, NAME, name)
+	require.NotNil(t, loader)
+	eng, httpErr := loader(context.Background(), engines.Config{})
+	require.Nil(t, httpErr)
+	require.NotNil(t, eng)
+	require.IsType(t, &SlurmEngine{}, eng)
+}
+
+func TestLoader(t *testing.T) {
+	// Loader has no external dependencies — it simply returns a SlurmEngine.
+	// The paths that call scontrol (GetNodeList, getPartitionNodes, reconfigure)
+	// are not tested here because exec.Exec is a free function, not an interface,
+	// and those paths require a running Slurm daemon.
+	eng, httpErr := Loader(context.Background(), engines.Config{})
+	require.Nil(t, httpErr)
+	require.NotNil(t, eng)
+	require.IsType(t, &SlurmEngine{}, eng)
+}
+
+func TestSlurmEngineGenerateOutput(t *testing.T) {
+	// SlurmEngine.GenerateOutput delegates to the package-level GenerateOutput.
+	// This test exercises the method receiver path, which TestGenerateOutput
+	// does not reach because it calls the free function directly.
+	ctx := context.TODO()
+	graph, _ := translate.GetTreeTestSet(false)
+	eng := &SlurmEngine{}
+	out, httpErr := eng.GenerateOutput(ctx, graph, nil)
+	require.Nil(t, httpErr)
+	require.NotEmpty(t, out)
+}
+
+func TestGenerateOutputParamsFilePath(t *testing.T) {
+	ctx := context.TODO()
+	graph, _ := translate.GetTreeTestSet(false)
+
+	t.Run("success — file written and OK returned", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "topology.conf")
+		params := &Params{
+			BaseParams:     BaseParams{Plugin: topology.TopologyTree},
+			TopoConfigPath: path,
+			// Reconfigure: false — reconfigure calls exec.Exec("scontrol", "reconfigure")
+			// which requires a running Slurm daemon and is not interface-injectable.
+		}
+		out, httpErr := GenerateOutputParams(ctx, graph, params)
+		require.Nil(t, httpErr)
+		require.Equal(t, "OK\n", string(out))
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		require.Contains(t, string(data), fmt.Sprintf(TopologyHeader, topology.TopologyTree))
+		require.Contains(t, string(data), "SwitchName=")
+	})
+
+	t.Run("file creation failure returns InternalServerError", func(t *testing.T) {
+		// Use a path whose parent directory does not exist to force a write failure.
+		failPath := filepath.Join(t.TempDir(), "nonexistent-subdir", "topology.conf")
+		params := &Params{
+			BaseParams:     BaseParams{Plugin: topology.TopologyTree},
+			TopoConfigPath: failPath,
+		}
+		_, httpErr := GenerateOutputParams(ctx, graph, params)
+		require.NotNil(t, httpErr)
+		require.Equal(t, http.StatusInternalServerError, httpErr.Code())
+	})
+}
+
+func TestResolveComputeInstances(t *testing.T) {
+	ctx := context.Background()
+	eng := &SlurmEngine{}
+
+	t.Run("instances already provided — early return", func(t *testing.T) {
+		existing := []topology.ComputeInstances{{Region: "r1", Instances: map[string]string{"i1": "n1"}}}
+		out, httpErr := eng.ResolveComputeInstances(ctx, existing, nil)
+		require.Nil(t, httpErr)
+		require.Equal(t, existing, out)
+	})
+
+	t.Run("environment does not implement instanceMapper", func(t *testing.T) {
+		out, httpErr := eng.ResolveComputeInstances(ctx, nil, "not-an-instancemapper")
+		require.Nil(t, out)
+		require.NotNil(t, httpErr)
+		require.Equal(t, http.StatusBadRequest, httpErr.Code())
+		require.ErrorContains(t, httpErr, "environment must implement instanceMapper")
+	})
+
+	// The path through GetNodeList is not tested here: GetNodeList calls
+	// exec.Exec("scontrol", "show", "nodes", ...) which is a free function
+	// (not interface-injectable) and requires a running Slurm daemon.
+}
+
+func TestGetPartitionNodes(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("empty partition name returns error without invoking finder", func(t *testing.T) {
+		called := false
+		finder := &TopologyNodeFinder{
+			GetPartitionNodes: func(context.Context, string, []any) (string, error) {
+				called = true
+				return "", nil
+			},
+		}
+		_, err := GetPartitionNodes(ctx, "", finder)
+		require.EqualError(t, err, "missing partition name")
+		require.False(t, called, "finder must not be invoked when partition name is empty")
+	})
+
+	t.Run("finder error is propagated", func(t *testing.T) {
+		finder := &TopologyNodeFinder{
+			GetPartitionNodes: func(_ context.Context, partition string, _ []any) (string, error) {
+				require.Equal(t, "my_partition", partition)
+				return "", fmt.Errorf("scontrol failed")
+			},
+		}
+		_, err := GetPartitionNodes(ctx, "my_partition", finder)
+		require.ErrorContains(t, err, "scontrol failed")
+	})
+
+	t.Run("injectable finder — partition name and context forwarded, result parsed", func(t *testing.T) {
+		fixture := `PartitionName=my_partition
+   Nodes=node[001-004]
+`
+		testCtx := context.WithValue(ctx, struct{ key string }{"k"}, "v")
+		var receivedCtx context.Context
+		var receivedPartition string
+		finder := &TopologyNodeFinder{
+			GetPartitionNodes: func(c context.Context, partition string, _ []any) (string, error) {
+				receivedCtx = c
+				receivedPartition = partition
+				return fixture, nil
+			},
+		}
+		nodes, err := GetPartitionNodes(testCtx, "my_partition", finder)
+		require.NoError(t, err)
+		require.Equal(t, testCtx, receivedCtx)
+		require.Equal(t, "my_partition", receivedPartition)
+		require.Equal(t, []string{"node[001-004]"}, nodes)
+	})
+
+	t.Run("canceled context is forwarded to finder and error propagates", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		var receivedCtx context.Context
+		finder := &TopologyNodeFinder{
+			GetPartitionNodes: func(c context.Context, _ string, _ []any) (string, error) {
+				receivedCtx = c
+				return "", c.Err()
+			},
+		}
+		_, err := GetPartitionNodes(cancelCtx, "my_partition", finder)
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, cancelCtx, receivedCtx)
+	})
+
+	// getPartitionNodes (the concrete implementation used in production) calls
+	// exec.Exec("scontrol", ...) and is not testable without a running Slurm daemon.
+}
 
 func TestAggregateComputeInstances(t *testing.T) {
 	testCases := []struct {

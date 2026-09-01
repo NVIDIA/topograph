@@ -19,7 +19,8 @@ import (
 const NAME_BM = "infiniband-bm"
 
 type ProviderBM struct {
-	accelerator accelerator.Discoverer
+	accelerator   accelerator.Discoverer
+	ibNetDiscover IBNetDiscover
 }
 
 func NamedLoaderBM() (string, providers.Loader) {
@@ -35,7 +36,7 @@ func LoaderBM(_ context.Context, providerConfig providers.Config) (providers.Pro
 		return nil, httperr.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	return &ProviderBM{accelerator: discoverer}, nil
+	return &ProviderBM{accelerator: discoverer, ibNetDiscover: &IBNetDiscoverBM{}}, nil
 }
 
 func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []topology.ComputeInstances) (*topology.Graph, *httperr.Error) {
@@ -50,7 +51,7 @@ func (p *ProviderBM) GenerateTopologyConfig(ctx context.Context, _ *int, cis []t
 	}
 	domainMap := accelerator.DomainMapFromAssignments(assignments, targets)
 
-	treeRoot, err := getIbTree(ctx, cis, &IBNetDiscoverBM{})
+	treeRoot, err := getIbTree(ctx, cis, p.ibNetDiscover)
 	if err != nil {
 		return nil, httperr.NewError(http.StatusInternalServerError, fmt.Sprintf("getIbTree failed: %v", err))
 	}
