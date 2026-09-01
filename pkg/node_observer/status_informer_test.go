@@ -300,6 +300,77 @@ func TestAPIServerInformerRegistersDeleteHandler(t *testing.T) {
 	require.Eventually(t, func() bool { return s.queue.Len() == 1 }, time.Second, 10*time.Millisecond)
 }
 
+func TestBrokerInformerRegistersDeleteHandler(t *testing.T) {
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{
+		Name:      "topograph-node-data-broker",
+		Namespace: "topograph",
+	}}
+	client := k8sfake.NewSimpleClientset(daemonSet)
+	s, err := NewStatusInformer(
+		context.Background(),
+		client,
+		nil,
+		nil,
+		daemonSet.Name,
+		daemonSet.Namespace,
+		0,
+		nil,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		s.Stop(nil)
+	})
+
+	require.NoError(t, s.startBrokerInformer())
+
+	// The initial list delivers an add, so drain it before asserting on the delete.
+	require.Eventually(t, func() bool { return s.queue.Len() == 1 }, time.Second, 10*time.Millisecond)
+	key, shutdown := s.queue.Get()
+	require.False(t, shutdown)
+	s.queue.Done(key)
+	s.queue.Forget(key)
+	require.Zero(t, s.queue.Len())
+
+	require.NoError(t, client.AppsV1().DaemonSets(daemonSet.Namespace).Delete(
+		context.Background(),
+		daemonSet.Name,
+		metav1.DeleteOptions{},
+	))
+
+	require.Eventually(t, func() bool { return s.queue.Len() == 1 }, time.Second, 10*time.Millisecond)
+}
+
+func TestPodInformerRegistersDeleteHandler(t *testing.T) {
+	// An unready pod keeps the initial add from queueing a request of its own.
+	pod := makeWorkloadPod(false, makeContainerStatus("topograph", false, 0))
+	client := k8sfake.NewSimpleClientset(pod)
+	s, err := NewStatusInformer(
+		context.Background(),
+		client,
+		&Trigger{PodSelector: &metav1.LabelSelector{}},
+		nil,
+		"",
+		"",
+		0,
+		nil,
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		s.Stop(nil)
+	})
+
+	require.NoError(t, s.startPodInformer())
+	require.Zero(t, s.queue.Len())
+
+	require.NoError(t, client.CoreV1().Pods(pod.Namespace).Delete(
+		context.Background(),
+		pod.Name,
+		metav1.DeleteOptions{},
+	))
+
+	require.Eventually(t, func() bool { return s.queue.Len() == 1 }, time.Second, 10*time.Millisecond)
+}
+
 func reqExecFunc(f httpreq.RequestFunc, _ bool) ([]byte, *httperr.Error) {
 	if _, err := f(); err != nil {
 		return nil, err

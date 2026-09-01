@@ -188,6 +188,8 @@ func (s *StatusInformer) Stop(_ error) {
 	})
 }
 
+// requestOnDelete returns a delete handler for the named resource. A relist
+// tombstone can carry a nil object, so the request must not depend on it.
 func (s *StatusInformer) requestOnDelete(kind string) func(any) {
 	return func(obj any) {
 		if key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj); err != nil {
