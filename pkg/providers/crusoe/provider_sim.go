@@ -8,6 +8,7 @@ package crusoe
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"sort"
 
@@ -76,7 +77,32 @@ func nodeMetadataFromModel(model *models.Model) []nodeMetadata {
 	nodes := make([]nodeMetadata, 0, len(names))
 	for _, name := range names {
 		node := model.Nodes[name]
-		nodes = append(nodes, nodeMetadata{InstanceID: name, Labels: node.Labels})
+		nodes = append(nodes, nodeMetadata{
+			InstanceID: name,
+			Labels:     simNodeLabels(node),
+		})
 	}
 	return nodes
+}
+
+// simNodeLabels returns the node labels the provider reads, bridging the model's
+// accelerator-domain annotation onto the clique label.
+//
+// Models express an accelerator domain through the shared annotation that every
+// simulation provider reads. The Crusoe provider reads a Kubernetes label
+// instead, because that is what a live cluster carries. Without this bridge a
+// model that follows the shared convention would silently produce no blocks.
+// A clique label set directly on the model wins, so a Crusoe-shaped model can
+// still describe the live labels verbatim. The domain is the clique verbatim,
+// so a model value passes through unchanged.
+func simNodeLabels(node *models.Node) map[string]string {
+	domain := node.AcceleratorDomain()
+	if domain == "" || node.Labels[labelGPUClique] != "" {
+		return node.Labels
+	}
+
+	labels := make(map[string]string, len(node.Labels)+1)
+	maps.Copy(labels, node.Labels)
+	labels[labelGPUClique] = domain
+	return labels
 }

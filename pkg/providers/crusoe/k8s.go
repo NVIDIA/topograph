@@ -18,6 +18,21 @@ const (
 	labelPartitionID = "crusoe.ai/ib.partition.id" // InfiniBand partition, the outer fabric tier
 	labelPodID       = "crusoe.ai/pod.id"          // rail-optimized pod, the inner fabric tier
 
+	// labelGPUClique carries the NVLink clique of an MNNVL node such as GB200
+	// and GB300 NVL72. Its value is "<clusterUUID>.<cliqueID>".
+	//
+	// Either NVIDIA GPU Feature Discovery or the NVIDIA DRA driver's
+	// compute-domain kubelet plugin publishes it, depending on the cluster. Both
+	// read the same NVML fabric info and write the same value, so the source
+	// does not matter here.
+	//
+	// Group on the whole value, which is the NVL Partition: the nodes Fabric
+	// Manager placed in one IMEX domain. That is the granularity a job must
+	// stay inside to get NVLink bandwidth. It can be finer than the physical
+	// NVL Domain named by the <clusterUUID> prefix alone, because one rack can
+	// be split into several cliques. A clique never spans racks.
+	labelGPUClique = "nvidia.com/gpu.clique"
+
 	// rootTier names the synthetic tier above every partition. Slurm needs one
 	// common root so a job can span partitions and reach nodes that have no
 	// InfiniBand at all.
@@ -48,4 +63,20 @@ func readFabricLabels(labels map[string]string) (fabricLabels, bool) {
 	}
 
 	return fabricLabels{PartitionID: partitionID, PodID: podID}, true
+}
+
+// readNVLinkDomain returns the NVLink domain of a Node, or "" when the node is
+// not on an NVLink fabric.
+//
+// The value is the clique verbatim. Providers that derive a domain from a clique
+// publish the two identically, so accelerator.topograph.run/domain can be
+// compared directly against nvidia.com/gpu.clique on the node.
+func readNVLinkDomain(labels map[string]string) string {
+	clique := strings.TrimSpace(labels[labelGPUClique])
+	if clique == "" {
+		return ""
+	}
+
+	klog.V(4).Infof("NVLink domain from %s=%q", labelGPUClique, clique)
+	return clique
 }

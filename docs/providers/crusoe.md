@@ -15,15 +15,18 @@ the provider only has to read the Kubernetes API.
 Use it on Crusoe Managed Kubernetes. On any other platform use the provider
 that matches it — see [Choosing a Provider](../overview.md).
 
-The provider supplies the switch fabric hierarchy. Pair it with
-`topology/tree`.
+The provider supplies the switch fabric hierarchy, so pair it with
+`topology/tree`. On rack-scale NVLink systems it also supplies an accelerator
+domain per node, which `topology/block` uses — see
+[NVLink domains](#nvlink-domains).
 
 ## How It Works
 
 1. Lists Nodes, filtered by `nodeSelector` when one is set.
 2. Reads `crusoe.ai/ib.partition.id` and `crusoe.ai/pod.id` from each Node and
    turns them into fabric tiers.
-3. Returns the canonical graph.
+3. Reads `nvidia.com/gpu.clique` and turns it into an accelerator domain.
+4. Returns the canonical graph.
 
 ### Fabric tiers
 
@@ -47,11 +50,62 @@ tree alongside the InfiniBand nodes.
 A node the request names but the `nodeSelector` excludes has no tiers at all, so
 it appears under `no-topology` in the generated file rather than disappearing.
 
+### NVLink domains
+
+On rack-scale NVLink systems such as GB200 and GB300 NVL72, the fabric a job
+wants to stay inside is the NVLink partition, not the InfiniBand partition. It
+is advertised as `nvidia.com/gpu.clique`, with the value
+`<clusterUUID>.<cliqueID>`.
+
+Two components can publish that label. NVIDIA GPU Feature Discovery does, and so
+does the compute-domain kubelet plugin in the NVIDIA DRA driver when
+`kubeletPlugin.containers.computeDomains.gpuCliqueLabelEnabled=true`. GFD is
+bundled with the Kubernetes device plugin and is deprecated on clusters that run
+the DRA driver, so on those clusters the kubelet plugin owns the label. Both
+write the same key and the same `<clusterUUID>.<cliqueID>` value, so the
+provider reads them identically.
+
+The provider groups on the whole value. That is the NVL Partition: the set of
+nodes Fabric Manager placed in one IMEX domain, which is the granularity a job
+must stay inside to get NVLink bandwidth. It can be finer than the physical NVL
+Domain named by the `<clusterUUID>` prefix alone — an x72 rack split into two
+x36 halves carries two clique values, and each becomes its own block. A clique
+never spans racks, so a block never does either.
+
+Each distinct clique becomes one accelerator domain, published verbatim so
+`accelerator.topograph.run/domain` can be compared directly against
+`nvidia.com/gpu.clique` on the node. `topology/block` renders one block per
+domain:
+
+```text
+# block001=29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766
+BlockName=block001 Nodes=gpu-[01-02]
+# block002=29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32767
+BlockName=block002 Nodes=gpu-[03-04]
+BlockSizes=2,4
+```
+
+The InfiniBand partition is deliberately **not** used as a fallback domain. A
+partition can span many racks while a clique cannot, so keying blocks on the
+partition would let Slurm spread one job across racks and quietly fall back to
+InfiniBand instead of NVLink. Nodes with no clique label get no domain and are
+scheduled by the tree alone.
+
+A GPU SKU that ships without InfiniBand still carries a clique, so it
+contributes a block even though it has no fabric tiers.
+
 ## Prerequisites
 
 - A Crusoe Cloud Kubernetes cluster
-- Nodes labelled by the Crusoe control plane with `crusoe.ai/ib.partition.id`
-  and `crusoe.ai/pod.id`
+- For fabric tiers, nodes labelled by the Crusoe control plane with
+  `crusoe.ai/ib.partition.id` and `crusoe.ai/pod.id`
+- For NVLink blocks, a component publishing `nvidia.com/gpu.clique` on NVLink
+  hosts: either NVIDIA GPU Feature Discovery, or the NVIDIA DRA driver with
+  `kubeletPlugin.containers.computeDomains.gpuCliqueLabelEnabled=true`
+
+Neither set is required on every node. A node with only the InfiniBand labels
+gets fabric tiers and no block. A node with only a clique gets a block and the
+placeholder tiers.
 
 ## Parameters
 
@@ -97,7 +151,8 @@ Check that the labels are present before generating topology:
 kubectl get nodes -o json | jq '.items[] | {
   name: .metadata.name,
   partition: .metadata.labels["crusoe.ai/ib.partition.id"],
-  pod: .metadata.labels["crusoe.ai/pod.id"]
+  pod: .metadata.labels["crusoe.ai/pod.id"],
+  clique: .metadata.labels["nvidia.com/gpu.clique"]
 }'
 ```
 

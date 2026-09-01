@@ -16,6 +16,8 @@
 #
 # The cpu nodes carry no InfiniBand labels. They land under cpu-partition/cpu-pod
 # beneath the same root, which is what lets one Slurm tree span both.
+#
+# pod-b1 also carries an accelerator domain, so the block path has coverage.
 
 switches:
   partition-a:
@@ -49,5 +51,10 @@ blocks:
 - switch: pod-b1
   nodes:
   - "gpu-[05-06]"
+  # The shared accelerator-domain annotation every simulation provider reads.
+  # crusoe-sim bridges it onto nvidia.com/gpu.clique, which is the label a live
+  # NVLink node carries, so the simulation runs the production code path.
+  annotations:
+    accelerator.topology.test/domain: 29d9a0b8-948d-4a61-8b9e-fbbbf06c521b.32766
 - nodes:
   - "cpu-[01-02]"
