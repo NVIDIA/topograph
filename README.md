@@ -31,3 +31,11 @@ Pick the install path that matches your scheduler:
 - [Overview](docs/overview.md)
 - [Architecture](docs/architecture.md)
 - [Configuration and API](docs/api.md)
+
+## Community
+
+Ask questions and connect with other users in the
+[Topograph community channels](docs/community.md).
+
+Before contributing, read the [contribution guide](CONTRIBUTING.md) and
+[Code of Conduct](CODE_OF_CONDUCT.md).

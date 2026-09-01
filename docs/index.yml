@@ -10,6 +10,8 @@ navigation:
         path: get-started/quickstart-k8s.md
       - page: Install on Slurm
         path: get-started/quickstart-slurm.md
+      - page: Community
+        path: community.md
 
   - section: Architecture
     contents:
