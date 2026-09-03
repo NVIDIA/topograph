@@ -199,6 +199,39 @@ Branch names should use the same `type/` prefix as the commit
 `feat/crusoe-provider`. Every commit still needs the DCO
 `Signed-off-by:` trailer described above — `git commit -s` adds it for you.
 
+## AI-assisted contributions
+
+We welcome the use of AI tools (Claude Code, GitHub Copilot, ChatGPT, and
+similar) to help write code, brainstorm designs, or refactor. This repo
+even ships agent-facing guidance for that purpose —
+[`AGENTS.md`](AGENTS.md) / [`.claude/CLAUDE.md`](.claude/CLAUDE.md) — but
+using it comes with a strict human-in-the-loop policy:
+
+- **Full accountability.** By opening a PR, you (the human author) accept
+  full responsibility for the code: its correctness, security,
+  maintainability, and license compliance. "The AI wrote it" is not an
+  acceptable explanation for a bug or a security flaw, and doesn't change
+  who a maintainer holds accountable in review.
+- **Understand what you submit.** Don't submit AI-generated code you don't
+  fully understand. Reviewers expect you to explain and defend every line
+  of your PR, including design choices an assistant made on your behalf.
+- **The provider/engine boundary still applies.** An assistant with broad
+  repo access can just as easily read the fabric inside an engine or emit
+  scheduler-specific output from a provider as a human can — review AI-
+  generated changes against the [anti-patterns table](AGENTS.md#anti-patterns)
+  and the invariants in [AGENTS.md § 1](AGENTS.md#1-project-overview-and-architecture)
+  before opening the PR, not after a reviewer flags it.
+- **DCO sign-off is still yours to give.** Signing off certifies *you* have
+  the right to submit the contribution under this project's license (see
+  [Sign your work](#sign-your-work) above) — an AI tool cannot certify that
+  on your behalf, regardless of how much of the diff it authored.
+- **Security-sensitive findings follow the normal path.** If an assistant
+  surfaces something that looks like a real vulnerability while you're
+  working (not something you're intentionally testing for), don't paste it
+  into a public issue or PR description — report it per
+  [`SECURITY.md`](SECURITY.md), the same as you would for anything you
+  found yourself.
+
 ## Review process
 
 ### Who reviews
