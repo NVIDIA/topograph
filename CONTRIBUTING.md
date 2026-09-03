@@ -32,6 +32,57 @@ project's load-bearing boundaries by accident:
 Trivial fixes (typos, broken links, small doc corrections) don't need an
 issue first — a pull request is fine.
 
+## Adding a new provider or engine
+
+Topograph has two backend extension points: **providers** (topology
+sources — CSP APIs, NetQ, `ibnetdiscover`, DRA labels, ...) and **engines**
+(scheduler output formats — Slurm, Kubernetes, NFD, Slinky). The invariant
+that keeps them decoupled: providers discover, engines only translate. If
+you find yourself reading the fabric inside an engine, or emitting
+scheduler-specific output from a provider, stop and reconsider the design.
+
+### Adding a provider
+
+1. Create `pkg/providers/<name>/` with at minimum `provider.go` and
+   `provider_test.go` — `pkg/providers/test/` is a minimal reference
+   implementation to copy from.
+2. Implement the `Provider` interface (`pkg/providers/providers.go`):
+   return a `*topology.Graph` and a `*httperr.Error` (never a plain
+   `error` — the API server needs it to propagate the right HTTP status).
+3. Expose `func NamedLoader() (string, providers.Loader)` and register it
+   in `pkg/registry/registry.go`; an unregistered provider is orphaned code
+   that never loads.
+4. If network-fabric and accelerator-domain discovery are separable
+   concerns, compose them independently through `pkg/accelerator` instead
+   of hand-rolling detection logic inside the provider.
+5. Document it: add `docs/providers/<name>.md` (follow the shape of
+   `aws.md` / `netq.md`), and add the provider to `docs/overview.md`'s
+   supported-provider list and "Choosing a Provider" scenario table.
+6. Optional: export a second `NamedLoaderSim` for a simulated/testable
+   variant (see `aws`, `gcp`, `oci`, `lambdai`).
+
+The full checklist and the `Provider` interface contract are the source of
+truth in [AGENTS.md § Adding a new provider](AGENTS.md#adding-a-new-provider).
+
+### Adding an engine
+
+Engines are rare — only four exist today (`slurm`, `k8s`, `nfd`, `slinky`) —
+because adding one implies every provider's output must become
+translatable into it. **Open an issue and get maintainer agreement before
+writing code** (see "Open an issue first" above); this is one of the two
+load-bearing boundaries in the project. Once agreed, follow the same
+registry pattern, registered in `engines.NewRegistry(...)`. Full detail in
+[AGENTS.md § Adding a new engine](AGENTS.md#adding-a-new-engine).
+
+### Ground rules for both
+
+- New provider or engine docs are a requirement of the PR, not optional
+  follow-up — see the
+  [Documentation Impact Evaluation table](AGENTS.md#documentation-impact-evaluation).
+- Review the [anti-patterns table](AGENTS.md#anti-patterns) in AGENTS.md
+  before opening the PR; most rejected provider/engine PRs trip one of
+  those rows.
+
 ## Sign your work
 
 The sign-off is a simple signature at the end of the description for the patch.
