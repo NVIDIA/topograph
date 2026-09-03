@@ -5,6 +5,10 @@ on: workflow_dispatch
 jobs:
   release:
     runs-on: linux-amd64-cpu8
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout
@@ -22,6 +26,11 @@ jobs:
           mkdir -p packaged
           helm lint charts/topograph
           helm package charts/topograph --destination packaged
+
+      - name: Generate SLSA provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: packaged/topograph-*.tgz
 
       - name: Fetch existing Helm repo index
         run: |
