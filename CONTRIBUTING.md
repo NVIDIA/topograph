@@ -124,6 +124,58 @@ Branch names should use the same `type/` prefix as the commit
 `feat/crusoe-provider`. Every commit still needs the DCO
 `Signed-off-by:` trailer described above — `git commit -s` adds it for you.
 
+## Review process
+
+### Who reviews
+
+Every pull request auto-requests review from the repository's
+[CODEOWNERS](CODEOWNERS). Formal approval requires a **Reviewer** or
+**Maintainer** (per [GOVERNANCE.md](GOVERNANCE.md#roles-and-responsibilities));
+only a **Maintainer** can merge, and merging separately verifies DCO
+sign-off, passing CI, and required approvals — it is not a second code
+review. The current maintainer list, including any path-scoped maintainers,
+is in [MAINTAINERS.md](MAINTAINERS.md).
+
+### What's checked
+
+- **Automated** — Go build/test/lint/`govulncheck` (`go.yml`), Helm chart
+  lint/unittest (`chart-test.yaml`), Codecov patch/project coverage, and the
+  DCO bot all run on every push to the PR.
+- **Human** — adherence to the provider/engine boundary, test coverage on new
+  code paths, and doc updates when a contract changes (see the
+  [Documentation Impact Evaluation table](AGENTS.md#documentation-impact-evaluation)
+  in `AGENTS.md`).
+
+### Turnaround
+
+A maintainer aims to give an initial response — a review, a request for
+changes, or at minimum a triage comment — within **5 business days** of a PR
+being opened or re-requested for review. This project currently has a small
+maintainer team (see [MAINTAINERS.md](MAINTAINERS.md)), so treat 5 business
+days as the target, not a guarantee, and expect full review-to-merge to take
+longer for larger or more sensitive changes (anything touching
+`pkg/topology/`, a new engine, or a new provider).
+
+### Following up
+
+If you haven't heard anything after 5 business days:
+
+1. Leave a comment on the PR (`@`-mention the reviewer CODEOWNERS assigned,
+   or a maintainer from [MAINTAINERS.md](MAINTAINERS.md) if none was
+   assigned) asking for a status update.
+2. Raise it in the [community Slack channels](README.md#community) —
+   [#topology-aware-scheduling](https://kubernetes.slack.com/archives/C012XSGFZQE)
+   or [#gpu-nvidia](https://kubernetes.slack.com/archives/C09N46EFJR0) — if
+   the PR thread goes quiet.
+3. For a stalled issue rather than a PR, check the pinned **Roadmap & Focus
+   Areas** issue on the [issue tracker](https://github.com/NVIDIA/topograph/issues)
+   to see if it's already being tracked there.
+
+Keep the PR in draft while you're still reshaping it — draft PRs don't page
+reviewers, so that's the cheapest phase to rework history or force-push in.
+Once a PR is open for review, prefer pushing new commits over amending or
+rebasing, since a force-push invalidates existing inline review comments.
+
 ## Community
 
 Community discussion happens on the [Kubernetes Slack](https://slack.k8s.io/):
