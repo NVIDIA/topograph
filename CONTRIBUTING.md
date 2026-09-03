@@ -140,6 +140,30 @@ You must use your real name (sorry, no pseudonyms or anonymous contributions).
 If you set your `user.name` and `user.email` using git config, you can sign
 your commit automatically with `git commit -s`.
 
+### DCO bot enforcement
+
+This repo runs the [`probot/dco`](https://probot.github.io/apps/dco/) GitHub
+App on every pull request — it checks every commit in the PR for a
+`Signed-off-by:` trailer and reports a `DCO` check in the PR's status
+checks. There is no `.github/dco.yml` exemption configured: NVIDIA org
+membership does not bypass it, and neither does any other affiliation.
+
+**If the `DCO` check fails**, rebase the branch to add sign-off to every
+commit rather than opening a new PR:
+
+```bash
+# add sign-off to every commit on the branch since it diverged from main
+git rebase --signoff upstream/main
+git push --force-with-lease
+```
+
+For just the most recent commit:
+
+```bash
+git commit --amend -s --no-edit
+git push --force-with-lease
+```
+
 ## Commit messages
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
