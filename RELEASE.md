@@ -61,7 +61,8 @@ Use one prerelease branch for all release candidates in a given release cycle.
 
 3. In GitHub, run the **Docker** workflow against the prerelease branch. The
    workflow publishes the Topograph container image with two tags: the branch
-   name, such as `v1.2.0-rc`, and the short commit SHA.
+   name, such as `v1.2.0-rc`, and the short commit SHA. It also generates signed
+   SLSA provenance for the image and publishes it to GHCR.
 
 4. Set `appVersion` in `charts/topograph/Chart.yaml` to the short commit SHA
    produced in the previous step. Commit and push the change to the prerelease
@@ -72,6 +73,8 @@ Use one prerelease branch for all release candidates in a given release cycle.
    example, version `1.2.0-rc.1` is published as:
 
    `https://nvidia.github.io/topograph/topograph-1.2.0-rc.1.tgz`
+
+   The workflow also generates signed SLSA provenance for the chart package.
 
 6. Run the release-candidate test cycle.
 
@@ -116,7 +119,8 @@ When the release is ready for general availability, follow these steps:
    1. **Docker**
    2. **Release Helm Charts**
 
-   Confirm that the container image and Helm chart were published successfully.
+   Confirm that the container image and Helm chart were published successfully
+   and that both workflows generated SLSA provenance.
 
 6. Merge the release pull request.
 
@@ -131,16 +135,16 @@ When the release is ready for general availability, follow these steps:
 flowchart TD
     A[main] --> B[Prerelease branch<br/>vX.Y.Z-rc]
     B --> C[Set chart version<br/>X.Y.Z-rc.N]
-    C --> D[Docker workflow<br/>branch and SHA tags]
+    C --> D[Docker workflow<br/>image and provenance]
     D --> E[Set appVersion<br/>to short SHA]
-    E --> F[Release Helm Charts<br/>candidate package]
+    E --> F[Release Helm Charts<br/>package and provenance]
     F --> G[Release-candidate<br/>test cycle]
     G -->|Changes needed| H[Merge fixes<br/>into main]
     H --> I[Rebase branch and<br/>increment rc.N]
     I --> C
     G -->|Ready for GA| J[Release branch<br/>vX.Y.Z]
     J --> K[Quality gates<br/>and release PR]
-    K --> L[Docker and Helm<br/>workflows]
+    K --> L[Docker and Helm<br/>artifacts and provenance]
     L --> M[Merge release PR]
     M --> N[GitHub release<br/>and vX.Y.Z tag]
     N --> O[Publish Fern Docs<br/>versioned documentation]
@@ -160,6 +164,7 @@ An official release publishes:
   `https://nvidia.github.io/topograph`
 - A GitHub release and source tag named `vX.Y.Z`
 - Versioned documentation generated from the release tag
+- Signed SLSA build provenance for the container image and Helm chart package
 
 ## Quality gates
 
@@ -170,6 +175,7 @@ All releases must pass:
 - Required GitHub CI checks on the release pull request
 - Review of `CHANGELOG.md` for complete, user-facing release notes
 - DCO sign-off verification for every commit
+- Successful SLSA provenance generation for every published artifact
 
 ## Release verification
 
@@ -185,6 +191,25 @@ Verify the published Helm chart:
 helm repo add topograph https://nvidia.github.io/topograph
 helm repo update
 helm show chart topograph/topograph --version 1.2.0
+```
+
+Verify the container image's SLSA provenance:
+
+```bash
+gh attestation verify oci://ghcr.io/nvidia/topograph:v1.2.0 \
+  --repo NVIDIA/topograph \
+  --signer-workflow NVIDIA/topograph/.github/workflows/docker.yml \
+  --source-ref refs/heads/v1.2.0
+```
+
+Download the Helm chart and verify its SLSA provenance:
+
+```bash
+curl -fsSLO https://nvidia.github.io/topograph/topograph-1.2.0.tgz
+gh attestation verify topograph-1.2.0.tgz \
+  --repo NVIDIA/topograph \
+  --signer-workflow NVIDIA/topograph/.github/workflows/helm-release.yaml \
+  --source-ref refs/heads/v1.2.0
 ```
 
 Also confirm that:
@@ -213,3 +238,15 @@ Also confirm that:
 - After correcting the failure, manually dispatch **Publish Fern Docs** with
   the existing tag. Do not create a replacement tag solely to retry the docs
   publication.
+
+### Failed provenance generation
+
+- Review the **Generate SLSA provenance** step in the publishing workflow.
+- For container provenance, confirm that the Docker job grants the following:
+  `packages: write`, `id-token: write`, `attestations: write`, and
+  `artifact-metadata: write`.
+- For Helm provenance, confirm that the Helm job grants `id-token: write` and
+  `attestations: write`. It does not need `artifact-metadata: write` because the
+  chart attestation is stored by GitHub rather than pushed to an OCI registry.
+- Retry the failed publishing workflow against the same release branch after
+  correcting the failure.
