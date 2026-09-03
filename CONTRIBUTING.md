@@ -89,6 +89,41 @@ You must use your real name (sorry, no pseudonyms or anonymous contributions).
 If you set your `user.name` and `user.email` using git config, you can sign
 your commit automatically with `git commit -s`.
 
+## Commit messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+type(scope): short description
+
+optional body
+
+Signed-off-by: Your Name <you@example.com>
+```
+
+`type` must be one of: `feat`, `fix`, `docs`, `chore`, `refactor`, `style`,
+`perf`, `test`, `build`, `ci`. `scope` is optional and usually names the
+package or area touched (e.g. `feat(provider/crusoe): ...`,
+`fix(engine/k8s): ...`, `docs(contributing): ...`). Use the imperative mood
+("add support for X", not "added support for X") and keep the summary line
+under about 70 characters — it's what shows up in `git log --oneline` and in
+the PR list.
+
+Examples:
+
+```
+feat(provider/crusoe): add Crusoe Cloud provider
+
+fix(engine/slurm): handle empty fabric tiers in topology.conf output
+
+docs(providers/aws): document IAM permissions required for topology API
+```
+
+Branch names should use the same `type/` prefix as the commit
+(`feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`), e.g.
+`feat/crusoe-provider`. Every commit still needs the DCO
+`Signed-off-by:` trailer described above — `git commit -s` adds it for you.
+
 ## Community
 
 Community discussion happens on the [Kubernetes Slack](https://slack.k8s.io/):
