@@ -111,8 +111,9 @@ Coverage checks run on pull requests. A drop below target with no matching uplif
 
 - `.github/workflows/go.yml` — build, test, lint, and `govulncheck` on every push and PR
 - `.github/workflows/chart-test.yaml` — Helm chart lint + helm-unittest suites (`make chart-test`) on every push and PR
-- `.github/workflows/docker.yml` — container image build (manual trigger)
-- `.github/workflows/helm-release.yaml` — Helm chart release (manual trigger)
+- `.github/workflows/docker.yml` — container image build on release tags or manual trigger
+- `.github/workflows/helm-release.yaml` — Helm chart release-candidate publication (manual trigger)
+- `.github/workflows/release.yml` — official tag-driven Helm, checksum, and GitHub Release publication
 
 ### Deployment surfaces
 

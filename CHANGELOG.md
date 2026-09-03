@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- SHA-256 checksum files published beside Helm chart packages and included
+  with their corresponding GitHub release assets.
+- Tag-driven official releases that publish the Helm chart, checksum, build
+  provenance, and GitHub release from the canonical release commit.
 - Signed SLSA build provenance for published container images and Helm chart
   packages. Release workflows bind each artifact to its source commit and
   workflow using GitHub artifact attestations; container provenance is also

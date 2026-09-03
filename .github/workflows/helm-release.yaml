@@ -2,6 +2,10 @@ name: Release Helm Charts
 
 on: workflow_dispatch
 
+concurrency:
+  group: helm-repository-publication
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: linux-amd64-cpu8
@@ -27,6 +31,15 @@ jobs:
           helm lint charts/topograph
           helm package charts/topograph --destination packaged
 
+      - name: Generate SHA-256 checksum
+        run: |
+          set -euo pipefail
+          cd packaged
+          for chart in topograph-*.tgz; do
+            sha256sum "${chart}" > "${chart}.sha256"
+            sha256sum --check "${chart}.sha256"
+          done
+
       - name: Generate SLSA provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -34,8 +47,15 @@ jobs:
 
       - name: Fetch existing Helm repo index
         run: |
-          git fetch origin gh-pages || true
-          git checkout origin/gh-pages -- index.yaml || true
+          set -euo pipefail
+          if ! remote_ref=$(git ls-remote --heads origin refs/heads/gh-pages); then
+            echo "::error::Failed to check for the existing gh-pages branch."
+            exit 1
+          fi
+          if [[ -n "${remote_ref}" ]]; then
+            git fetch origin refs/heads/gh-pages:refs/remotes/origin/gh-pages
+            git checkout origin/gh-pages -- index.yaml
+          fi
 
       - name: Generate Helm repo index
         run: |

@@ -74,7 +74,9 @@ Use one prerelease branch for all release candidates in a given release cycle.
 
    `https://nvidia.github.io/topograph/topograph-1.2.0-rc.1.tgz`
 
-   The workflow also generates signed SLSA provenance for the chart package.
+   The workflow also publishes
+   `topograph-1.2.0-rc.1.tgz.sha256` beside the chart package and generates
+   signed SLSA provenance for the chart package.
 
 6. Run the release-candidate test cycle.
 
@@ -112,22 +114,42 @@ When the release is ready for general availability, follow these steps:
    - Add or update the comparison link for the release.
 
 4. Run the [quality gates](#quality-gates), commit the changes with DCO
-   sign-off, push the branch, and create a pull request. Do not merge it yet.
+   sign-off, push the branch, and create a pull request.
 
-5. In GitHub Actions, run these workflows against the release branch:
+5. Merge the release pull request. Do not publish release artifacts from the
+   release branch; the canonical tag must identify the exact source commit used
+   to build them.
 
-   1. **Docker**
-   2. **Release Helm Charts**
+6. Update local `main`, record the release pull request's merge commit, verify
+   that it is on `main`, then create and push an annotated tag that targets that
+   exact commit. Replace `123` with the release pull request number and inspect
+   the displayed commit before pushing the tag:
 
-   Confirm that the container image and Helm chart were published successfully
-   and that both workflows generated SLSA provenance.
+   ```bash
+   git checkout main
+   git pull --ff-only origin main
+   RELEASE_PR=123
+   RELEASE_COMMIT=$(gh pr view "${RELEASE_PR}" --json mergeCommit --jq '.mergeCommit.oid')
+   if ! git merge-base --is-ancestor "${RELEASE_COMMIT}" origin/main; then
+     echo "Release commit is not reachable from origin/main." >&2
+     exit 1
+   fi
+   git show --no-patch --oneline "${RELEASE_COMMIT}"
+   git tag -a v1.2.0 "${RELEASE_COMMIT}" -m "Release v1.2.0"
+   git push origin v1.2.0
+   ```
 
-6. Merge the release pull request.
+7. The tag push automatically starts these workflows:
 
-7. On the [Topograph releases page](https://github.com/NVIDIA/topograph/releases),
-   draft and publish a release with the canonical version as both the tag and
-   release name, such as `v1.2.0`. Include the release notes from
-   `CHANGELOG.md`.
+   - **Release** packages and attests the Helm chart, generates and verifies its
+     SHA-256 checksum, publishes both files to the Helm repository, and creates
+     the GitHub release with both files attached.
+   - **Docker** publishes the multi-architecture container image and its signed
+     SLSA provenance.
+   - **Publish Fern Docs** publishes the versioned documentation.
+
+8. Complete the [release verification](#release-verification) after all three
+   workflows finish successfully.
 
 ## Workflow pipeline
 
@@ -144,15 +166,17 @@ flowchart TD
     I --> C
     G -->|Ready for GA| J[Release branch<br/>vX.Y.Z]
     J --> K[Quality gates<br/>and release PR]
-    K --> L[Docker and Helm<br/>artifacts and provenance]
-    L --> M[Merge release PR]
-    M --> N[GitHub release<br/>and vX.Y.Z tag]
-    N --> O[Publish Fern Docs<br/>versioned documentation]
+    K --> L[Merge release PR]
+    L --> M[Tag merged commit<br/>vX.Y.Z]
+    M --> N[Release workflow<br/>chart, checksum, provenance]
+    M --> O[Docker workflow<br/>image and provenance]
+    M --> P[Publish Fern Docs<br/>versioned documentation]
+    N --> Q[GitHub release]
 ```
 
-The **Docker** and **Release Helm Charts** workflows are manually dispatched by
-the nominated release person. Creating the release tag triggers the **Publish
-Fern Docs** workflow automatically.
+The nominated release person manually dispatches **Docker** and **Release Helm
+Charts** for release candidates. Pushing an official `vX.Y.Z` tag triggers the
+official **Release**, **Docker**, and **Publish Fern Docs** workflows.
 
 ## Released components
 
@@ -162,7 +186,9 @@ An official release publishes:
   `ghcr.io/nvidia/topograph:vX.Y.Z`
 - A Helm chart in the Topograph chart repository at
   `https://nvidia.github.io/topograph`
-- A GitHub release and source tag named `vX.Y.Z`
+- A SHA-256 checksum published beside the Helm chart package
+- A GitHub release and source tag named `vX.Y.Z`, with the Helm chart and its
+  checksum attached
 - Versioned documentation generated from the release tag
 - Signed SLSA build provenance for the container image and Helm chart package
 
@@ -199,24 +225,26 @@ Verify the container image's SLSA provenance:
 gh attestation verify oci://ghcr.io/nvidia/topograph:v1.2.0 \
   --repo NVIDIA/topograph \
   --signer-workflow NVIDIA/topograph/.github/workflows/docker.yml \
-  --source-ref refs/heads/v1.2.0
+  --source-ref refs/tags/v1.2.0
 ```
 
 Download the Helm chart and verify its SLSA provenance:
 
 ```bash
 curl -fsSLO https://nvidia.github.io/topograph/topograph-1.2.0.tgz
+curl -fsSLO https://nvidia.github.io/topograph/topograph-1.2.0.tgz.sha256
+sha256sum --check topograph-1.2.0.tgz.sha256
 gh attestation verify topograph-1.2.0.tgz \
   --repo NVIDIA/topograph \
-  --signer-workflow NVIDIA/topograph/.github/workflows/helm-release.yaml \
-  --source-ref refs/heads/v1.2.0
+  --signer-workflow NVIDIA/topograph/.github/workflows/release.yml \
+  --source-ref refs/tags/v1.2.0
 ```
 
 Also confirm that:
 
 - The [GitHub release](https://github.com/NVIDIA/topograph/releases) has the
-  correct tag and release notes.
-- The **Docker**, **Release Helm Charts**, and **Publish Fern Docs** workflow
+  correct tag, release notes, Helm chart, and checksum.
+- The **Docker**, **Release**, and **Publish Fern Docs** workflow
   runs completed successfully.
 - The published chart references the expected container image tag.
 
@@ -226,10 +254,20 @@ Also confirm that:
 
 - Review the failed workflow's logs in GitHub Actions.
 - Correct code or configuration through a reviewed pull request to `main`.
-- Update the release branch from `main`, rerun the quality gates, and retry the
-  failed workflow against the same release branch.
-- Do not publish the GitHub release until both the container image and Helm
-  chart have been verified.
+- Do not move or replace an existing release tag. If the release itself must be
+  corrected, prepare a new patch release.
+- To retry the **Release** workflow without changing its provenance context,
+  dispatch it from the existing tag:
+
+  ```bash
+  gh workflow run release.yml --ref v1.2.0 -f tag=v1.2.0
+  ```
+
+- To retry the **Docker** workflow, dispatch it from the same existing tag:
+
+  ```bash
+  gh workflow run docker.yml --ref v1.2.0
+  ```
 
 ### Failed documentation publication
 
@@ -248,5 +286,6 @@ Also confirm that:
 - For Helm provenance, confirm that the Helm job grants `id-token: write` and
   `attestations: write`. It does not need `artifact-metadata: write` because the
   chart attestation is stored by GitHub rather than pushed to an OCI registry.
-- Retry the failed publishing workflow against the same release branch after
-  correcting the failure.
+- Retry the failed publishing workflow from the same tag. For **Release**, use
+  the tag-bound manual dispatch command shown above so the new attestation still
+  names `refs/tags/v1.2.0` as its source.
