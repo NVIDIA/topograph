@@ -3,6 +3,9 @@
 Want to contribute to the NVIDIA `topograph` project? Awesome!
 We only require you to sign your work as described in the following section.
 
+For build, test, lint, and local-run commands, see the
+[Development Guide](DEVELOPMENT.md).
+
 ## Open an issue first
 
 Before opening a pull request, open an issue — this applies to bug fixes,
