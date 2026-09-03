@@ -113,8 +113,8 @@ truth in [AGENTS.md § Adding a new provider](AGENTS.md#adding-a-new-provider).
 
 ### Adding an engine
 
-Engines are rare — only four exist today (`slurm`, `k8s`, `nfd`, `slinky`) —
-because adding one implies every provider's output must become
+Engines are rare — only five exist today (`slurm`, `k8s`, `nfd`, `slinky`,
+`graph`) — because adding one implies every provider's output must become
 translatable into it. **Open an issue and get maintainer agreement before
 writing code** (see "Open an issue first" above); this is one of the two
 load-bearing boundaries in the project. Once agreed, follow the same
@@ -196,11 +196,14 @@ checks. There is no `.github/dco.yml` exemption configured: NVIDIA org
 membership does not bypass it, and neither does any other affiliation.
 
 **If the `DCO` check fails**, rebase the branch to add sign-off to every
-commit rather than opening a new PR:
+commit rather than opening a new PR. The [Development Guide](DEVELOPMENT.md#clone-and-build)'s
+clone flow names the remote `origin`; if you're working from a fork with
+`origin` pointing at your fork, substitute whatever remote tracks
+`NVIDIA/topograph`'s `main` (commonly added as `upstream`) instead:
 
 ```bash
 # add sign-off to every commit on the branch since it diverged from main
-git rebase --signoff upstream/main
+git rebase --signoff origin/main
 git push --force-with-lease
 ```
 
@@ -215,7 +218,7 @@ git push --force-with-lease
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 type(scope): short description
 
 optional body
@@ -233,7 +236,7 @@ the PR list.
 
 Examples:
 
-```
+```gitcommit
 feat(provider/crusoe): add Crusoe Cloud provider
 
 fix(engine/slurm): handle empty fabric tiers in topology.conf output
@@ -241,9 +244,11 @@ fix(engine/slurm): handle empty fabric tiers in topology.conf output
 docs(providers/aws): document IAM permissions required for topology API
 ```
 
-Branch names should use the same `type/` prefix as the commit
-(`feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`), e.g.
-`feat/crusoe-provider`. Every commit still needs the DCO
+Branch names use a smaller prefix set than the full commit `type` list above
+— `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/` — e.g.
+`feat/crusoe-provider`; there's no dedicated branch prefix for `style`,
+`perf`, `build`, or `ci` commits, so use whichever of the six branch
+prefixes best fits the change. Every commit still needs the DCO
 `Signed-off-by:` trailer described above — `git commit -s` adds it for you.
 
 ## AI-assisted contributions
@@ -273,11 +278,11 @@ using it comes with a strict human-in-the-loop policy:
   [Sign your work](#sign-your-work) above) — an AI tool cannot certify that
   on your behalf, regardless of how much of the diff it authored.
 - **Security-sensitive findings follow the normal path.** If an assistant
-  surfaces something that looks like a real vulnerability while you're
-  working (not something you're intentionally testing for), don't paste it
-  into a public issue or PR description — report it per
-  [`SECURITY.md`](SECURITY.md), the same as you would for anything you
-  found yourself.
+  surfaces anything that looks like a potential vulnerability — whether you
+  stumbled on it or were intentionally testing for it — don't paste it into
+  a public issue or PR description. Report it privately per
+  [`SECURITY.md`](SECURITY.md) (the web form or `psirt@nvidia.com`), the
+  same as you would for anything you found yourself.
 
 ## Review process
 

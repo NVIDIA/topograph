@@ -10,8 +10,9 @@ contributors. For architecture and the provider/engine boundary, see
 ```bash
 git clone https://github.com/NVIDIA/topograph.git
 cd topograph
-make build      # produces bin/topograph, bin/node-observer, bin/node-data-broker, bin/kwok-nodes
-make qualify    # fmt + vet + lint + test — run this before every push
+make build                    # produces bin/topograph, bin/node-observer, bin/node-data-broker, bin/kwok-nodes
+git fetch origin main:master  # make lint needs a local `master` ref — see "Local Test Loop" below
+make qualify                  # fmt + vet + lint + test — run this before every push
 ```
 
 ## Prerequisites
@@ -42,10 +43,30 @@ make clean                  # remove bin/
 ```bash
 make fmt        # go fmt ./...
 make vet        # go vet ./...
-make lint       # golangci-lint run --new-from-rev <merge-base> — only flags new issues vs. main
+make lint       # golangci-lint run --new-from-rev, computed from a local `master` ref
 make test       # go test -race -coverprofile=coverage.out ./...
 make coverage   # human-readable per-package summary (runs test first)
 make qualify    # fmt + vet + lint + test, in that order — run this before pushing
+```
+
+`make lint` computes its diff base from a local `master` ref
+(`git rev-list master.. --count`), but this repo's default branch is `main`
+— a fresh clone has no local `master` and the target fails with a revision
+error. Work around it by syncing a local `master` ref to `origin/main`
+before running `make lint` or `make qualify`. Keep this ref as a
+lint-only bookkeeping branch — don't check it out or commit on it:
+
+```bash
+git fetch origin main:master
+```
+
+This only works while `master` isn't checked out and hasn't diverged from
+`origin/main` (git fetch won't fetch into your current branch, and refuses
+a non-fast-forward update). If it fails for either reason, switch off
+`master` first, then reset it directly instead of fetching into it:
+
+```bash
+git branch -f master origin/main
 ```
 
 Run a single package's tests directly with the standard Go toolchain while
@@ -77,9 +98,10 @@ make mod        # go mod tidy
 
 ## Running a Binary Locally
 
-Each binary reads a YAML config via `-c`/`-config` and prints its version via
-`-version`. There's no `AUTO_MODE` / interactive installer to worry about —
-just point the binary at a config file:
+The three long-running service binaries (`topograph`, `node-observer`,
+`node-data-broker`) each read a YAML config via `-c`/`-config` and print
+their version via `-version`. There's no `AUTO_MODE` / interactive
+installer to worry about — just point the binary at a config file:
 
 ```bash
 # API server — sample config at config/topograph-config.yaml
@@ -90,9 +112,14 @@ just point the binary at a config file:
 
 # Node Data Broker (Kubernetes-only DaemonSet)
 ./bin/node-data-broker --config /path/to/node-data-broker-config.yaml
+```
 
-# kwok-nodes — generates KWOK node manifests from a tests/models/ fixture
-./bin/kwok-nodes -model <model-name-or-path> -output -
+`kwok-nodes` is a one-shot generator tool, not a service, and takes no
+config file — it reads a `tests/models/` fixture via `-model` and writes a
+KWOK node manifest via `-output`:
+
+```bash
+./bin/kwok-nodes -model small-tree -output -
 ```
 
 For an end-to-end local Kubernetes environment (KWOK-based, no real cluster
@@ -141,15 +168,25 @@ make rpm    # ARCH=$(GOARCH) scripts/build-rpm.sh <git-ref> <package-revision>
 
 ## CI Parity
 
-CI runs the same checks you can run locally:
+CI doesn't invoke `make test` / `make lint` directly — it runs the
+underlying tools with CI-specific flags, which are close to but not
+identical to the local `make` targets:
 
-- `.github/workflows/go.yml` — build, `make test`, `make lint`, and `govulncheck` on every push/PR
+- `.github/workflows/go.yml` — build; `go test -v -coverpkg=./... -coverprofile=coverage.out -covermode=atomic ./...`
+  (coverage-instrumented, but *without* `-race`, unlike `make test`);
+  `golangci/golangci-lint-action@v9` (not `make lint`, so it isn't affected
+  by the local `master`-ref issue above); and `govulncheck`
 - `.github/workflows/chart-test.yaml` — `make chart-test` on every push/PR
+- `.github/workflows/k8s-test.yaml` — Kubernetes integration tests (kind +
+  KWOK) on `pull-request/*` branches
+- `.github/workflows/slinky-test.yaml` — Slinky engine integration tests
 - `.github/workflows/docker.yml` — container image build (manual trigger)
 - `.github/workflows/helm-release.yaml` — Helm chart release (manual trigger)
 
-If `make qualify` and `make chart-test` (when charts changed) pass locally,
-CI should pass too.
+`make qualify` and `make chart-test` (when charts changed) passing locally
+is a strong signal, not a guarantee of an identical CI run — in particular,
+`make test`'s `-race` detector runs checks CI's coverage-only invocation
+doesn't, and the reverse is also possible in principle.
 
 ## Before Opening a Pull Request
 
