@@ -3,6 +3,32 @@
 Want to contribute to the NVIDIA `topograph` project? Awesome!
 We only require you to sign your work as described in the following section.
 
+## Open an issue first
+
+Before opening a pull request, open an issue — this applies to bug fixes,
+features, and any other change:
+
+- **Bugs**: file a [bug report](https://github.com/NVIDIA/topograph/issues/new?template=bug_report.yml)
+  describing what happened and what you expected instead.
+- **Features or enhancements**: file a [feature request](https://github.com/NVIDIA/topograph/issues/new?template=feature_request.yml)
+  describing the problem and your proposed solution.
+- Search [existing issues](https://github.com/NVIDIA/topograph/issues) first to
+  avoid duplicates, and comment on the issue to claim it before starting work.
+
+Opening the issue first gives maintainers a chance to weigh in on approach
+before code is written, and keeps the change from crossing one of this
+project's load-bearing boundaries by accident:
+
+- Changes to `pkg/topology/` (`Graph`, the `Vertex` tree, topology constants)
+  must be discussed in an issue first — every provider and engine depends on
+  this shape.
+- Adding a new engine implies a new output format that every provider's
+  output must be translatable into — coordinate with maintainers before
+  starting.
+
+Trivial fixes (typos, broken links, small doc corrections) don't need an
+issue first — a pull request is fine.
+
 ## Sign your work
 
 The sign-off is a simple signature at the end of the description for the patch.
