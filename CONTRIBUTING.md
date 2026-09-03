@@ -32,6 +32,53 @@ project's load-bearing boundaries by accident:
 Trivial fixes (typos, broken links, small doc corrections) don't need an
 issue first — a pull request is fine.
 
+## Issue priority
+
+Topograph doesn't run a formal `P0`/`P1`/`P2` label system or an automated
+triage bot. Priority is set informally, from a few concrete inputs:
+
+- **Your own stated priority.** The [feature request template](https://github.com/NVIDIA/topograph/issues/new?template=feature_request.yml)
+  asks you to pick "Nice to have", "Important (would improve my
+  workflow)", or "Critical (blocking adoption or major use case)" — this
+  is read during triage, so pick the one that actually reflects your
+  situation rather than defaulting to "Critical."
+- **Maintainer triage.** Per [GOVERNANCE.md](GOVERNANCE.md#roles-and-responsibilities),
+  any Contributor, Reviewer, or Maintainer can triage an issue (label it,
+  reproduce it, link duplicates); only a Maintainer decides whether
+  something is worth working on next. There's no separate "triage
+  meeting" — it happens asynchronously on the issue itself.
+- **The Roadmap issue.** The pinned **Roadmap & Focus Areas** issue on the
+  [issue tracker](https://github.com/NVIDIA/topograph/issues) is the
+  closest thing to a prioritized backlog — it lists the areas maintainers
+  are actively steering the project toward. An issue that maps onto one of
+  those areas is more likely to get picked up sooner than one that
+  doesn't.
+- **Load-bearing surfaces get attention regardless of stated priority.**
+  Anything affecting `pkg/topology/`, the label/annotation contract in
+  [`docs/reference/node-labels.md`](docs/reference/node-labels.md), or a
+  provider/engine boundary violation tends to get maintainer eyes quickly
+  because those changes ripple across every provider and engine — see
+  [AGENTS.md § "Do not change without discussion"](AGENTS.md#do-not-change-without-discussion).
+
+### How to influence it
+
+- Say *why* it matters in the issue body — a concrete failure mode, a
+  blocked use case, or a real deployment you're running, not just "this
+  would be nice." Real usage examples move issues up faster than
+  abstract requests.
+- Comment (don't just react) if an existing issue affects you too, and say
+  how. Duplicate-sounding comments with no new information don't change
+  priority; a new failure mode, cluster size, or scheduler combination
+  does.
+- Offer to open the PR. Commenting that you're willing to implement a
+  feature or fix — and then [claiming the issue](#open-an-issue-first) —
+  is one of the strongest signals for priority, since it removes
+  maintainer bandwidth as the blocker.
+- If you believe an issue is being missed rather than deprioritized,
+  follow the same [follow-up steps](#following-up) used for a stalled PR —
+  a comment, then the community Slack channels, referencing the specific
+  issue number.
+
 ## Adding a new provider or engine
 
 Topograph has two backend extension points: **providers** (topology
