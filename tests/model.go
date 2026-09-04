@@ -3,6 +3,7 @@ package tests
 import (
 	"embed"
 	"fmt"
+	"strings"
 )
 
 const MODEL_FILE_PATTERN = "models/%s"
@@ -11,5 +12,7 @@ const MODEL_FILE_PATTERN = "models/%s"
 var modelFiles embed.FS
 
 func GetModelFileData(fname string) ([]byte, error) {
-	return modelFiles.ReadFile(fmt.Sprintf(MODEL_FILE_PATTERN, fname))
+	fname = strings.TrimSuffix(fname, ".yaml")
+	fname = strings.TrimSuffix(fname, ".yml")
+	return modelFiles.ReadFile(fmt.Sprintf(MODEL_FILE_PATTERN, fname+".yaml"))
 }
