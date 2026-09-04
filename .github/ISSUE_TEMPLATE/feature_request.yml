@@ -1,0 +1,131 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[FEA]: "
+labels: ["feature request"]
+
+body:
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I searched existing issues and found no duplicates
+          required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: Brief description of the feature
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Use Case
+      description: What problem does this solve? Real usage examples are especially helpful.
+      placeholder: Describe what you're trying to accomplish and current limitations
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How should this feature work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: success
+    attributes:
+      label: Success Criteria
+      description: What does "done" look like? How should we measure success?
+      placeholder: |
+        - Must support ...
+        - Must not break ...
+        - Output/label/config should ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other options or workarounds have you tried or considered?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: If it's a specific provider or engine, name it in the Feature Summary above.
+      options:
+        - API Server
+        - Node Observer
+        - Node Data Broker
+        - Provider (existing)
+        - New Provider
+        - Engine
+        - Helm chart
+        - Docs
+        - Multiple Components / Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Nice to have
+        - Important (would improve my workflow)
+        - Critical (blocking adoption or major use case)
+    validations:
+      required: true
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility / Breaking Changes
+      description: Any expected changes to the config schema, label/annotation keys, canonical `topology.Graph`, or other external contracts?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Are you willing to contribute?
+      options:
+        - Yes, I can open a PR
+        - Maybe, with guidance
+        - "No"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/NVIDIA/topograph/blob/main/CODE_OF_CONDUCT.md).
+      options:
+        - label: I agree to follow Topograph's Code of Conduct
+          required: true

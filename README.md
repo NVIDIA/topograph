@@ -38,7 +38,8 @@ Ask questions and connect with other users in the
 [Topograph community channels](docs/community.md).
 
 Before contributing, read the [contribution guide](CONTRIBUTING.md) and
-[Code of Conduct](CODE_OF_CONDUCT.md).
+[Code of Conduct](CODE_OF_CONDUCT.md). For local build/test/lint setup, see
+the [Development Guide](DEVELOPMENT.md).
 
 Project roles and decision-making are described in
 [Governance](GOVERNANCE.md). See [Maintainers](MAINTAINERS.md) for the current
