@@ -21,6 +21,14 @@ func acceleratorDomainAnnotations(domain string) map[string]string {
 	return map[string]string{annotationAcceleratorDomain: domain}
 }
 
+func TestNewModelFromFileBasename(t *testing.T) {
+	for _, name := range []string{"small-tree", "small-tree.yaml"} {
+		cfg, err := NewModelFromFile(name)
+		require.NoError(t, err, name)
+		require.NotEmpty(t, cfg.Nodes, name)
+	}
+}
+
 func TestNewModelFromFileMedium(t *testing.T) {
 	cfg, err := NewModelFromFile("../../tests/models/medium.yaml")
 	require.NoError(t, err)
