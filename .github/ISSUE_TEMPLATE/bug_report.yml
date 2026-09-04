@@ -41,23 +41,13 @@ body:
     id: component
     attributes:
       label: Component
+      description: If it's a specific provider or engine, name it in the Bug Description above.
       options:
         - API Server
         - Node Observer
         - Node Data Broker
-        - Provider - AWS
-        - Provider - Crusoe
-        - Provider - GCP
-        - Provider - OCI
-        - Provider - Nebius
-        - Provider - NetQ
-        - Provider - DRA
-        - Provider - InfiniBand
-        - Provider - LambdaAI
-        - Engine - Slurm
-        - Engine - Kubernetes
-        - Engine - NFD
-        - Engine - Slinky
+        - Provider
+        - Engine
         - Helm chart
         - Other / Unknown
     validations:

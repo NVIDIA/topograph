@@ -76,24 +76,14 @@ body:
     id: component
     attributes:
       label: Component
+      description: If it's a specific provider or engine, name it in the Feature Summary above.
       options:
         - API Server
         - Node Observer
         - Node Data Broker
-        - Provider - AWS
-        - Provider - Crusoe
-        - Provider - GCP
-        - Provider - OCI
-        - Provider - Nebius
-        - Provider - NetQ
-        - Provider - DRA
-        - Provider - InfiniBand
-        - Provider - LambdaAI
+        - Provider (existing)
         - New Provider
-        - Engine - Slurm
-        - Engine - Kubernetes
-        - Engine - NFD
-        - Engine - Slinky
+        - Engine
         - Helm chart
         - Docs
         - Multiple Components / Unknown
