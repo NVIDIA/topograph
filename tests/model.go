@@ -12,10 +12,7 @@ const MODEL_FILE_PATTERN = "models/%s"
 var modelFiles embed.FS
 
 func GetModelFileData(fname string) ([]byte, error) {
-	suffix := ".yaml"
-	if strings.HasSuffix(fname, ".yml") {
-		suffix = ".yml"
-	}
-	fname = strings.TrimSuffix(fname, suffix)
-	return modelFiles.ReadFile(fmt.Sprintf(MODEL_FILE_PATTERN, fname+suffix))
+	fname = strings.TrimSuffix(fname, ".yaml")
+	fname = strings.TrimSuffix(fname, ".yml")
+	return modelFiles.ReadFile(fmt.Sprintf(MODEL_FILE_PATTERN, fname+".yaml"))
 }
