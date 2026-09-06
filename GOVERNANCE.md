@@ -276,7 +276,9 @@ Packages under `internal/`, unexported Go identifiers, test fixtures, and anythi
 
 ### What counts as a breaking change
 
-Topograph follows semantic versioning, as [RELEASE.md](./RELEASE.md) states. A change is breaking when a working deployment stops working after an upgrade with no change on the user's side:
+Releases are versioned `vMAJOR.MINOR.PATCH`, as [RELEASE.md](./RELEASE.md) sets out. That document fixes the version format and the release cadence; it does not promise that a breaking change waits for a major version, and the project has not worked that way. What this policy commits to is the notice, the announcement, and the migration path below, and those hold whatever the next version number turns out to be. Naming a change as breaking is what obliges the maintainers to give notice and write the migration note.
+
+A change is breaking when a working deployment stops working after an upgrade with no change on the user's side:
 
 - Removing a provider, engine, endpoint, configuration field, Helm value, or label key
 - Renaming any of them, because a rename is a removal plus an addition
@@ -293,7 +295,7 @@ Correcting a defect so that a surface finally behaves as documented is not a bre
 2. **Announce.** The release that first ships the deprecation records it in `CHANGELOG.md` under a `### Deprecated` heading in the `[Unreleased]` section, which moves into the version section at release time. The entry names the surface, its replacement, and the earliest release in which removal can happen. The documentation page for the surface says at the top that it is deprecated, updated in the same pull request.
 3. **Warn where the user will see it.** A deprecated surface that is reachable at runtime logs a warning naming its replacement when it is used, and a deprecated Helm value renders one through `NOTES.txt`. A runtime warning does not replace the `CHANGELOG.md` entry; a user upgrading through a release should not have to run the code to learn what changed.
 4. **Keep it working.** A deprecated surface keeps working unchanged for at least **two minor releases and at least 6 months** after the release that announced it, whichever is longer. At the quarterly cadence in [RELEASE.md](./RELEASE.md), that is roughly two quarters of overlap. The replacement is available and documented on the day the deprecation is announced, so nobody is told to stop using something before there is somewhere to go.
-5. **Remove.** Removal is a breaking change and lands in a major release, recorded in `CHANGELOG.md` under `### Removed` with a pointer to the release that announced the deprecation. A surface that was never announced as deprecated is not removed. A surface that has never appeared in a tagged release can be withdrawn in the same development cycle that introduced it, because no released version exposed it.
+5. **Remove.** Removal happens in a minor or a major release once the notice period in step 4 has elapsed, and never in a patch release, which carries fixes only. The maintainers pick the version bump when they cut the release, weighing how many deployments the removal breaks; nothing here obliges a major bump for every removal. The release records the removal in `CHANGELOG.md` under `### Removed`, points at the release that announced the deprecation, and carries a migration note wherever a user has to change a configuration to keep working, in the form of the Helm migration tables already in the 0.5.0 and v1.0.0 entries. A surface that was never announced as deprecated is not removed. A surface that has never appeared in a tagged release can be withdrawn in the same development cycle that introduced it, because no released version exposed it.
 
 ### Shortened notice
 
