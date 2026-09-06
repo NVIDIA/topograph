@@ -43,6 +43,11 @@ jobs:
     # on the self-hosted linux-amd64-* pool, which is not accepted here.
     runs-on: ubuntu-latest
     permissions:
+      # Clone the repository, and let the SARIF upload read this workflow run.
+      # GitHub documents both as needed only for private repositories, so
+      # declare them rather than depend on this one staying public.
+      contents: read
+      actions: read
       # Upload the SARIF result to the code scanning dashboard.
       security-events: write
       # Mint the OIDC token that authenticates the result to the OpenSSF API.
