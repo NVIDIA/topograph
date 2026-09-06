@@ -407,10 +407,17 @@ before anyone can act on them:
   issue, or in a pull request description.
 - **Technical disagreements.** A rejected design, a maintainer declining a
   feature, review feedback you disagree with, or a priority call is settled on
-  the issue or pull request itself, or escalated per
-  [GOVERNANCE.md](GOVERNANCE.md#pr-rejection). A decision going against you is
-  not a conduct violation. How someone argues for that decision can be, and
-  that part is in scope.
+  the issue or pull request itself, and escalated through the
+  [decision process](GOVERNANCE.md#decision-process) in `GOVERNANCE.md` rather
+  than the conduct process. Which path applies depends on the decision. A pull
+  request you believe was closed unfairly follows
+  [PR rejection](GOVERNANCE.md#pr-rejection). A rejected design follows
+  [Architectural decisions](GOVERNANCE.md#architectural-decisions). A declined
+  feature or subsystem is a proposal-stage decision under
+  [Significant changes](GOVERNANCE.md#significant-changes). A priority call is
+  a maintainer judgment you influence through [Issue priority](#issue-priority)
+  rather than appeal. A decision going against you is not a conduct violation.
+  How someone argues for that decision can be, and that part is in scope.
 - **Bug reports, feature requests, and support questions.** These belong on
   the [issue tracker](https://github.com/NVIDIA/topograph/issues) or in the
   [community Slack channels](#community). A stalled issue or an unreviewed
