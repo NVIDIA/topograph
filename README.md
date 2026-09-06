@@ -65,7 +65,7 @@ Full walkthrough, including the `nfd` and `slinky` engines: [Install on Kubernet
 
 ### Slurm (bare metal)
 
-Build and install a native package on the Slurm head node. Requires Go and `make`; see [`go.mod`](go.mod) for the Go version.
+Build and install a native package on the Slurm head node. Requires Go and `make` (see [`go.mod`](go.mod) for the Go version), plus the packaging tool for the format you build: `make deb` needs `dpkg-deb` (in the `dpkg` package), and `make rpm` needs `rpmbuild` (in `rpm-build`, which a minimal RHEL, Rocky, or SUSE install does not include). The packaging scripts use GNU `sed` and `readlink` and do not check for their tools up front, so run them on Linux and expect a missing tool to surface as `command not found` after the Go build has already succeeded.
 
 ```bash
 git clone https://github.com/NVIDIA/topograph.git
