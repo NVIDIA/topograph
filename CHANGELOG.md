@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Go toolchain upgraded from **1.26.6** to **1.27.1** across the module, container build, and CI workflows; the CI linter is upgraded to `golangci-lint` **v2.13.2** for Go 1.27 compatibility.
 - The `nscale` provider's Slurm auto-discovery runs `pdsh` across the current Slurm node list and queries each node's own Instance Metadata Service (IMDS) for its server ID (`serverID`) and region, merging the results into the instance-to-node and node-to-region maps.
 - The `nscale` provider's Radar API topology response field is now read as `server_id` instead of `instance_id`, matching the IMDS `serverID` field it is merged with.
 - The `nscale` provider's `region` credential, when set, now restricts Slurm auto-discovery to nodes whose IMDS region (`regionID`) matches it; nodes with a different or missing IMDS region are excluded from the topology query and logged as a warning.
