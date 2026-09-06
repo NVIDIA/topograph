@@ -161,7 +161,7 @@ When updates seem slow, this is usually why:
 
 - The floor on end-to-end latency is `requestAggregationDelay` measured from the **last** identical request, plus the provider's own query time. With `15s`, a result is never available sooner than 15 seconds after node churn stops.
 - Continuous churn starves the queue. If events arrive faster than the delay, the timer keeps restarting and nothing is produced. The signature in the logs is many `Submit request; delay processing by <delay>` lines with no matching `Processing request ID <hash>` line.
-- Identical bodies share a hash and collapse into one request. The Node Observer always sends the same body (the provider and engine from its own config), which is what makes coalescing effective in Kubernetes.
+- The request hash covers only the provider name and parameters and the engine name and parameters. Requests that agree on those collapse into one, even when their node lists or credentials differ. The Node Observer always sends the same body (the provider and engine from its own config), which is what makes coalescing effective in Kubernetes.
 - Results are kept in an LRU of the last 100 request IDs. Polling an older ID returns `404`.
 
 ### Where each engine writes its output
@@ -169,7 +169,7 @@ When updates seem slow, this is usually why:
 | Engine | Where the output goes |
 |---|---|
 | `slurm` | Writes the Slurm topology config to the path in the `topologyConfigPath` engine parameter and returns `OK`. With no path set it returns the generated text as the response body, so `GET /v1/topology` hands you the file. With `reconfigure: true` it then runs `scontrol reconfigure`. |
-| `k8s` | Writes node labels directly through the Kubernetes API: `fabric.topograph.run/tier-N` closest-first, `accelerator.topograph.run/domain`, and `accelerator.topograph.run/sub-domain`, unless the `fabricLabels` and `acceleratorLabel` parameters override the keys. Returns `OK`. A failed label write surfaces as `502`. |
+| `k8s` | Writes node labels directly through the Kubernetes API: `fabric.topograph.run/tier-N` closest-first, `accelerator.topograph.run/domain`, and `accelerator.topograph.run/sub-domain`. The `fabricLabels` parameter overrides the fabric tier keys and `acceleratorLabel` overrides the accelerator domain key; the sub-domain key is always `accelerator.topograph.run/sub-domain`. Returns `OK`. A failed label write surfaces as `502`. |
 | `nfd` | Creates or updates NFD `NodeFeature` and `NodeFeatureGroup` objects in the namespace named by the `NFD_NAMESPACE` environment variable, which is required; the Helm chart sets it from `nfdNamespace` and rejects an `env.NFD_NAMESPACE` override. Returns `OK nodeFeatures=<n> nodeFeatureGroups=<m>`. With `cleanup` enabled it refuses to apply an empty result rather than deleting the existing topology. |
 | `slinky` | Writes the Slurm topology into the ConfigMap named by `topologyConfigmapName` in `namespace`, under the key given by `topologyConfigPath`. `configUpdateMode: none` skips the write. |
 | `graph` | Returns instance-oriented JSON as the response body, or writes it to `topologyConfigPath` and returns `OK`. |
