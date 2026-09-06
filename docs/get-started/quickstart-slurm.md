@@ -16,17 +16,17 @@ Clone the repo and build a native package for your distribution:
 git clone https://github.com/NVIDIA/topograph.git
 cd topograph
 
-make deb        # Debian / Ubuntu — produces .deb under dist/
+make deb        # Debian / Ubuntu — produces .deb under bin/
 # or
-make rpm        # RHEL / Rocky / SUSE — produces .rpm under dist/
+make rpm        # RHEL / Rocky / SUSE — produces .rpm under bin/
 ```
 
 Install the resulting package:
 
 ```bash
-sudo dpkg -i dist/topograph_*.deb        # Debian / Ubuntu
+sudo dpkg -i bin/topograph-*.deb        # Debian / Ubuntu
 # or
-sudo rpm -ivh dist/topograph-*.rpm       # RHEL / Rocky / SUSE
+sudo rpm -ivh bin/topograph-*.rpm       # RHEL / Rocky / SUSE
 ```
 
 The package installs the service but does not start it. Edit `/etc/topograph/topograph-config.yaml` to set at minimum:
