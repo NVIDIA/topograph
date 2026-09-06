@@ -2,7 +2,7 @@
 
 This file provides guidance to Codex, Cursor, Copilot, and other coding agents when working with code in this repository.
 
-<!-- AUTO-SYNCED: canonical source is .claude/CLAUDE.md. Only the first 5 lines differ. -->
+<!-- AUTO-SYNCED: canonical source is .claude/CLAUDE.md. The first 5 lines differ, and the relative links here resolve from the repository root, where .claude/CLAUDE.md prefixes the same links with ../ because it sits one directory down. Do not "restore" that difference. -->
 
 ## Start here
 
@@ -82,12 +82,12 @@ localdev/             # Developer-local workspace, not tracked; personal scratch
 ### In scope without asking
 
 An agent is permitted to make these changes on its own initiative, as long as the
-change ships with tests, keeps `make qualify` green, and carries the doc updates
-named in the Documentation Impact Evaluation table below.
+change ships with tests when it changes behavior, keeps `make qualify` green, and
+carries the doc updates named in the Documentation Impact Evaluation table below.
 
 | Task in scope | Files an agent may modify |
 |---|---|
-| Add a provider, or fix or extend an existing one | `pkg/providers/<name>/`, plus the one-line registry entry in `pkg/registry/registry.go` |
+| Add a provider, or fix or extend an existing one | `pkg/providers/<name>/`, the one-line registry entry in `pkg/registry/registry.go`, and the docs the provider checklist requires: `docs/providers/<name>.md`, the provider list and "Choosing a Provider" table in `docs/overview.md`, and a `docs/index.yml` entry when the page is new |
 | Fix a bug or add tests inside an existing engine, without changing its output format | `pkg/engines/<engine>/`, `pkg/translate/` |
 | Server plumbing, config parsing, metrics, shared helpers | `pkg/server/`, `pkg/config/`, `pkg/metrics/`, `pkg/ib/`, `pkg/node_observer/`, `internal/` |
 | Command-line entry points and flags | `cmd/` |

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code when working with code in this repository.
 
-<!-- This is the canonical source. AGENTS.md is a synced public copy; only the first 5 lines differ. -->
+<!-- This is the canonical source. AGENTS.md is a synced public copy. The first 5 lines differ, and the relative links here carry a ../ prefix because this file sits one directory below the repository root, where AGENTS.md carries them unprefixed. Do not "restore" that difference. -->
 
 ## Start here
 
@@ -13,10 +13,10 @@ it and is not repeated here:
 
 | You need | Read |
 |---|---|
-| Prerequisites, build, local test loop, running a binary, container images, packaging, CI parity | [DEVELOPMENT.md](DEVELOPMENT.md) |
-| Issue-first workflow, DCO sign-off, commit and branch conventions, review process, AI-assisted contribution policy | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| What each runtime component does and how a request flows between them | [docs/architecture.md](docs/architecture.md) |
-| Every label and annotation key the Kubernetes engine writes | [docs/reference/node-labels.md](docs/reference/node-labels.md) |
+| Prerequisites, build, local test loop, running a binary, container images, packaging, CI parity | [DEVELOPMENT.md](../DEVELOPMENT.md) |
+| Issue-first workflow, DCO sign-off, commit and branch conventions, review process, AI-assisted contribution policy | [CONTRIBUTING.md](../CONTRIBUTING.md) |
+| What each runtime component does and how a request flows between them | [docs/architecture.md](../docs/architecture.md) |
+| Every label and annotation key the Kubernetes engine writes | [docs/reference/node-labels.md](../docs/reference/node-labels.md) |
 | Provider selection, supported providers, the "Choosing a Provider" scenario table | `docs/overview.md` |
 | API endpoints, request parameters, response fields, config schema | `docs/api.md` |
 | How to report a suspected vulnerability | `SECURITY.md` |
@@ -32,7 +32,7 @@ Topograph discovers the physical network topology of a cluster (NVLink domains,
 InfiniBand/Ethernet switch fabric, cloud rack topology) and exposes it to workload
 schedulers: Slurm, Kubernetes, and Slurm-on-Kubernetes (Slinky). It has five runtime
 components, the API Server, the Node Observer, the Node Data Broker, the Provider,
-and the Engine. [docs/architecture.md](docs/architecture.md) describes what each one
+and the Engine. [docs/architecture.md](../docs/architecture.md) describes what each one
 does and how a request flows between them.
 
 ### Key invariant
@@ -82,12 +82,12 @@ localdev/             # Developer-local workspace, not tracked; personal scratch
 ### In scope without asking
 
 An agent is permitted to make these changes on its own initiative, as long as the
-change ships with tests, keeps `make qualify` green, and carries the doc updates
-named in the Documentation Impact Evaluation table below.
+change ships with tests when it changes behavior, keeps `make qualify` green, and
+carries the doc updates named in the Documentation Impact Evaluation table below.
 
 | Task in scope | Files an agent may modify |
 |---|---|
-| Add a provider, or fix or extend an existing one | `pkg/providers/<name>/`, plus the one-line registry entry in `pkg/registry/registry.go` |
+| Add a provider, or fix or extend an existing one | `pkg/providers/<name>/`, the one-line registry entry in `pkg/registry/registry.go`, and the docs the provider checklist requires: `docs/providers/<name>.md`, the provider list and "Choosing a Provider" table in `docs/overview.md`, and a `docs/index.yml` entry when the page is new |
 | Fix a bug or add tests inside an existing engine, without changing its output format | `pkg/engines/<engine>/`, `pkg/translate/` |
 | Server plumbing, config parsing, metrics, shared helpers | `pkg/server/`, `pkg/config/`, `pkg/metrics/`, `pkg/ib/`, `pkg/node_observer/`, `internal/` |
 | Command-line entry points and flags | `cmd/` |
@@ -137,7 +137,7 @@ a secret by its name; never by its value.
 
 ## 3. Coding Style and Conventions
 
-Build, lint, and test commands live in [DEVELOPMENT.md](DEVELOPMENT.md). This section
+Build, lint, and test commands live in [DEVELOPMENT.md](../DEVELOPMENT.md). This section
 covers only what the tooling cannot tell you.
 
 ### Formatting and linting
@@ -268,13 +268,13 @@ provider's output must be translatable into.
 Do not invent label or annotation keys in provider code; values flow through the
 canonical graph and the engine decides the key. The default keys, the optional
 `fabricLabels` and `acceleratorLabel` overrides, and the value semantics are all in
-[docs/reference/node-labels.md](docs/reference/node-labels.md).
+[docs/reference/node-labels.md](../docs/reference/node-labels.md).
 
 ## 4. Pull Request Guidelines
 
 Branch naming, the Conventional Commits format, DCO sign-off and how to repair a
 missing one, the review process, and the AI-assisted contribution policy are all in
-[CONTRIBUTING.md](CONTRIBUTING.md). What follows is the part specific to keeping this
+[CONTRIBUTING.md](../CONTRIBUTING.md). What follows is the part specific to keeping this
 repository's own documents and gates in step.
 
 ### Coverage policy
