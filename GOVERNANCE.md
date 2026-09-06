@@ -228,7 +228,11 @@ A supermajority decision cannot tie, because an even split falls short of two-th
 
 **Conflict of interest.** A maintainer who is the subject of a vote, meaning their own nomination, their own removal, or their own appeal, does not vote on it and drops out of the eligible-voter list for that vote before the count is taken. Authoring the change under discussion is not a conflict of interest; a maintainer votes on their own proposal.
 
-**Referral of last resort.** A deadlock that the tie-break does not clear, or a dispute the maintainer group cannot settle at all, can be referred to NVIDIA as upstream owner by any maintainer, through a Project Leader when one is designated and through the maintainers listed in [MAINTAINERS.md](./MAINTAINERS.md) otherwise. NVIDIA decides the matters reserved to it under [Project Leadership](#project-leadership), which are license changes, project end-of-life, and transfer of the project. On anything else, a referral exists to unblock the process, not to reverse a vote that already carried.
+**Referral of last resort.** A deadlock that the tie-break does not clear, or a dispute the maintainer group cannot settle at all, can be referred to NVIDIA as upstream owner by any maintainer, through a Project Leader when one is designated and through the maintainers listed in [MAINTAINERS.md](./MAINTAINERS.md) otherwise. The referral is made in the public issue or thread that carries the dispute, so the record shows that one was made and what it asked.
+
+On the matters reserved to NVIDIA under [Project Leadership](#project-leadership), which are license changes, project end-of-life, and transfer of the project, NVIDIA decides and the decision binds. A maintainer posts the outcome and the reasoning back to the referring thread.
+
+On every other matter, meaning roadmap, architecture, contribution model, release cadence, and anything else this document leaves with the maintainer group, NVIDIA answers with a recommendation and not a ruling. A referral exists to unblock the process, not to reverse a vote that already carried. If the recommendation does not settle the question within **10 business days** of the referral, the referred proposal fails and the current behavior stands, on the same terms as failing on a tie under **Ties** above: the change does not land, the proposal can be reopened at any time once its substance has changed, and reopening it unchanged inside **90 days** needs a second from another maintainer. A dispute that is not a proposal, meaning one about process or working practice rather than a change to the project, closes with the recommendation on the record and nothing in the project changed.
 
 Conduct is not governance. Behavior that breaches the [Code of Conduct](./CODE_OF_CONDUCT.md) goes through the reporting route in that document and is never settled by a vote on the technical merits.
 
@@ -264,7 +268,7 @@ A surface is public when a user or a downstream project can depend on it without
 
 | Surface | Examples |
 | --- | --- |
-| Provider names registered in `pkg/registry` and the Helm `provider.name` value | `aws`, `gcp`, `oci`, `nebius`, `netq`, `dra`, `infiniband`, `crusoe`, `lambdai`, `nscale`, and the simulation variants |
+| Provider names registered in `pkg/registry` and the Helm `provider.name` value | `aws`, `crusoe`, `dra`, `gcp`, `infiniband-bm`, `infiniband-k8s`, `lambdai`, `nebius`, `netq`, `nscale`, `oci`, `oci-imds`, and the simulation variants such as `aws-sim` and `dsx-sim` |
 | Engine names registered in `pkg/registry` and the Helm `engine.name` value | `slurm`, `k8s`, `nfd`, `slinky`, `graph` |
 | Node label and annotation keys | `fabric.topograph.run/tier-N`, `accelerator.topograph.run/domain`, `accelerator.topograph.run/sub-domain`, and the rest of `docs/reference/node-labels.md` |
 | HTTP endpoints, request parameters, and response fields | `/v1/generate`, `/v1/topology`, `/v1/lookup` |
