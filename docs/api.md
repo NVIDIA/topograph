@@ -56,7 +56,7 @@ ssl:
 
 ## API
 
-Topograph exposes three endpoints for interacting with the service. Below are the details of each endpoint:
+Topograph exposes five endpoints for interacting with the service. Below are the details of each endpoint:
 
 ### 1. Health Endpoint
 
@@ -171,3 +171,25 @@ id=$(curl -s -X POST -H "Content-Type: application/json" -d @payload.json http:/
 
 curl -s "http://localhost:49021/v1/topology?uid=$id"
 ```
+
+### 4. Topology Lookup Endpoint
+
+- **URL:** `POST http://<server>:<port>/v1/lookup`
+- **Description:** This endpoint retrieves the result of a topology request identified by its payload rather than by request ID. Topograph derives the request ID from the provider name and parameters and the engine name and parameters; credentials and the node list are not part of it. A client that still holds the payload can therefore read the result without storing the ID returned by the topology request endpoint. This endpoint never starts a new topology generation.
+- **Payload:** The same JSON object accepted by the topology request endpoint. Provider and engine names omitted from the payload fall back to the values in the Topograph config before the request ID is computed, exactly as they do for `/v1/generate`.
+- **Response:** The same status codes as the topology result endpoint:
+  - "200 OK" - The matching request has completed successfully, and the topology is returned in the body.
+  - "202 Accepted" - The matching request is still in progress.
+  - "404 Not Found" - No request with this payload has been submitted.
+  - Other error responses encountered by Topograph during request execution.
+
+Example usage:
+
+```bash
+curl -s -X POST -H "Content-Type: application/json" -d @payload.json http://localhost:49021/v1/lookup
+```
+
+### 5. Metrics Endpoint
+
+- **URL:** `GET http://<server>:<port>/metrics`
+- **Description:** This endpoint serves Prometheus metrics for the API server on the same port as the rest of the API. Exported metrics are `topograph_version`, `topograph_http_request_duration_seconds`, `topograph_request_duration_seconds`, `topograph_missing_topology`, and `topograph_validation_error_total`.
