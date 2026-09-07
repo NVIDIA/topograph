@@ -6,6 +6,12 @@ We only require you to sign your work as described in the following section.
 For build, test, lint, and local-run commands, see the
 [Development Guide](DEVELOPMENT.md).
 
+Participation in this project is governed by our
+[Code of Conduct](CODE_OF_CONDUCT.md). The
+[Community standards](#community-standards) section below covers how to report
+a concern, how quickly you can expect an answer, and what the process does not
+cover.
+
 ## Open an issue first
 
 Before opening a pull request, open an issue — this applies to bug fixes,
@@ -344,3 +350,81 @@ Community discussion happens on the [Kubernetes Slack](https://slack.k8s.io/):
 - [#gpu-nvidia](https://kubernetes.slack.com/archives/C09N46EFJR0) — NVIDIA GPU support on Kubernetes
 
 For the project's current direction and a list of areas where contributions are especially welcome, see the pinned **Roadmap & Focus Areas** issue on the [issue tracker](https://github.com/NVIDIA/topograph/issues).
+
+## Community standards
+
+Everyone taking part in this project is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md). It applies in the Slack channels above,
+in issues and pull requests, in review comments, and anywhere else someone is
+representing Topograph, and it binds maintainers exactly as it binds a
+first-time contributor.
+
+### Reporting a concern
+
+Report behavior that violates the Code of Conduct by emailing
+GitHub_Conduct@nvidia.com, the contact named in
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md#enforcement). A useful report says what
+happened, where it happened (link the issue, pull request, or Slack thread if
+there is one), and who was involved. You don't have to be the person the
+behavior was aimed at in order to report it.
+
+That address reaches NVIDIA's open source conduct contact rather than this
+repository's maintainers, so a report about a maintainer doesn't pass through
+the person it concerns. The reporter's identity is held in confidence. Please
+don't open a public issue about a conduct concern: doing so exposes everyone
+involved before anything has been established.
+
+### Response timeline
+
+- **Acknowledgement within 3 business days.** You get a reply confirming the
+  report arrived and naming who is handling it. That reply is a receipt, not a
+  decision.
+- **Resolution within 14 calendar days** of the acknowledgement for a typical
+  report. Resolution means a decision has been reached, and that the reporter
+  is told what it is and what action, if any, followed from it.
+- **A status update every 14 days** for a report that needs longer than that,
+  which happens when several people have to be contacted, when the behavior
+  spans more than one project space, or when an NVIDIA legal or HR review is
+  involved. Updates continue until the report is closed.
+
+These targets reflect the size of the maintainer team (see
+[MAINTAINERS.md](MAINTAINERS.md)), so read them as commitments about how
+quickly you'll be kept informed rather than a guarantee of how fast an
+investigation finishes. Anything involving a threat to someone's safety is
+escalated immediately instead of waiting on this schedule.
+
+### Out of scope
+
+The Code of Conduct process does not cover the following. Sending them to
+GitHub_Conduct@nvidia.com only adds delay, since they have to be redirected
+before anyone can act on them:
+
+- **Product security vulnerabilities.** Anything that looks like a
+  vulnerability in Topograph or another NVIDIA product goes to NVIDIA PSIRT
+  through the process in [SECURITY.md](SECURITY.md): the
+  [security vulnerability submission form](https://www.nvidia.com/object/submit-security-vulnerability.html)
+  or psirt@nvidia.com. Don't report it to the conduct address, in a public
+  issue, or in a pull request description.
+- **Technical disagreements.** A rejected design, a maintainer declining a
+  feature, review feedback you disagree with, or a priority call is settled on
+  the issue or pull request itself, and escalated through the
+  [decision process](GOVERNANCE.md#decision-process) in `GOVERNANCE.md` rather
+  than the conduct process. Which path applies depends on the decision. A pull
+  request you believe was closed unfairly follows
+  [PR rejection](GOVERNANCE.md#pr-rejection). A rejected design follows
+  [Architectural decisions](GOVERNANCE.md#architectural-decisions). A declined
+  feature or subsystem is a proposal-stage decision under
+  [Significant changes](GOVERNANCE.md#significant-changes). A priority call is
+  a maintainer judgment you influence through [Issue priority](#issue-priority)
+  rather than appeal. A decision going against you is not a conduct violation.
+  How someone argues for that decision can be, and that part is in scope.
+- **Bug reports, feature requests, and support questions.** These belong on
+  the [issue tracker](https://github.com/NVIDIA/topograph/issues) or in the
+  [community Slack channels](#community). A stalled issue or an unreviewed
+  pull request is a [follow-up](#following-up) matter, not a conduct one.
+- **Conduct with no connection to a project space.** The Code of Conduct
+  covers project spaces and situations where someone is representing the
+  project, as defined in [its Scope section](CODE_OF_CONDUCT.md#scope).
+  Behavior on unrelated repositories, personal social media, or other
+  communities is outside what this project's maintainers can act on, though
+  NVIDIA employees remain subject to NVIDIA policy wherever they are.
