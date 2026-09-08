@@ -40,7 +40,7 @@ func parseFlags() options {
 		capacity: kwok.DefaultCapacity(),
 	}
 
-	flag.StringVar(&opts.modelFile, "model", "", "model file to load; basenames resolve from tests/models")
+	flag.StringVar(&opts.modelFile, "model", "", "model file to load; basenames resolve from tests/models (ex: small-tree.yaml); external model files can be used by providing the file path (ex: /myPath/model.yaml)")
 	flag.StringVar(&opts.outputFile, "output", "-", "output manifest path; use - for stdout")
 	flag.StringVar(&opts.capacity.CPU, "cpu", opts.capacity.CPU, "node CPU capacity")
 	flag.StringVar(&opts.capacity.Memory, "memory", opts.capacity.Memory, "node memory capacity")
