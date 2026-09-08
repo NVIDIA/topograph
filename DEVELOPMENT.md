@@ -119,8 +119,10 @@ config file — it reads a `tests/models/` fixture via `-model` and writes a
 KWOK node manifest via `-output`:
 
 ```bash
-./bin/kwok-nodes -model small-tree -output -
+./bin/kwok-nodes -model small-tree.yaml -output -
 ```
+
+The `-model` flag also accepts file paths to use external model files.
 
 For an end-to-end local Kubernetes environment (KWOK-based, no real cluster
 needed), see the interactive demos under [`demos/`](demos/) — e.g.
