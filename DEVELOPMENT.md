@@ -122,7 +122,7 @@ KWOK node manifest via `-output`:
 ./bin/kwok-nodes -model small-tree.yaml -output -
 ```
 
-The `-model` flag also accepts file paths to use external value files.
+The `-model` flag also accepts file paths to use external model files.
 
 For an end-to-end local Kubernetes environment (KWOK-based, no real cluster
 needed), see the interactive demos under [`demos/`](demos/) — e.g.
