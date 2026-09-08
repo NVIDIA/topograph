@@ -1,0 +1,73 @@
+# Dependency update automation.
+#
+# Grouping policy: minor and patch bumps arrive as a single PR per ecosystem per
+# week so the maintainers' merge train stays short. Major bumps are deliberately
+# left out of the groups, so each one lands as its own PR and gets a real review.
+
+version: 2
+
+updates:
+  # Go module dependencies declared in go.mod.
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "go"
+    groups:
+      gomod-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Actions referenced by the workflows under .github/workflows/.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Base images in the root Dockerfile. This entry is what keeps the sha256
+  # digest pins current: without it, a digest pin freezes the base image
+  # permanently, CVEs included.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+      - "docker"
+    groups:
+      docker-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
