@@ -31,44 +31,75 @@ and maintainer release authority is defined in [GOVERNANCE.md](./GOVERNANCE.md).
 
 - Official versions use `vX.Y.Z`, where `X`, `Y`, and `Z` are the major,
   minor, and patch versions.
-- Each official release branch uses the canonical version as its complete name,
-  such as `v1.2.0`. Do not add a `release/` or other prefix.
-- The Git tag and GitHub release use the same canonical version as the release
-  branch.
+- Each minor release line has one long-lived branch named `release-X.Y`, such
+  as `release-1.2`. Release candidates, the `vX.Y.0` release, and all subsequent
+  `vX.Y.Z` patch releases are prepared from that branch.
+- Git tags and GitHub releases use the canonical version, such as `v1.2.0` or
+  `v1.2.1`; release branches do not include the patch version.
 - The Helm chart `version` omits the `v` prefix, while `appVersion` includes it.
   For example, release `v1.2.0` uses `version: "1.2.0"` and
   `appVersion: "v1.2.0"`.
-- Release candidates use one prerelease branch for the release series, such as
-  `v1.2.0-rc`, and increment the candidate suffix in the Helm chart version,
-  such as `1.2.0-rc.1` and `1.2.0-rc.2`.
+- Release candidates increment the candidate suffix in the Helm chart version,
+  such as `1.2.0-rc.1` and `1.2.0-rc.2`, while remaining on `release-1.2`.
+
+This follows the
+[Kubernetes release-branch model](https://kubernetes.io/releases/release/):
+development continues on `main`, while a `release-X.Y` branch is retained for
+stabilization and patch releases.
 
 ## Release procedure
 
+### Create and maintain the release branch
+
+Create the release branch from `main` when the changes intended for the first
+release candidate have merged. A branch is created only once for a minor
+release line; patch releases reuse it.
+
+```bash
+git switch main
+git pull --ff-only origin main
+git switch -c release-1.2
+git push -u origin release-1.2
+```
+
+After the branch is created:
+
+- New feature development continues on `main`.
+- Bug fixes, test fixes, and documentation changes that also apply to future
+  releases merge into `main` first, then are cherry-picked through a reviewed
+  pull request targeting `release-1.2`.
+- Release-specific changes, such as chart and changelog preparation, may be
+  submitted directly as a pull request targeting `release-1.2`.
+- Do not rebase or force-push the shared release branch, and do not merge the
+  release branch back into `main`.
+
 ### Prerelease cycle
 
-Use one prerelease branch for all release candidates in a given release cycle.
+Prepare every release candidate on the release branch.
 
-1. Create a branch named for the release-candidate series, such as
-   `v1.2.0-rc`.
+1. Confirm that every change intended for the candidate is present on
+   `release-1.2` and that required CI checks pass.
 
-2. In `charts/topograph/Chart.yaml`, set `version` to the release-candidate
+2. Create a preparation branch from `release-1.2`. In
+   `charts/topograph/Chart.yaml`, set `version` to the release-candidate
    version. Omit the `v` prefix and include the candidate number, such as
    `1.2.0-rc.1`. Leave `appVersion` unchanged for now.
 
-   Commit the change and push the prerelease branch. Do not create a pull
-   request for this branch; it is used only to build and test release
-   candidates and will not be merged.
+   Run the [quality gates](#quality-gates), commit with DCO sign-off, and open a
+   pull request targeting `release-1.2`. Merge it after review and required CI
+   checks pass.
 
-3. In GitHub, run the **Docker** workflow against the prerelease branch. The
-   workflow publishes the Topograph container image with two tags: the branch
-   name, such as `v1.2.0-rc`, and the short commit SHA. It also generates signed
+3. In GitHub, run the **Docker** workflow against `release-1.2`. The workflow
+   publishes the Topograph container image with two tags: the release branch
+   name and the short commit SHA. It also generates signed
    SLSA provenance for the image and publishes it to GHCR.
 
 4. Set `appVersion` in `charts/topograph/Chart.yaml` to the short commit SHA
-   produced in the previous step. Commit and push the change to the prerelease
-   branch.
+   produced in the previous step. Submit this change through another reviewed
+   pull request targeting `release-1.2` and merge it after required CI checks
+   pass.
 
-5. Run the **Release Helm Charts** workflow against the prerelease branch. The
+5. Run the **Release Helm Charts** workflow against `release-1.2`. The
    workflow publishes the chart package to the Topograph Helm repository. For
    example, version `1.2.0-rc.1` is published as:
 
@@ -80,25 +111,24 @@ Use one prerelease branch for all release candidates in a given release cycle.
 
 6. Run the release-candidate test cycle.
 
-   If testing reveals that code changes are needed, make them in separate
-   feature or fix branches and merge them into `main`. When the changes for the
-   next release candidate are ready, rebase the prerelease branch onto `main`,
-   increment the candidate number in `Chart.yaml` (for example, from
-   `1.2.0-rc.1` to `1.2.0-rc.2`), and repeat steps 2 through 6.
+   If testing reveals that generally applicable changes are needed, merge them
+   into `main` and cherry-pick them through a pull request to `release-1.2`.
+   When the changes for the next candidate are ready, increment the candidate
+   number in `Chart.yaml` (for example, from `1.2.0-rc.1` to
+   `1.2.0-rc.2`) and repeat steps 1 through 6.
 
 ### Official release
 
-When the release is ready for general availability, follow these steps:
+Use these steps for both the initial `vX.Y.0` release and later `vX.Y.Z` patch
+releases. The release branch must already exist; do not create a version-named
+branch for an official release.
 
-1. Create a release branch from `main` using the canonical version name:
+1. Confirm that every change intended for the release is present on the
+   corresponding release branch and that required CI checks pass. For example,
+   release `v1.2.0` and patch release `v1.2.1` both come from `release-1.2`.
 
-   ```bash
-   git checkout main
-   git pull origin main
-   git checkout -b v1.2.0
-   ```
-
-2. Update `charts/topograph/Chart.yaml`:
+2. Create a preparation branch from `release-1.2` and update
+   `charts/topograph/Chart.yaml`:
 
    - Set `version` to the release version without the `v` prefix, such as
      `1.2.0`.
@@ -114,29 +144,26 @@ When the release is ready for general availability, follow these steps:
    - Add or update the comparison link for the release.
 
 4. Run the [quality gates](#quality-gates), commit the changes with DCO
-   sign-off, push the branch, and create a pull request.
+   sign-off, push the preparation branch, and create a pull request targeting
+   `release-1.2`.
 
-5. Merge the release pull request. Do not publish release artifacts from the
-   release branch; the canonical tag must identify the exact source commit used
-   to build them.
+5. Merge the release pull request after review and required CI checks pass. Do
+   not publish official release artifacts from the branch name; the canonical
+   tag must identify the exact source commit used to build them.
 
-6. Update local `main`, record the release pull request's merge commit, verify
-   that it is on `main`, then create and push an annotated tag that targets that
-   exact commit. Replace `123` with the release pull request number and inspect
-   the displayed commit before pushing the tag:
+6. Resolve the current tip of `release-1.2`, then create and push an annotated
+   tag that targets that exact commit. First run the script without `--push`
+   and inspect the displayed commit:
 
    ```bash
-   git checkout main
-   git pull --ff-only origin main
-   RELEASE_PR=123
-   RELEASE_COMMIT=$(gh pr view "${RELEASE_PR}" --json mergeCommit --jq '.mergeCommit.oid')
-   if ! git merge-base --is-ancestor "${RELEASE_COMMIT}" origin/main; then
-     echo "Release commit is not reachable from origin/main." >&2
-     exit 1
-   fi
-   git show --no-patch --oneline "${RELEASE_COMMIT}"
-   git tag -a v1.2.0 "${RELEASE_COMMIT}" -m "Release v1.2.0"
-   git push origin v1.2.0
+   scripts/create-release-tag.sh v1.2.0
+   ```
+
+   If validation succeeds and the commit is correct, re-run with `--push`. The
+   script repeats every validation before it creates and pushes the tag:
+
+   ```bash
+   scripts/create-release-tag.sh --push v1.2.0
    ```
 
 7. The tag push automatically starts these workflows:
@@ -151,32 +178,47 @@ When the release is ready for general availability, follow these steps:
 8. Complete the [release verification](#release-verification) after all three
    workflows finish successfully.
 
+9. Reconcile the released changelog metadata back to `main` through a focused
+   pull request. Copy the new dated release section and comparison link from
+   the release branch, and remove only the corresponding released entries from
+   **Unreleased** on `main`. Preserve entries added for the next release after
+   the release branch was created. Do not merge the release branch into
+   `main`.
+
 ## Workflow pipeline
 
 ```mermaid
 flowchart TD
-    A[main] --> B[Prerelease branch<br/>vX.Y.Z-rc]
-    B --> C[Set chart version<br/>X.Y.Z-rc.N]
-    C --> D[Docker workflow<br/>image and provenance]
-    D --> E[Set appVersion<br/>to short SHA]
-    E --> F[Release Helm Charts<br/>package and provenance]
-    F --> G[Release-candidate<br/>test cycle]
-    G -->|Changes needed| H[Merge fixes<br/>into main]
-    H --> I[Rebase branch and<br/>increment rc.N]
-    I --> C
-    G -->|Ready for GA| J[Release branch<br/>vX.Y.Z]
-    J --> K[Quality gates<br/>and release PR]
-    K --> L[Merge release PR]
-    L --> M[Tag merged commit<br/>vX.Y.Z]
-    M --> N[Release workflow<br/>chart, checksum, provenance]
-    M --> O[Docker workflow<br/>image and provenance]
-    M --> P[Publish Fern Docs<br/>versioned documentation]
-    N --> Q[GitHub release]
+    A[main] -->|Cut at first RC| B[release-X.Y]
+    A --> C[Next-release development]
+    B --> D[RC preparation PR<br/>X.Y.0-rc.N]
+    D --> E[Docker workflow<br/>image and provenance]
+    E --> F[Set appVersion<br/>to short SHA]
+    F --> G[Release Helm Charts<br/>package and provenance]
+    G --> H[Release-candidate<br/>test cycle]
+    H -->|Generally applicable fix| I[Merge fix into main]
+    I --> J[Cherry-pick PR<br/>to release-X.Y]
+    J --> D
+    H -->|Ready for GA| K[GA preparation PR<br/>to release-X.Y]
+    K --> L[Tag merged commit<br/>vX.Y.0]
+    L --> M[Retain release-X.Y<br/>for patch releases]
+    M -->|Approved backports| N[Patch preparation PR]
+    N --> O[Tag merged commit<br/>vX.Y.Z]
+    L --> P[Release workflow<br/>chart, checksum, provenance]
+    L --> Q[Docker workflow<br/>image and provenance]
+    L --> R[Publish Fern Docs<br/>versioned documentation]
+    O --> P
+    O --> Q
+    O --> R
+    P --> S[GitHub release]
+    S --> T[Reconcile CHANGELOG<br/>to main]
+    T --> A
 ```
 
 The nominated release person manually dispatches **Docker** and **Release Helm
-Charts** for release candidates. Pushing an official `vX.Y.Z` tag triggers the
-official **Release**, **Docker**, and **Publish Fern Docs** workflows.
+Charts** against `release-X.Y` for release candidates. Pushing an official
+`vX.Y.Z` tag from that release line triggers the **Release**, **Docker**, and
+**Publish Fern Docs** workflows.
 
 ## Released components
 
