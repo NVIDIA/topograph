@@ -100,7 +100,7 @@ make mod        # go mod tidy
 
 The three long-running service binaries (`topograph`, `node-observer`,
 `node-data-broker`) each read a YAML config via `-c`/`--config` and print
-their version via `-version`. There's no `AUTO_MODE` / interactive
+their version via `--version`. There's no `AUTO_MODE` / interactive
 installer to worry about — just point the binary at a config file:
 
 ```bash
