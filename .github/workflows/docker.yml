@@ -11,6 +11,8 @@ on:
       - "v*"
   workflow_dispatch:
 
+permissions: {}
+
 env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
