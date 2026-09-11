@@ -147,7 +147,7 @@ Topograph separates decisions into two layers. The layer a decision belongs to d
 - Reviewing, approving, and merging pull requests
 - Triaging, labeling, and closing issues
 - Cutting a release under [RELEASE.md](./RELEASE.md), including which ready work lands in a given release
-- Bug fixes, dependency updates, documentation, tests, and CI changes
+- Bug fixes, dependency version bumps, documentation, tests, and CI changes
 - Adding a parameter, label value, or configuration field that leaves every existing contract intact
 
 Any maintainer who thinks an operational decision carries strategic weight escalates it by saying so in the thread and opening the proposal described under [Significant changes](#significant-changes). Escalation needs no second, and work pauses until the proposal resolves.
@@ -169,7 +169,7 @@ The split is a property of the decision, not of the person. The maintainer who m
 
 ### Routine decisions
 
-Routine decisions — bug fixes, minor features, documentation, dependency updates — proceed via PR. At least one reviewer or maintainer approval is required for technical acceptance; a maintainer then merges after verifying project requirements are met. The author cannot self-merge.
+Routine decisions — bug fixes, minor features, documentation, dependency version bumps — proceed via PR. At least one reviewer or maintainer approval is required for technical acceptance; a maintainer then merges after verifying project requirements are met. The author cannot self-merge.
 
 ### Significant changes
 
@@ -177,7 +177,7 @@ Significant changes require a prior proposal before implementation work begins. 
 
 - New features or subsystems
 - Breaking changes to APIs or behavior
-- Changes to the contribution model, release cadence, or dependencies
+- Changes to the contribution model, release cadence, or dependency policy, meaning adding or dropping a direct dependency or changing the minimum supported Go version. Bumping an existing dependency to a new version stays operational and needs no proposal.
 - Changes to this governance document
 
 A proposal is a GitHub Discussion, design doc, or RFC that explains: what is changing, why, what alternatives were considered, and the impact on existing contributors and users.
