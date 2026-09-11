@@ -226,8 +226,6 @@ If no Project Leader is designated, which is the case whenever the Project Leade
 
 A supermajority decision cannot tie, because an even split falls short of two-thirds and fails. The tie-break applies only where a simple majority carries.
 
-**Conflict of interest.** A maintainer who is the subject of a vote, meaning their own nomination, their own removal, or their own appeal, does not vote on it and drops out of the eligible-voter list for that vote before the count is taken. Authoring the change under discussion is not a conflict of interest; a maintainer votes on their own proposal.
-
 **Referral of last resort.** A deadlock that the tie-break does not clear, or a dispute the maintainer group cannot settle at all, can be referred to NVIDIA as upstream owner by any maintainer, through a Project Leader when one is designated and through the maintainers listed in [MAINTAINERS.md](./MAINTAINERS.md) otherwise. The referral is made in the public issue or thread that carries the dispute, so the record shows that one was made and what it asked.
 
 On the matters reserved to NVIDIA under [Project Leadership](#project-leadership), which are license changes, project end-of-life, and transfer of the project, NVIDIA decides and the decision binds. A maintainer posts the outcome and the reasoning back to the referring thread.
