@@ -45,11 +45,13 @@ which NVIDIA PSIRT operates. What to expect between your report and public discl
    report; the Topograph maintainers develop the fix behind that channel.
 2. **Embargo.** The report stays under embargo while the fix is prepared. Please do not disclose
    the issue publicly, including in a GitHub issue, pull request, or discussion, in a conference
-   talk, or in a blog post, until a fix is available or PSIRT tells you the coordination deadline
-   has passed. PSIRT sets that deadline per report, based on severity, the work the fix requires,
-   and any coordination with other affected parties. Timelines are described on the
-   [PSIRT policies page](https://www.nvidia.com/en-us/security/psirt-policies/); this project
-   does not set a separate deadline of its own.
+   talk, or in a blog post, until NVIDIA has publicly released the update or mitigation
+   information for the issue, or PSIRT tells you that earlier disclosure is authorized. PSIRT
+   coordinates that timing case by case. The
+   [PSIRT policies page](https://www.nvidia.com/en-us/security/psirt-policies/) states that
+   response timelines depend on the severity, the product affected, the current development
+   cycle, QA cycles, and whether the issue can only be fixed in a major release. This project
+   does not set a disclosure timeline of its own.
 3. **Pre-disclosure.** If a fix affects downstream consumers, PSIRT decides who is notified ahead
    of publication and what they are told. Please do not share details with third parties yourself
    while the report is under embargo; ask PSIRT instead.
