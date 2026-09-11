@@ -50,7 +50,7 @@ which NVIDIA PSIRT operates. What to expect between your report and public discl
    coordinates that timing case by case. The
    [PSIRT policies page](https://www.nvidia.com/en-us/security/psirt-policies/) states that
    response timelines depend on the severity, the product affected, the current development
-   cycle, QA cycles, and whether the issue can only be fixed in a major release. This project
+   cycle, QA cycles, and whether the issue can only be updated in a major release. This project
    does not set a disclosure timeline of its own.
 3. **Pre-disclosure.** If a fix affects downstream consumers, PSIRT decides who is notified ahead
    of publication and what they are told. Please do not share details with third parties yourself
