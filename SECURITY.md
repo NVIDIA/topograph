@@ -68,6 +68,12 @@ coordinated fix, possible.
 
 ## Verifying Release Artifacts
 
+This section applies to releases published after `v1.0.0`, the first ones cut by the release
+workflow that generates build provenance and a checksum file. `v1.0.0` and every earlier release
+predate that workflow: they publish the container image and the chart package only, with no
+attestation for either, no checksum file, and no assets on their GitHub release pages. That is
+expected for those releases, not a supply chain problem.
+
 An official release publishes a multi-architecture container image at
 `ghcr.io/nvidia/topograph:vX.Y.Z`, a Helm chart package in the chart repository at
 `https://nvidia.github.io/topograph`, and a SHA-256 checksum file beside the chart package. The
@@ -98,9 +104,10 @@ gh attestation verify topograph-X.Y.Z.tgz \
   --source-ref refs/tags/vX.Y.Z
 ```
 
-Treat a failed verification, a missing attestation, or an attestation naming a workflow or source
-reference other than the ones above as a potential supply chain problem, and report it through the
-channel described above.
+For a release covered by this section, treat a failed verification, a missing attestation, or an
+attestation naming a workflow or source reference other than the ones above as a potential supply
+chain problem, and report it through the channel described above. A release published before that
+point carries no attestation by design, so its absence is not something to report.
 
 Topograph does not currently publish a detached cosign signature or a GPG-signed release manifest.
 The Sigstore-backed provenance attestations and the chart checksum are the verification path
