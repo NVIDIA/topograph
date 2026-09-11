@@ -218,7 +218,7 @@ Most disagreements end in the pull request or the proposal thread. This section 
 | Removal of a maintainer for cause | Two-thirds supermajority of eligible voters |
 | Change to this document | Two-thirds supermajority of eligible voters |
 
-A nomination is contested when a maintainer raises a blocking objection inside the 5-business-day window. It then needs both its seconds and a majority vote. A maintainer who does not vote counts as a vote against, as set out under [Significant changes](#significant-changes).
+A nomination is contested when a maintainer raises a blocking objection inside the 5-business-day window. It then needs a majority vote in addition to the seconds its nomination type already requires: one for a [reviewer](#becoming-a-reviewer), two for a [maintainer](#becoming-a-maintainer), and three for an [area bootstrap](#area-bootstrap). A maintainer who does not vote counts as a vote against, as set out under [Significant changes](#significant-changes).
 
 **Ties.** A tie is an equal count on each side of the question at the close of the voting period. On a tie, every Project Leader posts a tie-break vote in the same issue, and a majority of the Project Leaders decides. That casting vote is the only one in this project, and no other role holds one.
 
