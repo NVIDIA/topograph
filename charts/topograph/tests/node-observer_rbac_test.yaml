@@ -117,3 +117,17 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: watches nodes for the kubernetes provider without a trigger selector
+    templates:
+      - templates/nodeObserver/rbac.yaml
+    set:
+      provider.name: kubernetes
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [nodes]
+            verbs: [list, watch]

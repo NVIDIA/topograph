@@ -27,6 +27,8 @@ import (
 	"github.com/dsx-ai-factory/topograph/internal/httperr"
 	"github.com/dsx-ai-factory/topograph/internal/httpreq"
 	"github.com/dsx-ai-factory/topograph/internal/k8s"
+	kubernetesprovider "github.com/dsx-ai-factory/topograph/pkg/providers/kubernetes"
+	"github.com/dsx-ai-factory/topograph/pkg/topology"
 )
 
 const topologyQueueKey = "cluster-topology"
@@ -35,6 +37,7 @@ const topologyQueueKey = "cluster-topology"
 // their cluster-wide topology through a single rate-limited work queue key.
 // The exported name is retained for compatibility with existing callers.
 type StatusInformer struct {
+	nodeTopologyLabels  []string
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	nodeFactory         informers.SharedInformerFactory
@@ -70,7 +73,8 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 		),
 	}
 
-	if trigger != nil && len(trigger.NodeSelector) != 0 {
+	if trigger != nil && (len(trigger.NodeSelector) != 0 || len(trigger.nodeTopologyLabels) != 0) {
+		statusInformer.nodeTopologyLabels = append([]string(nil), trigger.nodeTopologyLabels...)
 		listOptionsFunc := func(options *metav1.ListOptions) {
 			options.LabelSelector = labels.Set(trigger.NodeSelector).AsSelector().String()
 		}
@@ -208,6 +212,13 @@ func (s *StatusInformer) startNodeInformer() error {
 			AddFunc: func(obj any) {
 				if node, ok := obj.(*corev1.Node); ok {
 					klog.V(4).Infof("Informer added node %s", node.Name)
+					s.sendRequest()
+				}
+			},
+			UpdateFunc: func(oldObj, newObj any) {
+				oldNode, oldOK := oldObj.(*corev1.Node)
+				newNode, newOK := newObj.(*corev1.Node)
+				if oldOK && newOK && s.shouldRequestOnNodeUpdate(oldNode, newNode) {
 					s.sendRequest()
 				}
 			},
@@ -536,4 +547,24 @@ func (s *StatusInformer) reconcile() (time.Duration, error) {
 		return 0, fmt.Errorf("failed to send topology generation request: %w", err)
 	}
 	return 0, nil
+}
+
+func (s *StatusInformer) shouldRequestOnNodeUpdate(oldNode, newNode *corev1.Node) bool {
+	if len(s.nodeTopologyLabels) == 0 {
+		return false
+	}
+	if kubernetesprovider.IsNodeEligible(oldNode) != kubernetesprovider.IsNodeEligible(newNode) {
+		return true
+	}
+	for _, key := range s.nodeTopologyLabels {
+		if oldNode.Labels[key] != newNode.Labels[key] {
+			return true
+		}
+	}
+	for _, key := range []string{topology.KeyNodeInstance, topology.KeyNodeRegion} {
+		if oldNode.Annotations[key] != newNode.Annotations[key] {
+			return true
+		}
+	}
+	return false
 }

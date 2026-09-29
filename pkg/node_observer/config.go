@@ -7,12 +7,14 @@ package node_observer
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	kubernetesprovider "github.com/dsx-ai-factory/topograph/pkg/providers/kubernetes"
 	"github.com/dsx-ai-factory/topograph/pkg/topology"
 )
 
@@ -32,8 +34,9 @@ type Config struct {
 }
 
 type Trigger struct {
-	NodeSelector map[string]string     `yaml:"nodeSelector,omitempty"`
-	PodSelector  *metav1.LabelSelector `yaml:"podSelector,omitempty"`
+	nodeTopologyLabels []string
+	NodeSelector       map[string]string     `yaml:"nodeSelector,omitempty"`
+	PodSelector        *metav1.LabelSelector `yaml:"podSelector,omitempty"`
 }
 
 type APIServer struct {
@@ -62,12 +65,32 @@ func NewConfigFromFile(fname string) (*Config, error) {
 		cfg.APIServer.ContainerName = defaultAPIServerContainerName
 	}
 
-	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil && cfg.APIServer.PodSelector == nil {
+	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil && cfg.APIServer.PodSelector == nil && cfg.Provider.Name != kubernetesprovider.NAME {
 		return nil, fmt.Errorf("must specify nodeSelector and/or podSelector in trigger, or apiServer.podSelector")
+	}
+
+	if _, err := cfg.nodeTrigger(); err != nil {
+		return nil, err
 	}
 
 	if cfg.RetryDelay.Duration == 0 {
 		cfg.RetryDelay.Duration = defaultRetryDelay
 	}
 	return cfg, nil
+}
+
+func (cfg *Config) nodeTrigger() (*Trigger, error) {
+	trigger := cfg.Trigger
+	if cfg.Provider.Name == kubernetesprovider.NAME {
+		params, err := kubernetesprovider.ParseParams(cfg.Provider.Params)
+		if err != nil {
+			return nil, err
+		}
+		if len(trigger.NodeSelector) != 0 && !maps.Equal(trigger.NodeSelector, params.NodeSelector) {
+			return nil, fmt.Errorf("trigger.nodeSelector must match provider.params.nodeSelector for the kubernetes provider")
+		}
+		trigger.NodeSelector = params.NodeSelector
+		trigger.nodeTopologyLabels = params.TopologyLabels
+	}
+	return &trigger, nil
 }

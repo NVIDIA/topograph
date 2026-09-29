@@ -12,7 +12,7 @@ rules:
   resources: [daemonsets]
   verbs: [list,watch]
 {{- end }}
-{{- if (default dict .Values.nodeObserver.topograph.trigger).nodeSelector }}
+{{- if or (eq .Values.provider.name "kubernetes") (default dict .Values.nodeObserver.topograph.trigger).nodeSelector }}
 - apiGroups: [""]
   resources: [nodes]
   verbs: [list,watch]
