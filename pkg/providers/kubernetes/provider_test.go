@@ -1,18 +1,36 @@
 /*
- * Copyright 2026 NVIDIA CORPORATION
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright (c) 2026, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
 package kubernetes
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/dsx-ai-factory/topograph/pkg/topology"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientgo "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 )
 
 func readyNode(name, rack, zone string) *corev1.Node {
@@ -104,4 +122,44 @@ func TestNodeEligibility(t *testing.T) {
 	}
 	node.Status.Conditions = nil
 	require.False(t, IsNodeEligible(node))
+}
+
+// nodeListTransport exercises the real client request path without a cluster.
+type nodeListTransport func(*http.Request) (*http.Response, error)
+
+func (f nodeListTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestNodeListDeadline(t *testing.T) {
+	for _, earlier := range []bool{false, true} {
+		t.Run(map[bool]string{false: "bounded request", true: "earlier caller deadline"}[earlier], func(t *testing.T) {
+			ctx := context.Background()
+			if earlier {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, time.Second)
+				defer cancel()
+			}
+			var requestCtx context.Context
+			client, err := clientgo.NewForConfigAndClient(&rest.Config{Host: "https://kubernetes.invalid"}, &http.Client{Transport: nodeListTransport(func(req *http.Request) (*http.Response, error) {
+				requestCtx = req.Context()
+				deadline, ok := requestCtx.Deadline()
+				require.True(t, ok, "node listing must have a deadline even without a caller timeout")
+				require.Positive(t, time.Until(deadline))
+				require.LessOrEqual(t, time.Until(deadline), nodeListTimeout)
+				if earlier {
+					callerDeadline, _ := ctx.Deadline()
+					require.Equal(t, callerDeadline, deadline)
+				}
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"kind":"NodeList","apiVersion":"v1","items":[]}`))}, nil
+			})})
+			require.NoError(t, err)
+			p, err := New(client, map[string]any{"topologyLabels": []string{"rack"}})
+			require.NoError(t, err)
+			_, herr := p.GenerateTopologyConfig(ctx, nil, nil)
+			require.Nil(t, herr)
+			require.NotNil(t, requestCtx)
+			require.ErrorIs(t, requestCtx.Err(), context.Canceled)
+		})
+	}
 }
