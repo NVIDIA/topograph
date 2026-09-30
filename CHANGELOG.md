@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - **BREAKING:** The Go module and canonical repository moved from `github.com/NVIDIA/topograph` to `github.com/dsx-ai-factory/topograph`. Repository links, published container and Helm chart locations, build metadata, and examples now use the `dsx-ai-factory` organization.
+- **BREAKING:** `topograph` and `node-observer` binaries now use [pflag](https://github.com/spf13/pflag) for flag parsing, matching `node-data-broker`. Single-dash long flags (`-version`, `-logtostderr`, `-vmodule`, etc.) now require a double dash (`--version`, `--logtostderr`, `--vmodule`). This affects the use of all [klog](https://github.com/kubernetes/klog) flags
 - Go toolchain upgraded from **1.26.6** to **1.27.1** across the module, container build, and CI workflows; the CI linter is upgraded to `golangci-lint` **v2.13.2** for Go 1.27 compatibility.
 - The `nscale` provider's Slurm auto-discovery runs `pdsh` across the current Slurm node list and queries each node's own Instance Metadata Service (IMDS) for its server ID (`serverID`) and region, merging the results into the instance-to-node and node-to-region maps.
 - The `nscale` provider's Radar API topology response field is now read as `server_id` instead of `instance_id`, matching the IMDS `serverID` field it is merged with.
@@ -119,10 +120,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 The chart's hardened defaults are a breaking change for two deployment shapes; override only the affected keys/component:
 
-| If you run | Override |
-|--------|----------|
-| `infiniband-k8s` (broker reads `/sys/class`) | A **complete** privileged override on `node-data-broker` — `securityContext: { privileged: true, allowPrivilegeEscalation: true, readOnlyRootFilesystem: false, runAsNonRoot: false, runAsUser: 0 }` plus `podSecurityContext.runAsNonRoot: false`. A partial override (only `privileged: true`) is rejected at admission because the default `allowPrivilegeEscalation: false` remains. Both shipped IB examples (`values.k8s.ib-example.yaml` and `values.slinky.ib.block-example.yaml`) are updated to the complete form. |
-| `engine: slurm` or `engine: graph` in-cluster (writes `topology.conf`) | `securityContext.readOnlyRootFilesystem: false` and a writable volume at the configured output path. |
+| If you run                                                             | Override                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `infiniband-k8s` (broker reads `/sys/class`)                           | A **complete** privileged override on `node-data-broker` — `securityContext: { privileged: true, allowPrivilegeEscalation: true, readOnlyRootFilesystem: false, runAsNonRoot: false, runAsUser: 0 }` plus `podSecurityContext.runAsNonRoot: false`. A partial override (only `privileged: true`) is rejected at admission because the default `allowPrivilegeEscalation: false` remains. Both shipped IB examples (`values.k8s.ib-example.yaml` and `values.slinky.ib.block-example.yaml`) are updated to the complete form. |
+| `engine: slurm` or `engine: graph` in-cluster (writes `topology.conf`) | `securityContext.readOnlyRootFilesystem: false` and a writable volume at the configured output path.                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 The default `k8s`/`slinky` engines and all other providers need no change.
 
@@ -184,12 +185,12 @@ The default `k8s`/`slinky` engines and all other providers need no change.
 
 If you override node-data-broker settings today, update your values as follows:
 
-| Before | After |
-|--------|-------|
-| `node-data-broker.initc.extraArgs` | `node-data-broker.extraArgs` |
-| `node-data-broker.initc.image.*` | `node-data-broker.image.*` (now drives the sole container) |
-| `node-data-broker.command` (`tail -f /dev/null`) | Remove — no longer needed |
-| `node-data-broker.initc.enabled` | Remove — broker always runs when the subchart is enabled |
+| Before                                           | After                                                      |
+| ------------------------------------------------ | ---------------------------------------------------------- |
+| `node-data-broker.initc.extraArgs`               | `node-data-broker.extraArgs`                               |
+| `node-data-broker.initc.image.*`                 | `node-data-broker.image.*` (now drives the sole container) |
+| `node-data-broker.command` (`tail -f /dev/null`) | Remove — no longer needed                                  |
+| `node-data-broker.initc.enabled`                 | Remove — broker always runs when the subchart is enabled   |
 
 Example:
 
