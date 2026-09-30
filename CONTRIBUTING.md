@@ -53,8 +53,7 @@ triage bot. Priority is set informally, from a few concrete inputs:
   reproduce it, link duplicates); only a Maintainer decides whether
   something is worth working on next. There's no separate "triage
   meeting" — it happens asynchronously on the issue itself.
-- **The Roadmap issue.** The pinned **Roadmap & Focus Areas** issue on the
-  [issue tracker](https://github.com/dsx-ai-factory/topograph/issues) is the
+- **The Roadmap.** The [Topograph roadmap](https://github.com/orgs/dsx-ai-factory/projects/6) project board is the
   closest thing to a prioritized backlog — it lists the areas maintainers
   are actively steering the project toward. An issue that maps onto one of
   those areas is more likely to get picked up sooner than one that
@@ -333,9 +332,8 @@ If you haven't heard anything after 5 business days:
    [#topology-aware-scheduling](https://kubernetes.slack.com/archives/C012XSGFZQE)
    or [#gpu-nvidia](https://kubernetes.slack.com/archives/C09N46EFJR0) — if
    the PR thread goes quiet.
-3. For a stalled issue rather than a PR, check the pinned **Roadmap & Focus
-   Areas** issue on the [issue tracker](https://github.com/dsx-ai-factory/topograph/issues)
-   to see if it's already being tracked there.
+3. For a stalled issue rather than a PR, check the
+   [Topograph roadmap](https://github.com/orgs/dsx-ai-factory/projects/6) to see if it's already being tracked there.
 
 Keep the PR in draft while you're still reshaping it — draft PRs don't page
 reviewers, so that's the cheapest phase to rework history or force-push in.
@@ -349,7 +347,7 @@ Community discussion happens on the [Kubernetes Slack](https://slack.k8s.io/):
 - [#topology-aware-scheduling](https://kubernetes.slack.com/archives/C012XSGFZQE) — topology-aware scheduling across the ecosystem
 - [#gpu-nvidia](https://kubernetes.slack.com/archives/C09N46EFJR0) — NVIDIA GPU support on Kubernetes
 
-For the project's current direction and a list of areas where contributions are especially welcome, see the pinned **Roadmap & Focus Areas** issue on the [issue tracker](https://github.com/dsx-ai-factory/topograph/issues).
+For the project's current direction and a list of areas where contributions are especially welcome, see the [Topograph roadmap](https://github.com/orgs/dsx-ai-factory/projects/6).
 
 ## Community standards
 
