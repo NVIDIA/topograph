@@ -6,9 +6,10 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
+
+	"github.com/spf13/pflag"
 
 	"github.com/dsx-ai-factory/topograph/internal/kwok"
 	"github.com/dsx-ai-factory/topograph/internal/version"
@@ -40,23 +41,23 @@ func parseFlags() options {
 		capacity: kwok.DefaultCapacity(),
 	}
 
-	flag.StringVar(&opts.modelFile, "model", "", "model file to load; basenames resolve from tests/models (ex: small-tree.yaml); external model files can be used by providing the file path (ex: /myPath/model.yaml)")
-	flag.StringVar(&opts.outputFile, "output", "-", "output manifest path; use - for stdout")
-	flag.StringVar(&opts.capacity.CPU, "cpu", opts.capacity.CPU, "node CPU capacity")
-	flag.StringVar(&opts.capacity.Memory, "memory", opts.capacity.Memory, "node memory capacity")
-	flag.StringVar(&opts.capacity.Pods, "pods", opts.capacity.Pods, "node pod capacity")
-	flag.StringVar(&opts.capacity.EphemeralStorage, "ephemeral-storage", opts.capacity.EphemeralStorage, "node ephemeral-storage capacity")
-	flag.IntVar(&opts.capacity.GPUs, "gpus", opts.capacity.GPUs, "GPU capacity per node; 0 omits GPU capacity")
-	flag.StringVar(&opts.capacity.GPUResourceName, "gpu-resource-name", opts.capacity.GPUResourceName, "extended resource name for GPU capacity")
-	flag.BoolVar(&opts.version, "version", false, "show the version")
-	flag.Parse()
+	pflag.StringVarP(&opts.modelFile, "model", "m", "", "model file to load; basenames resolve from tests/models (ex: small-tree.yaml); external model files can be used by providing the file path (ex: /myPath/model.yaml)")
+	pflag.StringVarP(&opts.outputFile, "output", "o", "-", "output manifest path; use - for stdout")
+	pflag.StringVar(&opts.capacity.CPU, "cpu", opts.capacity.CPU, "node CPU capacity")
+	pflag.StringVar(&opts.capacity.Memory, "memory", opts.capacity.Memory, "node memory capacity")
+	pflag.StringVarP(&opts.capacity.Pods, "pods", "p", opts.capacity.Pods, "node pod capacity")
+	pflag.StringVar(&opts.capacity.EphemeralStorage, "ephemeral-storage", opts.capacity.EphemeralStorage, "node ephemeral-storage capacity")
+	pflag.IntVarP(&opts.capacity.GPUs, "gpus", "g", opts.capacity.GPUs, "GPU capacity per node; 0 omits GPU capacity")
+	pflag.StringVar(&opts.capacity.GPUResourceName, "gpu-resource-name", opts.capacity.GPUResourceName, "extended resource name for GPU capacity")
+	pflag.BoolVar(&opts.version, "version", false, "show the version")
+	pflag.Parse()
 
 	return opts
 }
 
 func mainInternal(opts options) error {
 	if opts.modelFile == "" {
-		return fmt.Errorf("missing required -model")
+		return fmt.Errorf("missing required --model")
 	}
 
 	model, err := models.NewModelFromFile(opts.modelFile)
