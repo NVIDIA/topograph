@@ -160,6 +160,7 @@ Packaged chart releases and their SHA-256 checksums are also attached to [GitHub
 - [Overview](docs/overview.md)
 - [Architecture](docs/architecture.md)
 - [Configuration and API](docs/api.md)
+- [Topograph roadmap](https://github.com/orgs/dsx-ai-factory/projects/6)
 
 ## Community
 
@@ -169,6 +170,9 @@ Ask questions and connect with other users in the
 Before contributing, read the [contribution guide](CONTRIBUTING.md) and
 [Code of Conduct](CODE_OF_CONDUCT.md). For local build/test/lint setup, see
 the [Development Guide](DEVELOPMENT.md).
+
+Planned work and current priorities are tracked on the
+[Topograph roadmap](https://github.com/orgs/dsx-ai-factory/projects/6).
 
 Project roles and decision-making are described in
 [Governance](GOVERNANCE.md). See [Maintainers](MAINTAINERS.md) for the current
