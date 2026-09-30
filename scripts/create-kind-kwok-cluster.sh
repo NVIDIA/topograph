@@ -160,14 +160,14 @@ else
 fi
 
 "${KWOK_NODES_BIN}" \
-  -model "${MODEL}" \
-  -output "${MANIFEST}" \
-  -cpu "${CPU}" \
-  -memory "${MEMORY}" \
-  -pods "${PODS}" \
-  -ephemeral-storage "${EPHEMERAL_STORAGE}" \
-  -gpus "${GPUS}" \
-  -gpu-resource-name "${GPU_RESOURCE_NAME}"
+  --model "${MODEL}" \
+  --output "${MANIFEST}" \
+  --cpu "${CPU}" \
+  --memory "${MEMORY}" \
+  --pods "${PODS}" \
+  --ephemeral-storage "${EPHEMERAL_STORAGE}" \
+  --gpus "${GPUS}" \
+  --gpu-resource-name "${GPU_RESOURCE_NAME}"
 
 if "${KIND}" get clusters 2>/dev/null | grep -Fxq "${CLUSTER}"; then
   echo "Reusing kind cluster ${CLUSTER}"
