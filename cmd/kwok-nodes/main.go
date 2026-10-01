@@ -29,7 +29,7 @@ func main() {
 		if err == pflag.ErrHelp {
 			os.Exit(0)
 		}
-		fmt.Println("Error parsing flags:", err)
+		fmt.Fprintln(os.Stderr, "Error parsing flags:", err)
 		os.Exit(1)
 	}
 
