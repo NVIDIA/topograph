@@ -17,13 +17,13 @@ make qualify                  # fmt + vet + lint + test — run this before ever
 
 ## Prerequisites
 
-| Tool | Purpose | Notes |
-|---|---|---|
-| [Go 1.27.1+](https://go.dev/dl/) | Language runtime | See `go.mod` for the exact minimum; newer minor versions are fine |
-| `make` | Build automation | Pre-installed on macOS/Linux |
-| [golangci-lint](https://golangci-lint.run/usage/install/) | Go linting | `brew install golangci-lint`, or see the [install guide](https://golangci-lint.run/usage/install/) for `go install`/binary options; CI runs it via `golangci/golangci-lint-action@v9` |
-| [helm 3.10+ or 4.x](https://helm.sh/docs/intro/install/) | Chart lint/test | Required for `make chart-test`; CI pins `v4.1.1` in `.github/workflows/chart-test.yaml` |
-| [docker](https://docs.docker.com/get-docker/) | Container image builds | Only needed for `make image-build` / `make docker-buildx` |
+| Tool                                                      | Purpose                | Notes                                                                                                                                                                                 |
+| --------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Go 1.27.1+](https://go.dev/dl/)                          | Language runtime       | See `go.mod` for the exact minimum; newer minor versions are fine                                                                                                                     |
+| `make`                                                    | Build automation       | Pre-installed on macOS/Linux                                                                                                                                                          |
+| [golangci-lint](https://golangci-lint.run/usage/install/) | Go linting             | `brew install golangci-lint`, or see the [install guide](https://golangci-lint.run/usage/install/) for `go install`/binary options; CI runs it via `golangci/golangci-lint-action@v9` |
+| [helm 3.10+ or 4.x](https://helm.sh/docs/intro/install/)  | Chart lint/test        | Required for `make chart-test`; CI pins `v4.1.1` in `.github/workflows/chart-test.yaml`                                                                                               |
+| [docker](https://docs.docker.com/get-docker/)             | Container image builds | Only needed for `make image-build` / `make docker-buildx`                                                                                                                             |
 
 There is no `make dev-env-setup` / tool-manifest step in this repo — install
 the tools above with your system package manager and you're ready to build.
@@ -115,14 +115,14 @@ installer to worry about — just point the binary at a config file:
 ```
 
 `kwok-nodes` is a one-shot generator tool, not a service, and takes no
-config file — it reads a `tests/models/` fixture via `-model` and writes a
-KWOK node manifest via `-output`:
+config file — it reads a `tests/models/` fixture via `--model/-m` and writes a
+KWOK node manifest via `--output`:
 
 ```bash
-./bin/kwok-nodes -model small-tree.yaml -output -
+./bin/kwok-nodes --model small-tree.yaml --output -
 ```
 
-The `-model` flag also accepts file paths to use external model files.
+The `--model` flag also accepts file paths to use external model files.
 
 For an end-to-end local Kubernetes environment (KWOK-based, no real cluster
 needed), see the interactive demos under [`demos/`](demos/) — e.g.
@@ -175,7 +175,7 @@ underlying tools with CI-specific flags, which are close to but not
 identical to the local `make` targets:
 
 - `.github/workflows/go.yml` — build; `go test -v -coverpkg=./... -coverprofile=coverage.out -covermode=atomic ./...`
-  (coverage-instrumented, but *without* `-race`, unlike `make test`);
+  (coverage-instrumented, but _without_ `-race`, unlike `make test`);
   `golangci/golangci-lint-action@v9` (not `make lint`, so it isn't affected
   by the local `master`-ref issue above); and `govulncheck`
 - `.github/workflows/chart-test.yaml` — `make chart-test` on every push/PR

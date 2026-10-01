@@ -34,7 +34,7 @@ make build
 Render a KWOK node manifest from one of the embedded model fixtures:
 
 ```bash
-bin/kwok-nodes -model medium.yaml -output /tmp/kwok-nodes.yaml
+bin/kwok-nodes --model medium.yaml --output /tmp/kwok-nodes.yaml
 ```
 
 Create or reuse a kind cluster named `topograph`, install KWOK, and apply the generated nodes:
@@ -94,11 +94,11 @@ These providers load a model file and then simulate that provider's API response
 
 Simulation providers share these common parameters:
 
-| Parameter | Required | Description |
-|---|---:|---|
-| `modelFileName` | Yes | Model file to load. A basename such as `medium.yaml` is loaded from `tests/models/`; absolute and relative paths are also supported. |
-| `api_error` | No | Provider-specific test hook used by unit tests to simulate API failures. |
-| `trimTiers` | No | Number of topology tiers to trim where supported by the simulated provider. |
+| Parameter       | Required | Description                                                                                                                          |
+| --------------- | -------: | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `modelFileName` |      Yes | Model file to load. A basename such as `medium.yaml` is loaded from `tests/models/`; absolute and relative paths are also supported. |
+| `api_error`     |       No | Provider-specific test hook used by unit tests to simulate API failures.                                                             |
+| `trimTiers`     |       No | Number of topology tiers to trim where supported by the simulated provider.                                                          |
 
 Example request:
 
@@ -126,8 +126,7 @@ A model usually has one required top-level section and one optional topology sec
 ```yaml
 blocks:
   - ...
-switches:
-  ...
+switches: ...
 ```
 
 `switches` is a map and `blocks` is a list. `blocks[].nodes` is where model files declare compute node names; it creates the node records, applies block labels and annotations, and optionally attaches those nodes to a leaf switch through `blocks[].switch`. `switches` may be omitted for block-only models.
@@ -136,11 +135,11 @@ switches:
 
 The `switches` map describes the network hierarchy. Each key is the switch ID. Each value may contain:
 
-| Field | Description |
-|---|---|
-| `labels` | Labels inherited by descendant nodes. Common keys are `topology.kubernetes.io/region` and `topology.kubernetes.io/zone`. |
+| Field         | Description                                                                                                                                                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `labels`      | Labels inherited by descendant nodes. Common keys are `topology.kubernetes.io/region` and `topology.kubernetes.io/zone`.                                                                                                                      |
 | `annotations` | Provider-specific simulation metadata inherited by descendant nodes. Use `accelerator.topology.test/domain` for accelerator-domain membership and, where supported, `accelerator.topology.test/sub-domain` for a nested accelerator grouping. |
-| `switches` | Child switch IDs. |
+| `switches`    | Child switch IDs.                                                                                                                                                                                                                             |
 
 Example:
 
@@ -167,21 +166,21 @@ Switch rules:
 
 The `blocks` list describes sets of compute instances with similar hardware and connectivity characteristics. Each entry may contain:
 
-| Field | Description |
-|---|---|
-| `switch` | Optional leaf switch ID. When set, this block's `nodes` are attached to that switch. |
-| `nodes` | Required non-empty list of hostnames in this block. Compact ranges are supported. The model-backed test provider generates each instance ID by prefixing the hostname with `i-`. |
-| `labels` | Optional node labels applied to nodes generated from this block. |
-| `annotations` | Optional provider-specific simulation metadata applied to nodes generated from this block. Use `accelerator.topology.test/domain` to identify an accelerator domain. |
+| Field         | Description                                                                                                                                                                      |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `switch`      | Optional leaf switch ID. When set, this block's `nodes` are attached to that switch.                                                                                             |
+| `nodes`       | Required non-empty list of hostnames in this block. Compact ranges are supported. The model-backed test provider generates each instance ID by prefixing the hostname with `i-`. |
+| `labels`      | Optional node labels applied to nodes generated from this block.                                                                                                                 |
+| `annotations` | Optional provider-specific simulation metadata applied to nodes generated from this block. Use `accelerator.topology.test/domain` to identify an accelerator domain.             |
 
 Example:
 
 ```yaml
 blocks:
-- switch: leaf1
-  nodes: ["n[1-2]"]
-  annotations:
-    accelerator.topology.test/domain: nvl1
+  - switch: leaf1
+    nodes: ["n[1-2]"]
+    annotations:
+      accelerator.topology.test/domain: nvl1
 ```
 
 Block rules:
@@ -197,7 +196,7 @@ Model node lists support compact ranges:
 
 ```yaml
 blocks:
-- nodes: ["n[1-4]", "gpu[001-004]", node9]
+  - nodes: ["n[1-4]", "gpu[001-004]", node9]
 ```
 
 These expand to:
@@ -237,14 +236,14 @@ switches:
     switches: [leaf]
 
 blocks:
-- switch: leaf
-  nodes: ["n[1-2]"]
-  annotations:
-    accelerator.topology.test/domain: nvl1
-- switch: leaf
-  nodes: [n3]
-  annotations:
-    accelerator.topology.test/domain: nvl2
+  - switch: leaf
+    nodes: ["n[1-2]"]
+    annotations:
+      accelerator.topology.test/domain: nvl1
+  - switch: leaf
+    nodes: [n3]
+    annotations:
+      accelerator.topology.test/domain: nvl2
 ```
 
 After loading:
@@ -260,9 +259,9 @@ This model omits `switches`. Nodes are still created, block metadata is still ap
 
 ```yaml
 blocks:
-- nodes: ["n[1-2]"]
-  annotations:
-    accelerator.topology.test/domain: nvl1
+  - nodes: ["n[1-2]"]
+    annotations:
+      accelerator.topology.test/domain: nvl1
 ```
 
 After loading:
