@@ -26,6 +26,9 @@ type options struct {
 func main() {
 	opts, err := parseFlags()
 	if err != nil {
+		if err == pflag.ErrHelp {
+			os.Exit(0)
+		}
 		fmt.Println("Error parsing flags:", err)
 		os.Exit(1)
 	}
