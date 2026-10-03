@@ -18,6 +18,7 @@ package kubernetes
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	clientgo "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 
 	"github.com/dsx-ai-factory/topograph/internal/config"
 	"github.com/dsx-ai-factory/topograph/internal/httperr"
@@ -45,6 +47,8 @@ const nodeListTimeout = 30 * time.Second
 type Params struct {
 	TopologyLabels []string          `mapstructure:"topologyLabels"`
 	NodeSelector   map[string]string `mapstructure:"nodeSelector"`
+	RequireReady   bool              `mapstructure:"requireReady"`
+	OnMissingLabel string            `mapstructure:"onMissingLabel"`
 }
 
 // ParseParams validates the shared provider and observer configuration.
@@ -63,6 +67,12 @@ func ParseParams(values map[string]any) (*Params, error) {
 	p := &Params{}
 	if err := config.Decode(values, p); err != nil {
 		return nil, err
+	}
+	if p.OnMissingLabel == "" {
+		p.OnMissingLabel = "skip"
+	}
+	if p.OnMissingLabel != "skip" && p.OnMissingLabel != "fail" {
+		return nil, fmt.Errorf("onMissingLabel must be skip or fail")
 	}
 	if len(p.TopologyLabels) == 0 {
 		return nil, fmt.Errorf("topologyLabels must contain at least one label key, closest tier first")
@@ -86,6 +96,26 @@ func ParseParams(values map[string]any) (*Params, error) {
 		}
 	}
 	return p, nil
+}
+
+// NodeTopologyLabels supplies the provider's default observer labels.
+func NodeTopologyLabels(values map[string]any) ([]string, error) {
+	params, err := ParseParams(values)
+	if err != nil {
+		return nil, err
+	}
+	return params.TopologyLabels, nil
+}
+
+// switchID retains a readable prefix while scoping each tier to its ancestors.
+// Hashing the full path keeps IDs stable and within Kubernetes' label limits.
+func switchID(values []string) string {
+	if len(values) == 1 {
+		return values[0]
+	}
+	digest := sha256.Sum256([]byte(strings.Join(values, "/")))
+	prefix := strings.TrimRight(values[0][:min(len(values[0]), 30)], "-_.")
+	return fmt.Sprintf("%s-%x", prefix, digest[:16])
 }
 
 type Provider struct {
@@ -158,27 +188,39 @@ func (p *Provider) GenerateTopologyConfig(ctx context.Context, _ *int, cis []top
 			id = node.Name
 		}
 		name, wanted := requested[id]
-		if !wanted || !IsNodeEligible(&node) {
+		if !wanted || node.DeletionTimestamp != nil || (p.params.RequireReady && !IsNodeEligible(&node)) {
 			continue
 		}
 		values := make([]string, len(p.params.TopologyLabels))
+		valid := true
 		for i, key := range p.params.TopologyLabels {
 			value := node.Labels[key]
 			if value == "" || len(validation.IsValidLabelValue(value)) != 0 {
-				return nil, httperr.NewError(http.StatusBadGateway, fmt.Sprintf("node %q has missing or invalid topology label %q: %q", node.Name, key, value))
+				message := fmt.Sprintf("node %q has missing or invalid topology label %q: %q", node.Name, key, value)
+				if p.params.OnMissingLabel == "fail" {
+					return nil, httperr.NewError(http.StatusBadRequest, message)
+				}
+				klog.Warning(message)
+				valid = false
+				break
 			}
 			values[i] = value
 		}
-		// Scope repeated switch labels to their ancestors. Label values cannot contain '/'.
+		if !valid {
+			continue
+		}
 		tiers := make([]topology.FabricTier, len(values))
 		for i := range values {
-			tiers[i].ID = strings.Join(values[i:], "/")
+			tiers[i].ID = switchID(values[i:])
 		}
 		topo.Append(&topology.InstanceTopology{InstanceID: id, FabricTiers: tiers})
 		eligible[id] = name
 	}
+	if len(requested) != 0 && len(eligible) == 0 {
+		return nil, httperr.NewError(http.StatusServiceUnavailable, "no requested nodes have usable topology; preserving the last successful output")
+	}
 	// Do not let ToGraph add filtered nodes back as nodes without topology.
-	return topo.ToGraph(NAME, []topology.ComputeInstances{{Instances: eligible}}, 0, true), nil
+	return topo.ToGraph(NAME, []topology.ComputeInstances{{Instances: eligible}}, 0, false), nil
 }
 
 func GetNodeAnnotations(_ context.Context, hostName string) (map[string]string, error) {

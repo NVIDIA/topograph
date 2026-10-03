@@ -38,7 +38,7 @@ func TestKubernetesProviderConfigMap(t *testing.T) {
 		_, err = client.CoreV1().Pods("slurm").Create(ctx, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "slurm", Labels: map[string]string{"app": "slurmd"}}, Spec: corev1.PodSpec{NodeName: name, Hostname: name}, Status: corev1.PodStatus{Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}}, metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
-	p, err := kubernetesprovider.New(client, map[string]any{"topologyLabels": []string{"rack", "zone"}})
+	p, err := kubernetesprovider.New(client, map[string]any{"topologyLabels": []string{"rack", "zone"}, "requireReady": true})
 	require.NoError(t, err)
 	generate := func() string {
 		eng := &SlinkyEngine{client: client, params: &Params{BaseParams: slurm.BaseParams{Plugin: "topology/tree"}, Namespace: "slurm", ConfigMapName: "topology", ConfigPath: "topology.conf", podListOpt: &metav1.ListOptions{LabelSelector: "app=slurmd"}}}
@@ -75,7 +75,9 @@ func TestKubernetesProviderConfigMap(t *testing.T) {
 	require.NoError(t, client.CoreV1().Nodes().Delete(ctx, "bravo", metav1.DeleteOptions{}))
 	require.NotContains(t, generate(), "bravo")
 	require.NoError(t, client.CoreV1().Nodes().Delete(ctx, "alpha", metav1.DeleteOptions{}))
-	empty := generate()
-	require.NotContains(t, empty, "alpha")
-	require.NotContains(t, empty, "bravo")
+	_, herr := p.GenerateTopologyConfig(ctx, nil, []topology.ComputeInstances{{Instances: map[string]string{"alpha": "alpha", "bravo": "bravo"}}})
+	require.NotNil(t, herr)
+	cm, err := client.CoreV1().ConfigMaps("slurm").Get(ctx, "topology", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Contains(t, cm.Data["topology.conf"], "alpha", "failed generation must preserve the last good ConfigMap")
 }

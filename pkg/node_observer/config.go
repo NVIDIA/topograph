@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	"github.com/dsx-ai-factory/topograph/internal/k8s"
 	kubernetesprovider "github.com/dsx-ai-factory/topograph/pkg/providers/kubernetes"
 	"github.com/dsx-ai-factory/topograph/pkg/topology"
 )
@@ -34,9 +35,14 @@ type Config struct {
 }
 
 type Trigger struct {
-	nodeTopologyLabels []string
-	NodeSelector       map[string]string     `yaml:"nodeSelector,omitempty"`
-	PodSelector        *metav1.LabelSelector `yaml:"podSelector,omitempty"`
+	NodeLabels    []string              `yaml:"nodeLabels,omitempty"`
+	NodeReadiness bool                  `yaml:"nodeReadiness,omitempty"`
+	NodeSelector  map[string]string     `yaml:"nodeSelector,omitempty"`
+	PodSelector   *metav1.LabelSelector `yaml:"podSelector,omitempty"`
+}
+
+var providerNodeLabels = map[string]func(map[string]any) ([]string, error){
+	kubernetesprovider.NAME: kubernetesprovider.NodeTopologyLabels,
 }
 
 type APIServer struct {
@@ -65,12 +71,12 @@ func NewConfigFromFile(fname string) (*Config, error) {
 		cfg.APIServer.ContainerName = defaultAPIServerContainerName
 	}
 
-	if len(cfg.Trigger.NodeSelector) == 0 && cfg.Trigger.PodSelector == nil && cfg.APIServer.PodSelector == nil && cfg.Provider.Name != kubernetesprovider.NAME {
-		return nil, fmt.Errorf("must specify nodeSelector and/or podSelector in trigger, or apiServer.podSelector")
-	}
-
-	if _, err := cfg.nodeTrigger(); err != nil {
+	trigger, err := cfg.nodeTrigger()
+	if err != nil {
 		return nil, err
+	}
+	if len(trigger.NodeSelector) == 0 && len(trigger.NodeLabels) == 0 && !trigger.NodeReadiness && trigger.PodSelector == nil && cfg.APIServer.PodSelector == nil {
+		return nil, fmt.Errorf("must specify nodeSelector, nodeLabels, nodeReadiness and/or podSelector in trigger, or apiServer.podSelector")
 	}
 
 	if cfg.RetryDelay.Duration == 0 {
@@ -81,6 +87,20 @@ func NewConfigFromFile(fname string) (*Config, error) {
 
 func (cfg *Config) nodeTrigger() (*Trigger, error) {
 	trigger := cfg.Trigger
+	if trigger.NodeLabels == nil {
+		if defaults, ok := providerNodeLabels[cfg.Provider.Name]; ok {
+			labels, err := defaults(cfg.Provider.Params)
+			if err != nil {
+				return nil, err
+			}
+			trigger.NodeLabels = labels
+		}
+	}
+	for _, key := range trigger.NodeLabels {
+		if err := k8s.ValidateLabelKey("trigger.nodeLabels", key); err != nil {
+			return nil, err
+		}
+	}
 	if cfg.Provider.Name == kubernetesprovider.NAME {
 		params, err := kubernetesprovider.ParseParams(cfg.Provider.Params)
 		if err != nil {
@@ -90,7 +110,7 @@ func (cfg *Config) nodeTrigger() (*Trigger, error) {
 			return nil, fmt.Errorf("trigger.nodeSelector must match provider.params.nodeSelector for the kubernetes provider")
 		}
 		trigger.NodeSelector = params.NodeSelector
-		trigger.nodeTopologyLabels = params.TopologyLabels
+		trigger.NodeReadiness = trigger.NodeReadiness || params.RequireReady
 	}
 	return &trigger, nil
 }

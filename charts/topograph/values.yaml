@@ -287,167 +287,29 @@ networkPolicy:
   #  #   after kube-proxy DNAT. The Service IP + 443 path is the most common:
   #  - to:
   #      - ipBlock:
-  #          cidr: 10.96.0.1/32
-  #    ports:
-  #      - protocol: TCP
-  #        port: 443
-  #  # Provider topology source, e.g. netq apiUrl host or the BCM endpoint
-  #  # (resolve the hostname to an ipBlock):
-  #  - to:
-  #      - ipBlock:
-  #          cidr: 10.0.0.0/24
-  #    ports:
-  #      - protocol: TCP
-  #        port: 8081
-
-tests:
-  # `helm test` hook pods (templates/tests/) probe the Topograph API's
-  # /healthz and /metrics endpoints via the in-cluster Service.
-  enabled: true
-  # By default, test pods reuse the main topograph image. Topograph's
-  # default image is Alpine-based and ships with busybox wget, which the
-  # test probes use -- no additional image pull is needed, including in
-  # air-gapped environments. If your mirrored image lacks busybox wget,
-  # override either field to point at an image that ships wget. Leave both empty
-  # to reuse the main image.
-  image:
-    repository: ""
-    tag: ""
-
-# Node Observer watches configured node/pod changes and Topograph API readiness,
-# then triggers topology regeneration.
-nodeObserver:
-  replicaCount: 1
-
-  serviceAccount:
-    create: true
-    automount: true
-    annotations: {}
-    # Required when create is false; set to "default" to explicitly use the
-    # namespace's default service account.
-    name: ""
-
-  rbac:
-    create: true
-
-  # NODE_DATA_BROKER_NAME and NODE_DATA_BROKER_NAMESPACE are injected when
-  # nodeDataBroker.enabled=true.
-  env: {}
-  initContainers: []
-  lifecycle: {}
-
-  topograph:
-    # Watch the Topograph API pod and trigger topology generation when the API
-    # becomes Ready after startup or a container restart.
-    apiServer:
-      enabled: true
-      # Leave empty to use the release-scoped API pod labels.
-      podSelector: {}
-      containerName: topograph
-    trigger:
-      # nodeSelector: {}
-      # podSelector: {}
-
-  podAnnotations: {}
-  podLabels: {}
-
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 65532
-    runAsGroup: 65532
-    fsGroup: 65532
-    seccompProfile:
-      type: RuntimeDefault
-
-  securityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 512Mi
-    requests:
-      cpu: 250m
-      memory: 256Mi
-
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-
-# Node Data Broker collects per-node topology attributes as annotations.
-nodeDataBroker:
-  enabled: true
-
-  # Port serving the /healthz endpoint after node annotations are applied.
-  port: 8080
-
-  startupProbe:
-    failureThreshold: 30
-    periodSeconds: 10
-
-  serviceAccount:
-    create: true
-    automount: true
-    annotations: {}
-    # Required when create is false; set to "default" to explicitly use the
-    # namespace's default service account.
-    name: ""
-
-  rbac:
-    create: true
-
-  # Opt-in ValidatingAdmissionPolicy to scope node writes. Requires
-  # Kubernetes >= 1.30 (admissionregistration.k8s.io/v1) and ServiceAccountTokenPodNodeInfo enabled.
-  validatingAdmissionPolicy:
-    enabled: false
-
-  env: {}
-  initContainers: []
-  lifecycle: {}
-  podAnnotations: {}
-  podLabels: {}
-
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 65532
-    runAsGroup: 65532
-    fsGroup: 65532
-    seccompProfile:
-      type: RuntimeDefault
-
-  securityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    capabilities:
-      drop:
-        - ALL
-
-  resources:
-    limits:
-      cpu: 200m
-      memory: 128Mi
-    requests:
-      cpu: 200m
-      memory: 128Mi
-
-  # ConfigMaps created by the chart and mounted into the broker container.
-  configMapMounts: []
-  # - name: ibdiag
-  #   mountPath: /etc/infiniband-diags/ibdiag.conf
-  #   subPath: ibdiag.conf
-  #   data:
-  #     ibdiag.conf: |-
-  #       CA=smi0
-  #       Port=1
-
-  volumes: []
-  volumeMounts: []
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
+  #          ci…6782 tokens truncated… := client.CoreV1().Nodes().Get(ctx, "bravo", metav1.GetOptions{})
+	require.NoError(t, err)
+	node.Labels["rack"] = "r2"
+	node, err = client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	moved := generate()
+	require.NotEqual(t, initial, moved)
+	require.Regexp(t, `(?m)^SwitchName=\S+ Nodes=alpha$`, moved)
+	require.Regexp(t, `(?m)^SwitchName=\S+ Nodes=bravo$`, moved)
+	node.Status.Conditions[0].Status = corev1.ConditionFalse
+	node, err = client.CoreV1().Nodes().UpdateStatus(ctx, node, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	require.NotContains(t, generate(), "bravo")
+	node.Status.Conditions[0].Status = corev1.ConditionTrue
+	_, err = client.CoreV1().Nodes().UpdateStatus(ctx, node, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	require.Contains(t, generate(), "bravo")
+	require.NoError(t, client.CoreV1().Nodes().Delete(ctx, "bravo", metav1.DeleteOptions{}))
+	require.NotContains(t, generate(), "bravo")
+	require.NoError(t, client.CoreV1().Nodes().Delete(ctx, "alpha", metav1.DeleteOptions{}))
+	_, herr := p.GenerateTopologyConfig(ctx, nil, []topology.ComputeInstances{{Instances: map[string]string{"alpha": "alpha", "bravo": "bravo"}}})
+	require.NotNil(t, herr)
+	cm, err := client.CoreV1().ConfigMaps("slurm").Get(ctx, "topology", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Contains(t, cm.Data["topology.conf"], "alpha", "failed generation must preserve the last good ConfigMap")
+}

@@ -52,12 +52,15 @@ func TestKubernetesNodeUpdates(t *testing.T) {
 		{"unrelated annotation", func(n *corev1.Node) { n.Annotations["other"] = "value" }, false},
 		{"cordoned", func(n *corev1.Node) { n.Spec.Unschedulable = true }, false},
 	}
-	s := &StatusInformer{nodeTopologyLabels: []string{"rack"}}
+	s := &StatusInformer{nodeLabels: []string{"rack"}, nodeReadiness: true}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			node := old.DeepCopy()
 			tt.change(node)
 			require.Equal(t, tt.want, s.shouldRequestOnNodeUpdate(old, node))
+			if tt.name == "unready" || tt.name == "unknown" {
+				require.False(t, (&StatusInformer{nodeLabels: []string{"rack"}}).shouldRequestOnNodeUpdate(old, node))
+			}
 			require.False(t, (&StatusInformer{}).shouldRequestOnNodeUpdate(old, node))
 		})
 	}
@@ -68,16 +71,45 @@ func TestKubernetesTrigger(t *testing.T) {
 	trigger, err := cfg.nodeTrigger()
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"pool": "gpu"}, trigger.NodeSelector)
+	require.Equal(t, []string{"rack"}, trigger.NodeLabels)
+	require.False(t, trigger.NodeReadiness)
+	cfg.Provider.Params["requireReady"] = true
+	trigger, err = cfg.nodeTrigger()
+	require.NoError(t, err)
+	require.True(t, trigger.NodeReadiness)
 	cfg.Trigger.NodeSelector = map[string]string{"pool": "cpu"}
 	_, err = cfg.nodeTrigger()
 	require.ErrorContains(t, err, "must match")
+}
+
+func TestProviderIndependentNodeLabels(t *testing.T) {
+	for _, provider := range []string{"crusoe", "kubernetes"} {
+		cfg := &Config{
+			Trigger:  Trigger{NodeLabels: []string{"custom/rack"}},
+			Provider: topology.Provider{Name: provider, Params: map[string]any{"topologyLabels": []string{"rack"}}},
+		}
+		trigger, err := cfg.nodeTrigger()
+		require.NoError(t, err)
+		require.Equal(t, []string{"custom/rack"}, trigger.NodeLabels)
+		ctx, cancel := context.WithCancel(context.Background())
+		s, err := NewStatusInformer(ctx, fake.NewSimpleClientset(), trigger, nil, "", "", time.Second, nil)
+		require.NoError(t, err)
+		require.NotNil(t, s.nodeFactory, "labels alone must start a node informer")
+		s.Stop(nil)
+		cancel()
+	}
+	old := &corev1.Node{Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}}}
+	unready := old.DeepCopy()
+	unready.Status.Conditions[0].Status = corev1.ConditionFalse
+	require.True(t, (&StatusInformer{nodeReadiness: true}).shouldRequestOnNodeUpdate(old, unready))
+	require.False(t, (&StatusInformer{}).shouldRequestOnNodeUpdate(old, unready))
 }
 
 func TestKubernetesInformerEvents(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	client := fake.NewSimpleClientset()
-	cfg := &Config{Provider: topology.Provider{Name: "kubernetes", Params: map[string]any{"topologyLabels": []string{"rack"}}}}
+	cfg := &Config{Provider: topology.Provider{Name: "kubernetes", Params: map[string]any{"topologyLabels": []string{"rack"}, "requireReady": true}}}
 	trigger, err := cfg.nodeTrigger()
 	require.NoError(t, err)
 	s, err := NewStatusInformer(ctx, client, trigger, nil, "", "", time.Second, nil)

@@ -27,7 +27,6 @@ import (
 	"github.com/dsx-ai-factory/topograph/internal/httperr"
 	"github.com/dsx-ai-factory/topograph/internal/httpreq"
 	"github.com/dsx-ai-factory/topograph/internal/k8s"
-	kubernetesprovider "github.com/dsx-ai-factory/topograph/pkg/providers/kubernetes"
 	"github.com/dsx-ai-factory/topograph/pkg/topology"
 )
 
@@ -37,7 +36,8 @@ const topologyQueueKey = "cluster-topology"
 // their cluster-wide topology through a single rate-limited work queue key.
 // The exported name is retained for compatibility with existing callers.
 type StatusInformer struct {
-	nodeTopologyLabels  []string
+	nodeLabels          []string
+	nodeReadiness       bool
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	nodeFactory         informers.SharedInformerFactory
@@ -73,8 +73,9 @@ func NewStatusInformer(ctx context.Context, client kubernetes.Interface, trigger
 		),
 	}
 
-	if trigger != nil && (len(trigger.NodeSelector) != 0 || len(trigger.nodeTopologyLabels) != 0) {
-		statusInformer.nodeTopologyLabels = append([]string(nil), trigger.nodeTopologyLabels...)
+	if trigger != nil && (len(trigger.NodeSelector) != 0 || len(trigger.NodeLabels) != 0 || trigger.NodeReadiness) {
+		statusInformer.nodeLabels = append([]string(nil), trigger.NodeLabels...)
+		statusInformer.nodeReadiness = trigger.NodeReadiness
 		listOptionsFunc := func(options *metav1.ListOptions) {
 			options.LabelSelector = labels.Set(trigger.NodeSelector).AsSelector().String()
 		}
@@ -550,13 +551,16 @@ func (s *StatusInformer) reconcile() (time.Duration, error) {
 }
 
 func (s *StatusInformer) shouldRequestOnNodeUpdate(oldNode, newNode *corev1.Node) bool {
-	if len(s.nodeTopologyLabels) == 0 {
-		return false
-	}
-	if kubernetesprovider.IsNodeEligible(oldNode) != kubernetesprovider.IsNodeEligible(newNode) {
+	if s.nodeReadiness && nodeReady(oldNode) != nodeReady(newNode) {
 		return true
 	}
-	for _, key := range s.nodeTopologyLabels {
+	if len(s.nodeLabels) == 0 {
+		return false
+	}
+	if (oldNode.DeletionTimestamp == nil) != (newNode.DeletionTimestamp == nil) {
+		return true
+	}
+	for _, key := range s.nodeLabels {
 		if oldNode.Labels[key] != newNode.Labels[key] {
 			return true
 		}
@@ -564,6 +568,15 @@ func (s *StatusInformer) shouldRequestOnNodeUpdate(oldNode, newNode *corev1.Node
 	for _, key := range []string{topology.KeyNodeInstance, topology.KeyNodeRegion} {
 		if oldNode.Annotations[key] != newNode.Annotations[key] {
 			return true
+		}
+	}
+	return false
+}
+
+func nodeReady(node *corev1.Node) bool {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			return condition.Status == corev1.ConditionTrue
 		}
 	}
 	return false

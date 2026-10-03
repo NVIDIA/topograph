@@ -17,6 +17,9 @@ settings described in the deployment configuration.
 `topologyLabels` is a required, nonempty list of distinct Kubernetes label keys,
 ordered closest tier first. `nodeSelector` is an optional map selecting eligible
 Nodes. A single label creates a single fabric tier; additional keys add ancestors.
+`requireReady` defaults to `false`, retaining NotReady Nodes to avoid topology
+churn during brief outages. `onMissingLabel` defaults to `skip`; set it to `fail`
+to reject an incomplete topology rather than omit an affected Node.
 
 ```yaml
 provider:
@@ -53,25 +56,34 @@ interpret rack or zone labels as NVLink domains.
 
 ## Eligibility and validation
 
-Only Nodes requested by the engine, matching the provider selector, reporting
-`Ready=True`, and not being deleted enter the graph. A cordoned Node may still run
+Only Nodes requested by the engine, matching the provider selector, and not being
+deleted enter the graph. Set `requireReady: true` to also require `Ready=True`.
+A cordoned Node may still run
 workloads and remains eligible. An empty engine selection produces an empty graph.
 The broker's instance annotation identifies a Node; without it the provider falls
 back to the Kubernetes Node name. Slinky still needs the broker identity and region
 annotations for its own resolution step.
 
 Every included Node must have a nonempty, valid value for every configured label.
-A missing or invalid value fails generation, so an existing Slinky ConfigMap is
-preserved instead of silently flattening the topology. Invalid labels on excluded
-Nodes do not block generation. Switch IDs include their ancestor path, so the same
-rack label in two different zones creates two distinct switches.
+A missing or invalid value omits that Node with a warning, or fails generation
+when `onMissingLabel: fail` is configured. If the engine requested Nodes but none
+have usable topology, generation fails and preserves the last successful output.
+An intentionally empty engine selection still produces an empty graph. Invalid
+labels on excluded Nodes do not block generation. Switch IDs combine a readable
+prefix with a digest of their ancestor path. They are valid Kubernetes label
+values, distinguish repeated rack labels across zones, and remain stable when
+unrelated Nodes join or leave.
 
 ## Updates and verification
 
-The Node Observer derives its Node selector and watched topology labels from the
-provider configuration. An explicit, nonempty `trigger.nodeSelector` must match
+The Node Observer derives its Node selector and default watched topology labels
+from the provider configuration. Set `trigger.nodeLabels` to override the watched
+labels; other providers can use this field without a Node selector. An explicit,
+nonempty `trigger.nodeSelector` must match
 `provider.params.nodeSelector`. Additions, deletions, selector entry/exit, relevant
-label changes, readiness changes, and broker identity changes request regeneration.
+label changes and broker identity changes request regeneration. Readiness changes
+request regeneration when `requireReady: true` or `trigger.nodeReadiness: true`
+is configured.
 Unrelated label changes and readiness heartbeats do not.
 
 Inspect the resulting ConfigMap with:
@@ -81,5 +93,5 @@ kubectl -n slurm get configmap slurm-topology -o yaml
 ```
 
 Changing a configured rack or zone label should move the corresponding Slurm node
-within `topology.conf`. A Node becoming unready or being deleted should remove its
-membership after the observer regenerates the graph.
+within `topology.conf`. Deleting a Node removes its membership. A Node becoming
+unready removes its membership only when `requireReady: true` is configured.

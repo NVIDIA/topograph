@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `kubernetes` provider discovers fabric topology from configurable Node labels, with readiness filtering and observer-driven updates for Slinky and other engines.
+- `kubernetes` provider discovers fabric topology from configurable Node labels, with stable label-compatible switch IDs, optional readiness filtering, and provider-independent observer label triggers for Slinky and other engines.
 
 - `infiniband-sim` provider replays a saved `ibnetdiscover` output file through the production InfiniBand parser, allowing offline switch topology testing with requested-node filtering and no fabric access.
 - SHA-256 checksum files published beside Helm chart packages and included
