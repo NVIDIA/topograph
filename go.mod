@@ -3,25 +3,25 @@ module github.com/dsx-ai-factory/topograph
 go 1.27.1
 
 require (
-	cloud.google.com/go/compute v1.70.0
+	cloud.google.com/go/compute v1.71.0
 	cloud.google.com/go/compute/metadata v0.10.0
 	github.com/agrea/ptr v0.2.0
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.6
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.336.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.338.1
 	github.com/go-playground/validator/v10 v10.30.5
-	github.com/googleapis/gax-go/v2 v2.26.0
+	github.com/googleapis/gax-go/v2 v2.26.2
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/nebius/gosdk v0.2.69
+	github.com/nebius/gosdk v0.2.72
 	github.com/oklog/run v1.2.0
-	github.com/oracle/oci-go-sdk/v65 v65.126.0
+	github.com/oracle/oci-go-sdk/v65 v65.126.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/goleak v1.3.0
 	golang.org/x/sync v0.23.0
-	google.golang.org/api v0.299.0
+	google.golang.org/api v0.300.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
@@ -33,8 +33,8 @@ require (
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2 // indirect
-	cloud.google.com/go/auth v0.23.3 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
+	cloud.google.com/go/auth v0.24.0 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.3.0 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.1 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.4 // indirect
