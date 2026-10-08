@@ -14,16 +14,15 @@ on:
 permissions: {}
 
 env:
-  REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: nvcr.io
+  # NGC <organization>/<team>/<image>
+  IMAGE_NAME: nvstaging/topograph/topograph
 
 jobs:
   build:
     runs-on: linux-amd64-cpu16
     permissions:
       contents: read
-      packages: write
       id-token: write
       attestations: write
       artifact-metadata: write
@@ -76,8 +75,8 @@ jobs:
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: $oauthtoken
+          password: ${{ secrets.NGC_API_KEY }}
 
       - name: Normalize image name
         id: image
